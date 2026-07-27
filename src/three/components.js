@@ -123,8 +123,11 @@ export function createComponents(boardGroup) {
     cpuRadarRing.position.set(0, 0, 0.01);
     cpuGroup.add(cpuRadarRing);
 
+    disposableResources.geometries.add(cpuGeo);
+
     // CPU Pins - 8 pins per side (32 pins total)
     const cpuPinGeo = new THREE.BoxGeometry(0.12, 0.06, 0.05);
+    disposableResources.geometries.add(cpuPinGeo);
     const offsetStride = 0.25;
 
     const addPin = (px, py, rotation) => {
@@ -170,6 +173,7 @@ export function createComponents(boardGroup) {
     // COMPONENT 2 — GPU / DSP Chip (U2) - Projects
     // -------------------------------------------------------------
     const gpuGeo = new THREE.BoxGeometry(1.8, 1.8, 0.18);
+    disposableResources.geometries.add(gpuGeo);
     const gpuMesh = new THREE.Mesh(gpuGeo, chipMaterial.clone());
     gpuMesh.position.set(-3.2, 4.5, surfaceZ);
     gpuMesh.castShadow = true;
@@ -180,6 +184,7 @@ export function createComponents(boardGroup) {
 
     // GPU pins (pins on two sides)
     const gpuPinGeo = new THREE.BoxGeometry(0.1, 0.05, 0.04);
+    disposableResources.geometries.add(gpuPinGeo);
     for (let i = 0; i < 6; i++) {
         const offset = (i - 2.5) * 0.22;
         const pinL = new THREE.Mesh(gpuPinGeo, metalMaterial);
@@ -259,6 +264,7 @@ export function createComponents(boardGroup) {
     // COMPONENT 4 — Crystal Oscillator (Y1) - Education
     // -------------------------------------------------------------
     const oscGeo = new THREE.BoxGeometry(1.2, 0.6, 0.26);
+    disposableResources.geometries.add(oscGeo);
     const oscMesh = new THREE.Mesh(oscGeo, metalMaterial.clone());
     oscMesh.position.set(-3.5, 0.5, surfaceZ + 0.03);
     oscMesh.castShadow = true;
@@ -269,6 +275,7 @@ export function createComponents(boardGroup) {
 
     // Two gold mounting pads
     const padGeo = new THREE.BoxGeometry(0.1, 0.2, 0.02);
+    disposableResources.geometries.add(padGeo);
     const padL = new THREE.Mesh(padGeo, goldMaterial);
     padL.position.set(-4.15, 0.5, surfaceZ - 0.04);
     boardGroup.add(padL);
@@ -362,6 +369,7 @@ export function createComponents(boardGroup) {
     // COMPONENT 6 — USB Power Connector (J1) - Experience
     // -------------------------------------------------------------
     const usbGeo = new THREE.BoxGeometry(1.2, 0.8, 0.32);
+    disposableResources.geometries.add(usbGeo);
     const usbMesh = new THREE.Mesh(usbGeo, metalMaterial.clone());
     usbMesh.position.set(0, -7.3, surfaceZ + 0.06);
     usbMesh.castShadow = true;
@@ -404,7 +412,9 @@ export function createComponents(boardGroup) {
     ];
 
     const ledGeo = new THREE.SphereGeometry(0.08, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+    disposableResources.geometries.add(ledGeo);
     const ledBaseGeo = new THREE.BoxGeometry(0.2, 0.2, 0.03);
+    disposableResources.geometries.add(ledBaseGeo);
 
     ledCoords.forEach((coord, index) => {
         const ledGroup = new THREE.Group();
@@ -444,6 +454,7 @@ export function createComponents(boardGroup) {
     boardGroup.add(vrGroup);
 
     const vrBodyGeo = new THREE.BoxGeometry(0.7, 0.7, 0.16);
+    disposableResources.geometries.add(vrBodyGeo);
     const vrBody = new THREE.Mesh(vrBodyGeo, chipMaterial.clone());
     vrBody.position.z = 0.08;
     vrGroup.add(vrBody);
@@ -491,6 +502,7 @@ export function createComponents(boardGroup) {
     // COMPONENT 9 — Resistor Network (RN1) - Languages (Display only)
     // -------------------------------------------------------------
     const rnGeo = new THREE.BoxGeometry(1.3, 0.16, 0.35);
+    disposableResources.geometries.add(rnGeo);
     const rnMesh = new THREE.Mesh(rnGeo, chipMaterial.clone());
     rnMesh.position.set(0, -3.5, surfaceZ + 0.15);
     rnMesh.castShadow = true;
