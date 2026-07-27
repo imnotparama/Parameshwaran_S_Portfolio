@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposableResources } from './scene.js';
 
 export const traceData = [];
 export const vias = [];
@@ -15,18 +16,21 @@ export function createTraces(boardGroup) {
         emissive: 0xc8960c,
         emissiveIntensity: 0.4
     });
+    disposableResources.materials.add(traceMaterial);
 
     const viaOuterMaterial = new THREE.MeshStandardMaterial({
         color: 0xc8960c,
         roughness: 0.25,
         metalness: 0.9
     });
+    disposableResources.materials.add(viaOuterMaterial);
 
     const viaInnerMaterial = new THREE.MeshStandardMaterial({
-        color: 0x050f05, // Hole color
+        color: 0x050f05,
         roughness: 0.9,
         metalness: 0.0
     });
+    disposableResources.materials.add(viaInnerMaterial);
 
     // Trace route point layouts (coordinates strictly 0, 45, 90 deg)
     const rawPaths = [

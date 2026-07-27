@@ -3,6 +3,10 @@ import { traceData } from './traces.js';
 
 export const particles = [];
 
+const PARTICLE_RADIUS = 0.09;
+const DEFAULT_PARTICLE_COLOR = 0xfffacd;
+const BOOST_PARTICLE_COLOR = 0xffffff;
+
 export function createParticles(boardGroup) {
     // Increase particle radius from 0.046 to 0.09
     const particleGeo = new THREE.SphereGeometry(0.09, 8, 8);
