@@ -60,8 +60,21 @@ document.addEventListener('DOMContentLoaded', () => {
     navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const ref = btn.getAttribute('data-ref');
-            closeSidePanel();
-            triggerComponentAction(ref);
+            const section = btn.getAttribute('data-section');
+            
+            if (section === 'skills') {
+                // Panel-only navigation: open side panel without zooming
+                closeSidePanel();
+                openSidePanel(ref);
+                // Scroll to skills section after panel opens
+                setTimeout(() => {
+                    const skillsSection = document.querySelector('.panel-skills-grid');
+                    if (skillsSection) skillsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 450);
+            } else {
+                closeSidePanel();
+                triggerComponentAction(ref);
+            }
         });
     });
 
