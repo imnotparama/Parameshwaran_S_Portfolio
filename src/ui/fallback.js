@@ -1,6 +1,7 @@
 // ============================================================
 // WebGL Fallback — graceful degradation for unsupported browsers
 // ============================================================
+import * as THREE from 'three';
 
 export function detectWebGL() {
     try {

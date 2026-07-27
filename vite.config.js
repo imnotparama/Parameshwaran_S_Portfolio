@@ -7,15 +7,15 @@ export default defineConfig({
         minify: 'terser',
         terserOptions: {
             compress: {
-                drop_console: false, // Keep console logs for portfolio terminal
+                drop_console: false,
                 drop_debugger: true,
             },
         },
         rollupOptions: {
             output: {
-                manualChunks: {
-                    three: ['three'],
-                    gsap: ['gsap'],
+                manualChunks(id) {
+                    if (id.includes('node_modules/three')) return 'three';
+                    if (id.includes('node_modules/gsap')) return 'gsap';
                 },
             },
         },
