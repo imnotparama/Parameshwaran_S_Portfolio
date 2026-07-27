@@ -1,5 +1,4 @@
 import { defineConfig } from 'vite';
-import { resolve } from 'path';
 
 export default defineConfig({
     build: {
@@ -19,10 +18,5 @@ export default defineConfig({
     server: {
         open: true,
         host: true,
-    },
-    resolve: {
-        alias: {
-            '@': resolve(__dirname, 'src'),
-        },
     },
 });
