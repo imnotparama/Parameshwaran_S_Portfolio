@@ -818,15 +818,135 @@ h1#user-name {
 /* -------------------------------------------------------------
  * 10. Mobile Responsiveness Layout Adapters
  * ------------------------------------------------------------- */
-@media (max-width: 600px) {
-    #component-panel {
+@media (max-width: 768px) {
+    #main-header {
+        padding: 15px 12px 0;
+    }
+
+    .header-nav {
+        gap: 6px;
+        margin-top: 10px;
+        margin-bottom: 15px;
+    }
+
+    .nav-btn {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+
+    .badge-row {
+        gap: 6px;
+    }
+
+    .stat-badge {
+        font-size: 10px;
+        padding: 3px 10px;
+    }
+
+    .svg-separator:nth-of-type(1) {
+        top: 170px;
+    }
+
+    #info-panel,
+    .info-panel-layout {
         width: 100%;
+        left: -100%;
         padding: 30px 18px;
     }
+
+    .info-panel-layout.active {
+        left: 0;
+    }
     
+    .pcb-hud-layout {
+        width: 280px;
+        right: 10px;
+        bottom: 10px;
+        padding: 12px;
+        font-size: 11px;
+    }
+
+    .pcb-tooltip-hud {
+        max-width: 200px;
+    }
+
+    .footer-details {
+        font-size: 12px;
+    }
+
+    .social-pins {
+        gap: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-nav {
+        gap: 4px;
+    }
+
+    .nav-btn {
+        font-size: 9px;
+        padding: 3px 6px;
+        letter-spacing: 0.5px;
+    }
+
+    .badge-row {
+        gap: 4px;
+    }
+
+    .stat-badge {
+        font-size: 9px;
+        padding: 2px 8px;
+    }
+
+    h1#user-name {
+        font-size: clamp(22px, 6vw, 32px);
+        letter-spacing: 0.08em;
+    }
+
+    .subtitle-wrap {
+        font-size: 12px;
+        height: 22px;
+    }
+
+    .ece-label {
+        font-size: 9px;
+    }
+
+    .pcb-hud-layout {
+        width: calc(100% - 20px);
+        right: 10px;
+        bottom: 10px;
+        padding: 10px;
+        font-size: 10px;
+    }
+
+    .hud-component-title {
+        font-size: 14px;
+    }
+
+    .btn-hud-control {
+        top: 10px;
+        right: 10px;
+        font-size: 10px;
+        padding: 4px 10px;
+    }
+
     #canvas-container {
         height: 50vh;
-        min-height: 380px;
+        min-height: 320px;
+    }
+
+    .panel-section-title {
+        font-size: 14px;
+    }
+
+    .footer-details {
+        font-size: 10px;
+    }
+
+    .footer-meta {
+        font-size: 9px;
     }
 }
 
