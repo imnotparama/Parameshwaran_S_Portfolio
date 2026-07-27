@@ -286,25 +286,6 @@ h1#user-name {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
 }
 
-.tooltip-ref {
-    color: var(--glow-amber);
-    font-size: 11px;
-    margin-bottom: 2px;
-}
-
-.tooltip-name {
-    font-weight: bold;
-    font-size: 14px;
-    color: #ffffff;
-    margin-bottom: 4px;
-}
-
-.tooltip-action {
-    color: var(--glow-green);
-    font-size: 11px;
-    animation: blink 1.2s infinite;
-}
-
 /* -------------------------------------------------------------
  * 7. Sliding Side Info Panel
  * ------------------------------------------------------------- */
@@ -719,11 +700,6 @@ h1#user-name {
     pointer-events: auto;
 }
 
-.footer-container {
-    max-width: 600px;
-    margin: 0 auto;
-}
-
 .footer-details {
     font-size: 16px;
     color: #ffffff;
@@ -805,14 +781,27 @@ h1#user-name {
     to { stroke-dashoffset: 0; }
 }
 
-/* Spark offset movement */
 @keyframes sparkMove {
     0% { offset-distance: 0%; }
     100% { offset-distance: 100%; }
 }
 
+@keyframes pulse-glow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+}
+
 .system-operational-active {
     color: var(--glow-green) !important;
+}
+
+/* Remove duplicate CSS rules */
+/* The following were duplicated or unused and have been consolidated */
+
+/* Remove duplicate .footer-container rule (appears twice) */
+/* Remove duplicate .pcb-hud-layout rule from media query override */
+#component-panel {
+    /* Legacy component panel - keep for backward compat, prefer info-panel-layout */
 }
 
 /* -------------------------------------------------------------
