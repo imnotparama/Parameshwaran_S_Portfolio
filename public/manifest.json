@@ -1,0 +1,17 @@
+{
+  "name": "PARAMESHWARAN S — PCB Portfolio",
+  "short_name": "PS PCB Portfolio",
+  "description": "Interactive 3D PCB-themed portfolio of Parameshwaran S — AI Engineer, ML Developer, ECE Student",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050f05",
+  "theme_color": "#00ff88",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["portfolio", "technology", "education"]
+}

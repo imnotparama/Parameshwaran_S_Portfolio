@@ -1,4 +1,5 @@
-import { initScene, scene, camera, tickCallbacks } from './src/three/scene.js';
+import { detectWebGL, showFallbackUI, setupCleanup } from './src/ui/fallback.js';
+import { initScene, scene, camera, renderer, tickCallbacks } from './src/three/scene.js';
 import { createBoard, boardGroup, updateBoardParallax } from './src/three/board.js';
 import { createComponents } from './src/three/components.js';
 import { createTraces } from './src/three/traces.js';
@@ -8,11 +9,29 @@ import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, triggerComponentAction } from './src/utils/hover.js';
 import { initSidePanel, openSidePanel, closeSidePanel } from './src/ui/sidepanel.js';
 
+// Font loading detection for fallback management
+function detectFontLoading() {
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => {
+            document.documentElement.classList.add('fonts-loaded');
+        });
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    detectFontLoading();
+
+    // 0. Check WebGL support before initializing 3D
+    if (!detectWebGL()) {
+        showFallbackUI();
+        console.warn('WebGL not supported — showing fallback UI');
+        return;
+    }
+
     // 1. Grab canvas element
     const canvas = document.getElementById('threejs-canvas');
     if (!canvas) {
-        console.error("ThreeJS Canvas element not found!");
+        console.error('ThreeJS Canvas element not found!');
         return;
     }
 
@@ -54,6 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
     runBootSequence(() => {
         console.log("PARAMESHWARAN S PORTFOLIO SYSTEMS FULLY OPERATIONAL.");
     });
+
+    // 10. Register memory cleanup on page unload
+    setupCleanup(scene, renderer, camera);
 
     // 11. Bind Navigation Bar Buttons
     const navButtons = document.querySelectorAll('.nav-btn');

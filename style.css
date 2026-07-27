@@ -1218,3 +1218,117 @@ h1#user-name {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.85), inset 0 0 5px rgba(0, 255, 136, 0.2) !important;
     font-family: var(--font-mono) !important;
 }
+
+/* ================================================================
+ * WebGL Fallback Styles
+ * ================================================================ */
+.webgl-fallback {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100vh;
+    background: radial-gradient(circle at center, rgba(0,40,0,0.28) 0%, #050f05 85%);
+}
+
+.fallback-content {
+    text-align: center;
+    padding: 40px;
+    max-width: 500px;
+    border: 1px solid #14532d;
+    background-color: rgba(5,15,5,0.85);
+    border-radius: 4px;
+}
+
+.fallback-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: var(--glow-green);
+}
+
+.fallback-title {
+    font-family: var(--font-heading);
+    font-size: 22px;
+    color: #ffffff;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+}
+
+.fallback-text {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+.fallback-links {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 25px;
+    flex-wrap: wrap;
+}
+
+/* ================================================================
+ * Accessibility & Reduced Motion
+ * ================================================================ */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    #scanline,
+    .trace-active-line,
+    .spark {
+        animation: none !important;
+    }
+    
+    .terminal-cursor {
+        animation: none !important;
+        opacity: 1 !important;
+    }
+    
+    .footer-status {
+        animation: none !important;
+        opacity: 1 !important;
+    }
+    
+    .hud-action {
+        animation: none !important;
+        opacity: 1 !important;
+    }
+
+    .nav-btn,
+    .btn-hud-control,
+    .btn-close-panel-style {
+        transition: none !important;
+    }
+
+    #info-panel {
+        transition: none !important;
+    }
+}
+
+/* Focus visible for keyboard navigation */
+.nav-btn:focus-visible,
+.btn-hud-control:focus-visible,
+.btn-close-panel-style:focus-visible,
+.social-pin:focus-visible {
+    outline: 2px solid var(--glow-green);
+    outline-offset: 3px;
+}
+
+/* Screen reader only utility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

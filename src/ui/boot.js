@@ -4,6 +4,9 @@ import { cpuPins, ledMeshes, siliconDieMesh } from '../three/components.js';
 import { particles } from '../three/particles.js';
 import { traceData } from '../three/traces.js';
 
+// Check if user prefers reduced motion
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 export function runBootSequence(onCompleteCallback) {
     const tl = gsap.timeline({
         onComplete: () => {
@@ -19,6 +22,24 @@ export function runBootSequence(onCompleteCallback) {
     const badges = document.querySelectorAll('.stat-badge');
     const terminalStatus = document.getElementById('terminal-status-text');
     const canvasContainer = document.getElementById('canvas-container');
+
+    // If user prefers reduced motion, skip animations and show content immediately
+    if (prefersReducedMotion()) {
+        gsap.set(overlay, { opacity: 0, display: 'none' });
+        gsap.set(header, { opacity: 1 });
+        gsap.set(canvasContainer, { opacity: 1 });
+        if (boardGroup) {
+            gsap.set(boardGroup.position, { y: 0, z: 0 });
+            gsap.set(boardGroup.rotation, { x: -Math.PI / 10, y: -Math.PI / 20 });
+        }
+        gsap.set(badges, { opacity: 1, y: 0 });
+        if (subtitleEl) subtitleEl.textContent = 'AI Engineer · ML Developer · ECE Student';
+        particles.forEach(p => { p.mesh.visible = true; });
+        const underline = document.querySelector('.header-underline');
+        if (underline) gsap.set(underline, { width: '280px' });
+        if (onCompleteCallback) onCompleteCallback();
+        return;
+    }
 
     // Make sure elements start in hidden states for sequence
     gsap.set(overlay, { opacity: 1 });
