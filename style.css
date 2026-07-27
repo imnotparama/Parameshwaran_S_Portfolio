@@ -1062,6 +1062,153 @@ h1#user-name {
     text-transform: uppercase;
 }
 
+.panel-ascii-art {
+    color: var(--glow-green);
+    font-size: 8px;
+    line-height: 1.2;
+    overflow-x: hidden;
+    margin-bottom: 15px;
+}
+
+.panel-body-content {
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.panel-body-content p {
+    margin-bottom: 6px;
+}
+
+.panel-bio {
+    color: var(--color-text-muted);
+    margin-top: 10px;
+    line-height: 1.5;
+}
+
+.panel-skills-grid {
+    font-size: 12px;
+    margin-top: 10px;
+    line-height: 1.6;
+}
+
+.panel-skills-grid p {
+    margin-bottom: 6px;
+}
+
+.tag-ai { color: var(--glow-green); }
+.tag-web { color: var(--glow-green); }
+.tag-data { color: var(--glow-green); }
+.tag-hw { color: var(--glow-green); }
+.tag-link { color: var(--glow-green); }
+
+.panel-links {
+    margin-top: 30px;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.panel-links .nav-btn {
+    text-decoration: none;
+    font-size: 11px;
+}
+
+.panel-projects-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.project-card {
+    border: 1px solid #165316;
+    background-color: rgba(5,15,5,0.6);
+    padding: 12px;
+    border-radius: 2px;
+}
+
+.project-card-title {
+    font-weight: bold;
+    color: var(--glow-green);
+    font-size: 14px;
+}
+
+.project-card-desc {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin: 6px 0 10px;
+    line-height: 1.4;
+}
+
+.project-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 10px;
+}
+
+.tag-pill {
+    font-size: 9px;
+    background-color: #112d11;
+    color: var(--glow-green);
+    padding: 1px 5px;
+    border-radius: 2px;
+    border: 1px solid #165316;
+}
+
+.project-card-link {
+    color: #60a5fa;
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.project-card-link:hover {
+    text-decoration: underline;
+}
+
+.panel-exp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    font-size: 12px;
+}
+
+.experience-entry {
+    border-left: 2px solid var(--glow-green);
+    padding-left: 12px;
+}
+
+.exp-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 4px;
+}
+
+.exp-at {
+    color: var(--glow-green);
+}
+
+.exp-company {
+    color: var(--glow-green);
+}
+
+.exp-meta {
+    color: var(--glow-green);
+    font-size: 11px;
+    margin-bottom: 8px;
+}
+
+.exp-details {
+    padding-left: 15px;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+}
+
+.exp-details li {
+    margin-bottom: 4px;
+}
+
 .pcb-tooltip-hud {
     background-color: rgba(3, 10, 3, 0.95) !important;
     border: 1px solid var(--glow-green) !important;
