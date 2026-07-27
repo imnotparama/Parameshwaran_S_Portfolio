@@ -56,13 +56,13 @@ export function showTooltip(refDesignator, componentName) {
     else if (refDesignator.startsWith('TP')) { partType = 'TEST POINT'; desc = 'Diagnostic node'; }
 
     tooltipEl.innerHTML = `
-        <div style="font-family: monospace; font-size: 11px; white-space: pre; line-height: 1.25;">┌──────────────────────────┐
-│ REF: <span style="color: var(--glow-green); font-weight: bold;">${refDesignator.padEnd(20)}</span> │
-│ PART: ${partType.padEnd(19)} │
-│ DESC: ${desc.padEnd(19)} │
-├──────────────────────────┤
-│ Click to zoom in →       │
-└──────────────────────────┘</div>
+        <div class="tooltip-frame">
+            <span class="tooltip-label">REF:</span> <span class="tooltip-value">${refDesignator}</span>
+            <span class="tooltip-label">PART:</span> <span class="tooltip-value">${partType}</span>
+            <span class="tooltip-label">DESC:</span> <span class="tooltip-value">${desc}</span>
+            <span class="tooltip-divider"></span>
+            <span class="tooltip-hint">◈ Click to inspect</span>
+        </div>
     `;
     tooltipEl.style.opacity = '1';
 }
