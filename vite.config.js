@@ -12,7 +12,7 @@ export default defineConfig({
                 },
             },
         },
-        chunkSizeWarningLimit: 500,
+        chunkSizeWarningLimit: 600, // Three.js alone is ~565 KB
         sourcemap: false,
     },
     server: {
