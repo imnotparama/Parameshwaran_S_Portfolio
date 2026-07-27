@@ -60,12 +60,16 @@ export function initScene(canvasElement) {
     pcbBacklight.position.set(0, 0, -1);
     scene.add(pcbBacklight);
 
-    // 5. Handle Resize
+    // 5. Handle Resize (debounced for performance)
+    let resizeTimeout;
     window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        }, 100);
     });
 
     // 6. Start Render/Animation Tick loop
