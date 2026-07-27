@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposableResources } from './scene.js';
 
 export const interactiveObjects = [];
 export const insideInteractiveObjects = [];

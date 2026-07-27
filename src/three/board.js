@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { disposableResources } from './scene.js';
 
 export let boardGroup;
 export let silkscreenMesh;
@@ -33,15 +34,16 @@ export function createBoard(scene) {
     };
 
     const boardGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    // Center geometry origin
     boardGeometry.center();
+    disposableResources.geometries.add(boardGeometry);
 
     // Matte dark-green board core material
     const boardMaterial = new THREE.MeshStandardMaterial({
-        color: 0x0a2b0a, // Dark board base
+        color: 0x0a2b0a,
         roughness: 0.8,
         metalness: 0.15
     });
+    disposableResources.materials.add(boardMaterial);
 
     const boardMesh = new THREE.Mesh(boardGeometry, boardMaterial);
     boardMesh.receiveShadow = true;
@@ -50,11 +52,13 @@ export function createBoard(scene) {
 
     // Lighter soldermask top overlay layer
     const maskGeom = new THREE.PlaneGeometry(width - 0.1, height - 0.1);
+    disposableResources.geometries.add(maskGeom);
     const maskMat = new THREE.MeshStandardMaterial({
-        color: 0x124712, // Lighter green soldermask
+        color: 0x124712,
         roughness: 0.7,
         metalness: 0.2
     });
+    disposableResources.materials.add(maskMat);
     const soldermask = new THREE.Mesh(maskGeom, maskMat);
     soldermask.position.z = thickness / 2 + 0.001; // Just above base
     soldermask.receiveShadow = true;
@@ -225,14 +229,17 @@ export function createBoard(scene) {
 
     // CanvasTexture mapping
     const silkscreenTexture = new THREE.CanvasTexture(canvas);
+    disposableResources.textures.add(silkscreenTexture);
     
     // Thin overlay mesh just above soldermask surface
     const silkscreenGeom = new THREE.PlaneGeometry(width - 0.1, height - 0.1);
+    disposableResources.geometries.add(silkscreenGeom);
     const silkscreenMat = new THREE.MeshBasicMaterial({
         map: silkscreenTexture,
         transparent: true,
         depthWrite: false
     });
+    disposableResources.materials.add(silkscreenMat);
     
     silkscreenMesh = new THREE.Mesh(silkscreenGeom, silkscreenMat);
     silkscreenMesh.position.z = thickness / 2 + 0.003;

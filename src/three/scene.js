@@ -6,13 +6,20 @@ export let renderer;
 
 export const tickCallbacks = [];
 
+// Track all disposable resources for cleanup
+export const disposableResources = {
+    geometries: new Set(),
+    materials: new Set(),
+    textures: new Set()
+};
+
 export function initScene(canvasElement) {
     // 1. Initialize Scene
     scene = new THREE.Scene();
 
     // 2. Initialize Camera (Perspective, positioned to view board at an angle)
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, -2, 17); // Slightly tilted up, isometric look
+    camera.position.set(0, -2, 17);
     camera.lookAt(0, 0, 0);
     scene.add(camera);
 
