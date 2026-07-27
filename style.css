@@ -1,0 +1,1073 @@
+/* -------------------------------------------------------------
+ * 1. Global Reset & Theme Config
+ * ------------------------------------------------------------- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg-color: #050f05;         /* Deep green-black */
+    --pcb-green: #0d3d0d;        /* Dark board base */
+    --pcb-mask: #1a5c1a;         /* Soldermask overlay */
+    --pcb-gold: #c8960c;         /* Copper gold traces */
+    --color-text-primary: #e0e0e0;
+    --color-text-muted: #888888;
+    --glow-green: #00ff88;
+    --glow-blue: #00bfff;
+    --glow-amber: #ffcc00;
+    --glow-red: #ff4444;
+    --glow-purple: #aa44ff;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-heading: 'Orbitron', sans-serif;
+}
+
+body {
+    background: radial-gradient(circle at center, rgba(0, 40, 0, 0.28) 0%, #050f05 85%);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    height: 100vh;
+    line-height: 1.5;
+}
+
+/* CRT Screen Effect Overlay */
+.screen-scanlines {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%,
+        rgba(0, 0, 0, 0.08) 50%
+    );
+    background-size: 100% 4px;
+    z-index: 9999;
+    pointer-events: none;
+}
+
+.vignette-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
+    z-index: 9998;
+    pointer-events: none;
+}
+
+/* -------------------------------------------------------------
+ * 2. Power-On Boot Overlay
+ * ------------------------------------------------------------- */
+#boot-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000000;
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#scanline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(to right, transparent, var(--glow-green), transparent);
+    box-shadow: 0 0 12px var(--glow-green);
+    pointer-events: none;
+}
+
+.boot-container {
+    max-width: 600px;
+    padding: 30px;
+    border: 1px solid #14532d;
+    background-color: rgba(5, 15, 5, 0.85);
+    border-radius: 4px;
+}
+
+.boot-terminal-log {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.term-green {
+    color: var(--glow-green);
+    text-shadow: 0 0 4px rgba(0, 255, 136, 0.4);
+}
+
+.terminal-status {
+    margin-top: 15px;
+    color: var(--glow-amber);
+    font-weight: bold;
+    animation: blink 1.0s infinite;
+}
+
+/* -------------------------------------------------------------
+ * 3. Page Header Section (above PCB)
+ * ------------------------------------------------------------- */
+#main-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 10;
+    pointer-events: none;
+    background: transparent;
+    padding: 30px 20px 0;
+}
+
+.header-container {
+    pointer-events: auto;
+}
+
+.ece-label {
+    font-size: 12px;
+    color: var(--glow-green);
+    letter-spacing: 2px;
+    text-shadow: 0 0 5px rgba(0, 255, 136, 0.5);
+    margin-bottom: 8px;
+}
+
+h1#user-name {
+    font-family: var(--font-heading);
+    font-size: clamp(32px, 5vw, 64px);
+    font-weight: 900;
+    color: #ffffff;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+    text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+}
+
+.header-underline {
+    width: 0%;
+    height: 2px;
+    background-color: var(--glow-green);
+    box-shadow: 0 0 10px var(--glow-green);
+    margin: -4px auto 14px;
+}
+
+.subtitle-wrap {
+    font-size: clamp(14px, 2.5vw, 18px);
+    color: var(--color-text-muted);
+    margin-bottom: 25px;
+    height: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.terminal-cursor {
+    display: inline-block;
+    width: 10px;
+    height: 18px;
+    background-color: var(--glow-green);
+    margin-left: 5px;
+    animation: blink 0.8s infinite;
+}
+
+/* Stat badges styled like component markings */
+.badge-row {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.stat-badge {
+    border: 1px solid var(--pcb-mask);
+    background-color: rgba(26, 92, 26, 0.08);
+    padding: 6px 16px;
+    border-radius: 3px;
+    font-size: 13px;
+    color: #ffffff;
+    display: flex;
+    gap: 6px;
+    box-shadow: inset 0 0 4px rgba(26, 92, 26, 0.2);
+}
+
+.badge-lbl {
+    color: var(--glow-green);
+    font-weight: bold;
+}
+
+/* -------------------------------------------------------------
+ * 4. Animated Gold Trace SVG Separator
+ * ------------------------------------------------------------- */
+.svg-separator {
+    position: absolute;
+    width: 100%;
+    max-width: 1200px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    pointer-events: none;
+}
+
+.svg-separator:nth-of-type(1) {
+    top: 195px;
+}
+
+.svg-separator:nth-of-type(2) {
+    bottom: 145px;
+}
+
+.trace-active-line {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: traceDraw 2.5s ease-out forwards;
+}
+
+.spark {
+    animation: sparkMove 6s linear infinite;
+    offset-path: path("M 0,10 L 450,10 L 470,20 L 530,20 L 550,10 L 1000,10");
+    box-shadow: 0 0 10px #ffffff;
+}
+
+/* Adapt offset path for the second separator */
+.svg-separator:nth-of-type(2) .spark {
+    offset-path: path("M 0,10 L 400,10 L 420,2 L 580,2 L 600,10 L 1000,10");
+}
+
+/* -------------------------------------------------------------
+ * 5. Three.js PCB Canvas Area
+ * ------------------------------------------------------------- */
+#canvas-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+    cursor: default;
+    background: radial-gradient(circle at center, rgba(13, 61, 13, 0.15) 0%, rgba(5, 15, 5, 0) 70%);
+}
+
+#threejs-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.canvas-hint {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    letter-spacing: 1px;
+    text-align: center;
+    pointer-events: none;
+}
+
+/* -------------------------------------------------------------
+ * 6. Mouse Tooltip HUD
+ * ------------------------------------------------------------- */
+.pcb-tooltip-hud {
+    background-color: rgba(5, 15, 5, 0.95);
+    border: 1px solid var(--glow-green);
+    border-left: 4px solid var(--glow-green);
+    border-radius: 3px;
+    padding: 10px 16px;
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    width: 240px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+}
+
+.tooltip-ref {
+    color: var(--glow-amber);
+    font-size: 11px;
+    margin-bottom: 2px;
+}
+
+.tooltip-name {
+    font-weight: bold;
+    font-size: 14px;
+    color: #ffffff;
+    margin-bottom: 4px;
+}
+
+.tooltip-action {
+    color: var(--glow-green);
+    font-size: 11px;
+    animation: blink 1.2s infinite;
+}
+
+/* -------------------------------------------------------------
+ * 7. Sliding Side Info Panel
+ * ------------------------------------------------------------- */
+#component-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 440px;
+    height: 100vh;
+    background-color: var(--bg-color);
+    border-left: 3px solid var(--glow-green);
+    z-index: 5000;
+    display: none;
+    box-shadow: -5px 0 25px rgba(0, 0, 0, 0.7);
+    padding: 40px 25px;
+    overflow-y: auto;
+}
+
+/* Custom Scrollbar for side panel */
+#component-panel::-webkit-scrollbar {
+    width: 6px;
+}
+#component-panel::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+#component-panel::-webkit-scrollbar-thumb {
+    background: #14532d;
+    border-radius: 3px;
+}
+#component-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--glow-green);
+}
+
+.panel-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 32px;
+    color: var(--color-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.panel-close:hover {
+    color: var(--glow-red);
+}
+
+.panel-header {
+    border-bottom: 1px dashed var(--pcb-mask);
+    padding-bottom: 15px;
+    margin-bottom: 25px;
+}
+
+.panel-ref {
+    color: var(--glow-amber);
+    font-size: 13px;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.panel-title-text {
+    font-family: var(--font-heading);
+    font-size: 20px;
+    color: #ffffff;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.panel-body {
+    font-size: 14px;
+    color: var(--color-text-primary);
+}
+
+.panel-section {
+    margin-bottom: 25px;
+}
+
+.panel-section h3 {
+    font-size: 13px;
+    color: var(--glow-green);
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+}
+
+.panel-section h4 {
+    font-size: 12px;
+    color: #ffffff;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #14532d;
+    padding-bottom: 4px;
+}
+
+.panel-paragraph {
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+.panel-info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.panel-info-row strong {
+    color: var(--color-text-muted);
+}
+
+.glowing-text-green {
+    color: var(--glow-green);
+    text-shadow: 0 0 5px rgba(0, 255, 136, 0.4);
+    font-weight: bold;
+}
+
+/* Panel lists */
+.panel-languages-list {
+    list-style: none;
+}
+
+.panel-languages-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dashed #14532d;
+}
+
+.lang-level {
+    color: var(--glow-amber);
+}
+
+/* Projects nodes list */
+.panel-projects-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.project-panel-card {
+    border: 1px solid #14532d;
+    background-color: rgba(26, 92, 26, 0.04);
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.proj-card-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+    border-bottom: 1px dashed #14532d;
+    padding-bottom: 4px;
+}
+
+.proj-index {
+    color: var(--glow-amber);
+}
+
+.proj-title {
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.proj-desc {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: 10px;
+    line-height: 1.45;
+}
+
+.proj-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.proj-tag {
+    font-size: 10px;
+    background-color: #112d11;
+    color: var(--glow-green);
+    padding: 2px 6px;
+    border-radius: 2px;
+    border: 1px solid #165316;
+}
+
+.proj-link {
+    font-size: 11px;
+    color: var(--glow-blue);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.proj-link:hover {
+    border-bottom: 1px solid var(--glow-blue);
+}
+
+/* Skill pills */
+.skills-panel-category {
+    margin-bottom: 20px;
+}
+
+.skills-panel-category h4 {
+    margin-bottom: 8px;
+    color: #ffffff;
+}
+
+.skills-pill-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.skill-pill-amber {
+    font-size: 11px;
+    background-color: #382402;
+    color: var(--glow-amber);
+    border: 1px solid var(--pcb-gold);
+    padding: 3px 8px;
+    border-radius: 2px;
+}
+
+/* Education timeline layout */
+.education-timeline {
+    border-left: 1px dashed #14532d;
+    padding-left: 15px;
+    margin-left: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.edu-node-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+
+.edu-duration {
+    color: var(--glow-amber);
+}
+
+.edu-grade {
+    color: var(--glow-green);
+}
+
+.edu-degree {
+    font-size: 13px;
+    color: #ffffff;
+}
+
+.edu-inst {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+/* Contact layout */
+.contact-panel-row {
+    margin-bottom: 18px;
+}
+
+.contact-label {
+    display: block;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+}
+
+.contact-url {
+    font-size: 13px;
+    color: var(--glow-blue);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.contact-url:hover {
+    border-bottom: 1px solid var(--glow-blue);
+}
+
+.email-copy-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #0b1a0b;
+    border: 1px solid #14532d;
+    padding: 6px 12px;
+    border-radius: 3px;
+}
+
+.email-value {
+    font-size: 13px;
+    color: #ffffff;
+}
+
+.btn-copy {
+    background: none;
+    border: 1px solid #334155;
+    color: var(--color-text-primary);
+    padding: 2px 8px;
+    font-size: 11px;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.contact-val-static {
+    font-size: 13px;
+    color: #ffffff;
+}
+
+.contact-note {
+    border-top: 1px dashed #14532d;
+    padding-top: 12px;
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+/* Experience node */
+.experience-node {
+    margin-bottom: 25px;
+}
+
+.exp-title {
+    font-size: 14px;
+    color: #ffffff;
+}
+
+.exp-company {
+    color: var(--glow-green);
+}
+
+.exp-meta {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin: 4px 0 10px;
+}
+
+.exp-bullet-points {
+    padding-left: 15px;
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.exp-bullet-points li {
+    margin-bottom: 6px;
+}
+
+/* Certifications list */
+.certs-panel-list {
+    list-style: none;
+}
+
+.certs-panel-list li {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 12px;
+}
+
+.cert-checkbox {
+    color: var(--glow-green);
+    font-weight: bold;
+}
+
+.cert-title {
+    color: var(--color-text-primary);
+}
+
+/* Tech stack layout */
+.stack-category {
+    margin-bottom: 18px;
+}
+
+.stack-category h4 {
+    margin-bottom: 6px;
+}
+
+.stack-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.stack-tag-red {
+    font-size: 11px;
+    background-color: #3b1111;
+    color: var(--glow-red);
+    border: 1px solid var(--glow-red);
+    padding: 3px 8px;
+    border-radius: 2px;
+}
+
+/* -------------------------------------------------------------
+ * 8. Page Footer Area (below PCB)
+ * ------------------------------------------------------------- */
+#main-footer {
+    position: fixed;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
+    z-index: 10;
+    pointer-events: none;
+    background: transparent;
+    padding: 0 20px;
+}
+
+.footer-container {
+    max-width: 600px;
+    margin: 0 auto;
+    pointer-events: auto;
+}
+
+.footer-container {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.footer-details {
+    font-size: 16px;
+    color: #ffffff;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+
+.footer-meta {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: 10px;
+}
+
+.footer-status {
+    font-size: 11px;
+    color: var(--glow-green);
+    letter-spacing: 1px;
+    animation: blink 1.5s infinite;
+    margin-bottom: 25px;
+}
+
+/* Social link pin elements matching ECE pin footprints */
+.social-pins {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-bottom: 20px;
+}
+
+.social-pin {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: var(--color-text-muted);
+    transition: color 0.2s;
+}
+
+.pin-dot {
+    width: 12px;
+    height: 12px;
+    background-color: #1a5c1a;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.4);
+    margin-bottom: 6px;
+    transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.pin-lbl {
+    font-size: 11px;
+}
+
+.social-pin:hover {
+    color: var(--glow-green);
+}
+
+.social-pin:hover .pin-dot {
+    background-color: var(--glow-green);
+    box-shadow: 0 0 8px var(--glow-green);
+}
+
+.copyright {
+    font-size: 10px;
+    color: #335c33;
+    letter-spacing: 0.5px;
+}
+
+/* -------------------------------------------------------------
+ * 9. Keyframes & Animation Classes
+ * ------------------------------------------------------------- */
+@keyframes blink {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+}
+
+@keyframes traceDraw {
+    to { stroke-dashoffset: 0; }
+}
+
+/* Spark offset movement */
+@keyframes sparkMove {
+    0% { offset-distance: 0%; }
+    100% { offset-distance: 100%; }
+}
+
+.system-operational-active {
+    color: var(--glow-green) !important;
+}
+
+/* -------------------------------------------------------------
+ * 10. Mobile Responsiveness Layout Adapters
+ * ------------------------------------------------------------- */
+@media (max-width: 600px) {
+    #component-panel {
+        width: 100%;
+        padding: 30px 18px;
+    }
+    
+    #canvas-container {
+        height: 50vh;
+        min-height: 380px;
+    }
+}
+
+/* -------------------------------------------------------------
+ * 11. Zoomed-In 3D HUD & back button styles
+ * ------------------------------------------------------------- */
+.btn-hud-control {
+    position: fixed;
+    top: 30px;
+    right: 30px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--glow-green);
+    background-color: rgba(5, 15, 5, 0.9);
+    border: 1px solid var(--glow-green);
+    padding: 8px 18px;
+    border-radius: 3px;
+    cursor: pointer;
+    z-index: 9000;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.25);
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-hud-control:hover {
+    background-color: var(--glow-green);
+    color: #000000;
+    box-shadow: 0 0 15px var(--glow-green);
+    font-weight: bold;
+}
+
+.pcb-hud-layout {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 340px;
+    background-color: rgba(5, 15, 5, 0.95);
+    border: 1px solid var(--glow-green);
+    border-left: 4px solid var(--glow-green);
+    border-radius: 3px;
+    padding: 20px;
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85);
+    z-index: 8999;
+    pointer-events: auto;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.hud-system-status {
+    font-size: 11px;
+    color: var(--glow-green);
+    letter-spacing: 1px;
+    font-weight: bold;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.hud-component-title {
+    font-family: var(--font-heading);
+    font-size: 17px;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+}
+
+.hud-core-desc {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    margin-bottom: 15px;
+}
+
+.hud-skills-title {
+    font-size: 11px;
+    color: var(--glow-amber);
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed #1a5c1a;
+    padding-bottom: 4px;
+}
+
+.hud-skills-items {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.hud-skills-items li {
+    font-size: 11px;
+    background-color: #112d11;
+    color: var(--glow-green);
+    border: 1px solid #165316;
+    padding: 2px 8px;
+    border-radius: 2px;
+}
+
+@media (max-width: 600px) {
+    .btn-hud-control {
+        top: 20px;
+        right: 20px;
+        font-size: 11px;
+        padding: 6px 12px;
+    }
+
+    .pcb-hud-layout {
+        bottom: 20px;
+        right: 20px;
+        left: 20px;
+        width: auto;
+        padding: 15px;
+    }
+}
+
+/* Premium Top-Level PCB HUD styles */
+.hud-title {
+    font-family: var(--font-heading);
+    font-size: 14px;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+    padding-bottom: 6px;
+}
+
+.hud-row {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+    display: flex;
+}
+
+.hud-lbl {
+    color: var(--glow-green);
+    font-weight: bold;
+    width: 90px;
+    flex-shrink: 0;
+}
+
+.hud-action {
+    margin-top: 14px;
+    font-size: 10px;
+    color: var(--glow-amber);
+    letter-spacing: 0.5px;
+    animation: blink 1.5s infinite;
+}
+
+/* Minimalist Navbar styles */
+.header-nav {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 15px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+    pointer-events: auto;
+}
+
+.nav-btn {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--glow-green);
+    background-color: rgba(5, 15, 5, 0.8);
+    border: 1px solid var(--glow-green);
+    padding: 6px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    letter-spacing: 1px;
+}
+
+.nav-btn:hover {
+    background-color: rgba(0, 255, 136, 0.15);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+    color: #ffffff;
+}
+
+/* Info Panel styles */
+.info-panel-layout {
+    position: fixed;
+    top: 0;
+    left: -420px; /* Hidden offscreen */
+    width: 400px;
+    height: 100vh;
+    background-color: rgba(3, 12, 3, 0.96);
+    border-right: 2px solid var(--glow-green);
+    box-shadow: 8px 0 25px rgba(0, 0, 0, 0.95);
+    z-index: 9990;
+    padding: 40px 30px;
+    overflow-y: auto;
+    transition: left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+}
+
+.info-panel-layout.active {
+    left: 0;
+}
+
+.btn-close-panel-style {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: transparent;
+    border: 1px solid var(--glow-red);
+    color: var(--glow-red);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-close-panel-style:hover {
+    background-color: rgba(239, 68, 68, 0.15);
+    box-shadow: 0 0 10px var(--glow-red);
+}
+
+.panel-section-title {
+    font-family: var(--font-heading);
+    font-size: 18px;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--glow-green);
+    padding-bottom: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.pcb-tooltip-hud {
+    background-color: rgba(3, 10, 3, 0.95) !important;
+    border: 1px solid var(--glow-green) !important;
+    border-radius: 3px !important;
+    padding: 8px 12px !important;
+    color: var(--glow-green) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.85), inset 0 0 5px rgba(0, 255, 136, 0.2) !important;
+    font-family: var(--font-mono) !important;
+}

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PARAMESHWARAN S | PCB PORTFOLIO</title>
+    <meta name="description" content="Stunning PCB-themed portfolio of Parameshwaran S, a Data Science and ECE student at SRMIST Chennai. Built with Three.js and GSAP.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="crt">
+
+    <!-- Scanline overlays for retro CRT monitors -->
+    <div class="screen-scanlines"></div>
+    <div class="vignette-overlay"></div>
+
+    <!-- Full-screen Boot Overlay for the power-on sequence -->
+    <div id="boot-overlay">
+        <!-- Horizontal sweeping laser scanline -->
+        <div id="scanline"></div>
+        
+        <div class="boot-container">
+            <div class="boot-terminal-log">
+                <span class="term-green">&gt; INITIALIZING PARAMA-DEV-BOARD BIOS v1.0...</span><br>
+                <span class="term-green">&gt; CLOCK FREQUENCY GENERATOR INITIATED (27.000MHz)...</span><br>
+                <span class="term-green">&gt; SYSTEM MEMORY ALLOCATION STACK READY (256KB SRAM)...</span><br>
+                <div class="terminal-status" id="terminal-status-text">// BOOTING SYSTEM CORES...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page Header (above the PCB board) -->
+    <header id="main-header">
+        <div class="header-container">
+            <div class="ece-label">// ECE + DATA SCIENCE @ SRMIST</div>
+            
+            <!-- Minimalist Navigation Bar -->
+            <nav class="header-nav">
+                <button class="nav-btn" data-ref="U1">[ABOUT]</button>
+                <button class="nav-btn" data-ref="U2">[PROJECTS]</button>
+                <button class="nav-btn" data-ref="U1">[SKILLS]</button>
+                <button class="nav-btn" data-ref="J1">[EXPERIENCE]</button>
+                <button class="nav-btn" data-ref="ANT1">[CONTACT]</button>
+            </nav>
+
+            <h1 id="user-name">PARAMESHWARAN S</h1>
+            <div class="header-underline"></div>
+            
+            <!-- Typewriter dynamic subtitle block -->
+            <div class="subtitle-wrap">
+                <span id="typewriter-subtitle"></span><span class="terminal-cursor"></span>
+            </div>
+
+            <!-- PCB Silkscreen inspired stat badges -->
+            <div class="badge-row">
+                <div class="stat-badge">
+                    <span class="badge-lbl">GPA:</span>
+                    <span class="badge-val">9.51/10</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-lbl">PROJECTS:</span>
+                    <span class="badge-val">6+</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-lbl">HACKATHONS:</span>
+                    <span class="badge-val">3+</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="badge-lbl">CERTS:</span>
+                    <span class="badge-val">7+</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Animated Gold Trace Separator (SVG) -->
+    <div class="svg-separator">
+        <svg width="100%" height="20" viewBox="0 0 1000 20" preserveAspectRatio="none">
+            <path class="trace-bg-line" d="M 0,10 L 450,10 L 470,20 L 530,20 L 550,10 L 1000,10" fill="none" stroke="#332103" stroke-width="3"/>
+            <path class="trace-active-line" d="M 0,10 L 450,10 L 470,20 L 530,20 L 550,10 L 1000,10" fill="none" stroke="#c8960c" stroke-width="3"/>
+            <circle class="spark" r="5" fill="#ffffff"/>
+        </svg>
+    </div>
+
+    <!-- Main Viewport containing Three.js canvas -->
+    <main id="canvas-container">
+        <canvas id="threejs-canvas"></canvas>
+        <div class="canvas-hint">// MOVE CURSOR TO TILT BOARD · HOVER COMPONENTS FOR DATA CORES</div>
+    </main>
+
+
+
+    <!-- Dynamic Mouse Tooltip HUD -->
+    <div id="pcb-tooltip" class="pcb-tooltip-hud">
+        <!-- Content injected dynamically via tooltip.js -->
+    </div>
+
+    <!-- Gold Trace Separator above footer -->
+    <div class="svg-separator">
+        <svg width="100%" height="20" viewBox="0 0 1000 20" preserveAspectRatio="none">
+            <path class="trace-bg-line" d="M 0,10 L 400,10 L 420,2 L 580,2 L 600,10 L 1000,10" fill="none" stroke="#332103" stroke-width="3"/>
+            <path class="trace-active-line" d="M 0,10 L 400,10 L 420,2 L 580,2 L 600,10 L 1000,10" fill="none" stroke="#c8960c" stroke-width="3"/>
+            <circle class="spark" r="5" fill="#ffffff"/>
+        </svg>
+    </div>
+
+    <!-- Footer Area -->
+    <footer id="main-footer">
+        <div class="footer-container">
+            <div class="footer-details">PARAMESHWARAN S — CHENNAI, INDIA</div>
+            <div class="footer-meta">Built with Three.js + GSAP + Vite</div>
+            <div class="footer-status">// ALL PCB SYSTEMS OPERATIONAL</div>
+            
+            <div class="social-pins">
+                <a class="social-pin" href="https://github.com/imnotparama" target="_blank" rel="noopener noreferrer">
+                    <span class="pin-dot"></span>
+                    <span class="pin-lbl">GH-TX</span>
+                </a>
+                <a class="social-pin" href="https://linkedin.com/in/parameshwaran-s" target="_blank" rel="noopener noreferrer">
+                    <span class="pin-dot"></span>
+                    <span class="pin-lbl">LN-RX</span>
+                </a>
+            </div>
+            <div class="copyright">&copy; 2025 — ALL SYSTEMS SECURED</div>
+        </div>
+    </footer>
+
+    <!-- Slide panel overlay for component datasheets -->
+    <div id="info-panel" class="info-panel-layout">
+        <button id="btn-close-panel" class="btn-close-panel-style">[ CLOSE ]</button>
+        <div id="info-panel-content"></div>
+    </div>
+
+    <!-- Entry Point Module -->
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
