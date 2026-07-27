@@ -4,13 +4,7 @@ import { resolve } from 'path';
 export default defineConfig({
     build: {
         target: 'es2020',
-        minify: 'terser',
-        terserOptions: {
-            compress: {
-                drop_console: false,
-                drop_debugger: true,
-            },
-        },
+        minify: 'esbuild',
         rollupOptions: {
             output: {
                 manualChunks(id) {
