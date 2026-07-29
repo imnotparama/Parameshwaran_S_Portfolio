@@ -57,40 +57,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6b. Build project chips on the board
     createProjectChips(boardGroup);
 
-    // 7. Initialize UI detail panels and tooltip frameworks
-    initTooltip();
-    initSidePanel();
-
-    // 7b. Render section datasheet content from portfolio data
+    // 7. Render section datasheet content from portfolio data
     renderSections();
 
-    // 7c. Wire LinkedIn and GitHub links from config
+    // 7b. Wire LinkedIn and GitHub links from config
     document.querySelectorAll('.js-linkedin, #cta-linkedin-hud').forEach(a => { a.href = LINKEDIN_URL; });
     document.querySelectorAll('.js-github').forEach(a => { a.href = GITHUB_URL; });
 
-    // 8. Bind hover raycast checking
+    // 8. Bind hover raycast checking (guarded — legacy tooltip/sidepanel elements may not exist)
+    if (document.getElementById('pcb-tooltip')) {
+        initTooltip();
+    }
+    if (document.getElementById('component-panel')) {
+        initSidePanel();
+    }
     initHover(camera, scene);
 
-    // 9. Set up body class for lite mode detection
+    // 9. Set up body class for mode detection
     if (isLiteMode()) {
         document.body.classList.add('lite-mode');
     } else {
         document.body.classList.add('full-journey');
     }
 
-    // 9a. Initialize scroll journey (full mode only)
-    if (!isLiteMode()) {
-        setTimeout(() => {
-            initJourney(camera);
-            // Show HUD bar after journey init
-            const hudBar = document.getElementById('hud-bar');
-            if (hudBar) hudBar.classList.add('hud-ready');
-        }, 100);
-    } else {
-        // Lite mode: show HUD immediately
-        const hudBar = document.getElementById('hud-bar');
-        if (hudBar) hudBar.classList.add('hud-ready');
-    }
+    // Store journey flag for after boot
+    const shouldInitJourney = !isLiteMode();
 
     // 9b. Enable bloom post-processing (unless lite mode)
     if (!isLiteMode()) {
@@ -103,9 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateParticles(delta);
 
         // Update project chip LEDs (flicker breadboard LEDs)
-        if (typeof updateProjectChips === 'function') {
-            updateProjectChips(elapsed);
-        }
+        updateProjectChips(elapsed);
 
         // Run hover raycasting intersection diagnostics
         checkHover();
@@ -114,9 +103,18 @@ document.addEventListener('DOMContentLoaded', () => {
         updateBoardParallax(elapsed, mouse);
     });
 
-    // 10. Execute GSAP Power-on sequence
+    // 10. Execute GSAP Power-on sequence — then init journey after boot
     runBootSequence(() => {
         console.log("PARAMESHWARAN S PORTFOLIO SYSTEMS FULLY OPERATIONAL.");
+        
+        // Init scroll journey after boot animation completes (camera is ready)
+        if (shouldInitJourney) {
+            initJourney(camera);
+        }
+        
+        // Show HUD bar after boot (whether journey or lite mode)
+        const hudBar = document.getElementById('hud-bar');
+        if (hudBar) hudBar.classList.add('hud-ready');
     });
 
     // 10. Register memory cleanup on page unload
