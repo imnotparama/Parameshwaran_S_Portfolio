@@ -1,8 +1,27 @@
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 export let scene;
 export let camera;
 export let renderer;
+export let composer = null;
+
+// Glowing traces via bloom post-processing. Tuned conservatively so
+// frame rate holds on mid-range hardware; skipped entirely in lite mode.
+export function enableBloom() {
+    composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.45, // strength — subtle glow, not a light show
+        0.3,  // radius
+        0.7   // threshold — only emissive traces/LEDs bloom
+    );
+    composer.addPass(bloomPass);
+    composer.setSize(window.innerWidth, window.innerHeight);
+}
 
 export const tickCallbacks = [];
 
@@ -69,6 +88,7 @@ export function initScene(canvasElement) {
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            if (composer) composer.setSize(window.innerWidth, window.innerHeight);
         }, 100);
     });
 
@@ -82,8 +102,9 @@ export function initScene(canvasElement) {
         // Run registered callbacks
         tickCallbacks.forEach(callback => callback(elapsed, delta));
 
-        // Render pass
-        renderer.render(scene, camera);
+        // Render pass — composer (bloom) when enabled, plain render otherwise
+        if (composer) composer.render();
+        else renderer.render(scene, camera);
 
         requestAnimationFrame(animate);
     }
