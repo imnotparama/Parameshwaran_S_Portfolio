@@ -133,15 +133,24 @@ body {
 
 .journey-sec {
     position: relative;
-    min-height: 140vh;
+    min-height: 160vh;
 }
 
 .journey-sec-tall {
-    min-height: 200vh;
+    min-height: 240vh;
 }
 
 #sec-hero {
     min-height: 120vh;
+}
+
+/* Sections that are reached via direct nav need extra scroll room */
+#sec-skills {
+    min-height: 180vh;
+}
+
+#sec-contact {
+    min-height: 140vh;
 }
 
 /* ─── Datasheet panels ──────────────────────────────────── */
