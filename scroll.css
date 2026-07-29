@@ -592,9 +592,63 @@ body.lite-mode .journey-sec:not(#sec-hero) {
     background: rgba(3, 9, 3, 0.86);
 }
 
-/* HUD responsiveness */
+/* ─── Mobile & tablet responsiveness ──────────────────── */
 @media (max-width: 900px) {
-    #hud-bar { flex-wrap: wrap; justify-content: center; padding: 10px 12px; }
+    #hud-bar { flex-wrap: wrap; justify-content: center; padding: 10px 12px; gap: 6px; }
     #cta-linkedin-hud { font-size: 11px; padding: 7px 12px; }
-    .hud-nav .nav-btn { font-size: 11px; }
+    .hud-nav .nav-btn { font-size: 11px; padding: 4px 6px; }
+    .hud-name { font-size: 12px; }
+}
+
+@media (max-width: 640px) {
+    body.full-journey .ds-panel {
+        width: calc(100vw - 24px);
+        padding: 16px 18px;
+        max-height: calc(100vh - 100px);
+    }
+    body.full-journey #panel-hero {
+        width: calc(100vw - 24px);
+    }
+    body.full-journey #panel-projects {
+        top: 70px;
+        left: 50%;
+        transform: translate(-50%, 18px);
+        width: calc(100vw - 16px);
+    }
+    body.full-journey #panel-projects.panel-active {
+        transform: translate(-50%, 0);
+    }
+    .projects-grid {
+        grid-template-columns: 1fr;
+    }
+    .ds-title {
+        font-size: 16px;
+    }
+    .ds-body {
+        font-size: 12px;
+    }
+    .hero-claim {
+        font-size: 13px;
+    }
+    .spec-table {
+        font-size: 11px;
+    }
+    .spec-table th,
+    .spec-table td {
+        padding: 4px 6px;
+    }
+    .contact-panel {
+        width: calc(100vw - 24px);
+    }
+    .cta-contact {
+        font-size: 14px;
+        padding: 12px 24px;
+    }
+    .badge-row {
+        gap: 6px;
+    }
+    .stat-badge {
+        font-size: 10px;
+        padding: 4px 10px;
+    }
 }
