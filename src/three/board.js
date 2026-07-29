@@ -249,17 +249,26 @@ export function createBoard(scene) {
     scene.add(boardGroup);
 }
 export function updateBoardParallax(elapsed, mouse) {
-    if (boardGroup) {
-        // Subtle tilt parallax based on mouse coords (Max 5 degrees is ~ 0.09 rad)
+    if (!boardGroup) return;
+
+    // Check if we're in journey mode (camera controlled by scroll)
+    const isJourneyMode = document.body.classList.contains('full-journey');
+
+    if (!isJourneyMode) {
+        // Legacy: full board tilt + bob
         const targetRotX = -Math.PI / 10 - mouse.y * 0.08;
         const targetRotY = -Math.PI / 20 + mouse.x * 0.08;
-        
-        // Gentle bobbing animation (like it floats in space)
+
         const bob = Math.sin(elapsed * 1.5) * 0.08;
         boardGroup.position.z = bob;
 
-        // Smooth rotation interpolation
         boardGroup.rotation.x += (targetRotX - boardGroup.rotation.x) * 0.08;
         boardGroup.rotation.y += (targetRotY - boardGroup.rotation.y) * 0.08;
+    } else {
+        // Journey mode: very subtle micro-tilt only (camera does the heavy lifting)
+        const microTiltX = -mouse.y * 0.015;
+        const microTiltY = mouse.x * 0.015;
+        boardGroup.rotation.x += (microTiltX - boardGroup.rotation.x) * 0.04;
+        boardGroup.rotation.y += (microTiltY - boardGroup.rotation.y) * 0.04;
     }
 }
