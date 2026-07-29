@@ -1,15 +1,17 @@
 // Portfolio Data Schema - Source of truth for personal information and content
+import { LINKEDIN_URL, GITHUB_URL } from '../config.js';
+
 export const portfolioData = {
     personalInfo: {
         name: "PARAMESHWARAN S",
-        tagline: "AI Engineer · ML Developer · ECE Student",
-        institution: "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY",
+        tagline: "ECE + Data Science · Builds Real, Working Projects",
+        institution: "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, RAMAPURAM",
         location: "Chennai, Tamilnadu",
         email: "pw2491@srmist.edu.in",
         phone: "+91 9176020504",
         socials: {
-            github: "https://github.com/imnotparama",
-            linkedin: "https://linkedin.com/in/parameshwaran-s"
+            github: GITHUB_URL,
+            linkedin: LINKEDIN_URL
         },
         stats: [
             { label: "GPA", value: "9.51/10" },
@@ -17,7 +19,8 @@ export const portfolioData = {
             { label: "HACKATHONS", value: "3+" },
             { label: "CERTS", value: "7+" }
         ],
-        bio: "Data Science-focused ECE student from Chennai. I build AI systems, real-world intelligent solutions, and web applications using Python, ML, and modern web technologies.",
+        heroLine: "I ship real, working projects — ML, DSA, flyrank.ai — and give full effort into everything I build. Still figuring the rest out.",
+        bio: "Hi, I'm Parameshwaran — a 3rd-year ECE student specializing in Data Science at SRM Ramapuram. I'm still learning, and I don't pretend to have it all figured out — but I show up daily: working through ML and DSA problems, prepping for my Azure Data Fundamentals certification, and building flyrank.ai, my own startup project, from the ground up. Outside of code, I'm teaching myself Blender because I like understanding how things work end to end, not just the parts I'm comfortable with. If you're looking for someone who's genuinely curious and puts in real effort, that's me.",
         languages: [
             { name: "English", level: "Fluent" },
             { name: "Tamil", level: "Native" },
@@ -25,86 +28,144 @@ export const portfolioData = {
             { name: "Japanese", level: "Beginner" }
         ]
     },
+    // Projects — each is a distinct component on the board.
+    // status: 'shipped' (soldered, steady glow) | 'building' (breadboard patch, flickering)
+    // Datasheet fields: problem / state / link — exactly three, no more.
     projects: [
         {
+            id: "flyrank",
+            ref: "FR1",
+            title: "flyrank.ai",
+            status: "building",
+            problem: "My own startup project — an AI-powered ranking and visibility engine, built solo from the ground up.",
+            state: "Core build in active development; architecture and matching logic in progress — not publicly launched yet.",
+            link: LINKEDIN_URL,
+            linkLabel: "ASK ME ABOUT IT →",
+            tags: ["Startup", "AI", "In Build"]
+        },
+        {
             id: "crowd-pulse",
-            title: "CrowdPulse – AI Crowd Safety System",
-            description: "AI crowd monitoring using YOLOv8, ByteTrack, OpenCV, FastAPI, and React. Calculates real-time crowd density and issues safety alerts for public spaces.",
-            tags: ["Python", "YOLOv8", "OpenCV", "FastAPI", "React"],
-            github: "https://github.com/imnotparama/CrowdPulse"
+            ref: "CP1",
+            title: "CrowdPulse — AI Crowd Safety",
+            status: "shipped",
+            problem: "Real-time crowd density monitoring and safety alerts for public spaces.",
+            state: "Working end-to-end: YOLOv8 detection, ByteTrack tracking, and density alerts run live on video streams via FastAPI + React.",
+            link: "https://github.com/imnotparama/CrowdPulse",
+            linkLabel: "VIEW REPO →",
+            tags: ["Python", "YOLOv8", "OpenCV", "FastAPI", "React"]
         },
         {
             id: "dialora",
-            title: "Dialora – AI Tele-Calling Agent",
-            description: "Fully local AI calling agent built in 24hrs at ORIGIN 26 hackathon. Powered by FastAPI, Ollama (llama3.2), pyttsx3, browser speech-to-text, and React/Vite/Tailwind.",
-            tags: ["FastAPI", "Ollama", "React", "Tailwind", "SQLite"],
-            github: "https://github.com/imnotparama"
+            ref: "DL1",
+            title: "Dialora — AI Tele-Calling Agent",
+            status: "shipped",
+            problem: "A fully local AI calling agent — LLM-driven voice calls with zero cloud dependency.",
+            state: "Built and demoed in 24 hours at ORIGIN 26 hackathon; runs fully offline via Ollama (llama3.2) + pyttsx3.",
+            link: GITHUB_URL,
+            linkLabel: "VIEW GITHUB →",
+            tags: ["FastAPI", "Ollama", "React", "SQLite"]
         },
         {
             id: "eco-mentor",
+            ref: "EM1",
             title: "EcoMentor AI",
-            description: "Agentic AI sustainability advisor built for Google Agentic Wars Hackathon. Developed with React 19, FastAPI, and Claude API. Deployed on Vercel and Render.",
-            tags: ["React", "FastAPI", "Claude API", "Vercel"],
-            github: "https://github.com/imnotparama"
+            status: "shipped",
+            problem: "Agentic AI sustainability advisor that turns habits into actionable eco plans.",
+            state: "Deployed live on Vercel + Render — built for the Google Agentic Wars hackathon with React 19, FastAPI, and Claude API.",
+            link: GITHUB_URL,
+            linkLabel: "VIEW GITHUB →",
+            tags: ["React", "FastAPI", "Claude API", "Vercel"]
         },
         {
             id: "prmxa",
-            title: "PRMxA – Personal Streaming Site",
-            description: "Streaming platform for movies, TV shows, anime, and sports. Integrates Trakt API, Fanart.tv, Jikan API, and VidLink embeds inside a PWA-enabled React + Vite + Tailwind interface.",
-            tags: ["React", "Vite", "Tailwind", "Trakt API", "PWA"],
-            github: "https://github.com/imnotparama"
+            ref: "PX1",
+            title: "PRMxA — Streaming Hub",
+            status: "shipped",
+            problem: "A personal streaming platform for movies, TV, anime, and sports with rich metadata.",
+            state: "PWA live for personal use — Trakt, Fanart.tv, and Jikan API integrations working; new sources added incrementally.",
+            link: GITHUB_URL,
+            linkLabel: "VIEW GITHUB →",
+            tags: ["React", "Vite", "Tailwind", "PWA"]
         },
         {
             id: "smart-parking",
-            title: "Smart Parking Management System",
-            description: "Django web application for automated parking slots management, mapping vehicle-slot allocations with real-time slot booking availability.",
-            tags: ["Django", "Python", "SQL"],
-            github: "https://github.com/imnotparama"
+            ref: "SP1",
+            title: "Smart Parking System",
+            status: "shipped",
+            problem: "Automated parking slot allocation with real-time booking availability.",
+            state: "Working Django web app — vehicle-slot mapping and live booking flows complete.",
+            link: GITHUB_URL,
+            linkLabel: "VIEW GITHUB →",
+            tags: ["Django", "Python", "SQL"]
         },
         {
             id: "bus-it",
-            title: "BusIT – Smart Bus Tracking System",
-            description: "Django-based vehicle tracking system integrating GPS sensor streams to monitor live bus locations and calculate ETA updates for college students.",
-            tags: ["Django", "Python", "GPS APIs"],
-            github: "https://github.com/imnotparama"
+            ref: "BT1",
+            title: "BusIT — Live Bus Tracking",
+            status: "shipped",
+            problem: "Live campus bus tracking from GPS sensor streams with ETA calculation for students.",
+            state: "Tracking + ETA pipeline functional on live GPS data; built as a Django service.",
+            link: GITHUB_URL,
+            linkLabel: "VIEW GITHUB →",
+            tags: ["Django", "Python", "GPS APIs"]
+        },
+        {
+            id: "ml-dsa",
+            ref: "ML1",
+            title: "ML + DSA Daily Reps",
+            status: "building",
+            problem: "Daily practice: ML problem sets and DSA fundamentals — plus prep for the Azure Data Fundamentals certification.",
+            state: "Ongoing daily — practice streak live; Azure DP-900 exam not yet scheduled.",
+            link: GITHUB_URL + "?tab=repositories",
+            linkLabel: "PUBLIC COMMITS →",
+            tags: ["ML", "DSA", "Azure DP-900"]
         }
     ],
     skills: {
-        ai_ml: ["Python", "Machine Learning", "OpenCV", "YOLO", "Pandas", "NumPy"],
-        web: ["Django", "FastAPI", "React", "JavaScript", "HTML", "CSS", "Vite"],
-        data: ["SQL", "Power BI", "Data Analysis", "Git"],
-        hardware: ["Arduino", "IoT", "IR Sensors", "ESP32"]
+        ai_ml: ["Python", "Machine Learning", "OpenCV", "YOLO", "Pandas", "NumPy", "Scikit-learn"],
+        web: ["Django", "FastAPI", "React", "JavaScript", "HTML", "CSS", "Vite", "Tailwind"],
+        data: ["SQL", "Power BI", "Data Analysis", "Excel", "Git"],
+        hardware: ["Arduino", "IoT", "IR Sensors", "ESP32", "C"]
     },
     education: [
         {
-            degree: "B.Tech Electronics and Communication Engineering with Specialization in Data Science",
-            institution: "SRM Institute of Science and Technology, Chennai",
+            degree: "B.Tech ECE with Specialization in Data Science",
+            institution: "SRM Institute of Science and Technology, Ramapuram, Chennai",
             duration: "2024 – 2028",
             grade: "GPA: 9.51 / 10"
-        },
-        {
-            degree: "Class XII",
-            institution: "Chennai, India",
-            duration: "2023 – 2024",
-            grade: "Percentage: 82%"
-        },
-        {
-            degree: "Class X",
-            institution: "Chennai, India",
-            duration: "2021 – 2022",
-            grade: "Percentage: 92%"
         }
     ],
-    experience: [
+    // Experience — timeline etched into copper. Time-stamped junctions.
+    timeline: [
         {
-            role: "Intern",
-            company: "Beau Roi",
-            duration: "May 2025 – June 2025",
-            location: "Chennai, India",
-            details: [
-                "Assisted in backend development using Python and Django.",
-                "Participated in debugging, feature implementation, and engineering team collaboration."
-            ]
+            date: "2024",
+            title: "B.Tech ECE (Data Science) — SRM Ramapuram",
+            detail: "Enrolled; currently 3rd year. GPA 9.51/10."
+        },
+        {
+            date: "2025",
+            title: "Certification Stack — 7 earned",
+            detail: "NPTEL Data Analytics with Python (Elite) · Infosys Springboard Data Science · Maiyyam Data Analytics, Full Stack, UI/UX (ISO) · Accenture Digital Skills: AI · IBM SkillsBuild AI."
+        },
+        {
+            date: "MAY–JUN 2025",
+            title: "Backend Intern — Beau Roi, Chennai",
+            detail: "Python + Django backend work: debugging, feature implementation, engineering team collaboration."
+        },
+        {
+            date: "2025",
+            title: "ORIGIN 26 Hackathon — Dialora",
+            detail: "Built a fully local AI tele-calling agent in 24 hours. It worked."
+        },
+        {
+            date: "2025",
+            title: "Google Agentic Wars Hackathon — EcoMentor AI",
+            detail: "Agentic sustainability advisor, deployed live on Vercel + Render."
+        },
+        {
+            date: "NOW",
+            title: "Building flyrank.ai · Azure DP-900 prep",
+            detail: "Daily ML/DSA reps, startup build from the ground up, teaching myself Blender on the side."
         }
     ],
     certifications: [
@@ -115,12 +176,5 @@ export const portfolioData = {
         "UI/UX Design (Figma, Wireframing) – Maiyyam (ISO Certified)",
         "Digital Skills: AI – Accenture",
         "Getting Started with AI – IBM SkillsBuild"
-    ],
-    stack: {
-        languages: ["Python", "JavaScript", "C", "SQL"],
-        frameworks: ["Django", "FastAPI", "React", "Vite", "Tailwind"],
-        ai_ml: ["YOLOv8", "OpenCV", "Pandas", "NumPy", "Scikit-learn"],
-        tools: ["Git", "Power BI", "Figma", "Arduino IDE", "VS Code"],
-        cloud: ["Vercel", "Render", "GitHub Pages"]
-    }
+    ]
 };
