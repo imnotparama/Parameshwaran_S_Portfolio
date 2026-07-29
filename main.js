@@ -8,7 +8,7 @@ import { createProjectChips, updateProjectChips } from './src/three/project-chip
 import { initTooltip } from './src/ui/tooltip.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, triggerComponentAction } from './src/utils/hover.js';
-import { initSidePanel, openSidePanel, closeSidePanel } from './src/ui/sidepanel.js';
+import { openSidePanel, closeSidePanel } from './src/ui/sidepanel.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode, isSmallViewport } from './src/config.js';
 import { renderSections } from './src/ui/sections.js';
 import { initJourney, scrollToSection } from './src/scroll/journey.js';
