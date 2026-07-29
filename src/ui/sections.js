@@ -20,12 +20,20 @@ export function renderSections() {
 
 // The LinkedIn CTA is the entire point of the site — every
 // .js-linkedin element gets the real URL from env config.
+// This runs on every section change to re-wire any dynamically
+// added or re-rendered CTA elements.
 function wireProfileLinks() {
+    // LinkedIn — primary CTAs (the entire point of the site)
     document.querySelectorAll('.js-linkedin, #cta-linkedin-hud').forEach((a) => {
         a.href = LINKEDIN_URL;
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
     });
+    // GitHub — secondary, lower contrast, never competes for the click
     document.querySelectorAll('.js-github').forEach((a) => {
         a.href = GITHUB_URL;
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
     });
 }
 
