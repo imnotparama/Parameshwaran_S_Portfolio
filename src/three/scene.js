@@ -11,16 +11,23 @@ export let composer = null;
 // Glowing traces via bloom post-processing. Tuned conservatively so
 // frame rate holds on mid-range hardware; skipped entirely in lite mode.
 export function enableBloom() {
-    composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    const bloomPass = new UnrealBloomPass(
-        new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.45, // strength — subtle glow, not a light show
-        0.3,  // radius
-        0.7   // threshold — only emissive traces/LEDs bloom
-    );
-    composer.addPass(bloomPass);
-    composer.setSize(window.innerWidth, window.innerHeight);
+    if (!renderer || !scene || !camera) return;
+    try {
+        composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            0.45, // strength — subtle glow, not a light show
+            0.3,  // radius
+            0.7   // threshold — only emissive traces/LEDs bloom
+        );
+        composer.addPass(bloomPass);
+        composer.setSize(window.innerWidth, window.innerHeight);
+        composer.renderToScreen = true;
+    } catch (err) {
+        console.warn('Bloom init failed (likely import error):', err);
+        composer = null;
+    }
 }
 
 export const tickCallbacks = [];
