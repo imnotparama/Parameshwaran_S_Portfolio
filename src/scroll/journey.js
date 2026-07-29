@@ -9,7 +9,12 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 
+// Must register GSAP plugins before any ScrollTrigger usage
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+// Ensure ScrollTrigger refreshes after fonts and layout settle
+document.fonts?.ready?.then(() => ScrollTrigger.refresh());
+window.addEventListener('load', () => ScrollTrigger.refresh());
 
 // ─── Path definition ────────────────────────────────────────
 // World space (boardGroup scale = 0.85, board lies flat in XY, surface z ≈ 0.07).
@@ -95,9 +100,22 @@ export function initJourney(camera) {
         .map((id) => document.getElementById(id))
         .filter(Boolean);
 
+    if (sections.length < 2) {
+        console.warn('Journey: not enough sections found for scroll path');
+        return;
+    }
+
     // Camera starts at the hero establishing shot
     setCameraAtT(0);
     setActivePanel('panel-hero');
+
+    // Ensure we have a scrollable page by setting min-height on the body
+    // (sections already have min-height from CSS)
+    const totalScrollHeight = sections.reduce((sum, sec) => sum + sec.offsetHeight, 0);
+    if (totalScrollHeight < window.innerHeight * 2) {
+        // Add extra scroll room so the camera has space to travel
+        document.body.style.minHeight = '400vh';
+    }
 
     // One scrubbed trigger per travel leg: entering section i drives
     // the camera from stop i-1 to stop i with an ease that slows
@@ -131,7 +149,10 @@ export function initJourney(camera) {
         });
     });
 
-    ScrollTrigger.refresh();
+    // Refresh ScrollTrigger after everything is registered
+    requestAnimationFrame(() => {
+        ScrollTrigger.refresh();
+    });
 }
 
 // ─── Direct navigation (every section reachable two ways) ───
