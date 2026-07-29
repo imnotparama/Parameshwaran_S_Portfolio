@@ -57,10 +57,14 @@ export function runBootSequence(onCompleteCallback) {
         delay: 0.3
     });
 
-    // Step 3 (0.6s): Header fades in
+    // Step 3 (0.6s): Header and HUD bar fade in
     tl.to(header, {
         opacity: 1,
-        duration: 0.4
+        duration: 0.4,
+        onStart: () => {
+            const hudBar = document.getElementById('hud-bar');
+            if (hudBar) hudBar.classList.add('hud-ready');
+        }
     }, '+=0.1');
 
     // Typewriter effect for name
