@@ -55,9 +55,12 @@ export function createParticles(boardGroup) {
 // Animate particles along the trace points
 export function updateParticles(delta) {
     particles.forEach(p => {
-        // Calculate speed
+        if (!p.mesh || !p.mesh.visible) return;
+
+        // Calculate speed with delta clamping to prevent jumps
+        const clampedDelta = Math.min(delta, 0.05);
         const speed = p.baseSpeed * p.speedMultiplier;
-        p.progress += delta * speed;
+        p.progress += clampedDelta * speed;
 
         if (p.progress >= 1.0) {
             p.progress = 0.0;
@@ -65,6 +68,8 @@ export function updateParticles(delta) {
 
         // Interpolate along multi-segment coordinate vectors
         const numSegments = p.points.length - 1;
+        if (numSegments < 1) return;
+
         const segmentProgress = p.progress * numSegments;
         const currentSegmentIndex = Math.floor(segmentProgress);
         const subProgress = segmentProgress - currentSegmentIndex;
