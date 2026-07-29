@@ -556,6 +556,31 @@ body.full-journey #panel-contact.panel-active {
 }
 
 /* ============================================================
+   REDUCED MOTION — prefers-reduced-motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+    body.full-journey .ds-panel {
+        transition: none !important;
+    }
+    body.full-journey .ds-panel.panel-active {
+        transform: none !important;
+    }
+    .scroll-hint {
+        animation: none !important;
+        opacity: 0.6 !important;
+    }
+    .proj-ds-status.building {
+        animation: none !important;
+    }
+    .cta-linkedin {
+        transition: none !important;
+    }
+    #hud-bar.hud-ready {
+        transition: none !important;
+    }
+}
+
+/* ============================================================
    LITE MODE — reduced motion / small viewports.
    Sections stack normally; no scroll-jacking; static camera.
    ============================================================ */
