@@ -67,9 +67,9 @@ export function runBootSequence(onCompleteCallback) {
         }
     }, '+=0.1');
 
-    // Typewriter effect for name
+    // Typewriter effect for hero subtitle — from portfolio data
     tl.add(() => {
-        typewriterEffect(subtitleEl, "AI Engineer · ML Developer · ECE Student", 50);
+        typewriterEffect(subtitleEl, "ECE + Data Science · Builds Real, Working Projects", 35);
     }, '-=0.1');
 
     // Fade in stat badges
