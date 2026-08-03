@@ -1,5 +1,9 @@
+// ============================================================
+// Board geometry + canvas silkscreen
+// ============================================================
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
+import { showFallbackUI } from '../ui/fallback.js';
 
 export let boardGroup;
 export let silkscreenMesh;
@@ -17,7 +21,7 @@ export function createBoard(scene) {
     // Rounded rectangle path centered at (0, 0)
     const x = -width / 2;
     const y = -height / 2;
-    
+
     shape.moveTo(x + radius, y);
     shape.lineTo(x + width - radius, y);
     shape.quadraticCurveTo(x + width, y, x + width, y + radius);
@@ -70,167 +74,195 @@ export function createBoard(scene) {
     canvas.height = 4096;
     const ctx = canvas.getContext('2d');
 
+    let silkscreenTexture = null;
     if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        try {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // A. Draw Ground Plane Hatched Copper Pour in 4 Corners (Dark Gold)
-        ctx.strokeStyle = 'rgba(180, 130, 10, 0.22)';
-        ctx.lineWidth = 8;
-        
-        const drawHatchedPour = (startX, startY, endX, endY) => {
-            ctx.save();
+            // A. Draw Ground Plane Hatched Copper Pour in 4 Corners (Dark Gold)
+            ctx.strokeStyle = 'rgba(180, 130, 10, 0.22)';
+            ctx.lineWidth = 8;
+
+            const drawHatchedPour = (startX, startY, endX, endY) => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(startX, startY, endX - startX, endY - startY);
+                ctx.clip();
+                for (let i = -2000; i < 4000; i += 48) {
+                    ctx.moveTo(startX + i, startY);
+                    ctx.lineTo(startX + i - (endY - startY), endY);
+                }
+                ctx.stroke();
+                ctx.restore();
+            };
+
+            // Top Left
+            drawHatchedPour(80, 80, 600, 900);
+            // Top Right
+            drawHatchedPour(1448, 80, 1968, 900);
+            // Bottom Left
+            drawHatchedPour(80, 3100, 600, 4016);
+            // Bottom Right
+            drawHatchedPour(1448, 3100, 1968, 4016);
+
+            // B. Set up silkscreen text style
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 67px monospace';
+
+            // C. Component Outline Boxes
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 6;
+
+            // U1 CPU Outline
+            ctx.strokeRect(1024 - 240, 2048 - 272 - 240, 480, 480);
+            ctx.font = '56px monospace';
+            ctx.fillText('U1 - ECE_MCU_v2.0', 1024 - 190, 2048 - 272 + 300);
+
+            // U2 Projects Outline
+            ctx.strokeRect(428 - 168, 1092 - 168, 336, 336);
+            ctx.fillText('U2 - PROJECTS', 428 - 140, 1092 + 224);
+
+            // C1-C4 Outline (Caps)
+            ctx.strokeRect(1620 - 300, 1092 - 80, 600, 160);
+            ctx.fillText('C1-C4 - SKILLS', 1620 - 150, 1092 + 140);
+
+            // Y1 Crystal Outline
+            ctx.strokeRect(372 - 120, 2048 - 272 - 60, 240, 120);
+            ctx.fillText('Y1', 372 - 20, 2048 - 272 + 110);
+
+            // J1 USB-C Outline
+            ctx.strokeRect(1024 - 128, 4000 - 128, 256, 128);
+            ctx.fillText('J1 - USB_PWR', 1024 - 120, 4000 - 160);
+
+            // VR1 Stack Outline
+            ctx.strokeRect(1676 - 100, 3276 - 80, 200, 160);
+            ctx.fillText('VR1 - STACK', 1676 - 120, 3276 + 140);
+
+            // D1-D7 Certs Outline
+            ctx.strokeRect(372 - 240, 3276 - 160, 480, 320);
+            ctx.fillText('D1-D7 - CERTS', 372 - 140, 3276 + 220);
+
+            // RN1 Languages Outline
+            ctx.strokeRect(1024 - 160, 3000 - 30, 320, 60);
+            ctx.fillText('RN1 - LANGS', 1024 - 120, 3000 + 80);
+
+            // D. Border Outline Tracing with Rounded Corners
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 10;
+            const offset = 50;
+            const w = canvas.width - 2 * offset;
+            const h = canvas.height - 2 * offset;
+            const r = 100;
             ctx.beginPath();
-            ctx.rect(startX, startY, endX - startX, endY - startY);
-            ctx.clip();
-            for (let i = -2000; i < 4000; i += 48) {
-                ctx.moveTo(startX + i, startY);
-                ctx.lineTo(startX + i - (endY - startY), endY);
-            }
+            ctx.moveTo(offset + r, offset);
+            ctx.lineTo(offset + w - r, offset);
+            ctx.quadraticCurveTo(offset + w, offset, offset + w, offset + r);
+            ctx.lineTo(offset + w, offset + h - r);
+            ctx.quadraticCurveTo(offset + w, offset + h, offset + w - r, offset + h);
+            ctx.lineTo(offset + r, offset + h);
+            ctx.quadricCurveTo(offset, offset + h, offset, offset + h - r);
+            ctx.lineTo(offset, offset + r);
+            ctx.quadraticCurveTo(offset, offset, offset + r, offset);
             ctx.stroke();
+
+            // E. Silkscreen Labels & Text Markings
+            ctx.fillStyle = '#ffffff';
+
+            ctx.font = 'bold 100px monospace';
+            ctx.fillText('PARAMA-DEV-BOARD-v1.0', 120, 3960);
+            ctx.font = '67px monospace';
+            ctx.fillText('REV A', 1800, 160);
+            ctx.fillText('DESIGNED BY: PARAMESHWARAN S', 1120, 3880);
+            ctx.fillText('CHENNAI, INDIA 2025', 1320, 3960);
+
+            // F. SRM Institute marking near Y1 Crystal
+            ctx.save();
+            ctx.translate(372, 2048 - 272 - 300);
+            ctx.rotate(-Math.PI / 2);
+            ctx.font = '45px monospace';
+            ctx.fillText('SRM INSTITUTE OF SCIENCE AND TECHNOLOGY', -380, 0);
             ctx.restore();
-        };
 
-        // Top Left
-        drawHatchedPour(80, 80, 600, 900);
-        // Top Right
-        drawHatchedPour(1448, 80, 1968, 900);
-        // Bottom Left
-        drawHatchedPour(80, 3100, 600, 4016);
-        // Bottom Right
-        drawHatchedPour(1448, 3100, 1968, 4016);
-
-        // B. Set up silkscreen text style
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 67px monospace';
-
-        // C. Component Outline Boxes
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 6;
-
-        // U1 CPU Outline
-        ctx.strokeRect(1024 - 240, 2048 - 272 - 240, 480, 480);
-        ctx.font = '56px monospace';
-        ctx.fillText('U1 - ECE_MCU_v2.0', 1024 - 190, 2048 - 272 + 300);
-
-        // U2 Projects Outline
-        ctx.strokeRect(428 - 168, 1092 - 168, 336, 336);
-        ctx.fillText('U2 - PROJECTS', 428 - 140, 1092 + 224);
-
-        // C1-C4 Outline (Caps)
-        ctx.strokeRect(1620 - 300, 1092 - 80, 600, 160);
-        ctx.fillText('C1-C4 - SKILLS', 1620 - 150, 1092 + 140);
-
-        // Y1 Crystal Outline
-        ctx.strokeRect(372 - 120, 2048 - 272 - 60, 240, 120);
-        ctx.fillText('Y1', 372 - 20, 2048 - 272 + 110);
-
-        // J1 USB-C Outline
-        ctx.strokeRect(1024 - 128, 4000 - 128, 256, 128);
-        ctx.fillText('J1 - USB_PWR', 1024 - 120, 4000 - 160);
-
-        // VR1 Stack Outline
-        ctx.strokeRect(1676 - 100, 3276 - 80, 200, 160);
-        ctx.fillText('VR1 - STACK', 1676 - 120, 3276 + 140);
-
-        // D1-D7 Certs Outline
-        ctx.strokeRect(372 - 240, 3276 - 160, 480, 320);
-        ctx.fillText('D1-D7 - CERTS', 372 - 140, 3276 + 220);
-
-        // RN1 Languages Outline
-        ctx.strokeRect(1024 - 160, 3000 - 30, 320, 60);
-        ctx.fillText('RN1 - LANGS', 1024 - 120, 3000 + 80);
-
-        // D. Border Outline Tracing with Rounded Corners
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 10;
-        const offset = 50;
-        const w = canvas.width - 2 * offset;
-        const h = canvas.height - 2 * offset;
-        const r = 100;
-        ctx.beginPath();
-        ctx.moveTo(offset + r, offset);
-        ctx.lineTo(offset + w - r, offset);
-        ctx.quadraticCurveTo(offset + w, offset, offset + w, offset + r);
-        ctx.lineTo(offset + w, offset + h - r);
-        ctx.quadraticCurveTo(offset + w, offset + h, offset + w - r, offset + h);
-        ctx.lineTo(offset + r, offset + h);
-        ctx.quadraticCurveTo(offset, offset + h, offset, offset + h - r);
-        ctx.lineTo(offset, offset + r);
-        ctx.quadraticCurveTo(offset, offset, offset + r, offset);
-        ctx.stroke();
-
-        // E. Silkscreen Labels & Text Markings
-        ctx.fillStyle = '#ffffff';
-        
-        ctx.font = 'bold 100px monospace';
-        ctx.fillText('PARAMA-DEV-BOARD-v1.0', 120, 3960);
-        ctx.font = '67px monospace';
-        ctx.fillText('REV A', 1800, 160);
-        ctx.fillText('DESIGNED BY: PARAMESHWARAN S', 1120, 3880);
-        ctx.fillText('CHENNAI, INDIA 2025', 1320, 3960);
-
-        // F. SRM Institute marking near Y1 Crystal
-        ctx.save();
-        ctx.translate(372, 2048 - 272 - 300);
-        ctx.rotate(-Math.PI / 2);
-        ctx.font = '45px monospace';
-        ctx.fillText('SRM INSTITUTE OF SCIENCE AND TECHNOLOGY', -380, 0);
-        ctx.restore();
-
-        // G. Sine Wave graphic silkscreen near Y1 Crystal
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(372 - 100, 2048 - 272 - 180, 200, 80);
-        ctx.beginPath();
-        for (let i = 0; i <= 200; i++) {
-            const sx = 372 - 100 + i;
-            const sy = 2048 - 272 - 140 + Math.sin((i / 200) * Math.PI * 4) * 24;
-            if (i === 0) ctx.moveTo(sx, sy);
-            else ctx.lineTo(sx, sy);
-        }
-        ctx.stroke();
-        ctx.font = '39px monospace';
-        ctx.fillText('CLOCK osc', 372 - 72, 2048 - 272 - 200);
-
-        // H. Tamil character "ம்"
-        ctx.font = 'bold 123px sans-serif';
-        ctx.fillText('ம்', 120, 260);
-
-        // I. Small crosshair registration targets in 4 corners
-        const drawCrosshair = (cx, cy) => {
+            // G. Sine Wave graphic silkscreen near Y1 Crystal
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 4;
+            ctx.strokeRect(372 - 100, 2048 - 272 - 180, 200, 80);
             ctx.beginPath();
-            ctx.arc(cx, cy, 28, 0, Math.PI * 2);
-            ctx.moveTo(cx - 44, cy);
-            ctx.lineTo(cx + 44, cy);
-            ctx.moveTo(cx, cy - 44);
-            ctx.lineTo(cx, cy + 44);
+            for (let i = 0; i <= 200; i++) {
+                const sx = 372 - 100 + i;
+                const sy = 2048 - 272 - 140 + Math.sin((i / 200) * Math.PI * 4) * 24;
+                if (i === 0) ctx.moveTo(sx, sy);
+                else ctx.lineTo(sx, sy);
+            }
             ctx.stroke();
-        };
-        drawCrosshair(160, 160);
-        drawCrosshair(1888, 160);
-        drawCrosshair(160, 3936);
-        drawCrosshair(1888, 3936);
+            ctx.font = '39px monospace';
+            ctx.fillText('CLOCK osc', 372 - 72, 2048 - 272 - 200);
 
-        // J. Silkscreen QR Code block (mock) at bottom center
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(1024 - 70, 3700 - 70, 140, 140);
-        ctx.fillStyle = '#0a2b0a';
-        ctx.fillRect(1024 - 54, 3700 - 54, 108, 108);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(1024 - 42, 3700 - 42, 36, 36);
-        ctx.fillRect(1024 + 6, 3700 - 42, 36, 36);
-        ctx.fillRect(1024 - 42, 3700 + 6, 36, 36);
-        ctx.fillRect(1024 - 20, 3700 - 20, 16, 16);
-        ctx.fillRect(1024 + 4, 3700 - 4, 12, 12);
-        ctx.fillRect(1024 - 18, 3700 + 10, 16, 8);
+            // H. Tamil character "ம்"
+            ctx.font = 'bold 123px sans-serif';
+            ctx.fillText('ம்', 120, 260);
+
+            // I. Small crosshair registration targets in 4 corners
+            const drawCrosshair = (cx, cy) => {
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+                ctx.moveTo(cx - 44, cy);
+                ctx.lineTo(cx + 44, cy);
+                ctx.moveTo(cx, cy - 44);
+                ctx.lineTo(cx, cy + 44);
+                ctx.stroke();
+            };
+            drawCrosshair(160, 160);
+            drawCrosshair(1888, 160);
+            drawCrosshair(160, 3936);
+            drawCrosshair(1888, 3936);
+
+            // J. Silkscreen QR Code block (mock) at bottom center
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(1024 - 70, 3700 - 70, 140, 140);
+            ctx.fillStyle = '#0a2b0a';
+            ctx.fillRect(1024 - 54, 3700 - 54, 108, 108);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(1024 - 42, 3700 - 42, 36, 36);
+            ctx.fillRect(1024 + 6, 3700 - 42, 36, 36);
+            ctx.fillRect(1024 - 42, 3700 + 6, 36, 36);
+            ctx.fillRect(1024 - 20, 3700 - 20, 16, 16);
+            ctx.fillRect(1024 + 4, 3700 - 4, 12, 12);
+            ctx.fillRect(1024 - 18, 3700 + 10, 16, 8);
+
+            // Create the texture from the canvas
+            silkscreenTexture = new THREE.CanvasTexture(canvas);
+            disposableResources.textures.add(silkscreenTexture);
+        } catch (e) {
+            console.error('Failed to create silkscreen texture:', e);
+            // Create a fallback texture (solid color) so the board still renders
+            const fallbackCanvas = document.createElement('canvas');
+            fallbackCanvas.width = 64;
+            fallbackCanvas.height = 64;
+            const fctx = fallbackCanvas.getContext('2d');
+            if (fctx) {
+                fctx.fillStyle = '#124712'; // soldermask color
+                fctx.fillRect(0, 0, 64, 64);
+            }
+            silkscreenTexture = new THREE.CanvasTexture(fallbackCanvas);
+            disposableResources.textures.add(silkscreenTexture);
+        }
+    } else {
+        console.warn('Canvas context not available, creating fallback silkscreen texture');
+        const fallbackCanvas = document.createElement('canvas');
+        fallbackCanvas.width = 64;
+        fallbackCanvas.height = 64;
+        const fctx = fallbackCanvas.getContext('2d');
+        if (fctx) {
+            fctx.fillStyle = '#124712'; // soldermask color
+            fctx.fillRect(0, 0, 64, 64);
+        }
+        silkscreenTexture = new THREE.CanvasTexture(fallbackCanvas);
+        disposableResources.textures.add(silkscreenTexture);
     }
 
-    // CanvasTexture mapping
-    const silkscreenTexture = new THREE.CanvasTexture(canvas);
-    disposableResources.textures.add(silkscreenTexture);
-    
     // Thin overlay mesh just above soldermask surface
     const silkscreenGeom = new THREE.PlaneGeometry(width - 0.1, height - 0.1);
     disposableResources.geometries.add(silkscreenGeom);
@@ -240,7 +272,7 @@ export function createBoard(scene) {
         depthWrite: false
     });
     disposableResources.materials.add(silkscreenMat);
-    
+
     silkscreenMesh = new THREE.Mesh(silkscreenGeom, silkscreenMat);
     silkscreenMesh.position.z = thickness / 2 + 0.003;
     boardGroup.add(silkscreenMesh);
@@ -265,10 +297,12 @@ export function updateBoardParallax(elapsed, mouse) {
         boardGroup.rotation.x += (targetRotX - boardGroup.rotation.x) * 0.08;
         boardGroup.rotation.y += (targetRotY - boardGroup.rotation.y) * 0.08;
     } else {
-        // Journey mode: very subtle micro-tilt only (camera does the heavy lifting)
-        const microTiltX = -mouse.y * 0.015;
-        const microTiltY = mouse.x * 0.015;
-        boardGroup.rotation.x += (microTiltX - boardGroup.rotation.x) * 0.04;
-        boardGroup.rotation.y += (microTiltY - boardGroup.rotation.y) * 0.04;
+        // Journey mode: camera controls all movement; board stays put
+        // Ultra-smooth micro-tilt with higher lerp for fluid response
+        const microTiltX = -mouse.y * 0.003;
+        const microTiltY = mouse.x * 0.003;
+        const lerpFactor = 0.035;
+        boardGroup.rotation.x += (microTiltX - boardGroup.rotation.x) * lerpFactor;
+        boardGroup.rotation.y += (microTiltY - boardGroup.rotation.y) * lerpFactor;
     }
 }
