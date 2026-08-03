@@ -1,172 +1,346 @@
 // ============================================================
-// Scroll Journey — scroll = travel along the board.
-// A CatmullRomCurve3 winds across and into the PCB; GSAP
-// ScrollTrigger (scrub) binds scroll position to path progress.
-// Each section = the camera slowing and pushing into a component.
+// Scroll Journey — camera physically moves toward each component
+// as its section becomes active. Panels are positioned in screen
+// space near the component, connected by a visible trace line.
 // ============================================================
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 
-// Must register GSAP plugins before any ScrollTrigger usage
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
-// Ensure ScrollTrigger refreshes after fonts and layout settle
 document.fonts?.ready?.then(() => ScrollTrigger.refresh());
 window.addEventListener('load', () => ScrollTrigger.refresh());
 
-// ─── Path definition ────────────────────────────────────────
-// World space (boardGroup scale = 0.85, board lies flat in XY, surface z ≈ 0.07).
-// "stop" entries are section anchors; "via" entries add real turns
-// so the flight traces like a signal through a trace, not a straight dolly.
+// ─── Camera offsets for component-based sections ─────
+const CAMERA_OFFSET = new THREE.Vector3(0, 0, 1.915); // offset from component to camera
+const LOOK_AT_OFFSET = new THREE.Vector3(0, 0, -0.025); // offset from component to lookat
+
+// Fixed camera configurations for non-component sections (hero, contact)
+const FIXED_CAMERAS = {
+  'sec-hero': {
+    pos: new THREE.Vector3(0, -5.2, 13),
+    look: new THREE.Vector3(0, 0.4, 0)
+  },
+  'sec-contact': {
+    pos: new THREE.Vector3(0, -5.0, 14),
+    look: new THREE.Vector3(0, 0, 0)
+  }
+};
+
+// Component world positions (in boardGroup LOCAL space)
+const COMPONENT_WORLD = {
+  'sec-about':      new THREE.Vector3(0, 1.0, 0.085),
+  'sec-projects':   new THREE.Vector3(-3.2, 4.5, 0.085),
+  'sec-skills':     new THREE.Vector3(3.2, 4.5, 0.085),
+  'sec-experience': new THREE.Vector3(0, -7.3, 0.085),
+};
+
+// ─── Path definition: stops (section IDs) and via points (hardcoded) ─────
 const PATH = [
-    // HERO — wide establishing shot of the whole board
-    { stop: 'sec-hero', pos: [0, -5.2, 12.5], look: [0, 0.4, 0] },
-    // swing right and dive toward the CPU
-    { via: true, pos: [2.6, -3.4, 6.5], look: [0.6, 0.5, 0] },
-    // ABOUT — push into U1 "PARAM-CORE"
-    { stop: 'sec-about', pos: [0.15, -0.9, 2.7], look: [0, 0.85, 0.06] },
-    // bank left across the CPU toward the project array
-    { via: true, pos: [-1.8, 0.9, 3.8], look: [-1.2, 1.8, 0.05] },
-    // PROJECTS — hover over the project component cluster + U2
-    { stop: 'sec-projects', pos: [-2.05, 0.35, 3.1], look: [-2.05, 2.5, 0.06] },
-    // sweep over the top of the board to the far side
-    { via: true, pos: [0.4, 3.4, 4.2], look: [1.2, 3.6, 0.1] },
-    // SKILLS — the capacitor/resistor bank C1–C4
-    { stop: 'sec-skills', pos: [2.65, 1.7, 2.6], look: [2.65, 3.8, 0.25] },
-    // dive down the main power trace toward the USB connector
-    { via: true, pos: [2.4, -3.4, 4.6], look: [1.0, -4.4, 0.05] },
-    // EXPERIENCE — the J1 connector, timeline etched in copper
-    { stop: 'sec-experience', pos: [0, -8.3, 2.7], look: [0, -6.2, 0.08] },
-    // pull up and back out
-    { via: true, pos: [-2.2, -8.4, 8.0], look: [-0.6, -2.4, 0] },
-    // CONTACT — full board, fully lit
-    { stop: 'sec-contact', pos: [0, -6.2, 13.5], look: [0, 0, 0] }
+  { stop: 'sec-hero' },
+  { via: true, pos: [2.8, -2.4, 7.5], look: [0.8, 0.6, 0] },
+  { stop: 'sec-about' },
+  { via: true, pos: [-1.6, 2.2, 3.8], look: [-2.0, 3.0, 0.05] },
+  { stop: 'sec-projects' },
+  { via: true, pos: [0.5, 5.0, 4.2], look: [1.8, 4.2, 0.1] },
+  { stop: 'sec-skills' },
+  { via: true, pos: [2.0, -2.0, 4.8], look: [0.5, -4.5, 0.05] },
+  { stop: 'sec-experience' },
+  { via: true, pos: [-1.8, -8.0, 8.5], look: [-0.3, -2.0, 0] },
+  { stop: 'sec-contact' }
 ];
 
 let posCurve = null;
 let lookCurve = null;
-let stopTs = {};      // section id -> t along curve
-let stopOrder = [];   // section ids in order
+let stopTs = {};
+let stopOrder = [];
 let activePanelId = null;
 let cameraRef = null;
+let boardGroupRef = null;
+let vignetteEl = null;
+let connectorLine = null;
 const curLook = new THREE.Vector3();
+const worldPos = new THREE.Vector3();
+const screenPos = new THREE.Vector3();
 
+// Pre-cached stop position vectors (avoids GC per frame)
+const stopPosVectors = {};
+
+// Panel flicker cooldown
+let deactiveCooldown = 0;
+const DEACTIVATE_FRAMES = 10; // Wait 10 frames before deactivating
+
+// ─── Build CatmullRom curves from PATH ─────────────────────
 function buildCurves() {
-    const posPoints = PATH.map((p) => new THREE.Vector3(...p.pos));
-    const lookPoints = PATH.map((p) => new THREE.Vector3(...p.look));
-    posCurve = new THREE.CatmullRomCurve3(posPoints, false, 'catmullrom', 0.35);
-    lookCurve = new THREE.CatmullRomCurve3(lookPoints, false, 'catmullrom', 0.35);
+  const posPoints = [];
+  const lookPoints = [];
+  PATH.forEach((p, i) => {
+    let pos, look;
+    if (p.stop) {
+      // Get camera config for stop
+      const config = getCameraConfigForStop(p.stop);
+      pos = config.pos.clone();
+      look = config.look.clone();
+      // Cache stop position vectors for performance
+      stopPosVectors[p.stop] = pos.clone();
+      if (p.stop) stopOrder.push(p.stop);
+    } else if (p.via) {
+      pos = new THREE.Vector3(...p.pos);
+      look = new THREE.Vector3(...p.look);
+    }
+    posPoints.push(pos);
+    lookPoints.push(look);
+  });
+  posCurve = new THREE.CatmullRomCurve3(posPoints, false, 'catmullrom', 0.4);
+  lookCurve = new THREE.CatmullRomCurve3(lookPoints, false, 'catmullrom', 0.4);
+  // Build stopTs mapping
+  PATH.forEach((p, i) => {
+    if (p.stop) {
+      stopTs[p.stop] = i / (PATH.length - 1);
+    }
+  });
+}
 
-    // Fractional-index parameterization: t of each stop along the curve
-    PATH.forEach((p, i) => {
-        if (p.stop) {
-            stopTs[p.stop] = i / (PATH.length - 1);
-            stopOrder.push(p.stop);
-        }
-    });
+// Get camera position and lookat for a section ID for a given section ID
+function getCameraConfigForStop(sectionId) {
+  if (COMPONENT_WORLD[sectionId]) {
+    const compPos = COMPONENT_WORLD[sectionId].clone();
+    return {
+      pos: compPos.clone().add(CAMERA_OFFSET),
+      look: compPos.clone().add(LOOK_AT_OFFSET)
+    };
+  }
+  // Fallback to fixed configurations (hero, contact)
+  return FIXED_CAMERAS[sectionId] || {
+    pos: new THREE.Vector3(0, 0, 0),
+    look: new THREE.Vector3(0, 0, 0)
+  };
 }
 
 export function setCameraAtT(t) {
-    if (!posCurve || !cameraRef) return;
-    const clamped = Math.min(Math.max(t, 0), 1);
-    const p = posCurve.getPoint(clamped);
-    lookCurve.getPoint(clamped, curLook);
-    cameraRef.position.copy(p);
-    cameraRef.lookAt(curLook);
+  if (!posCurve || !cameraRef) return;
+  const clamped = Math.min(Math.max(t, 0), 1);
+  const p = posCurve.getPoint(clamped);
+  lookCurve.getPoint(clamped, curLook);
+  cameraRef.position.copy(p);
+  cameraRef.lookAt(curLook);
 }
 
 // ─── Panel + nav activation ─────────────────────────────────
 function setActivePanel(panelId) {
-    if (activePanelId === panelId) return;
-    activePanelId = panelId;
-    document.querySelectorAll('.ds-panel').forEach((el) => {
-        el.classList.toggle('panel-active', el.id === panelId);
-    });
-    // Highlight matching nav item
-    const secId = panelId ? panelId.replace('panel-', 'sec-') : '';
-    document.querySelectorAll('.hud-nav .nav-btn').forEach((btn) => {
-        btn.classList.toggle('nav-active', btn.getAttribute('data-section') === secId);
-    });
+  if (activePanelId === panelId) return;
+  const prevActive = activePanelId;
+  activePanelId = panelId;
+  document.querySelectorAll('.ds-panel').forEach((el) => {
+    el.classList.toggle('panel-active', el.id === panelId);
+  });
+  const secId = panelId ? panelId.replace('panel-', 'sec-') : '';
+  document.querySelectorAll('.hud-nav .nav-btn').forEach((btn) => {
+    btn.classList.toggle('nav-active', btn.getAttribute('data-section') === secId);
+  });
+  // Show/hide connector
+  if (connectorLine) {
+    const showConnector = panelId && panelId !== 'panel-hero' && panelId !== 'panel-contact';
+    connectorLine.style.display = showConnector ? 'block' : 'none';
+  }
+  deactiveCooldown = 0; // Reset cooldown on any state change
 }
 
-// ─── Init (full journey mode only) ──────────────────────────
-export function initJourney(camera) {
-    cameraRef = camera;
-    buildCurves();
-
-    const sections = stopOrder
-        .map((id) => document.getElementById(id))
-        .filter(Boolean);
-
-    if (sections.length < 2) {
-        console.warn('Journey: not enough sections found for scroll path');
-        return;
-    }
-
-    // Camera starts at the hero establishing shot
-    setCameraAtT(0);
-    setActivePanel('panel-hero');
-
-    // Ensure we have a scrollable page by setting min-height on the body
-    // (sections already have min-height from CSS)
-    const totalScrollHeight = sections.reduce((sum, sec) => sum + sec.offsetHeight, 0);
-    if (totalScrollHeight < window.innerHeight * 2) {
-        // Add extra scroll room so the camera has space to travel
-        document.body.style.minHeight = '400vh';
-    }
-
-    // One scrubbed trigger per travel leg: entering section i drives
-    // the camera from stop i-1 to stop i with an ease that slows
-    // and pushes in on arrival.
-    for (let i = 1; i < sections.length; i++) {
-        const prevT = stopTs[stopOrder[i - 1]];
-        const thisT = stopTs[stopOrder[i]];
-        ScrollTrigger.create({
-            trigger: sections[i],
-            start: 'top 95%',
-            end: 'top 5%',
-            scrub: 0.6,
-            onUpdate: (self) => {
-                const eased = gsap.parseEase('power2.inOut')(self.progress);
-                setCameraAtT(prevT + (thisT - prevT) * eased);
-            }
-        });
-    }
-
-    // Panel activation: a section's datasheet unfolds while the
-    // camera dwells on its component.
-    sections.forEach((sec, i) => {
-        const panelId = sec.getAttribute('data-panel');
-        ScrollTrigger.create({
-            trigger: sec,
-            start: i === 0 ? 'top top' : 'top 35%',
-            end: 'bottom 35%',
-            onToggle: (self) => {
-                if (self.isActive) setActivePanel(panelId);
-            }
-        });
-    });
-
-    // Refresh ScrollTrigger after everything is registered
-    requestAnimationFrame(() => {
-        ScrollTrigger.refresh();
-    });
+// ─── Create connector SVG overlay ───────────────────────────
+function createConnector() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.id = 'connector-line';
+  svg.setAttribute('class', 'connector-svg');
+  svg.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:29;pointer-events:none;overflow:visible;';
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('class', 'connector-path');
+  line.setAttribute('stroke', 'rgba(0,255,136,0.45)');
+  line.setAttribute('stroke-width', '1.5');
+  line.setAttribute('stroke-dasharray', '4 4');
+  const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  dot.setAttribute('class', 'connector-dot');
+  dot.setAttribute('r', '3');
+  dot.setAttribute('fill', '#00ff88');
+  dot.setAttribute('opacity', '0.6');
+  svg.appendChild(line);
+  svg.appendChild(dot);
+  document.body.appendChild(svg);
+  connectorLine = svg;
 }
 
-// ─── Direct navigation (every section reachable two ways) ───
+// ─── Per-frame update: screen-space panels + connector + vignette ──
+export function updateJourneyEffects(camera, boardGroup) {
+  if (!camera || !boardGroup) return;
+
+  const camPos = camera.position;
+
+  // 1. Find nearest section (using cached vectors)
+  let nearestSection = null;
+  let nearestDist = Infinity;
+  Object.keys(stopPosVectors).forEach((secId) => {
+    const targetPos = stopPosVectors[secId];
+    const dx = camPos.x - targetPos.x;
+    const dy = camPos.y - targetPos.y;
+    const dz = camPos.z - targetPos.z;
+    const dist = dx * dx + dy * dy + dz * dz; // squared distance (faster)
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearestSection = secId;
+    }
+  });
+  nearestDist = Math.sqrt(nearestDist); // convert back for threshold checks
+
+  // 2. Panel activation based on camera arrival
+  const panelId = nearestSection ? nearestSection.replace('sec-', 'panel-') : null;
+  const isComponent = !!COMPONENT_WORLD[nearestSection];
+  const ARRIVED_THRESHOLD = isComponent ? 3.5 : 6.0;
+  const LEFT_THRESHOLD = ARRIVED_THRESHOLD + 2.0;
+  const hasArrived = nearestDist < ARRIVED_THRESHOLD;
+  const hasLeft = nearestDist > LEFT_THRESHOLD;
+
+  if (panelId && hasArrived && activePanelId !== panelId) {
+    // Camera arrived — activate this section's panel
+    setActivePanel(panelId);
+  } else if (activePanelId && hasLeft && activePanelId !== panelId) {
+    // Camera left the current section and hasn't arrived at another
+    deactiveCooldown++;
+    if (deactiveCooldown > DEACTIVATE_FRAMES) {
+      // Only deactivate when we're not near ANY section's activation zone
+      let inAnyZone = false;
+      Object.keys(stopPosVectors).forEach((secId) => {
+        const tp = stopPosVectors[secId];
+        const ddx = camPos.x - tp.x;
+        const ddy = camPos.y - tp.y;
+        const ddz = camPos.z - tp.z;
+        const dd = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
+        const t = COMPONENT_WORLD[secId] ? 3.5 : 6.0;
+        if (dd < t + 1.0) inAnyZone = true;
+      });
+      if (!inAnyZone) {
+        setActivePanel(null);
+      }
+    }
+  } else {
+    deactiveCooldown = 0;
+  }
+
+  // 3. Screen-space panel positioning + connector line
+  if (nearestSection && COMPONENT_WORLD[nearestSection] && hasArrived) {
+    const localPos = COMPONENT_WORLD[nearestSection];
+    worldPos.copy(localPos);
+    boardGroup.localToWorld(worldPos);
+    screenPos.copy(worldPos).project(camera);
+
+    const cx = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
+    const cy = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
+
+    const panel = document.getElementById(panelId);
+    if (panel && connectorLine) {
+      const placeLeft = cx < window.innerWidth * 0.55;
+      const offsetX = 50;
+      const panelW = Math.min(480, window.innerWidth - 40);
+      const panelX = placeLeft
+        ? Math.max(16, cx + offsetX)
+        : Math.max(16, window.innerWidth - cx + offsetX);
+      // Use a reasonable fixed panel height estimate for positioning
+      const panelH = panel.offsetHeight || Math.min(300, window.innerHeight * 0.5);
+      const panelY = Math.max(80, Math.min(cy - panelH / 2, window.innerHeight - 160));
+
+      // Apply pixel positioning — CSS handles the slide-up + scale animation
+      panel.style.left = placeLeft ? `${panelX}px` : 'auto';
+      panel.style.right = placeLeft ? 'auto' : `${panelX}px`;
+      panel.style.top = `${panelY}px`;
+
+      // Update connector SVG line from component to panel edge
+      const line = connectorLine.querySelector('line');
+      const dot = connectorLine.querySelector('circle');
+      if (line && dot) {
+        const lineEndX = placeLeft ? panelX : window.innerWidth - panelX;
+        const lineEndY = panelY + panelH * 0.5;
+        line.setAttribute('x1', cx.toFixed(1));
+        line.setAttribute('y1', cy.toFixed(1));
+        line.setAttribute('x2', lineEndX.toFixed(1));
+        line.setAttribute('y2', lineEndY.toFixed(1));
+        dot.setAttribute('cx', cx.toFixed(1));
+        dot.setAttribute('cy', cy.toFixed(1));
+        connectorLine.style.display = 'block';
+      }
+    }
+  } else if (connectorLine) {
+    connectorLine.style.display = 'none';
+  }
+
+  // 4. Dynamic vignette based on camera proximity
+  if (!vignetteEl) vignetteEl = document.querySelector('.vignette-overlay');
+  if (vignetteEl) {
+    let intensity = 0.35;
+    if (nearestSection && COMPONENT_WORLD[nearestSection] && hasArrived) {
+      const t = Math.max(0, Math.min(1, (nearestDist - 1.5) / 3.0));
+      intensity = 0.35 + (1 - t) * 0.5;
+    }
+    vignetteEl.style.opacity = intensity;
+  }
+}
+
+// ─── Init ───────────────────────────────────────────────────
+export function initJourney(camera, boardGroup) {
+  cameraRef = camera;
+  boardGroupRef = boardGroup;
+  buildCurves();
+  createConnector();
+
+  const sections = stopOrder
+    .map((id) => document.getElementById(id))
+    .filter(Boolean);
+
+  if (sections.length < 2) {
+    console.warn('Journey: not enough sections found for scroll path');
+    return;
+  }
+
+  setCameraAtT(0);
+  setActivePanel('panel-hero');
+  if (vignetteEl) vignetteEl.style.opacity = 0.35;
+
+  const totalScrollHeight = sections.reduce((sum, sec) => sum + sec.offsetHeight, 0);
+  if (totalScrollHeight < window.innerHeight * 2) {
+    document.body.style.minHeight = '400vh';
+  }
+
+  // One scrubbed trigger per travel leg
+  for (let i = 1; i < sections.length; i++) {
+    const prevT = stopTs[stopOrder[i - 1]];
+    const thisT = stopTs[stopOrder[i]];
+    ScrollTrigger.create({
+      trigger: sections[i],
+      start: 'top 95%',
+      end: 'top 5%',
+      scrub: 0.6,
+      onUpdate: (self) => {
+        const eased = gsap.parseEase('power2.out')(self.progress);
+        setCameraAtT(prevT + (thisT - prevT) * eased);
+      }
+    });
+  }
+
+  requestAnimationFrame(() => {
+    ScrollTrigger.refresh();
+  });
+}
+
+// ─── Direct navigation ──────────────────────────────────────
 export function scrollToSection(sectionId) {
-    const el = document.getElementById(sectionId);
-    if (!el) return;
-    // Land where the section's dwell zone is fully engaged
-    const y = sectionId === 'sec-hero'
-        ? 0
-        : el.offsetTop + Math.min(el.offsetHeight * 0.45, window.innerHeight * 0.7);
-    gsap.to(window, {
-        scrollTo: { y },
-        duration: 1.4,
-        ease: 'power2.inOut',
-        overwrite: 'auto'
-    });
+  const el = document.getElementById(sectionId);
+  if (!el) return;
+  const y = sectionId === 'sec-hero'
+    ? 0
+    : el.offsetTop + Math.min(el.offsetHeight * 0.45, window.innerHeight * 0.7);
+  gsap.to(window, {
+    scrollTo: { y },
+    duration: 1.6,
+    ease: 'power2.inOut',
+    overwrite: 'auto'
+  });
 }
