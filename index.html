@@ -31,7 +31,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript>
-        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=display="all">
     </noscript>
 
     <!-- Critical font fallback -->
@@ -46,6 +46,8 @@
     <link rel="stylesheet" href="/scroll.css">
 </head>
 <body class="crt">
+    <!-- Skip to content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
 
     <!-- Scanline overlays for retro CRT monitors -->
     <div class="screen-scanlines" aria-hidden="true"></div>
@@ -56,9 +58,9 @@
         <div id="scanline"></div>
         <div class="boot-container">
             <div class="boot-terminal-log">
-                <span class="term-green">&gt; BOOTING PARAMA-DEV-BOARD...</span><br>
-                <span class="term-green">&gt; CLOCK FREQUENCY GENERATOR INITIATED (27.000MHz)...</span><br>
-                <span class="term-green">&gt; SYSTEM MEMORY ALLOCATION STACK READY (256KB SRAM)...</span><br>
+                <span class="term-green">> BOOTING PARAMA-DEV-BOARD...</span><br>
+                <span class="term-green">> CLOCK FREQUENCY GENERATOR INITIATED (27.000MHz)...</span><br>
+                <span class="term-green">> SYSTEM MEMORY ALLOCATION STACK READY (256KB SRAM)...</span><br>
                 <div class="terminal-status" id="terminal-status-text">// LOADING BOARD ASSETS...</div>
             </div>
         </div>
@@ -73,17 +75,17 @@
     <header id="hud-bar" role="banner">
         <a class="hud-name" href="#sec-hero" data-section="sec-hero">PARAMESHWARAN&nbsp;S</a>
         <nav class="hud-nav" aria-label="Board sections">
-            <button class="nav-btn" data-section="sec-about">[ABOUT]</button>
-            <button class="nav-btn" data-section="sec-projects">[PROJECTS]</button>
-            <button class="nav-btn" data-section="sec-skills">[SKILLS]</button>
-            <button class="nav-btn" data-section="sec-experience">[EXPERIENCE]</button>
-            <button class="nav-btn" data-section="sec-contact">[CONTACT]</button>
+            <button class="nav-btn" data-section="sec-about" aria-label="Go to About section">[ABOUT]</button>
+            <button class="nav-btn" data-section="sec-projects" aria-label="Go to Projects section">[PROJECTS]</button>
+            <button class="nav-btn" data-section="sec-skills" aria-label="Go to Skills section">[SKILLS]</button>
+            <button class="nav-btn" data-section="sec-experience" aria-label="Go to Experience section">[EXPERIENCE]</button>
+            <button class="nav-btn" data-section="sec-contact" aria-label="Go to Contact section">[CONTACT]</button>
         </nav>
-        <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer">CONNECT ON LINKEDIN →</a>
+        <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
     </header>
 
     <!-- Scroll journey — each section is a stop on the camera path -->
-    <main id="journey" role="main">
+    <main id="main-content" role="main">
 
         <!-- HERO — board overview / establishing shot -->
         <section class="journey-sec" id="sec-hero" data-panel="panel-hero">
@@ -102,7 +104,7 @@
                     <div class="stat-badge"><span class="badge-lbl">CERTS:</span><span class="badge-val">7+</span></div>
                 </div>
                 <div class="hero-cta-row">
-                    <a class="cta-linkedin cta-primary js-linkedin" href="#" target="_blank" rel="noopener noreferrer">CONNECT ON LINKEDIN →</a>
+                    <a class="cta-linkedin cta-primary js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
                 </div>
                 <div class="scroll-hint" aria-hidden="true">// SCROLL TO TRACE THE SIGNAL PATH ▼</div>
             </div>
@@ -122,7 +124,7 @@
                     </tbody>
                 </table>
                 <p class="ds-body text-pretty">Hi, I&apos;m Parameshwaran &mdash; a 3rd-year ECE student specializing in Data Science at SRM Ramapuram. I&apos;m still learning, and I don&apos;t pretend to have it all figured out &mdash; but I show up daily: working through ML and DSA problems, prepping for my Azure Data Fundamentals certification, and building flyrank.ai, my own startup project, from the ground up. Outside of code, I&apos;m teaching myself Blender because I like understanding how things work end to end, not just the parts I&apos;m comfortable with. If you&apos;re looking for someone who&apos;s genuinely curious and puts in real effort, that&apos;s me.</p>
-                <a class="cta-linkedin js-linkedin" href="#" target="_blank" rel="noopener noreferrer">CONNECT ON LINKEDIN →</a>
+                <a class="cta-linkedin js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
             </div>
         </section>
 
@@ -131,7 +133,7 @@
             <div class="ds-panel ds-panel-wide" id="panel-projects">
                 <div class="ds-ref">U2 &mdash; PROJECT ARRAY</div>
                 <h2 class="ds-title">// DATASHEET: PROJECTS</h2>
-                <p class="ds-legend"><span class="legend-soldered">■ SOLDERED — SHIPPED &amp; WORKING</span><span class="legend-breadboard">□ BREADBOARD — STILL BUILDING</span></p>
+                <p class="ds-legend"><span class="legend-soldered">■ SOLDERED — SHIPPED & WORKING</span><span class="legend-breadboard">□ BREADBOARD — STILL BUILDING</span></p>
                 <div id="projects-grid" class="projects-grid"><!-- injected --></div>
             </div>
         </section>
@@ -160,9 +162,9 @@
                 <div class="ds-ref">ANT1 &mdash; TX/RX</div>
                 <h2 class="ds-title">// ALL PCB SYSTEMS OPERATIONAL</h2>
                 <p class="ds-body text-pretty">If any of this looked useful, the fastest way to reach me is LinkedIn. I reply.</p>
-                <a class="cta-linkedin cta-primary cta-contact js-linkedin" href="#" target="_blank" rel="noopener noreferrer">CONNECT ON LINKEDIN →</a>
+                <a class="cta-linkedin cta-primary cta-contact js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
                 <div class="contact-secondary">
-                    <a class="secondary-link js-github" href="#" target="_blank" rel="noopener noreferrer">github: imnotparama</a>
+                    <a class="secondary-link js-github" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my GitHub profile (opens in new tab)">github: imnotparama</a>
                     <span class="secondary-sep" aria-hidden="true">·</span>
                     <a class="secondary-link" href="mailto:pw2491@srmist.edu.in">pw2491@srmist.edu.in</a>
                 </div>
