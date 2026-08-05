@@ -54,6 +54,45 @@ function navigateToSection(sectionId) {
     scrollToSection(sectionId);
 }
 
+// ─── Signal-path scroll progress readout (HUD legend) ──────
+// The fill is a pure function of scroll position — deterministic, no
+// wall-clock anywhere. Driven by a passive scroll listener + rAF coalescing
+// (one compositor write per frame max), reading the elements that exist.
+const SECTION_KEYS = ['sec-hero', 'sec-about', 'sec-projects', 'sec-skills', 'sec-experience', 'sec-contact'];
+let progressRaf = null;
+// Static elements — cache once so the per-frame hot path never queries the DOM.
+let sigFillEl = null;
+let sigPctEl = null;
+function updateSigPath() {
+    progressRaf = null;
+    if (!sigFillEl || !sigPctEl) {
+        sigFillEl = document.querySelector('.sig-path-fill');
+        sigPctEl = document.querySelector('.sig-path-pct');
+        if (!sigFillEl || !sigPctEl) return;
+    }
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+    sigFillEl.style.transform = `scaleX(${p.toFixed(4)})`;
+    sigPctEl.textContent = `${Math.round(p * 100)}%`;
+}
+function scheduleSigPath() {
+    if (progressRaf === null) progressRaf = requestAnimationFrame(updateSigPath);
+}
+
+// ─── Keyboard section navigation (number keys 1–6) ───────
+// Section order matches the HUD nav buttons. Keys are ignored while typing
+// in a field or when a modifier is held, so the page never hijacks input.
+function handleSectionKey(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = (document.activeElement && document.activeElement.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement && document.activeElement.isContentEditable) return;
+    const idx = parseInt(e.key, 10) - 1;
+    if (idx >= 0 && idx < SECTION_KEYS.length) {
+        e.preventDefault();
+        navigateToSection(SECTION_KEYS[idx]);
+    }
+}
+
 // Font loading detection for fallback management
 function detectFontLoading() {
     if (document.fonts && document.fonts.ready) {
@@ -185,4 +224,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // 16. Hash routing: back/forward + manual hash edits navigate sections
     window.addEventListener('hashchange', applyHashNavigation);
     window.addEventListener('popstate', applyHashNavigation);
+
+    // 17. Signal-path scroll progress: passive scroll listener + rAF coalescing
+    window.addEventListener('scroll', scheduleSigPath, { passive: true });
+    window.addEventListener('resize', scheduleSigPath);
+    scheduleSigPath();
+
+    // 18. Keyboard section navigation (1–6)
+    window.addEventListener('keydown', handleSectionKey);
 });

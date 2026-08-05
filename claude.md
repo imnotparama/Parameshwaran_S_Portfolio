@@ -248,6 +248,12 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 
 ## 📝 Developer Change & Session Log
 
+- **2026-08 Session — Signal-path scroll progress + keyboard nav (animejs discipline, GSAP-free)**:
+  - `index.html`: HUD legend gained a signal-path readout — `.sig-path` track > `.sig-path-fill` + `.sig-path-pct` (percentage register).
+  - `scroll.css`: `.sig-path`/`.sig-path-fill`/`.sig-path-pct` — fill uses `transform: scaleX(0)` with `transform-origin: left center` and a 0.08s linear transition (transform-only, no layout); ENIG-gold gradient + glow matches the fab-shop palette; `prefers-reduced-motion` gets `transition: none` for the fill.
+  - `main.js`: `updateSigPath()`/`scheduleSigPath()` — the fill is a **pure function of scroll position** (`scrollY / (scrollHeight - innerHeight)`), deterministic, no wall-clock; passive `scroll` + `resize` listeners with rAF coalescing (one write per frame max); DOM refs cached after first lookup. `handleSectionKey()` — number keys 1–6 jump to sections via `navigateToSection`, ignoring modifier-held keys and form-field focus.
+  - Applied the animejs skill's *principles* (deterministic, finite, single source of truth) without adding the dependency — the project is GSAP-based and the skill itself directs complex sequencing to GSAP.
+  - **Verified live**: fill tracked a 50% scroll to `scaleX(0.5001)` / "50%" within 1%; key `3` → `#/projects`; guards confirmed (ctrl+5, letter `a`, focused input all ignored; `6` → `#/contact`); console clean. Build + tsc green; code review clean (cached the two DOM refs).
 - **2026-08 Session — Deterministic boot sequence (hyperframes-animation applied)**:
   - `boot.js` rewritten as **one GSAP timeline with ALL-ABSOLUTE positions** (a `SCHEDULE` const in seconds — scanline 0.3, HUD 1.75, hero 2.35, subtitle 2.65, badges 2.8, canvas/board 3.45, traces 4.85, pins 5.05, LEDs 5.25, cores 5.55, status 5.85, overlay fade 6.25 → boot ends ~6.85s). No relative `+=` chaining.
   - **Typewriters are now timeline-driven proxy tweens** (`tl.to` on `{ n: 0 → text.length }` with `onUpdate` slicing `textContent`, `CPS = 33.3` chars/s) — deleted `typewriterEffect()` and `typeTerminalLine()` entirely. No `setTimeout` anywhere in the boot (the only remaining `setTimeout` in the repo is the debounced resize in `scene.js`).

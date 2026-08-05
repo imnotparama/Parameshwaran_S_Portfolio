@@ -174,6 +174,43 @@ body.hud-cta-hidden #cta-linkedin-hud {
     opacity: 0.75;
 }
 
+/* Signal-path scroll progress — a live trace that fills with journey progress.
+   The fill uses transform: scaleX only (transform-origin left) so updating it
+   never triggers layout — one compositor-cheap write per scroll, driven by
+   scroll position (deterministic) not wall-clock time. */
+.sig-path {
+    display: inline-block;
+    width: 54px;
+    height: 4px;
+    background: rgba(236, 231, 216, 0.08);
+    border: 1px solid rgba(200, 150, 12, 0.35);
+    border-radius: 1px;
+    overflow: hidden;
+    margin-left: 2px;
+}
+
+.sig-path-fill {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(200, 150, 12, 0.4), var(--enig-gold));
+    box-shadow: 0 0 6px rgba(201, 162, 75, 0.4);
+    transform: scaleX(0);
+    transform-origin: left center;
+    /* CSS transition, not GSAP: the fill is a scroll-derived readout that
+       must never lag or fight the scrub — a short snap keeps it honest. */
+    transition: transform 0.08s linear;
+}
+
+.sig-path-pct {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: rgba(200, 150, 12, 0.85);
+    min-width: 30px;
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+}
+
 /* Gold-pad CTA — reads as an ENIG pad on the board, not a neon pill.
    (No rotating shine sweep: that was the template tell.) */
 .cta-linkedin {
@@ -754,6 +791,9 @@ body.full-journey #panel-contact.panel-active {
         animation: none !important;
     }
     .cta-linkedin {
+        transition: none !important;
+    }
+    .sig-path-fill {
         transition: none !important;
     }
     #hud-bar.hud-ready {
