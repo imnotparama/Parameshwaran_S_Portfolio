@@ -8,25 +8,44 @@
 }
 
 :root {
-    --bg-color: #030b06;         /* Deeper green-black */
-    --bg-gradient-1: #04120a;
-    --bg-gradient-2: #020804;
-    --pcb-green: #0d3d0d;        /* Dark board base */
-    --pcb-mask: #1a5c1a;         /* Soldermask overlay */
-    --pcb-gold: #c8960c;         /* Copper gold traces */
-    --color-text-primary: #d7ffe6;
-    --color-text-muted: #7fbf8f;
-    --glow-green: #00ff88;
-    --glow-green-dim: rgba(0, 255, 136, 0.15);
+    /* ── Fab-shop palette: matte FR-4, silkscreen white, ENIG gold.
+       Green (`--signal`) is reserved for LIVE elements only — boot,
+       power LED, electrons, hover. If it glows, it's powered. ── */
+    --fr4: #07120e;              /* dark FR-4 charcoal (page ground) */
+    --mask-green: #1e4d33;       /* matte soldermask green */
+    --silkscreen: #ece7d8;       /* warm IPC silkscreen white */
+    --silkscreen-muted: #9db4a3; /* faded legend */
+    --enig-gold: #c9a24b;        /* ENIG pad gold — identity accent */
+    --signal: #3ee6a0;           /* the ONLY glow — "live" state */
+
+    /* Legacy aliases (kept so existing rules keep working) */
+    --bg-color: var(--fr4);
+    --bg-gradient-1: #0a1a13;
+    --bg-gradient-2: #040d09;
+    --pcb-green: #123b2c;        /* dark board base */
+    --pcb-mask: var(--mask-green);
+    --pcb-gold: var(--enig-gold);
+    --color-text-primary: var(--silkscreen);
+    --color-text-muted: var(--silkscreen-muted);
+    --glow-green: var(--signal);
+    --glow-green-dim: rgba(62, 230, 160, 0.12);
     --glow-blue: #00bfff;
-    --glow-amber: #ffcc00;
-    --glow-red: #ff4444;
+    --glow-amber: #e8b339;
+    --glow-red: #ff6b5e;
     --glow-purple: #aa44ff;
-    --font-mono: 'Share Tech Mono', monospace;
-    --font-heading: 'Orbitron', sans-serif;
-    --panel-bg: rgba(3, 14, 8, 0.88);
-    --panel-border: rgba(0, 255, 136, 0.2);
-    --panel-shadow: 0 0 40px rgba(0, 255, 136, 0.06), inset 0 0 60px rgba(0, 255, 136, 0.02);
+    --font-mono: 'Fragment Mono', monospace;
+    --font-heading: 'Chakra Petch', sans-serif;
+    --font-body: 'Instrument Sans', sans-serif;
+    --panel-bg: rgba(9, 20, 15, 0.9);
+    --panel-border: rgba(236, 231, 216, 0.16);
+    --panel-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+
+    /* Motion tokens */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --duration-fast: 0.18s;
+    --duration-base: 0.3s;
+    --duration-slow: 0.6s;
 
     /* Design System Tokens */
     /* Spacing Scale */
@@ -55,7 +74,7 @@
 }
 
 body {
-    background: radial-gradient(circle at center, rgba(0, 40, 0, 0.28) 0%, #050f05 85%);
+    background: radial-gradient(circle at center, rgba(30, 77, 51, 0.20) 0%, #050f0b 85%);
     color: var(--color-text-primary);
     font-family: var(--font-mono);
     overflow: hidden;
@@ -165,27 +184,24 @@ body {
 
 .ece-label {
     font-size: 12px;
-    color: var(--glow-green);
-    letter-spacing: 2px;
-    text-shadow: 0 0 5px rgba(0, 255, 136, 0.5);
+    color: var(--enig-gold);
+    letter-spacing: 2.5px;
     margin-bottom: 8px;
 }
 
 h1#user-name {
     font-family: var(--font-heading);
     font-size: clamp(32px, 5vw, 64px);
-    font-weight: 900;
-    color: #ffffff;
-    letter-spacing: 0.15em;
+    font-weight: 700;
+    color: var(--silkscreen);
+    letter-spacing: 0.18em;
     margin-bottom: 12px;
-    text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
 }
 
 .header-underline {
     width: 0%;
     height: 2px;
-    background-color: var(--glow-green);
-    box-shadow: 0 0 10px var(--glow-green);
+    background-color: var(--enig-gold);
     margin: -4px auto 14px;
 }
 
@@ -218,20 +234,19 @@ h1#user-name {
 }
 
 .stat-badge {
-    border: 1px solid var(--pcb-mask);
-    background-color: rgba(26, 92, 26, 0.08);
+    border: 1px solid rgba(158, 180, 163, 0.22);
+    background-color: rgba(30, 77, 51, 0.10);
     padding: 6px 16px;
-    border-radius: 3px;
+    border-radius: 2px;
     font-size: 13px;
-    color: #ffffff;
+    color: var(--silkscreen);
     display: flex;
     gap: 6px;
-    box-shadow: inset 0 0 4px rgba(26, 92, 26, 0.2);
 }
 
 .badge-lbl {
-    color: var(--glow-green);
-    font-weight: bold;
+    color: var(--enig-gold);
+    font-weight: 600;
 }
 
 /* -------------------------------------------------------------

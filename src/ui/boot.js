@@ -52,8 +52,12 @@ export function runBootSequence(onCompleteCallback) {
     }
 
     // Step 2 (0.3s): Horizontal scanline sweep top to bottom
+    // Tween the transform (y) instead of `top` — layout properties stutter
+    // on slow eases and force reflow per frame (GSAP transform-alias rule).
+    // The sweep distance is the overlay's full height, measured once at setup.
+    const scanlineTravel = overlay ? overlay.clientHeight : window.innerHeight;
     tl.to(scanline, {
-        top: '100%',
+        y: scanlineTravel,
         duration: 0.85,
         ease: 'power1.inOut',
         delay: 0.3
@@ -88,7 +92,7 @@ export function runBootSequence(onCompleteCallback) {
         }
     }, '+=0.1');
 
-    // Step 3 (0.6s): HUD bar fades in
+    // Step 3 (0.6s): HUD bar fades in — only add hud-ready here once during boot
     if (hudBar) {
         hudBar.classList.add('hud-ready');
         tl.to(hudBar, { opacity: 1, duration: 0.4 }, '+=0.5');
@@ -96,7 +100,10 @@ export function runBootSequence(onCompleteCallback) {
 
     // Hero panel reveals
     if (heroPanel) {
-        tl.set(heroPanel, { opacity: 1, visibility: 'visible' }, '+=0.2');
+        // Set, then immediately clear inline styles: without clearProps the inline
+        // opacity/visibility would permanently override the .panel-active CSS toggle
+        // in journey.js, leaving the hero panel stuck on top of every other section.
+        tl.set(heroPanel, { opacity: 1, visibility: 'visible', clearProps: 'opacity,visibility' }, '+=0.2');
     }
 
     // Typewriter effect for subtitle
@@ -198,13 +205,17 @@ export function runBootSequence(onCompleteCallback) {
             p.mesh.visible = true;
         });
         
-        // Pulse CPU Silicon die grid
+        // Pulse CPU Silicon die grid (finite, 8 pulses then settle)
         if (siliconDieMesh) {
             gsap.to(siliconDieMesh.material, {
                 opacity: 0.4,
-                duration: 1.0,
+                duration: 0.8,
                 yoyo: true,
-                repeat: -1
+                repeat: 7,
+                onComplete: () => {
+                    // Settle at a steady glow after boot
+                    if (siliconDieMesh) siliconDieMesh.material.opacity = 0.65;
+                }
             });
         }
     }, '+=0.3');

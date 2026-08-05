@@ -36,7 +36,7 @@ let hoverLight = null;
 
 // ─── PCB Hover Glow Color Map ───────────────────────────────
 const PCB_GLOW_MAP = {
-    'U1': 0x00ff88, 'U2': 0x00bfff, 'Y1': 0xaa44ff,
+    'U1': 0x3ee6a0, 'U2': 0x00bfff, 'Y1': 0xaa44ff,
     'ANT1': 0x00ffff, 'J1': 0xff8800, 'VR1': 0xff4444,
     'RN1': 0x14b8a6, 'TP1': 0xffcc00, 'TP2': 0xffcc00
 };
@@ -50,7 +50,7 @@ function getSubCoreGlowColor(name) {
     if (name.startsWith('edu_')) return 0xaa44ff;
     if (name.startsWith('usb_')) return 0xff8800;
     if (name.startsWith('vr_')) return 0xff4444;
-    return SUB_CORE_GLOW_MAP[name] || 0x00ff88;
+    return SUB_CORE_GLOW_MAP[name] || 0x3ee6a0;
 }
 
 // ─── Init ───────────────────────────────────────────────────
@@ -89,10 +89,14 @@ export function initHover(camera, scene) {
         if (e.touches.length > 0) updateMouseCoords(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: true });
 
-    // Click handler for zoom-to-component
+    // Click handler for zoom-to-component (legacy mode only)
+    // In journey mode, the scroll system controls camera. Clicks navigate sections.
     window.addEventListener('click', (e) => {
         const backBtn = document.getElementById('btn-hud-back');
         if (backBtn && backBtn.contains(e.target)) return;
+
+        // Don't fire legacy zoom in scroll-journey mode
+        if (document.body.classList.contains('full-journey')) return;
 
         if (viewState === 'PCB' && hoveredObject) {
             const ref = hoveredObject.name;
@@ -139,21 +143,32 @@ function toggleComponentShells(ref, isVisible) {
 
 // ─── Per-frame Raycast Check ────────────────────────────
 
-export function checkHover() {
+export function checkHover(delta = 1 / 60) {
     if (!raycaster || !activeCamera) return;
 
-    // Smooth target mouse LERP for bounded inertia deceleration (~500ms smooth feel)
-    mouse.x += (targetMouse.x - mouse.x) * 0.08;
-    mouse.y += (targetMouse.y - mouse.y) * 0.08;
+    // Smooth target mouse LERP — gives parallax a 500ms spring-decay feel.
+    // Delta-scaled so the feel is identical at any frame rate (a fixed
+    // 0.08/frame would smooth only half as fast at 30fps). At 60fps the
+    // factor is exactly 0.08, matching the original behavior.
+    const lerpFactor = 1 - Math.pow(0.92, delta * 60);
+    mouse.x += (targetMouse.x - mouse.x) * lerpFactor;
+    mouse.y += (targetMouse.y - mouse.y) * lerpFactor;
 
-    // Camera LERP update (delegated to camera-states)
-    updateCamera(activeCamera);
+    // Camera LERP update — ONLY in legacy zoom mode, never in scroll-journey mode.
+    // In journey mode, setCameraAtT() controls the camera; running updateCamera()
+    // here would fight the scroll-scrub position every frame.
+    const isJourneyMode = document.body.classList.contains('full-journey');
+    if (!isJourneyMode) {
+        updateCamera(activeCamera);
+    }
 
     frameCounter++;
 
     // Throttle raycasts to every 3rd frame
     if (frameCounter % 3 !== 0) return;
 
+    // In journey mode, hover glow is still valid but click-zoom is not.
+    // In legacy mode (no full-journey), ZOOMED_IN state machine applies.
     const targets = viewState === 'PCB'
         ? interactiveObjects
         : viewState === 'ZOOMED_IN'
@@ -161,7 +176,9 @@ export function checkHover() {
             : [];
 
     const filteredTargets = targets.filter(obj => obj.userData && obj.userData.isInteractive);
-    raycaster.setFromCamera(mouse, activeCamera);
+    // Use targetMouse (instant, unlagged) for accurate raycasting — smoothed mouse
+    // is only used for parallax board tilt via updateBoardParallax()
+    raycaster.setFromCamera(targetMouse, activeCamera);
     const intersects = raycaster.intersectObjects(filteredTargets, false);
 
     if (intersects.length > 0) {
@@ -194,7 +211,7 @@ function handleHoverEnter(mesh) {
     const name = mesh.name;
 
     if (viewState === 'PCB') {
-        const glowColor = PCB_GLOW_MAP[name] || 0x00ff88;
+        const glowColor = PCB_GLOW_MAP[name] || 0x3ee6a0;
 
         // Subtle glow only — this is a PREVIEW, not the full arrival
         if (mat.emissive) {

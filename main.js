@@ -5,6 +5,7 @@ import { createComponents } from './src/three/components.js';
 import { createTraces } from './src/three/traces.js';
 import { createParticles, updateParticles } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips } from './src/three/project-chips.js';
+import { updateRadarRing } from './src/three/components.js';
 import { initTooltip } from './src/ui/tooltip.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, triggerComponentAction } from './src/utils/hover.js';
@@ -93,11 +94,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Run electron pathing animations
         updateParticles(delta);
 
+        // U1 CPU radar sweep (procedural, elapsed-driven)
+        updateRadarRing(elapsed);
+
         // Update project chip LEDs (flicker breadboard LEDs)
         updateProjectChips(elapsed);
 
         // Run hover raycasting intersection diagnostics
-        checkHover();
+        checkHover(delta);
 
         // Apply mouse movement 3D board parallax tilts
         updateBoardParallax(elapsed, mouse);
@@ -116,10 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (shouldInitJourney) {
             initJourney(camera, boardGroup);
         }
-
-        // Show HUD bar after boot (whether journey or lite mode)
-        const hudBar = document.getElementById('hud-bar');
-        if (hudBar) hudBar.classList.add('hud-ready');
+        // Note: hud-ready class is already set inside runBootSequence step 3
     });
 
     // 13. Register memory cleanup on page unload

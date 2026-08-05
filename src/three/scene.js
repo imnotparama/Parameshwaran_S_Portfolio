@@ -58,7 +58,9 @@ export function initScene(canvasElement) {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // PCFSoftShadowMap was removed in r185 (deprecation warning) — PCF is the
+    // supported soft variant now.
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     // 4. Set up Lights
     // Ambient light - soft tint of green matching solder mask glow
@@ -81,8 +83,9 @@ export function initScene(canvasElement) {
     fillLight.position.set(-6, -4, 5);
     scene.add(fillLight);
 
-    // Dynamic green backlight behind PCB for glow on canvas
-    const pcbBacklight = new THREE.PointLight(0x00ff88, 1.2, 18);
+    // Soft soldermask-green backlight behind PCB — a matte fabrication wash,
+    // not the neon arcade glow. Matches --mask-green in the fab-shop palette.
+    const pcbBacklight = new THREE.PointLight(0x2a6b4c, 1.4, 18);
     pcbBacklight.position.set(0, 0, -1);
     scene.add(pcbBacklight);
 
@@ -150,11 +153,14 @@ export function initScene(canvasElement) {
     }
 
     // 7. Start Render/Animation Tick loop
-    const clock = new THREE.Clock();
+    // THREE.Timer replaces the deprecated THREE.Clock (r185+). This is a
+    // real-time interactive scene, so a wall-clock-derived Timer is the
+    // correct source of truth here (unlike deterministic HyperFrames renders).
+    const timer = new THREE.Timer();
 
     function animate() {
-        const delta = clock.getDelta();
-        const elapsed = clock.getElapsedTime();
+        const delta = timer.getDelta();
+        const elapsed = timer.getElapsed();
 
         // Performance check (every frame, delta is in seconds)
         checkPerformance(delta * 1000);

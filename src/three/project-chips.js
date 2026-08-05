@@ -36,7 +36,7 @@ export function createProjectChips(boardGroup) {
         color: 0xc8960c,
         roughness: 0.3,
         metalness: 0.85,
-        emissive: 0x00ff88,
+        emissive: 0x3ee6a0,
         emissiveIntensity: 0.5
     });
     disposableResources.materials.add(chipMat);
@@ -116,8 +116,8 @@ function buildSolderedChip(group, chipMat, goldMat, traceMat, busOffsetY) {
     // Steady status LED — shipped means it stays lit
     const ledGeo = new THREE.SphereGeometry(0.05, 10, 10);
     const ledMat = new THREE.MeshStandardMaterial({
-        color: 0x00ff88,
-        emissive: 0x00ff88,
+        color: 0x3ee6a0,
+        emissive: 0x3ee6a0,
         emissiveIntensity: 1.4,
         roughness: 0.3
     });

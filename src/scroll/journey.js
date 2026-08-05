@@ -74,6 +74,12 @@ const DEACTIVATE_FRAMES = 10; // Wait 10 frames before deactivating
 
 // ─── Build CatmullRom curves from PATH ─────────────────────
 function buildCurves() {
+  // Reset accumulated state so re-initializing (HMR, re-entry) can't
+  // duplicate stops or leave stale t-mappings behind.
+  stopOrder.length = 0;
+  for (const k in stopTs) delete stopTs[k];
+  for (const k in stopPosVectors) delete stopPosVectors[k];
+
   const posPoints = [];
   const lookPoints = [];
   PATH.forEach((p, i) => {
@@ -131,13 +137,16 @@ export function setCameraAtT(t) {
 // ─── Panel + nav activation ─────────────────────────────────
 function setActivePanel(panelId) {
   if (activePanelId === panelId) return;
-  const prevActive = activePanelId;
   activePanelId = panelId;
   document.querySelectorAll('.ds-panel').forEach((el) => {
     el.classList.toggle('panel-active', el.id === panelId);
   });
   const secId = panelId ? panelId.replace('panel-', 'sec-') : '';
-  document.body.classList.toggle('in-contact-section', panelId === 'panel-contact');
+  // Exactly ONE LinkedIn CTA per section: hide the HUD button whenever the
+  // active panel carries its own CTA (hero, about, contact all do).
+  const activePanelEl = panelId ? document.getElementById(panelId) : null;
+  const panelHasOwnCta = !!(activePanelEl && activePanelEl.querySelector('.cta-linkedin'));
+  document.body.classList.toggle('hud-cta-hidden', !!panelId && panelHasOwnCta);
   document.querySelectorAll('.hud-nav .nav-btn').forEach((btn) => {
     btn.classList.toggle('nav-active', btn.getAttribute('data-section') === secId);
   });
@@ -239,26 +248,45 @@ export function updateJourneyEffects(camera, boardGroup) {
 
     const panel = document.getElementById(panelId);
     if (panel && connectorLine) {
-      const placeLeft = cx < window.innerWidth * 0.55;
-      const offsetX = 50;
-      const panelW = Math.min(480, window.innerWidth - 40);
-      const panelX = placeLeft
-        ? Math.max(16, cx + offsetX)
-        : Math.max(16, window.innerWidth - cx + offsetX);
-      // Use a reasonable fixed panel height estimate for positioning
+      // Use the panel's real rendered width — #panel-projects is .ds-panel-wide
+      // (up to 980px), so a hardcoded 480 would shove it off-screen.
+      const panelW = panel.offsetWidth || Math.min(480, window.innerWidth - 40);
       const panelH = panel.offsetHeight || Math.min(300, window.innerHeight * 0.5);
-      const panelY = Math.max(80, Math.min(cy - panelH / 2, window.innerHeight - 160));
+      const margin = 24;
 
-      // Apply pixel positioning — CSS handles the slide-up + scale animation
-      panel.style.left = placeLeft ? `${panelX}px` : 'auto';
-      panel.style.right = placeLeft ? 'auto' : `${panelX}px`;
+      // Decide which side: place panel on left when component is on right half, and vice versa
+      const placeLeft = cx < window.innerWidth * 0.55;
+
+      let panelLeft, panelRight;
+      if (placeLeft) {
+        // Anchor left edge of panel just to the right of the component dot
+        const rawLeft = cx + 50;
+        // Clamp so panel doesn't go off right edge
+        panelLeft = Math.min(rawLeft, window.innerWidth - panelW - margin);
+        panelLeft = Math.max(margin, panelLeft);
+        panelRight = 'auto';
+      } else {
+        // Anchor right edge of panel just to the left of the component dot
+        const rawRight = window.innerWidth - cx + 50;
+        panelRight = Math.min(rawRight, window.innerWidth - panelW - margin);
+        panelRight = Math.max(margin, panelRight);
+        panelLeft = 'auto';
+      }
+
+      const panelY = Math.max(80, Math.min(cy - panelH / 2, window.innerHeight - panelH - margin));
+
+      panel.style.left = panelLeft === 'auto' ? 'auto' : `${panelLeft}px`;
+      panel.style.right = panelRight === 'auto' ? 'auto' : `${panelRight}px`;
       panel.style.top = `${panelY}px`;
 
-      // Update connector SVG line from component to panel edge
+      // Connector SVG: line from component dot to panel edge
       const line = connectorLine.querySelector('line');
       const dot = connectorLine.querySelector('circle');
       if (line && dot) {
-        const lineEndX = placeLeft ? panelX : window.innerWidth - panelX;
+        // Panel edge X in viewport coordinates
+        const lineEndX = placeLeft
+          ? (typeof panelLeft === 'number' ? panelLeft : 0) // left edge of panel
+          : window.innerWidth - (typeof panelRight === 'number' ? panelRight : 0) - panelW; // right-side panel left edge
         const lineEndY = panelY + panelH * 0.5;
         line.setAttribute('x1', cx.toFixed(1));
         line.setAttribute('y1', cy.toFixed(1));

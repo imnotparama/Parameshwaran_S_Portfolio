@@ -58,7 +58,7 @@ export function createBoard(scene) {
     const maskGeom = new THREE.PlaneGeometry(width - 0.1, height - 0.1);
     disposableResources.geometries.add(maskGeom);
     const maskMat = new THREE.MeshStandardMaterial({
-        color: 0x124712,
+        color: 0x1e4d33,
         roughness: 0.7,
         metalness: 0.2
     });
@@ -80,7 +80,7 @@ export function createBoard(scene) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // A. Draw Ground Plane Hatched Copper Pour in 4 Corners (Dark Gold)
-            ctx.strokeStyle = 'rgba(180, 130, 10, 0.22)';
+            ctx.strokeStyle = 'rgba(201, 162, 75, 0.22)';
             ctx.lineWidth = 8;
 
             const drawHatchedPour = (startX, startY, endX, endY) => {
@@ -106,11 +106,11 @@ export function createBoard(scene) {
             drawHatchedPour(1448, 3100, 1968, 4016);
 
             // B. Set up silkscreen text style
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = '#ece7d8';
             ctx.font = 'bold 67px monospace';
 
             // C. Component Outline Boxes
-            ctx.strokeStyle = '#ffffff';
+            ctx.strokeStyle = '#ece7d8';
             ctx.lineWidth = 6;
 
             // U1 CPU Outline
@@ -147,7 +147,7 @@ export function createBoard(scene) {
             ctx.fillText('RN1 - LANGS', 1024 - 120, 3000 + 80);
 
             // D. Border Outline Tracing with Rounded Corners
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.strokeStyle = 'rgba(236, 231, 216, 0.8)';
             ctx.lineWidth = 10;
             const offset = 50;
             const w = canvas.width - 2 * offset;
@@ -166,7 +166,7 @@ export function createBoard(scene) {
             ctx.stroke();
 
             // E. Silkscreen Labels & Text Markings
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = '#ece7d8';
 
             ctx.font = 'bold 100px monospace';
             ctx.fillText('PARAMA-DEV-BOARD-v1.0', 120, 3960);
@@ -184,7 +184,7 @@ export function createBoard(scene) {
             ctx.restore();
 
             // G. Sine Wave graphic silkscreen near Y1 Crystal
-            ctx.strokeStyle = '#ffffff';
+            ctx.strokeStyle = '#ece7d8';
             ctx.lineWidth = 4;
             ctx.strokeRect(372 - 100, 2048 - 272 - 180, 200, 80);
             ctx.beginPath();
@@ -204,7 +204,7 @@ export function createBoard(scene) {
 
             // I. Small crosshair registration targets in 4 corners
             const drawCrosshair = (cx, cy) => {
-                ctx.strokeStyle = '#ffffff';
+                ctx.strokeStyle = '#ece7d8';
                 ctx.lineWidth = 4;
                 ctx.beginPath();
                 ctx.arc(cx, cy, 28, 0, Math.PI * 2);
@@ -220,11 +220,11 @@ export function createBoard(scene) {
             drawCrosshair(1888, 3936);
 
             // J. Silkscreen QR Code block (mock) at bottom center
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = '#ece7d8';
             ctx.fillRect(1024 - 70, 3700 - 70, 140, 140);
             ctx.fillStyle = '#0a2b0a';
             ctx.fillRect(1024 - 54, 3700 - 54, 108, 108);
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = '#ece7d8';
             ctx.fillRect(1024 - 42, 3700 - 42, 36, 36);
             ctx.fillRect(1024 + 6, 3700 - 42, 36, 36);
             ctx.fillRect(1024 - 42, 3700 + 6, 36, 36);

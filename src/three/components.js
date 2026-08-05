@@ -16,6 +16,24 @@ export let antInsideGroup;
 export let usbInsideGroup;
 export let vrInsideGroup;
 
+// ─── CPU radar sweep — the ring is an open arc that rotates like a
+// radar line, with a gentle opacity pulse. Driven per-frame from
+// elapsed time (procedural, deterministic).
+
+// Decorative motion — respect prefers-reduced-motion: keep the arc static
+const RADAR_REDUCED_MOTION = typeof window !== 'undefined' &&
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+export function updateRadarRing(elapsed) {
+    if (!cpuRadarRing) return;
+    if (RADAR_REDUCED_MOTION) return; // static arc for reduced-motion users
+    cpuRadarRing.rotation.z = elapsed * 0.8; // full revolution ≈ 7.8s
+    const mat = cpuRadarRing.material;
+    if (mat && mat.opacity !== undefined) {
+        mat.opacity = 0.45 + Math.sin(elapsed * 2.2) * 0.15;
+    }
+}
+
 export function createComponents(boardGroup) {
     const thickness = 0.16;
     const surfaceZ = thickness / 2 + 0.005;
@@ -67,7 +85,7 @@ export function createComponents(boardGroup) {
         const cellSize = 128 / 6;
 
         // Draw 6x6 grid lines
-        sCtx.strokeStyle = 'rgba(0, 255, 136, 0.35)';
+        sCtx.strokeStyle = 'rgba(62, 230, 160, 0.35)';
         sCtx.lineWidth = 1.0;
         for (let i = 0; i <= 6; i++) {
             // Horizontal
@@ -87,10 +105,10 @@ export function createComponents(boardGroup) {
             for (let c = 0; c < 6; c++) {
                 const isCore = (r === 2 || r === 3) && (c === 2 || c === 3);
                 if (isCore) {
-                    sCtx.fillStyle = 'rgba(0, 255, 136, 0.45)';
+                    sCtx.fillStyle = 'rgba(62, 230, 160, 0.45)';
                     sCtx.fillRect(c * cellSize + 2, r * cellSize + 2, cellSize - 4, cellSize - 4);
                 } else if ((r + c) % 2 === 0) {
-                    sCtx.fillStyle = 'rgba(0, 255, 136, 0.1)';
+                    sCtx.fillStyle = 'rgba(62, 230, 160, 0.1)';
                     sCtx.fillRect(c * cellSize + 2, r * cellSize + 2, cellSize - 4, cellSize - 4);
                 }
             }
@@ -101,7 +119,7 @@ export function createComponents(boardGroup) {
     const siliconMat = new THREE.MeshBasicMaterial({
         map: siliconTexture,
         transparent: true,
-        color: 0x00ff88,
+        color: 0x3ee6a0,
         opacity: 0.8, // Brighter glowing silicon die
         blending: THREE.AdditiveBlending,
         depthWrite: false
@@ -113,7 +131,7 @@ export function createComponents(boardGroup) {
     // CPU Radar loading ring (Upgrade 3)
     const ringGeo = new THREE.RingGeometry(1.6, 1.7, 48, 1, 0, Math.PI * 1.55);
     const ringMat = new THREE.MeshBasicMaterial({
-        color: 0x00ff88,
+        color: 0x3ee6a0,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.6,
