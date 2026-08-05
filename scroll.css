@@ -31,6 +31,16 @@ body::-webkit-scrollbar-thumb:hover { background: var(--glow-green, #00ff88); }
     height: 100vh;
     z-index: 1;
     opacity: 0; /* revealed by boot sequence */
+    /* Fab-bench CSS fallback layer — visible during boot, in lite mode, and
+       behind any transparent WebGL region. The Three.js scene.background
+       (same language, richer) covers it once the renderer paints. */
+    background:
+        radial-gradient(120% 90% at 50% 0%, rgba(46, 110, 76, 0.22) 0%, transparent 55%),
+        radial-gradient(90% 70% at 85% 100%, rgba(201, 162, 75, 0.10) 0%, transparent 60%),
+        radial-gradient(70% 60% at 10% 88%, rgba(62, 230, 160, 0.05) 0%, transparent 55%),
+        repeating-linear-gradient(0deg, rgba(236, 231, 216, 0.012) 0 1px, transparent 1px 48px),
+        repeating-linear-gradient(90deg, rgba(236, 231, 216, 0.012) 0 1px, transparent 1px 48px),
+        linear-gradient(180deg, #050f0b 0%, #07130d 50%, #040c08 100%);
 }
 
 #threejs-canvas {
@@ -331,17 +341,43 @@ body.hud-cta-hidden #cta-linkedin-hud {
     min-height: 150vh;
 }
 
-/* ─── Datasheet panels ──────────────────────────────────── */
+/* ─── Datasheet panels ────────────────────────────────────
+   Daughterboard treatment: each panel reads as a physical PCB
+   module seated on the board — FR-4 glass-weave substrate, four
+   corner mounting holes, gold edge-connector pads along the
+   bottom edge (border-image: pinned to the border box, so it
+   never scrolls with content), and a double-routed outline.
+   Background layers scroll with panel content by design — the
+   texture is meant to behave like substrate. */
 .ds-panel {
     box-sizing: border-box;
     width: min(480px, calc(100vw - 40px));
-    background: rgba(4, 16, 10, 0.85);
-    border: 1px solid rgba(236, 231, 216, 0.16);
-    box-shadow: 
-        0 0 30px rgba(201, 162, 75, 0.06),
-        inset 0 0 60px rgba(201, 162, 75, 0.02),
-        0 8px 32px rgba(0, 0, 0, 0.4);
-    padding: 28px 30px;
+    background-color: rgba(4, 15, 9, 0.92);
+    background-image:
+        /* corner mounting holes — gold ground ring, dark through-hole */
+        radial-gradient(circle at 14px 14px, rgba(3, 11, 6, 0.98) 0 4.5px, rgba(201, 162, 75, 0.8) 5px 6px, transparent 6.8px),
+        radial-gradient(circle at calc(100% - 14px) 14px, rgba(3, 11, 6, 0.98) 0 4.5px, rgba(201, 162, 75, 0.8) 5px 6px, transparent 6.8px),
+        radial-gradient(circle at 14px calc(100% - 14px), rgba(3, 11, 6, 0.98) 0 4.5px, rgba(201, 162, 75, 0.8) 5px 6px, transparent 6.8px),
+        radial-gradient(circle at calc(100% - 14px) calc(100% - 14px), rgba(3, 11, 6, 0.98) 0 4.5px, rgba(201, 162, 75, 0.8) 5px 6px, transparent 6.8px),
+        /* FR-4 glass weave */
+        repeating-linear-gradient(45deg, rgba(236, 231, 216, 0.013) 0 2px, transparent 2px 4px),
+        repeating-linear-gradient(-45deg, rgba(236, 231, 216, 0.013) 0 2px, transparent 2px 4px),
+        /* soldermask sheen */
+        linear-gradient(160deg, rgba(30, 77, 51, 0.14) 0%, rgba(30, 77, 51, 0.03) 55%, rgba(4, 10, 6, 0.18) 100%);
+    border: 1px solid rgba(236, 231, 216, 0.2);
+    /* gold edge-connector pad strip — border-image paints only the bottom
+       region (slice 0 0 12 0), so the other three sides keep the plain
+       border. Pads are in the border box: always visible, never clipped. */
+    border-bottom-width: 12px;
+    border-image-source: repeating-linear-gradient(90deg, var(--enig-gold) 0 10px, rgba(5, 14, 9, 0.9) 10px 14px);
+    border-image-slice: 0 0 12 0;
+    border-image-width: 0 0 12px 0;
+    border-image-repeat: stretch;
+    box-shadow:
+        inset 0 0 0 1px rgba(236, 231, 216, 0.05),
+        0 2px 0 rgba(201, 162, 75, 0.16),
+        0 24px 48px rgba(0, 0, 0, 0.55);
+    padding: 28px 30px 40px;
     color: var(--color-text-primary, #d7ffe6);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -374,17 +410,29 @@ body.full-journey .ds-panel.panel-active {
     transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s;
 }
 
-/* Hero and contact panels: still centered by default (JS overrides for others) */
-body.full-journey #panel-hero,
+/* Contact stays centered — the full-board "all systems operational" closer. */
 body.full-journey #panel-contact {
     left: 50% !important;
     top: 50% !important;
     transform: translate(-50%, calc(-50% + 24px)) scale(0.97) !important;
 }
 
-body.full-journey #panel-hero.panel-active,
 body.full-journey #panel-contact.panel-active {
     transform: translate(-50%, -50%) scale(1) !important;
+}
+
+/* Hero is BOARD-FIRST: right-anchored (same anchored-datasheet language as
+   the component sections) so the fully-framed board's chips and traces show
+   around the panel at the establishing shot instead of hiding behind it. */
+body.full-journey #panel-hero {
+    left: auto !important;
+    right: 24px !important; /* matches the component panels' 24px margin clamp */
+    top: 50% !important;
+    transform: translateY(calc(-50% + 24px)) scale(0.97) !important;
+}
+
+body.full-journey #panel-hero.panel-active {
+    transform: translateY(-50%) scale(1) !important;
 }
 
 .ds-panel-wide {
@@ -392,10 +440,25 @@ body.full-journey #panel-contact.panel-active {
 }
 
 /* ─── Datasheet typography ──────────────────────────────── */
+/* Body copy reads in Instrument Sans (readable) while labels and data
+   stay in Fragment Mono — the datasheet register is data, the prose is
+   prose. */
+.ds-body,
+.hero-claim,
+.proj-field,
+.tl-detail {
+    font-family: var(--font-body);
+}
+
+/* ds-ref = silkscreen legend row: a via node, the reference designator,
+   then a copper trace that fades out toward the right edge. */
 .ds-ref {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 11px;
     letter-spacing: 2.5px;
-    color: rgba(200, 150, 12, 0.8);
+    color: rgba(200, 150, 12, 0.85);
     margin-bottom: 8px;
     font-weight: 500;
     text-transform: uppercase;
@@ -404,13 +467,33 @@ body.full-journey #panel-contact.panel-active {
     transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.ds-ref::before {
+    content: '';
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #08150d 0 2.2px, var(--enig-gold) 2.6px 3.4px, transparent 4px);
+}
+
+.ds-ref::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    margin-left: 6px;
+    background: linear-gradient(90deg, rgba(201, 162, 75, 0.45), transparent);
+}
+
 .ds-panel.panel-active .ds-ref {
     opacity: 1;
     transform: translateY(0);
     transition-delay: 0.1s;
 }
 
+/* ds-title = datasheet heading with a gold pad tick on the left */
 .ds-title {
+    position: relative;
+    padding-left: 12px;
     font-size: 22px;
     letter-spacing: 3px;
     color: #ffffff;
@@ -422,10 +505,31 @@ body.full-journey #panel-contact.panel-active {
     transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.ds-title::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 18px;
+    background: var(--enig-gold);
+    opacity: 0.85;
+}
+
 .ds-panel.panel-active .ds-title {
     opacity: 1;
     transform: translateY(0);
     transition-delay: 0.15s;
+}
+
+/* Centered panels (contact) drop the left tick */
+.contact-panel .ds-title {
+    padding-left: 0;
+}
+
+.contact-panel .ds-title::before {
+    display: none;
 }
 
 .ds-body {
@@ -459,19 +563,22 @@ body.full-journey #panel-contact.panel-active {
 }
 
 .spec-table th {
-    color: rgba(200, 150, 12, 0.8);
+    color: rgba(200, 150, 12, 0.9);
     width: 72px;
     letter-spacing: 1px;
     font-weight: 400;
-    background: rgba(201, 162, 75, 0.05);
+    background: rgba(201, 162, 75, 0.06);
+    border-left: 2px solid rgba(201, 162, 75, 0.5);
 }
 
 /* ─── Hero panel ────────────────────────────────────────── */
 .hero-panel {
     width: min(620px, calc(100vw - 40px));
     text-align: center;
-    border-color: rgba(236, 231, 216, 0.2);
-    background: rgba(4, 16, 10, 0.9);
+    border-color: rgba(236, 231, 216, 0.24);
+    /* background-color only — a background shorthand would reset the
+       daughterboard background-image stack from the .ds-panel base */
+    background-color: rgba(4, 15, 9, 0.92);
 }
 
 .hero-claim {
@@ -485,6 +592,13 @@ body.full-journey #panel-contact.panel-active {
 .hero-panel .badge-row {
     justify-content: center;
     margin: 18px 0;
+}
+
+/* Stat badges = header pins: gold top rail reads as a DIP pin row */
+.stat-badge {
+    border-color: rgba(236, 231, 216, 0.2);
+    border-top-color: rgba(201, 162, 75, 0.5);
+    background-color: rgba(30, 77, 51, 0.16);
 }
 
 .hero-cta-row {
@@ -530,21 +644,41 @@ body.full-journey #panel-contact.panel-active {
     gap: 16px;
 }
 
+/* Project cards = mini-PCBs: gold trace header along the top, a corner
+   mounting hole, a small edge-pad strip at the bottom, FR-4 weave. */
 .proj-ds {
-    border: 1px solid rgba(236, 231, 216, 0.14);
-    padding: 16px 18px;
-    background: rgba(2, 12, 6, 0.7);
+    position: relative;
+    border: 1px solid rgba(236, 231, 216, 0.15);
+    border-top: 2px solid rgba(201, 162, 75, 0.5);
+    padding: 16px 18px 20px;
+    background:
+        radial-gradient(circle at calc(100% - 11px) 11px, rgba(4, 12, 7, 0.98) 0 3px, rgba(201, 162, 75, 0.6) 3.5px 4.5px, transparent 5px),
+        repeating-linear-gradient(45deg, rgba(236, 231, 216, 0.012) 0 2px, transparent 2px 4px),
+        rgba(3, 14, 8, 0.78);
     display: flex;
     flex-direction: column;
     gap: 10px;
+    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.04), 0 8px 18px rgba(0, 0, 0, 0.35);
     transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
     backdrop-filter: blur(4px);
 }
 
+/* Mini edge-pad strip on the card's bottom edge */
+.proj-ds::after {
+    content: '';
+    position: absolute;
+    left: 14px;
+    bottom: 4px;
+    width: 22px;
+    height: 3px;
+    background: repeating-linear-gradient(90deg, rgba(201, 162, 75, 0.75) 0 3px, transparent 3px 5px);
+}
+
 .proj-ds:hover {
-    box-shadow: 0 0 30px rgba(201, 162, 75, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.04), 0 0 26px rgba(201, 162, 75, 0.16), 0 10px 22px rgba(0, 0, 0, 0.4);
     border-color: rgba(201, 162, 75, 0.5);
-    transform: translateY(-2px);
+    border-top-color: var(--enig-gold);
+    transform: translateY(-3px);
 }
 
 .proj-ds.is-building {
@@ -553,9 +687,9 @@ body.full-journey #panel-contact.panel-active {
 }
 
 .proj-ds.is-building:hover {
-    box-shadow: 0 0 30px rgba(200, 150, 12, 0.25);
+    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.04), 0 0 26px rgba(200, 150, 12, 0.22), 0 10px 22px rgba(0, 0, 0, 0.4);
     border-color: rgba(200, 150, 12, 0.7);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
 }
 
 .proj-ds-head {
@@ -584,6 +718,7 @@ body.full-journey #panel-contact.panel-active {
 .proj-ds-status.shipped {
     color: var(--glow-green, #00ff88);
     text-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+    box-shadow: 0 0 10px rgba(62, 230, 160, 0.18);
 }
 
 .proj-ds-status.building {
@@ -651,18 +786,45 @@ body.full-journey #panel-contact.panel-active {
     gap: 8px;
 }
 
+/* Skill pills = SMD components: a matte component body with silver
+   end-caps (like a chip's terminations) — the caps are the pseudo-elements. */
 .skill-pill {
+    position: relative;
     font-size: 12px;
-    padding: 5px 12px;
-    border: 1px solid rgba(236, 231, 216, 0.14);
-    color: rgba(215, 255, 230, 0.85);
-    background: rgba(0, 255, 136, 0.04);
-    transition: border-color 0.2s, background 0.2s;
+    padding: 5px 15px;
+    border: 1px solid rgba(236, 231, 216, 0.16);
+    border-radius: 2px;
+    color: rgba(215, 255, 230, 0.9);
+    background: linear-gradient(180deg, rgba(30, 77, 51, 0.28), rgba(30, 77, 51, 0.12));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+
+.skill-pill::before,
+.skill-pill::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 13px;
+    border-radius: 1px;
+    background: linear-gradient(180deg, #e9ecef 0%, #aeb4b9 45%, #7d8489 100%);
+}
+
+.skill-pill::before {
+    left: -2px;
+}
+
+.skill-pill::after {
+    right: -2px;
 }
 
 .skill-pill:hover {
-    border-color: rgba(201, 162, 75, 0.5);
-    background: rgba(201, 162, 75, 0.08);
+    color: var(--silkscreen);
+    border-color: rgba(201, 162, 75, 0.55);
+    box-shadow: 0 0 14px rgba(201, 162, 75, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transform: translateY(-1px);
 }
 
 /* ─── Experience timeline ───────────────────────────────── */
@@ -699,6 +861,30 @@ body.full-journey #panel-contact.panel-active {
     background: #04180a;
     border: 2px solid rgba(200, 150, 12, 0.7);
     box-shadow: 0 0 12px rgba(200, 150, 12, 0.4);
+    transition: box-shadow var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+}
+
+/* Copper-plated via center */
+.tl-item::after {
+    content: '';
+    position: absolute;
+    left: -22.5px;
+    top: 8.5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--enig-gold);
+    box-shadow: 0 0 6px rgba(201, 162, 75, 0.6);
+    transition: box-shadow var(--duration-base) var(--ease-out);
+}
+
+.tl-item:hover::before {
+    border-color: var(--enig-gold);
+    box-shadow: 0 0 18px rgba(201, 162, 75, 0.7);
+}
+
+.tl-item:hover::after {
+    box-shadow: 0 0 10px rgba(201, 162, 75, 0.9);
 }
 
 .tl-date {
@@ -780,6 +966,14 @@ body.full-journey #panel-contact.panel-active {
     body.full-journey .ds-panel {
         transition: none !important;
     }
+    .proj-ds,
+    .skill-pill {
+        transition: none !important;
+    }
+    .tl-item::before,
+    .tl-item::after {
+        transition: none !important;
+    }
     body.full-journey .ds-panel.panel-active {
         transform: none !important;
     }
@@ -844,6 +1038,17 @@ body.lite-mode .journey-sec:not(#sec-hero) {
     #cta-linkedin-hud { font-size: 11px; padding: 7px 12px; }
     .hud-nav .nav-btn { font-size: 11px; padding: 4px 6px; }
     .hud-name { font-size: 12px; }
+    /* Below ~900px the 620px hero panel would fully cover the board, so the
+       board-first split is replaced by a centered hero (the phone rule below
+       repeats this for ≤640). */
+    body.full-journey #panel-hero {
+        left: 50% !important;
+        right: auto !important;
+        transform: translate(-50%, calc(-50% + 24px)) scale(0.97) !important;
+    }
+    body.full-journey #panel-hero.panel-active {
+        transform: translate(-50%, -50%) scale(1) !important;
+    }
 }
 
 @media (max-width: 640px) {
@@ -854,6 +1059,13 @@ body.lite-mode .journey-sec:not(#sec-hero) {
     }
     body.full-journey #panel-hero {
         width: calc(100vw - 24px);
+        /* Phone: recenter the hero — there's no room for the board beside it */
+        left: 50% !important;
+        right: auto !important;
+        transform: translate(-50%, calc(-50% + 24px)) scale(0.97) !important;
+    }
+    body.full-journey #panel-hero.panel-active {
+        transform: translate(-50%, -50%) scale(1) !important;
     }
     body.full-journey #panel-projects {
         top: 70px;

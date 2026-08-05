@@ -1,5 +1,5 @@
 import { detectWebGL, showFallbackUI, setupCleanup } from './src/ui/fallback.js';
-import { initScene, scene, camera, renderer, tickCallbacks, enableBloom, composer } from './src/three/scene.js';
+import { initScene, scene, camera, renderer, tickCallbacks, enableBloom } from './src/three/scene.js';
 import { createBoard, boardGroup, updateBoardParallax } from './src/three/board.js';
 import { createComponents } from './src/three/components.js';
 import { createTraces } from './src/three/traces.js';
@@ -8,7 +8,7 @@ import { createProjectChips, updateProjectChips } from './src/three/project-chip
 import { updateRadarRing } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse } from './src/utils/hover.js';
-import { LINKEDIN_URL, GITHUB_URL, isLiteMode, isSmallViewport } from './src/config.js';
+import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { renderSections } from './src/ui/sections.js';
 import { initJourney, scrollToSection, updateJourneyEffects } from './src/scroll/journey.js';
 
@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Init scroll journey after boot animation completes (camera is ready)
         if (shouldInitJourney) {
-            initJourney(camera, boardGroup);
+            initJourney(camera);
         }
         // Honor a deep link (#/about, #/projects) on first load
         if (window.location.hash) applyHashNavigation();

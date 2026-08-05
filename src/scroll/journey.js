@@ -1,3 +1,4 @@
+// @ts-check
 // ============================================================
 // Scroll Journey — camera physically moves toward each component
 // as its section becomes active. Panels are positioned in screen
@@ -26,19 +27,28 @@ const LOOK_AT_OFFSET = new THREE.Vector3(0, 0.15, 0);
 // the boot's establishing shot reads as one continuous motion, not a cut.
 const ARRIVAL_GLIDE_DURATION = 1.0;
 
-// Fixed camera configurations for non-component sections (hero, contact)
+// Fixed camera configurations for non-component sections (hero, contact).
+// z is computed so the WHOLE 15-unit board fits inside the 45° vertical FOV
+// with margin: visible half-height at the board plane is z * tan(22.5°) ≈
+// z * 0.414; z = 23 gives ±9.5 units — the board (y ∈ [-7.5, 7.5]) keeps
+// ~2 units of breathing room top and bottom even on short desktop viewports.
+// The old z=13 clipped the board's bottom edge outside the frustum (the board
+// rendered "only half" on shorter viewports). Camera sits below the lookAt
+// for the same 3/4 upward angle the component stops use.
+/** @type {Record<string, { pos: THREE.Vector3, look: THREE.Vector3 }>} */
 const FIXED_CAMERAS = {
   'sec-hero': {
-    pos: new THREE.Vector3(0, -5.2, 13),
-    look: new THREE.Vector3(0, 0.4, 0)
+    pos: new THREE.Vector3(0, -5.4, 23),
+    look: new THREE.Vector3(0, 0.2, 0)
   },
   'sec-contact': {
-    pos: new THREE.Vector3(0, -5.0, 14),
-    look: new THREE.Vector3(0, 0, 0)
+    pos: new THREE.Vector3(0, -5.2, 23),
+    look: new THREE.Vector3(0, 0.1, 0)
   }
 };
 
 // Component world positions (in boardGroup LOCAL space)
+/** @type {Record<string, THREE.Vector3>} */
 const COMPONENT_WORLD = {
   'sec-about':      new THREE.Vector3(0, 1.0, 0.085),
   'sec-projects':   new THREE.Vector3(-3.2, 4.5, 0.085),
@@ -47,6 +57,7 @@ const COMPONENT_WORLD = {
 };
 
 // ─── Path definition: stops (section IDs) and via points (hardcoded) ─────
+/** @type {Array<{ stop?: string, via?: boolean, pos?: [number, number, number], look?: [number, number, number] }>} */
 const PATH = [
   { stop: 'sec-hero' },
   // Via points now sit at the same z depth as the elevated component stops
@@ -63,15 +74,23 @@ const PATH = [
   { stop: 'sec-contact' }
 ];
 
+/** @type {THREE.CatmullRomCurve3 | null} */
 let posCurve = null;
+/** @type {THREE.CatmullRomCurve3 | null} */
 let lookCurve = null;
+/** @type {Record<string, number>} */
 let stopTs = {};
+/** @type {string[]} */
 let stopOrder = [];
+/** @type {string | null} */
 let activePanelId = null;
+/** @type {THREE.PerspectiveCamera | null} */
 let cameraRef = null;
-let boardGroupRef = null;
+/** @type {HTMLElement | null} */
 let vignetteEl = null;
+/** @type {SVGSVGElement | null} */
 let connectorLine = null;
+/** @type {gsap.core.Timeline | null} */
 let arrivalGlide = null;
 const curLook = new THREE.Vector3();
 const worldPos = new THREE.Vector3();
@@ -96,17 +115,24 @@ function buildCurves() {
   stopOrder.length = 0;
   for (const k in stopTs) delete stopTs[k];
 
+  /** @type {THREE.Vector3[]} */
   const posPoints = [];
+  /** @type {THREE.Vector3[]} */
   const lookPoints = [];
-  PATH.forEach((p, i) => {
-    let pos, look;
+  PATH.forEach((p) => {
+    // Every PATH entry assigns below (stop config or via tuple); the initializer
+    // satisfies TS definite-assignment without changing behavior.
+    /** @type {THREE.Vector3} */
+    let pos = new THREE.Vector3();
+    /** @type {THREE.Vector3} */
+    let look = new THREE.Vector3();
     if (p.stop) {
       // Get camera config for stop
       const config = getCameraConfigForStop(p.stop);
       pos = config.pos.clone();
       look = config.look.clone();
       if (p.stop) stopOrder.push(p.stop);
-    } else if (p.via) {
+    } else if (p.via && p.pos && p.look) {
       pos = new THREE.Vector3(...p.pos);
       look = new THREE.Vector3(...p.look);
     }
@@ -124,6 +150,7 @@ function buildCurves() {
 }
 
 // Get camera position and lookat for a section ID for a given section ID
+/** @param {string} sectionId */
 function getCameraConfigForStop(sectionId) {
   if (COMPONENT_WORLD[sectionId]) {
     const compPos = COMPONENT_WORLD[sectionId].clone();
@@ -139,8 +166,9 @@ function getCameraConfigForStop(sectionId) {
   };
 }
 
+/** @param {number} t */
 export function setCameraAtT(t) {
-  if (!posCurve || !cameraRef) return;
+  if (!posCurve || !lookCurve || !cameraRef) return;
   // Scroll scrubbing always wins: if an arrival glide is still settling, kill
   // it the moment the user scrolls so the scrub and the tween never fight.
   killArrivalGlide();
@@ -198,6 +226,7 @@ function glideToHero() {
 // We switch to the destination once we're over halfway through the leg
 // (0.55), and only fall back to the source below 0.5 — a 0.05 boundary
 // band so parking the scroll on a leg boundary can't toggle the panel.
+/** @param {string} destination @param {string} source @param {number} progress */
 function setLegState(destination, source, progress) {
   currentLegProgress = progress;
   if (progress >= 0.55) {
@@ -210,7 +239,9 @@ function setLegState(destination, source, progress) {
 // ─── Arrival micro-moment: the component (or its signal trace)
 // lights up when the camera reaches its section. Same language as
 // the boot sequence's trace flash — "if it glows, it's live".
+/** @type {Record<string, string>} */
 const ARRIVAL_TRACE = { 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experience': 'J1' };
+/** @param {string} secId */
 function pulseArrival(secId) {
     if (!secId) return;
     if (secId === 'sec-about') {
@@ -225,9 +256,9 @@ function pulseArrival(secId) {
     }
     const ref = ARRIVAL_TRACE[secId];
     if (!ref) return;
-    traceData.forEach(t => {
+    traceData.forEach((/** @type {any} */ t) => {
         if (t.component !== ref) return;
-        t.meshes.forEach(m => {
+        t.meshes.forEach((/** @type {any} */ m) => {
             if (m.material && m.material.emissiveIntensity !== undefined) {
                 gsap.fromTo(m.material, { emissiveIntensity: 0.4 }, { emissiveIntensity: 1.3, duration: 0.35, yoyo: true, repeat: 1, ease: 'power1.out', delay: 0.05, overwrite: 'auto' });
             }
@@ -236,6 +267,7 @@ function pulseArrival(secId) {
 }
 
 // ─── Panel + nav activation ─────────────────────────────────
+/** @param {string | null} panelId */
 function setActivePanel(panelId) {
   if (activePanelId === panelId) return;
   activePanelId = panelId;
@@ -286,6 +318,7 @@ function createConnector() {
 // Panel activation is NOT computed here — it's a pure function of the
 // current scroll leg (setLegState runs in the ScrollTrigger onUpdate).
 // This function only handles the per-frame visual work.
+/** @param {THREE.PerspectiveCamera} camera @param {THREE.Group} boardGroup */
 export function updateJourneyEffects(camera, boardGroup) {
   if (!camera || !boardGroup || !journeyReady) return;
 
@@ -310,7 +343,7 @@ export function updateJourneyEffects(camera, boardGroup) {
     const cx = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
     const cy = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
 
-    const panel = document.getElementById(activePanelId);
+    const panel = activePanelId ? document.getElementById(activePanelId) : null;
     if (panel && connectorLine) {
       // Use the panel's real rendered width — #panel-projects is .ds-panel-wide
       // (up to 980px), so a hardcoded 480 would shove it off-screen.
@@ -366,28 +399,33 @@ export function updateJourneyEffects(camera, boardGroup) {
   }
 
   // 3. Vignette driven by leg progress toward the active component
-  //    (0.35 at the far end of the leg ramping to 0.85 on arrival).
-  if (!vignetteEl) vignetteEl = document.querySelector('.vignette-overlay');
+  //    (0.35 at the far end of the leg ramping to 0.6 on arrival — soft
+  //    depth; the ceiling stays low so screen edges never read as dead
+  //    space against the fab-bench backdrop).
+  if (!vignetteEl) vignetteEl = /** @type {HTMLElement | null} */ (document.querySelector('.vignette-overlay'));
   if (vignetteEl) {
+    // Vignette ramps from 0.35 to 0.6 on arrival — soft depth, never so dark
+    // the screen edges read as dead space (the old 0.85 ceiling blacked the
+    // outer half of the viewport during component zooms).
     let intensity = 0.35;
     if (activeSecId && COMPONENT_WORLD[activeSecId] && currentLegProgress >= 0.5) {
       const t = Math.min(1, (currentLegProgress - 0.5) / 0.5);
-      intensity = 0.35 + t * 0.5;
+      intensity = 0.35 + t * 0.25;
     }
-    vignetteEl.style.opacity = intensity;
+    vignetteEl.style.opacity = String(intensity);
   }
 }
 
 // ─── Init ───────────────────────────────────────────────────
-export function initJourney(camera, boardGroup) {
+/** @param {THREE.PerspectiveCamera} camera */
+export function initJourney(camera) {
   cameraRef = camera;
-  boardGroupRef = boardGroup;
   buildCurves();
   createConnector();
 
-  const sections = stopOrder
+  const sections = /** @type {HTMLElement[]} */ (stopOrder
     .map((id) => document.getElementById(id))
-    .filter(Boolean);
+    .filter(Boolean));
 
   if (sections.length < 2) {
     console.warn('Journey: not enough sections found for scroll path');
@@ -398,7 +436,7 @@ export function initJourney(camera, boardGroup) {
   // instant setCameraAtT(0) snap (a visible camera cut after every boot).
   glideToHero();
   setActivePanel('panel-hero');
-  if (vignetteEl) vignetteEl.style.opacity = 0.35;
+  if (vignetteEl) vignetteEl.style.opacity = '0.35';
 
   const totalScrollHeight = sections.reduce((sum, sec) => sum + sec.offsetHeight, 0);
   if (totalScrollHeight < window.innerHeight * 2) {
@@ -432,6 +470,7 @@ export function initJourney(camera, boardGroup) {
 }
 
 // ─── Direct navigation ──────────────────────────────────────
+/** @param {string} sectionId */
 export function scrollToSection(sectionId) {
   const el = document.getElementById(sectionId);
   if (!el) return;

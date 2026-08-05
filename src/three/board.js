@@ -3,7 +3,6 @@
 // ============================================================
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
-import { showFallbackUI } from '../ui/fallback.js';
 
 export let boardGroup;
 export let silkscreenMesh;

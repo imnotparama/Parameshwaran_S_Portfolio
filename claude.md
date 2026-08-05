@@ -6,7 +6,7 @@ Hi! This file is the primary reference prompt and technical transfer guide for a
 
 ## 🚦 NEXT SESSION — RESUME HERE (2026-08: post-cleanup state)
 
-**Status: everything below is committed & pushed to `origin master`. The only uncommitted work is this session's legacy-stack deletion (pending commit).**
+**Status: `origin master` is current through the fab-shop redesign + OG card (`d7b8f52`). UNCOMMITTED local work (one cohesive batch, ready to commit+push when asked): the daughterboard card redesign, full-board framing + fab-bench backdrop, board grounding shadow catcher, board-first hero composition, and this session's dead-symbol sweep + checkJs enablement.**
 
 ### Shipped in recent sessions (commit order)
 - `8726fef` + `05199ad` — fab-shop redesign (palette/fonts/HUD/CTAs/Three.js color pass) + gold gerber panel chrome.
@@ -16,7 +16,7 @@ Hi! This file is the primary reference prompt and technical transfer guide for a
 - **Current session** — legacy interaction stack deleted (single scroll-journey model). See session log.
 
 ### Open items (nice-to-haves, no urgency)
-- **`public/og-preview.png` (1200×630 share card) is NOT generated yet.** `index.html` references it; without it LinkedIn/Discord cards render bare. Work done so far: headless-Chrome pipeline in `.freebuff/og-tools/` (gitignored; puppeteer-core + SwiftShader WebGL verified working) + a working `?og=1` capture mode in `boot.js` (instant boot, hero panel set inline because CSS transitions don't tick under software rendering). The boot sequence is now a **deterministic single GSAP timeline** (no setTimeout), which also removes the timeline/wall-clock desync that originally blocked captures.
+- **~~`public/og-preview.png`~~ DONE (`d7b8f52`)**: 1200×630 board hero shot captured via the `.freebuff/og-tools` pipeline (SwiftShader headless + `?og=1` instant boot), verified not-black (96.7% non-black cells, 29 color buckets), committed, and confirmed copied into `dist/`. LinkedIn/Discord may still show cached cards — refresh via their debugger tools. (Note: LinkedIn/Discord cache scraped images; the first share after deploy may need a re-scrape.)
 - Optional: deep-linkable sections (`#/about` via hashchange), skip-boot-on-return (`sessionStorage`), delete stale `src/schema.ts`, README refresh (bloom thresholds changed).
 
 ---
@@ -52,7 +52,7 @@ Also fix the duplicate 'Connect on LinkedIn' button currently stacked in Contact
 **Consequences you must respect in code:**
 
 1. `setCameraAtT(t)` owns the camera every frame in journey mode — do NOT reintroduce any camera LERP/zoom.
-2. `initJourney(camera, boardGroup)` runs **after** the boot sequence completes (main.js boot callback). Before that, `journeyReady` is false and `updateJourneyEffects` no-ops — this gate exists so boot's GSAP inline styles on the hero panel are never fought mid-boot.
+2. `initJourney(camera)` runs **after** the boot sequence completes (main.js boot callback) — the `boardGroup` param was removed in the 2026-08 dead-symbol sweep; only `updateJourneyEffects(camera, boardGroup)` still receives the group. Before `initJourney`, `journeyReady` is false and `updateJourneyEffects` no-ops — this gate exists so boot's GSAP inline styles on the hero panel are never fought mid-boot.
 3. Panel activation is leg-derived (`setLegState` in ScrollTrigger `onUpdate`, switch at ≥0.55 progress) — no distance scanning, no cooldowns. See session log.
 4. `#hud-bar` interactivity is gated by the `.hud-ready` class — see the Critical Gotchas section.
 5. `main.js` step 14 binds nav buttons to `scrollToSection()` only.
@@ -218,6 +218,10 @@ npm run dev
 npm run build
 
 # 3. Check for TypeScript / linting issues
+#    Validates src/schema.ts PLUS the checkJs-opted files: src/scroll/journey.js and
+#    src/ui/boot.js (opt-in via "// @ts-check" at the top of each; tsconfig sets
+#    "allowJs": true, "checkJs": false). These are the two most logic-dense modules —
+#    keep their JSDoc types accurate when refactoring so the check stays green.
 npx tsc --noEmit
 ```
 
@@ -248,6 +252,10 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 
 ## 📝 Developer Change & Session Log
 
+- **2026-08 Session — Dead-symbol sweep + checkJs enabled (tsc now meaningful)**:
+  - Removed dead symbols: `boardGroupRef` (declaration + assignment) and the now-unused `boardGroup` param of `initJourney` (call site is now `initJourney(camera)` in `main.js`); the unused `composer` and `isSmallViewport` imports in `main.js`; the unused `showFallbackUI` import in `board.js`.
+  - **checkJs opt-in**: `tsconfig.json` now sets `"allowJs": true` (`checkJs` stays `false` — opt-in per file). Added `// @ts-check` to `src/scroll/journey.js` and `src/ui/boot.js`, so `npx tsc --noEmit` now type-checks them instead of only the trivial `schema.ts`. Journey.js needed JSDoc for its index-signature tables (`COMPONENT_WORLD`, `FIXED_CAMERAS`, `ARRIVAL_TRACE`, `stopTs`, `PATH` → `Record`/tuple types), typed module-level bindings (curves, cameraRef, connectorLine, vignetteEl, arrivalGlide, activePanelId…), params on every exported function, a `filter(Boolean)` cast for the `sections` array, `String(intensity)`/`'0.35'` for the two `style.opacity` writes (CSSStyleDeclaration.opacity is a string property), and `lookCurve` added to the `setCameraAtT` null guard. Boot.js needed param types + `overlay` null guards. Behavior unchanged — the guards and values already existed at runtime.
+  - **Verified**: `npx tsc --noEmit` exits 0; `npm run build` green; live journey re-checked (boot → hero panel → scroll switches to `panel-projects`); console clean.
 - **2026-08 Session — Frame-clock hygiene in the 3D tick loop (threejs-animation applied)**:
   - `scene.js`: the tick-loop delta is now **clamped at the source** (`Math.min(timer.getDelta(), 0.05)` = `MAX_DELTA`). Before, a background-tab return or frame hitch handed consumers a multi-second delta that teleported delta-driven motion. `elapsed` stays unclamped (radar ring / LED flicker are sine oscillators — phase-skip is invisible).
   - `board.js`: `updateBoardParallax` lerp factors are now **delta-scaled** via `lerpFactor(k, delta) = 1 - Math.pow(1-k, delta*60)` — the same convention `hover.js` already uses. At 60fps the factor equals the old constant exactly (feel unchanged); at any other frame rate the per-second response is now identical instead of frame-rate-dependent. `main.js` passes `delta` through.
@@ -293,6 +301,10 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 - **Panel Activation Refactor**: `updateJourneyEffects` no longer scans camera distance thresholds. Panel activation is now a **pure function of the current scroll leg** — `setLegState(destination, source, progress)` runs in each ScrollTrigger `onUpdate` and switches sections at 0.55 progress (0.05 boundary band vs. 0.5). Deleted the hysteresis/cooldown machinery (`ARRIVED_THRESHOLD`, `LEFT_THRESHOLD`, `DEACTIVATE_FRAMES`, `inAnyZone` second scan). Activation is applied idempotently each frame via the `activePanelId` early-return in `setActivePanel`. Also gated panel driving behind `journeyReady` (set at the end of `initJourney`) so the boot sequence's GSAP inline styles on the hero panel are never fought mid-boot.
 - **Build Fixes**: Fixed malformed font fallback link tag in `index.html` and removed duplicate snippet syntax error in `src/three/board.js`.
 - **CSS Improvements**: Added design system tokens (`--space-*`, `--radius-*`, `--depth-*`) in `style.css`, enhanced focus states, and skip-to-content links for accessibility.
+- **Card Redesign (daughterboard datasheets)**: Replaced the flat glass `.ds-panel` cards with physical-PCB daughterboards — FR-4 glass-weave background stack, four corner mounting holes (radial-gradient layers), a gold edge-connector pad strip via `border-image` (slice `0 0 12 0`, pinned in the border box so it never scrolls), and a seated double-shadow. Internal components upgraded: `.ds-ref` is now a via-node + fading copper trace, `.ds-title` gets a gold pad tick (contact panel overrides it), spec tables read as pin tables (gold left tick), skill pills are SMD components with silver end-caps, project cards are mini-PCBs (gold trace top border, corner screw hole, bottom pad strip, LED-glow shipped status), timeline nodes got copper-plated via centers with hover glow, and body copy switched from mono to Instrument Sans (`--font-body`) for readability. Reduced-motion block extended. Verified live across hero/about/projects/skills/experience; build + tsc green; reviewer-clean.
+- **Full-board framing + fab-bench backdrop**: The hero/contact cameras clipped the board's bottom edge at FOV 45° (z=13/14 → the board rendered "only half" on short desktop viewports). Pulled both stops to z=23 (hero `(0,-5.4,23)` look `(0,0.2,0)`) so the 15-unit board fits with ~2-unit margins, and softened the arrival vignette ceiling 0.85 → 0.6. Added `createBackdropTexture()` in scene.js — a 1024² CanvasTexture (FR-4 gradient, soldermask-green + ENIG-gold + signal glows, 64px fabrication grid with plated gold vias, light baked vignette) set as `scene.background`, plus a matching CSS fallback layer behind `#canvas-container`. The view is never an empty void around the board.
+- **Board grounding (shadow catcher)**: Added a transparent bench plane (`ShadowMaterial` opacity 0.38, PlaneGeometry 36×36 at y=-8.6, receiveShadow) below the board so the already-enabled shadows (board + components all cast) land on a visible band behind/below the board — it reads as seated in the fab-bench backdrop instead of hovering. Enlarged `dirLight1`'s shadow frustum (ortho ±10 + `updateProjectionMatrix`, far 25→35, bias -0.0005→-0.001) since the default ±5 box clipped the cast shadow to a hard stripe; kept 1024² map so the per-frame shadow fill matches the original budget (the FPS guardrail scales bloom only, not shadows).
+- **Board-first hero composition**: Split the shared hero/contact centering rule in `scroll.css` — contact stays center-anchored (full-board closer), while `#panel-hero` is now right-anchored (`right: 24px`, `translateY(-50%)` centered) like the component sections, so the fully-framed board's chips and traces show around the datasheet at the establishing shot instead of hiding behind it. Below 900px (and on phones ≤640) the hero recenters since a 620px panel would fully cover the board there. Verified: hero right-anchored + vertical-centered, journey scroll/panel positioning unaffected, build + tsc green, reviewer-clean after closing the 641-820px dead-zone.
 - **Claude Blueprint Update**: Updated `claude.md` with complete architecture specification, raycasting interaction blueprint, single LinkedIn CTA constraints, and testing protocols.
 - **2026-08 Session — Pointer inertia & journey-mode hardening**:
   - `hover.js`: bounded pointer clamping (NDC ±1) + 500ms smooth mouse inertia (`targetMouse` vs `mouse` lerp `* 0.08`); raycasts now use instant `targetMouse` while parallax uses smoothed `mouse`; legacy click-zoom + camera LERP disabled in `full-journey` mode.

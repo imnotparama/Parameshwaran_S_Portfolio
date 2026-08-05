@@ -7,6 +7,10 @@
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
 
+    /* JS checking — opt-in per file via // @ts-check */
+    "allowJs": true,
+    "checkJs": false,
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

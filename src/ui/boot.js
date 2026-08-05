@@ -1,3 +1,4 @@
+// @ts-check
 import gsap from 'gsap';
 import { boardGroup } from '../three/board.js';
 import { cpuPins, ledMeshes, siliconDieMesh } from '../three/components.js';
@@ -35,6 +36,7 @@ const SCHEDULE = {
   overlayFade: 6.25   // overlay fades out (0.6s) — boot ends ~6.85s
 };
 
+/** @param {() => void} [onCompleteCallback] */
 export function runBootSequence(onCompleteCallback) {
     // ?og=1 = social-share capture mode (headless screenshots): take the same
     // instant path as a return visit so the ~6.8s boot timeline never delays
@@ -68,7 +70,7 @@ export function runBootSequence(onCompleteCallback) {
     // return visit in this tab (skipBoot) — same instant "already on" state.
     const liteMode = isLiteMode();
     if (liteMode || skipBoot) {
-        overlay.style.display = 'none';
+        if (overlay) overlay.style.display = 'none';
         gsap.set(canvasContainer, { opacity: 1 });
         if (boardGroup) {
             gsap.set(boardGroup.position, { y: 0, z: 0 });
@@ -129,6 +131,7 @@ export function runBootSequence(onCompleteCallback) {
     // last line lands (tl.call at an absolute position).
     const bootTerminal = document.querySelector('.boot-terminal-log');
     let typePos = SCHEDULE.terminal;
+    /** @type {HTMLElement | null} */
     let savedStatusEl = null;
     if (bootTerminal) {
         bootTerminal.innerHTML = '';
@@ -227,7 +230,7 @@ export function runBootSequence(onCompleteCallback) {
     traceData.forEach((trace, index) => {
         // Flash traces using GSAP emissive controls — one timeline tween per
         // mesh at a stagger of 0.05s per trace, all finite (repeat: 1).
-        trace.meshes.forEach(mesh => {
+        trace.meshes.forEach((/** @type {any} */ mesh) => {
             tl.fromTo(mesh.material,
                 { emissiveIntensity: 0.05 },
                 { emissiveIntensity: 0.8, duration: 0.3, yoyo: true, repeat: 1 },
@@ -302,12 +305,13 @@ export function runBootSequence(onCompleteCallback) {
         opacity: 0,
         duration: 0.6,
         onComplete: () => {
-            overlay.style.display = 'none';
+            if (overlay) overlay.style.display = 'none';
         }
     }, SCHEDULE.overlayFade);
 }
 
 // Update terminal diagnostic text
+/** @param {string} msg */
 function updateTerminalText(msg) {
     const textEl = document.getElementById('terminal-status-text');
     if (textEl) {
