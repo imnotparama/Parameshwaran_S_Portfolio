@@ -299,10 +299,10 @@ body.hud-cta-hidden #cta-linkedin-hud {
     box-sizing: border-box;
     width: min(480px, calc(100vw - 40px));
     background: rgba(4, 16, 10, 0.85);
-    border: 1px solid rgba(0, 255, 136, 0.3);
+    border: 1px solid rgba(236, 231, 216, 0.16);
     box-shadow: 
-        0 0 30px rgba(0, 255, 136, 0.08),
-        inset 0 0 60px rgba(0, 255, 136, 0.03),
+        0 0 30px rgba(201, 162, 75, 0.06),
+        inset 0 0 60px rgba(201, 162, 75, 0.02),
         0 8px 32px rgba(0, 0, 0, 0.4);
     padding: 28px 30px;
     color: var(--color-text-primary, #d7ffe6);
@@ -379,7 +379,7 @@ body.full-journey #panel-contact.panel-active {
     color: #ffffff;
     margin: 0 0 14px;
     font-weight: 700;
-    text-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+    text-shadow: 0 0 20px rgba(201, 162, 75, 0.25);
     opacity: 0;
     transform: translateY(-10px);
     transition: all 0.7s cubic-bezier(0.22, 1, 0.36, 1);
@@ -416,7 +416,7 @@ body.full-journey #panel-contact.panel-active {
 
 .spec-table th,
 .spec-table td {
-    border: 1px solid rgba(0, 255, 136, 0.15);
+    border: 1px solid rgba(236, 231, 216, 0.12);
     padding: 8px 12px;
     text-align: left;
 }
@@ -426,14 +426,14 @@ body.full-journey #panel-contact.panel-active {
     width: 72px;
     letter-spacing: 1px;
     font-weight: 400;
-    background: rgba(0, 255, 136, 0.03);
+    background: rgba(201, 162, 75, 0.05);
 }
 
 /* ─── Hero panel ────────────────────────────────────────── */
 .hero-panel {
     width: min(620px, calc(100vw - 40px));
     text-align: center;
-    border-color: rgba(0, 255, 136, 0.4);
+    border-color: rgba(236, 231, 216, 0.2);
     background: rgba(4, 16, 10, 0.9);
 }
 
@@ -494,7 +494,7 @@ body.full-journey #panel-contact.panel-active {
 }
 
 .proj-ds {
-    border: 1px solid rgba(0, 255, 136, 0.2);
+    border: 1px solid rgba(236, 231, 216, 0.14);
     padding: 16px 18px;
     background: rgba(2, 12, 6, 0.7);
     display: flex;
@@ -505,8 +505,8 @@ body.full-journey #panel-contact.panel-active {
 }
 
 .proj-ds:hover {
-    box-shadow: 0 0 30px rgba(0, 255, 136, 0.2);
-    border-color: rgba(0, 255, 136, 0.5);
+    box-shadow: 0 0 30px rgba(201, 162, 75, 0.18);
+    border-color: rgba(201, 162, 75, 0.5);
     transform: translateY(-2px);
 }
 
@@ -617,15 +617,15 @@ body.full-journey #panel-contact.panel-active {
 .skill-pill {
     font-size: 12px;
     padding: 5px 12px;
-    border: 1px solid rgba(0, 255, 136, 0.2);
+    border: 1px solid rgba(236, 231, 216, 0.14);
     color: rgba(215, 255, 230, 0.85);
     background: rgba(0, 255, 136, 0.04);
     transition: border-color 0.2s, background 0.2s;
 }
 
 .skill-pill:hover {
-    border-color: rgba(0, 255, 136, 0.5);
-    background: rgba(0, 255, 136, 0.08);
+    border-color: rgba(201, 162, 75, 0.5);
+    background: rgba(201, 162, 75, 0.08);
 }
 
 /* ─── Experience timeline ───────────────────────────────── */
@@ -721,7 +721,7 @@ body.full-journey #panel-contact.panel-active {
     font-size: 10.5px;
     letter-spacing: 1.5px;
     color: rgba(127, 191, 143, 0.5);
-    border-top: 1px solid rgba(0, 255, 136, 0.12);
+    border-top: 1px solid rgba(236, 231, 216, 0.1);
     padding-top: 16px;
 }
 

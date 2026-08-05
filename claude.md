@@ -20,7 +20,7 @@ Hi! This file is the primary reference prompt and technical transfer guide for a
 1. **Verify the visibility fix live**: reload preview → click `[CONTACT]` nav → `#panel-contact` must reach `opacity 1` and `getAnimations()` must settle to `[]` (no frozen transitions). Also click every nav button.
 2. **Add `.freebuff/` to `.gitignore`** — it's untracked and currently NOT ignored; must never be pushed.
 3. **Commit + push to GitHub** (user explicitly requested). Changed files: `index.html`, `style.css`, `scroll.css`, `main.js`, `src/three/*.js`, `src/utils/hover.js`, `src/scroll/journey.js`, `src/ui/boot.js`, `claude.md`. Push to `origin master`.
-4. Optional polish: `.ds-panel` chrome (borders/shadows) still uses neon `rgba(0,255,136,…)` — the gerber-frame panel restyle was NOT fully applied; only HUD/nav/CTA/hero got the fab-shop treatment. The `0.6s` panel transition delays (`.ds-ref` 0.2s / `.ds-title` 0.3s / `.ds-body` 0.4s) could be tightened too.
+4. Optional polish: panel chrome now uses silkscreen-white/gold gerber-style borders + shadows (`.ds-panel`, `.hero-panel`, `.spec-table`, `.proj-ds`, `.skill-pill`, `.contact-footer`). The `0.6s` panel transition delays (`.ds-ref` 0.2s / `.ds-title` 0.3s / `.ds-body` 0.4s) could still be tightened.
 
 ---
 
