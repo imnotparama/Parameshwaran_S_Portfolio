@@ -72,12 +72,17 @@ const curLook = new THREE.Vector3();
 const worldPos = new THREE.Vector3();
 const screenPos = new THREE.Vector3();
 
-// Pre-cached stop position vectors (avoids GC per frame)
-const stopPosVectors = {};
-
-// Panel flicker cooldown
-let deactiveCooldown = 0;
-const DEACTIVATE_FRAMES = 10; // Wait 10 frames before deactivating
+// ─── Scroll-leg state — the source of truth for panel activation ──
+// The camera position is a pure function of scroll progress inside the
+// current leg, so the active section is too: no distance scanning, no
+// frame-counting cooldowns, no flicker. currentSectionId defaults to the
+// hero so the top of the page (before any leg is active) keeps the hero.
+let currentSectionId = 'sec-hero';
+let currentLegProgress = 0;
+// updateJourneyEffects must not touch panels until initJourney has run — the
+// boot sequence owns the hero panel's opacity/visibility via GSAP inline
+// styles, and toggling panel-active mid-boot re-triggers frozen transitions.
+let journeyReady = false;
 
 // ─── Build CatmullRom curves from PATH ─────────────────────
 function buildCurves() {
@@ -85,7 +90,6 @@ function buildCurves() {
   // duplicate stops or leave stale t-mappings behind.
   stopOrder.length = 0;
   for (const k in stopTs) delete stopTs[k];
-  for (const k in stopPosVectors) delete stopPosVectors[k];
 
   const posPoints = [];
   const lookPoints = [];
@@ -96,8 +100,6 @@ function buildCurves() {
       const config = getCameraConfigForStop(p.stop);
       pos = config.pos.clone();
       look = config.look.clone();
-      // Cache stop position vectors for performance
-      stopPosVectors[p.stop] = pos.clone();
       if (p.stop) stopOrder.push(p.stop);
     } else if (p.via) {
       pos = new THREE.Vector3(...p.pos);
@@ -139,6 +141,20 @@ export function setCameraAtT(t) {
   lookCurve.getPoint(clamped, curLook);
   cameraRef.position.copy(p);
   cameraRef.lookAt(curLook);
+}
+
+// ─── Leg state: which section is active given where the scroll is ──
+// Each ScrollTrigger leg drives the camera from `source` to `destination`.
+// We switch to the destination once we're over halfway through the leg
+// (0.55), and only fall back to the source below 0.5 — a 0.05 boundary
+// band so parking the scroll on a leg boundary can't toggle the panel.
+function setLegState(destination, source, progress) {
+  currentLegProgress = progress;
+  if (progress >= 0.55) {
+    currentSectionId = destination;
+  } else if (progress < 0.5) {
+    currentSectionId = source;
+  }
 }
 
 // ─── Arrival micro-moment: the component (or its signal trace)
@@ -192,7 +208,6 @@ function setActivePanel(panelId) {
     const showConnector = panelId && panelId !== 'panel-hero' && panelId !== 'panel-contact';
     connectorLine.style.display = showConnector ? 'block' : 'none';
   }
-  deactiveCooldown = 0; // Reset cooldown on any state change
 }
 
 // ─── Create connector SVG overlay ───────────────────────────
@@ -218,64 +233,26 @@ function createConnector() {
 }
 
 // ─── Per-frame update: screen-space panels + connector + vignette ──
+// Panel activation is NOT computed here — it's a pure function of the
+// current scroll leg (setLegState runs in the ScrollTrigger onUpdate).
+// This function only handles the per-frame visual work.
 export function updateJourneyEffects(camera, boardGroup) {
-  if (!camera || !boardGroup) return;
+  if (!camera || !boardGroup || !journeyReady) return;
 
-  const camPos = camera.position;
-
-  // 1. Find nearest section (using cached vectors)
-  let nearestSection = null;
-  let nearestDist = Infinity;
-  Object.keys(stopPosVectors).forEach((secId) => {
-    const targetPos = stopPosVectors[secId];
-    const dx = camPos.x - targetPos.x;
-    const dy = camPos.y - targetPos.y;
-    const dz = camPos.z - targetPos.z;
-    const dist = dx * dx + dy * dy + dz * dz; // squared distance (faster)
-    if (dist < nearestDist) {
-      nearestDist = dist;
-      nearestSection = secId;
-    }
-  });
-  nearestDist = Math.sqrt(nearestDist); // convert back for threshold checks
-
-  // 2. Panel activation based on camera arrival
-  const panelId = nearestSection ? nearestSection.replace('sec-', 'panel-') : null;
-  const isComponent = !!COMPONENT_WORLD[nearestSection];
-  const ARRIVED_THRESHOLD = isComponent ? 3.5 : 6.0;
-  const LEFT_THRESHOLD = ARRIVED_THRESHOLD + 2.0;
-  const hasArrived = nearestDist < ARRIVED_THRESHOLD;
-  const hasLeft = nearestDist > LEFT_THRESHOLD;
-
-  if (panelId && hasArrived && activePanelId !== panelId) {
-    // Camera arrived — activate this section's panel
+  // 1. Apply the leg-derived panel state (idempotent thanks to the
+  //    activePanelId early-return in setActivePanel).
+  const panelId = currentSectionId ? currentSectionId.replace('sec-', 'panel-') : null;
+  if (panelId && activePanelId !== panelId) {
     setActivePanel(panelId);
-  } else if (activePanelId && hasLeft && activePanelId !== panelId) {
-    // Camera left the current section and hasn't arrived at another
-    deactiveCooldown++;
-    if (deactiveCooldown > DEACTIVATE_FRAMES) {
-      // Only deactivate when we're not near ANY section's activation zone
-      let inAnyZone = false;
-      Object.keys(stopPosVectors).forEach((secId) => {
-        const tp = stopPosVectors[secId];
-        const ddx = camPos.x - tp.x;
-        const ddy = camPos.y - tp.y;
-        const ddz = camPos.z - tp.z;
-        const dd = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
-        const t = COMPONENT_WORLD[secId] ? 3.5 : 6.0;
-        if (dd < t + 1.0) inAnyZone = true;
-      });
-      if (!inAnyZone) {
-        setActivePanel(null);
-      }
-    }
-  } else {
-    deactiveCooldown = 0;
+  } else if (!panelId && activePanelId !== null) {
+    setActivePanel(null);
   }
 
-  // 3. Screen-space panel positioning + connector line
-  if (nearestSection && COMPONENT_WORLD[nearestSection] && hasArrived) {
-    const localPos = COMPONENT_WORLD[nearestSection];
+  // 2. Screen-space panel positioning + connector line for active
+  //    component sections (hero/contact are centered by CSS).
+  const activeSecId = activePanelId ? activePanelId.replace('panel-', 'sec-') : null;
+  if (activeSecId && COMPONENT_WORLD[activeSecId]) {
+    const localPos = COMPONENT_WORLD[activeSecId];
     worldPos.copy(localPos);
     boardGroup.localToWorld(worldPos);
     screenPos.copy(worldPos).project(camera);
@@ -283,7 +260,7 @@ export function updateJourneyEffects(camera, boardGroup) {
     const cx = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
     const cy = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
 
-    const panel = document.getElementById(panelId);
+    const panel = document.getElementById(activePanelId);
     if (panel && connectorLine) {
       // Use the panel's real rendered width — #panel-projects is .ds-panel-wide
       // (up to 980px), so a hardcoded 480 would shove it off-screen.
@@ -338,13 +315,14 @@ export function updateJourneyEffects(camera, boardGroup) {
     connectorLine.style.display = 'none';
   }
 
-  // 4. Dynamic vignette based on camera proximity
+  // 3. Vignette driven by leg progress toward the active component
+  //    (0.35 at the far end of the leg ramping to 0.85 on arrival).
   if (!vignetteEl) vignetteEl = document.querySelector('.vignette-overlay');
   if (vignetteEl) {
     let intensity = 0.35;
-    if (nearestSection && COMPONENT_WORLD[nearestSection] && hasArrived) {
-      const t = Math.max(0, Math.min(1, (nearestDist - 1.5) / 3.0));
-      intensity = 0.35 + (1 - t) * 0.5;
+    if (activeSecId && COMPONENT_WORLD[activeSecId] && currentLegProgress >= 0.5) {
+      const t = Math.min(1, (currentLegProgress - 0.5) / 0.5);
+      intensity = 0.35 + t * 0.5;
     }
     vignetteEl.style.opacity = intensity;
   }
@@ -387,6 +365,8 @@ export function initJourney(camera, boardGroup) {
       onUpdate: (self) => {
         const eased = gsap.parseEase('power2.out')(self.progress);
         setCameraAtT(prevT + (thisT - prevT) * eased);
+        // Panel activation follows the scroll, not camera distance
+        setLegState(stopOrder[i], stopOrder[i - 1], self.progress);
       }
     });
   }
@@ -394,6 +374,9 @@ export function initJourney(camera, boardGroup) {
   requestAnimationFrame(() => {
     ScrollTrigger.refresh();
   });
+
+  // Panels are now safe to drive (boot sequence is done)
+  journeyReady = true;
 }
 
 // ─── Direct navigation ──────────────────────────────────────

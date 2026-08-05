@@ -258,6 +258,7 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 
 ## 📝 Developer Change & Session Log
 
+- **Panel Activation Refactor**: `updateJourneyEffects` no longer scans camera distance thresholds. Panel activation is now a **pure function of the current scroll leg** — `setLegState(destination, source, progress)` runs in each ScrollTrigger `onUpdate` and switches sections at 0.55 progress (0.05 boundary band vs. 0.5). Deleted the hysteresis/cooldown machinery (`ARRIVED_THRESHOLD`, `LEFT_THRESHOLD`, `DEACTIVATE_FRAMES`, `inAnyZone` second scan). Activation is applied idempotently each frame via the `activePanelId` early-return in `setActivePanel`. Also gated panel driving behind `journeyReady` (set at the end of `initJourney`) so the boot sequence's GSAP inline styles on the hero panel are never fought mid-boot.
 - **Build Fixes**: Fixed malformed font fallback link tag in `index.html` and removed duplicate snippet syntax error in `src/three/board.js`.
 - **CSS Improvements**: Added design system tokens (`--space-*`, `--radius-*`, `--depth-*`) in `style.css`, enhanced focus states, and skip-to-content links for accessibility.
 - **Claude Blueprint Update**: Updated `claude.md` with complete architecture specification, raycasting interaction blueprint, single LinkedIn CTA constraints, and testing protocols.
