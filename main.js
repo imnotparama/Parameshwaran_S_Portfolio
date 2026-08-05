@@ -176,8 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Run hover raycasting intersection diagnostics
         checkHover(delta);
 
-        // Apply mouse movement 3D board parallax tilts
-        updateBoardParallax(elapsed, mouse);
+        // Apply mouse movement 3D board parallax tilts (delta-scaled lerp)
+        updateBoardParallax(elapsed, mouse, delta);
 
         // Update screen-space panel positioning, connector line, and vignette
         if (typeof updateJourneyEffects === 'function' && !isLiteMode()) {

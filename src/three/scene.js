@@ -161,10 +161,16 @@ export function initScene(canvasElement) {
     // THREE.Timer replaces the deprecated THREE.Clock (r185+). This is a
     // real-time interactive scene, so a wall-clock-derived Timer is the
     // correct source of truth here (unlike deterministic HyperFrames renders).
+    // The delta is CLAMPED at the source: after a background-tab return or a
+    // long frame hitch, getDelta() can spike to seconds — unclamped, that
+    // teleports delta-driven motion (particles, lerps, hover response) instead
+    // of just skipping the frame. Elapsed-driven oscillators (radar ring,
+    // LED flicker) intentionally phase-skip on return — invisible for sines.
     const timer = new THREE.Timer();
+    const MAX_DELTA = 0.05; // 50ms cap — slower frames get a bounded response
 
     function animate() {
-        const delta = timer.getDelta();
+        const delta = Math.min(timer.getDelta(), MAX_DELTA);
         const elapsed = timer.getElapsed();
 
         // Performance check (every frame, delta is in seconds)

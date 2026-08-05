@@ -248,6 +248,11 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 
 ## 📝 Developer Change & Session Log
 
+- **2026-08 Session — Frame-clock hygiene in the 3D tick loop (threejs-animation applied)**:
+  - `scene.js`: the tick-loop delta is now **clamped at the source** (`Math.min(timer.getDelta(), 0.05)` = `MAX_DELTA`). Before, a background-tab return or frame hitch handed consumers a multi-second delta that teleported delta-driven motion. `elapsed` stays unclamped (radar ring / LED flicker are sine oscillators — phase-skip is invisible).
+  - `board.js`: `updateBoardParallax` lerp factors are now **delta-scaled** via `lerpFactor(k, delta) = 1 - Math.pow(1-k, delta*60)` — the same convention `hover.js` already uses. At 60fps the factor equals the old constant exactly (feel unchanged); at any other frame rate the per-second response is now identical instead of frame-rate-dependent. `main.js` passes `delta` through.
+  - `particles.js`: dropped the now-redundant internal `Math.min(delta, 0.05)` — the source clamp owns the cap.
+  - **Verified live**: skip-boot path healthy (overlay gone, nav clickable), tick loop runs clean, console only shows the known env shadow-map error. Build + tsc green; code review: no defects (applied its nits — comment accuracy + redundant clamp removal).
 - **2026-08 Session — Boot→hero camera glide (hyperframes-animation applied)**:
   - Fixed the **boot→journey camera cut**: `scene.js` inits the camera at `(0, -2, 17)` and the boot animates only the board, so `initJourney`'s old `setCameraAtT(0)` SNAPPED to the hero stop `(0, -5.2, 13)` — a hard cut on every load, worst on the skip-boot path.
   - `journey.js` now calls `glideToHero()` instead: a GSAP timeline tweening `cameraRef.position` + `curLook` (both Vector3) to the hero config over `ARRIVAL_GLIDE_DURATION` (1.0s) with `power2.inOut` (repositioning ease per the camera rules), `onUpdate: cameraRef.lookAt(curLook)`, `onComplete` nulls the ref. Transform-space only (3D vectors — no layout properties).

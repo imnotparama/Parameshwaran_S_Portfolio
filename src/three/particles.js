@@ -53,10 +53,10 @@ export function updateParticles(delta) {
     particles.forEach(p => {
         if (!p.mesh || !p.mesh.visible) return;
 
-        // Calculate speed with delta clamping to prevent jumps
-        const clampedDelta = Math.min(delta, 0.05);
+        // Delta is already clamped to MAX_DELTA (0.05) at the tick source in
+        // scene.js — particles never see a post-background-tab spike.
         const speed = p.baseSpeed;
-        p.progress += clampedDelta * speed;
+        p.progress += delta * speed;
 
         if (p.progress >= 1.0) {
             p.progress = 0.0;

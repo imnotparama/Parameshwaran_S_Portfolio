@@ -325,7 +325,14 @@ export function createBoard(scene) {
     boardGroup.scale.set(0.85, 0.85, 0.85);
     scene.add(boardGroup);
 }
-export function updateBoardParallax(elapsed, mouse) {
+// Delta-scaled lerp factor — same convention as hover.js (1 - pow(1-k, d*60))
+// so the parallax response is IDENTICAL at any frame rate: at 60fps it equals
+// k exactly, at 30fps it halves per frame but doubles per second of real time.
+function lerpFactor(k, delta) {
+    return 1 - Math.pow(1 - k, (delta || 1 / 60) * 60);
+}
+
+export function updateBoardParallax(elapsed, mouse, delta) {
     if (!boardGroup) return;
 
     // Check if we're in journey mode (camera controlled by scroll)
@@ -339,15 +346,14 @@ export function updateBoardParallax(elapsed, mouse) {
         const bob = Math.sin(elapsed * 1.5) * 0.08;
         boardGroup.position.z = bob;
 
-        boardGroup.rotation.x += (targetRotX - boardGroup.rotation.x) * 0.08;
-        boardGroup.rotation.y += (targetRotY - boardGroup.rotation.y) * 0.08;
+        boardGroup.rotation.x += (targetRotX - boardGroup.rotation.x) * lerpFactor(0.08, delta);
+        boardGroup.rotation.y += (targetRotY - boardGroup.rotation.y) * lerpFactor(0.08, delta);
     } else {
         // Journey mode: camera controls all movement; board stays put
         // Ultra-smooth micro-tilt with higher lerp for fluid response
         const microTiltX = -mouse.y * 0.003;
         const microTiltY = mouse.x * 0.003;
-        const lerpFactor = 0.035;
-        boardGroup.rotation.x += (microTiltX - boardGroup.rotation.x) * lerpFactor;
-        boardGroup.rotation.y += (microTiltY - boardGroup.rotation.y) * lerpFactor;
+        boardGroup.rotation.x += (microTiltX - boardGroup.rotation.x) * lerpFactor(0.035, delta);
+        boardGroup.rotation.y += (microTiltY - boardGroup.rotation.y) * lerpFactor(0.035, delta);
     }
 }
