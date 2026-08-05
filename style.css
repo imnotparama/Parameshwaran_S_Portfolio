@@ -1004,7 +1004,7 @@ h1#user-name {
     cursor: pointer;
     z-index: 9000;
     box-shadow: var(--depth-1);
-    transition: all 0.2s ease-in-out;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
     font-weight: 500;
     letter-spacing: 0.5px;
 }
@@ -1033,7 +1033,7 @@ h1#user-name {
     padding: 6px 14px;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all 0.25s ease;
+    transition: color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
     letter-spacing: 1px;
     font-weight: 500;
     position: relative;
@@ -1087,7 +1087,7 @@ h1#user-name {
     text-decoration: none;
     position: relative;
     overflow: hidden;
-    transition: all 0.25s ease;
+    transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
 }
 
 .cta-linkedin {
@@ -1327,7 +1327,7 @@ a:focus-visible,
     padding: 6px 14px;
     border-radius: 2px;
     cursor: pointer;
-    transition: all 0.25s ease;
+    transition: color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
     letter-spacing: 1px;
 }
 
@@ -1371,7 +1371,7 @@ a:focus-visible,
     padding: 4px 10px;
     border-radius: 2px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .btn-close-panel-style:hover {

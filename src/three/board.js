@@ -219,6 +219,29 @@ export function createBoard(scene) {
             drawCrosshair(160, 3936);
             drawCrosshair(1888, 3936);
 
+            // I2. Mounting-hole markers — gold plated rings aligned with the
+            // 3D holes added in createBoard (same local coords ±4.64, ±6.92).
+            ctx.strokeStyle = 'rgba(201, 162, 75, 0.55)';
+            ctx.lineWidth = 5;
+            [[160, 160], [1888, 160], [160, 3936], [1888, 3936]].forEach(([mx, my]) => {
+                ctx.beginPath();
+                ctx.arc(mx, my, 50, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+
+            // I3. Pin-1 marker dot next to U1 (real IC assembly convention)
+            ctx.fillStyle = '#ece7d8';
+            ctx.beginPath();
+            ctx.arc(1024 - 240 + 42, 2048 - 272 - 240 + 42, 16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = 'bold 44px monospace';
+            ctx.fillText('1', 1024 - 240 + 70, 2048 - 272 - 240 + 56);
+
+            // I4. Fab markings along the bottom edge
+            ctx.font = '34px monospace';
+            ctx.fillText('Pb-FREE / NO-CLEAN', 130, 3810);
+            ctx.fillText('IPC-A-610 CLASS 2', 130, 3850);
+
             // J. Silkscreen QR Code block (mock) at bottom center
             ctx.fillStyle = '#ece7d8';
             ctx.fillRect(1024 - 70, 3700 - 70, 140, 140);
@@ -276,6 +299,28 @@ export function createBoard(scene) {
     silkscreenMesh = new THREE.Mesh(silkscreenGeom, silkscreenMat);
     silkscreenMesh.position.z = thickness / 2 + 0.003;
     boardGroup.add(silkscreenMesh);
+
+    // 3. Mounting holes — plated-through holes in the 4 corners (reads instantly
+    // as a real PCB). Positions align with the silkscreen crosshairs/markers above
+    // (canvas 160/1888 x 160/3936 maps to local ±4.64, ±6.92).
+    const holeGeo = new THREE.CylinderGeometry(0.24, 0.24, thickness + 0.03, 20);
+    holeGeo.rotateX(Math.PI / 2);
+    const ringGeo = new THREE.TorusGeometry(0.26, 0.05, 10, 26);
+    const holeMat = new THREE.MeshStandardMaterial({ color: 0x030a05, roughness: 0.95, metalness: 0 });
+    const ringMat = new THREE.MeshStandardMaterial({ color: 0xc9a24b, roughness: 0.3, metalness: 0.85 });
+    disposableResources.geometries.add(holeGeo);
+    disposableResources.geometries.add(ringGeo);
+    disposableResources.materials.add(holeMat);
+    disposableResources.materials.add(ringMat);
+
+    [[4.64, 6.92], [-4.64, 6.92], [4.64, -6.92], [-4.64, -6.92]].forEach(([hx, hy]) => {
+        const hole = new THREE.Mesh(holeGeo, holeMat);
+        hole.position.set(hx, hy, 0);
+        boardGroup.add(hole);
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.set(hx, hy, 0);
+        boardGroup.add(ring);
+    });
 
     boardGroup.scale.set(0.85, 0.85, 0.85);
     scene.add(boardGroup);

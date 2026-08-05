@@ -59,6 +59,11 @@ export function createComponents(boardGroup) {
         emissiveIntensity: 0.1
     });
 
+    // Package lead-frame outlines — gold on ICs, silver on the crystal can.
+    // A thin perimeter line reads as a real package seam at the new camera angle.
+    const goldFrameMat = new THREE.LineBasicMaterial({ color: 0xc9a24b, transparent: true, opacity: 0.55 });
+    const silverFrameMat = new THREE.LineBasicMaterial({ color: 0xd6dde4, transparent: true, opacity: 0.5 });
+
     // -------------------------------------------------------------
     // COMPONENT 1 — Main CPU / IC Chip (U1) - About & Skills
     // -------------------------------------------------------------
@@ -141,6 +146,16 @@ export function createComponents(boardGroup) {
     cpuRadarRing.position.set(0, 0, 0.01);
     cpuGroup.add(cpuRadarRing);
 
+    // Gold lead-frame outline around the chip top (package seam, real-IC look)
+    const cpuFramePts = [
+        new THREE.Vector3(-1.2, -1.2, 0.112),
+        new THREE.Vector3(1.2, -1.2, 0.112),
+        new THREE.Vector3(1.2, 1.2, 0.112),
+        new THREE.Vector3(-1.2, 1.2, 0.112)
+    ];
+    const cpuFrame = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(cpuFramePts), goldFrameMat);
+    cpuGroup.add(cpuFrame);
+
     disposableResources.geometries.add(cpuGeo);
 
     // CPU Pins - 8 pins per side (32 pins total)
@@ -212,6 +227,17 @@ export function createComponents(boardGroup) {
         pinR.position.set(-3.2 + 0.95, 4.5 + offset, surfaceZ - 0.05);
         boardGroup.add(pinR);
     }
+
+    // Gold lead-frame outline on U2
+    const gpuFramePts = [
+        new THREE.Vector3(-0.9, -0.9, surfaceZ + 0.091),
+        new THREE.Vector3(0.9, -0.9, surfaceZ + 0.091),
+        new THREE.Vector3(0.9, 0.9, surfaceZ + 0.091),
+        new THREE.Vector3(-0.9, 0.9, surfaceZ + 0.091)
+    ];
+    const gpuFrame = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(gpuFramePts), goldFrameMat);
+    gpuFrame.position.set(-3.2, 4.5, 0);
+    boardGroup.add(gpuFrame);
 
     // GPU Silicon execution cores (Projects)
     gpuInsideGroup = new THREE.Group();
@@ -290,6 +316,17 @@ export function createComponents(boardGroup) {
     oscMesh.userData = { componentName: 'Crystal Oscillator Y1 (Education)', type: 'CRYSTAL' };
     boardGroup.add(oscMesh);
     interactiveObjects.push(oscMesh);
+
+    // Silver seam line around the crystal can top
+    const oscFramePts = [
+        new THREE.Vector3(-0.6, -0.3, surfaceZ + 0.161),
+        new THREE.Vector3(0.6, -0.3, surfaceZ + 0.161),
+        new THREE.Vector3(0.6, 0.3, surfaceZ + 0.161),
+        new THREE.Vector3(-0.6, 0.3, surfaceZ + 0.161)
+    ];
+    const oscFrame = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(oscFramePts), silverFrameMat);
+    oscFrame.position.set(-3.5, 0.5, 0);
+    boardGroup.add(oscFrame);
 
     // Two gold mounting pads
     const padGeo = new THREE.BoxGeometry(0.1, 0.2, 0.02);

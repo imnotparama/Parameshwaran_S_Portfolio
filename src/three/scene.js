@@ -67,6 +67,11 @@ export function initScene(canvasElement) {
     const ambientLight = new THREE.AmbientLight(0xdcfce7, 0.45);
     scene.add(ambientLight);
 
+    // Hemisphere light — sky/soldermask color gradient gives materials depth
+    // (chips stop reading as flat black boxes under the single ambient)
+    const hemiLight = new THREE.HemisphereLight(0xe9f5ee, 0x1e4d33, 0.7);
+    scene.add(hemiLight);
+
     // Key directional light creating specular metallic reflections
     const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.0);
     dirLight1.position.set(6, 4, 15);

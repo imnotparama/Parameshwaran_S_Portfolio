@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
+import { cpuRadarRing, siliconDieMesh } from '../three/components.js';
+import { traceData } from '../three/traces.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
@@ -139,6 +141,34 @@ export function setCameraAtT(t) {
   cameraRef.lookAt(curLook);
 }
 
+// ─── Arrival micro-moment: the component (or its signal trace)
+// lights up when the camera reaches its section. Same language as
+// the boot sequence's trace flash — "if it glows, it's live".
+const ARRIVAL_TRACE = { 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experience': 'J1' };
+function pulseArrival(secId) {
+    if (!secId) return;
+    if (secId === 'sec-about') {
+        // U1: radar sweep + silicon die flash bright, then settle
+        if (cpuRadarRing && cpuRadarRing.material) {
+            gsap.fromTo(cpuRadarRing.material, { opacity: 0.6 }, { opacity: 1, duration: 0.4, yoyo: true, repeat: 1, ease: 'power1.out', overwrite: 'auto' });
+        }
+        if (siliconDieMesh && siliconDieMesh.material) {
+            gsap.fromTo(siliconDieMesh.material, { opacity: 0.65 }, { opacity: 1, duration: 0.4, yoyo: true, repeat: 1, ease: 'power1.out', overwrite: 'auto' });
+        }
+        return;
+    }
+    const ref = ARRIVAL_TRACE[secId];
+    if (!ref) return;
+    traceData.forEach(t => {
+        if (t.component !== ref) return;
+        t.meshes.forEach(m => {
+            if (m.material && m.material.emissiveIntensity !== undefined) {
+                gsap.fromTo(m.material, { emissiveIntensity: 0.4 }, { emissiveIntensity: 1.3, duration: 0.35, yoyo: true, repeat: 1, ease: 'power1.out', delay: 0.05, overwrite: 'auto' });
+            }
+        });
+    });
+}
+
 // ─── Panel + nav activation ─────────────────────────────────
 function setActivePanel(panelId) {
   if (activePanelId === panelId) return;
@@ -155,6 +185,8 @@ function setActivePanel(panelId) {
   document.querySelectorAll('.hud-nav .nav-btn').forEach((btn) => {
     btn.classList.toggle('nav-active', btn.getAttribute('data-section') === secId);
   });
+  // Power-on micro-moment for the section's component
+  pulseArrival(secId);
   // Show/hide connector
   if (connectorLine) {
     const showConnector = panelId && panelId !== 'panel-hero' && panelId !== 'panel-contact';

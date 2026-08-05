@@ -725,6 +725,17 @@ body.full-journey #panel-contact.panel-active {
     padding-top: 16px;
 }
 
+/* The connector line is a live signal trace — dashes march toward the
+   anchored panel (stroke-dasharray 4 4 is set as an SVG attribute, so
+   only the offset needs animating; period 8 loops cleanly at -16). */
+.connector-path {
+    animation: signal-flow 0.9s linear infinite;
+}
+
+@keyframes signal-flow {
+    to { stroke-dashoffset: -16; }
+}
+
 /* ============================================================
    REDUCED MOTION — prefers-reduced-motion
    ============================================================ */
