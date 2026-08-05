@@ -16,7 +16,7 @@ Hi! This file is the primary reference prompt and technical transfer guide for a
 - **Current session** — legacy interaction stack deleted (single scroll-journey model). See session log.
 
 ### Open items (nice-to-haves, no urgency)
-- **`public/og-preview.png` (1200×630 share card) is NOT generated yet.** `index.html` references it; without it LinkedIn/Discord cards render bare. Work done so far: headless-Chrome pipeline in `.freebuff/og-tools/` (gitignored; puppeteer-core + SwiftShader WebGL verified working) — but boot is a ~6.4s GSAP timeline that runs at a few FPS under software rendering, so `initJourney` (which activates panels) hasn't fired by capture time and the canvas reads black. Fix path: wait ~30-45s in the capture, OR add an `?og=1` capture mode that skips/shortens boot and sets the hero camera.
+- **`public/og-preview.png` (1200×630 share card) is NOT generated yet.** `index.html` references it; without it LinkedIn/Discord cards render bare. Work done so far: headless-Chrome pipeline in `.freebuff/og-tools/` (gitignored; puppeteer-core + SwiftShader WebGL verified working) + a working `?og=1` capture mode in `boot.js` (instant boot, hero panel set inline because CSS transitions don't tick under software rendering). The boot sequence is now a **deterministic single GSAP timeline** (no setTimeout), which also removes the timeline/wall-clock desync that originally blocked captures.
 - Optional: deep-linkable sections (`#/about` via hashchange), skip-boot-on-return (`sessionStorage`), delete stale `src/schema.ts`, README refresh (bloom thresholds changed).
 
 ---
@@ -248,7 +248,16 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 
 ## 📝 Developer Change & Session Log
 
+- **2026-08 Session — Deterministic boot sequence (hyperframes-animation applied)**:
+  - `boot.js` rewritten as **one GSAP timeline with ALL-ABSOLUTE positions** (a `SCHEDULE` const in seconds — scanline 0.3, HUD 1.75, hero 2.35, subtitle 2.65, badges 2.8, canvas/board 3.45, traces 4.85, pins 5.05, LEDs 5.25, cores 5.55, status 5.85, overlay fade 6.25 → boot ends ~6.85s). No relative `+=` chaining.
+  - **Typewriters are now timeline-driven proxy tweens** (`tl.to` on `{ n: 0 → text.length }` with `onUpdate` slicing `textContent`, `CPS = 33.3` chars/s) — deleted `typewriterEffect()` and `typeTerminalLine()` entirely. No `setTimeout` anywhere in the boot (the only remaining `setTimeout` in the repo is the debounced resize in `scene.js`).
+  - **All flash tweens moved onto the timeline**: trace emissive flashes (staggered `SCHEDULE.traces + index*0.05`), CPU pin flashes (`+ idx*0.015`), LED blinks (`+ idx*0.1`) — previously created ad-hoc inside `tl.add` callbacks; status text updates via `tl.call(..., [], absPos)`.
+  - **Terminal rebuild is synchronous**: the 3 `BOOT_LINES` divs are created + their typewriter tweens scheduled at boot time; the `#terminal-status-text` register is re-appended via `tl.call` after the last line (~4.2s) — all `updateTerminalText` calls (≥4.85s) happen after it's attached again.
+  - **Silicon die pulse** stays a detached FINITE `gsap.to` (`repeat: 7`, `delay: SCHEDULE.cores`) so it can't stretch the timeline; settles at opacity 0.65. The `?og=1` / skip-boot instant paths are unchanged.
+  - **Why**: the old boot mixed wall-clock `setTimeout` typewriters inside a frame-ticked GSAP timeline — under slow renderers the timeline and text desynced and boot completion (→ `initJourney`) became non-deterministic, the root cause of the headless OG-capture failures.
+  - **Verified live**: full boot types all 3 lines + subtitle, re-appends the status register, ends with overlay `opacity 0`/`display none`, hero visible, HUD ready, underline 280px, journey inits after; `?og=1` and skip-boot paths still instant. Build + tsc green. Code review: no defects.
 - **2026-08 Session — Dead layout CSS sweep (no DOM behind it)**:
+
   - Removed from `style.css` (~140 lines): `#main-header` + `.header-container` wrappers (hero typography kept), the whole `.svg-separator` / `.trace-active-line` / `.spark` section + `traceDraw`/`sparkMove` keyframes, `.canvas-hint`, `#main-footer` + all old footer classes (`.footer-container`, `.footer-details`, `.footer-meta`, `.footer-status`), `.social-pins`/`.social-pin`/`.pin-dot`/`.pin-lbl`/`.copyright`, the `.header-nav` wrapper in the Minimalist Navbar block, and the dead `#main-header`/`.header-nav`/`.svg-separator`/footer/social-pins rules in the 768/480 media queries + reduced-motion block. Kept everything live: `.nav-btn` (HUD), `.header-underline` (boot animates it), `.ece-label`/`h1#user-name`/`.subtitle-wrap`/`.terminal-cursor`/`.badge-row`/`.stat-badge`/`.badge-lbl` (hero panel).
 - **2026-08 Session — Orphaned export pruning (post legacy-stack deletion)**:
   - **`particles.js`**: removed `setHoveredTraceSpeedBoost` (only consumer was the deleted legacy hover path) and its supporting state (`speedMultiplier`, `connectedComponent`, `material` fields on particles, `BOOST_PARTICLE_COLOR`). Particles now flow at constant `baseSpeed`.

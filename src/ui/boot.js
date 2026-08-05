@@ -5,9 +5,39 @@ import { particles } from '../three/particles.js';
 import { traceData } from '../three/traces.js';
 import { isLiteMode } from '../config.js';
 
+// ─── Deterministic boot choreography ──────────────────────────
+// One GSAP timeline, every tween at an ABSOLUTE position (seconds) — never
+// relative += chaining — so the boot is a pure function of timeline time:
+// identical on every run, seek-safe, immune to the wall-clock/frame desync
+// that setTimeout-driven text caused under slow renderers (the OG-capture
+// bug class). Text stepping uses proxy tweens with onUpdate textContent
+// writes — no setTimeout anywhere in the sequence.
+const CPS = 33.3; // typewriter chars/second (matches the original 30ms/char feel)
+const BOOT_LINES = [
+  '> INITIALIZING PARAMA-DEV-BOARD...',
+  '> LOADING GEOMETRY...',
+  '> ALL PCB SYSTEMS OPERATIONAL'
+];
+const SCHEDULE = {
+  scanline: 0.3,      // scanline sweep (0.85s)
+  terminal: 1.25,     // boot terminal typing starts (parallel track)
+  hud: 1.75,          // HUD bar fade (0.4s)
+  heroPanel: 2.35,    // hero panel reveal (tl.set + clearProps)
+  subtitle: 2.65,     // subtitle typewriter
+  badges: 2.8,        // stat badges pop in (stagger 0.1)
+  canvas: 3.45,       // canvas fade (0.8s)
+  board: 3.45,        // board float-up (1.2s) + underline draw (1.0s)
+  traces: 4.85,       // copper traces light up
+  pins: 5.05,         // CPU pins flash gold
+  leds: 5.25,         // LED diagnostics blink
+  cores: 5.55,        // particles online + silicon die pulse
+  statusFinal: 5.85,  // "ALL SYSTEMS OPERATIONAL"
+  overlayFade: 6.25   // overlay fades out (0.6s) — boot ends ~6.85s
+};
+
 export function runBootSequence(onCompleteCallback) {
     // ?og=1 = social-share capture mode (headless screenshots): take the same
-    // instant path as a return visit so the ~6s boot timeline never delays
+    // instant path as a return visit so the ~6.8s boot timeline never delays
     // (and at software-rendered FPS never blocks) a capture.
     const isOgCapture = new URLSearchParams(window.location.search).get('og') === '1';
 
@@ -89,43 +119,45 @@ export function runBootSequence(onCompleteCallback) {
     tl.to(scanline, {
         y: scanlineTravel,
         duration: 0.85,
-        ease: 'power1.inOut',
-        delay: 0.3
-    });
+        ease: 'power1.inOut'
+    }, SCHEDULE.scanline);
 
-    // Step 2b: Terminal-type boot messages with typewriter effect (runs in parallel)
+    // Step 2b: Terminal-type boot messages — timeline-driven typewriter.
+    // Each line is a proxy tween ({n: 0 → length}) whose onUpdate writes
+    // textContent — deterministic and seek-safe, no setTimeout chains. The
+    // live status register is detached at rebuild and re-appended once the
+    // last line lands (tl.call at an absolute position).
     const bootTerminal = document.querySelector('.boot-terminal-log');
+    let typePos = SCHEDULE.terminal;
     let savedStatusEl = null;
-    tl.add(() => {
-        if (bootTerminal) {
-            // Save status element before clearing
-            savedStatusEl = document.getElementById('terminal-status-text');
-            bootTerminal.innerHTML = '';
-            // Type the boot lines first (they'll appear in order)
-            typeTerminalLine(bootTerminal, '> INITIALIZING PARAMA-DEV-BOARD...', 30, () => {
-                typeTerminalLine(bootTerminal, '> LOADING GEOMETRY...', 30, () => {
-                    typeTerminalLine(bootTerminal, '> ALL PCB SYSTEMS OPERATIONAL', 30, () => {
-                        // All lines done — now append status at the BOTTOM
-                        if (savedStatusEl) {
-                            bootTerminal.appendChild(savedStatusEl);
-                        } else {
-                            const newStatus = document.createElement('div');
-                            newStatus.className = 'terminal-status';
-                            newStatus.id = 'terminal-status-text';
-                            newStatus.textContent = '// LOADING BOARD ASSETS...';
-                            bootTerminal.appendChild(newStatus);
-                            savedStatusEl = newStatus;
-                        }
-                    });
-                });
-            });
-        }
-    }, '+=0.1');
+    if (bootTerminal) {
+        bootTerminal.innerHTML = '';
+        savedStatusEl = terminalStatus;
+        BOOT_LINES.forEach((text) => {
+            const lineEl = document.createElement('div');
+            lineEl.className = 'term-green';
+            bootTerminal.appendChild(lineEl);
+            const proxy = { n: 0 };
+            tl.to(proxy, {
+                n: text.length,
+                duration: text.length / CPS,
+                ease: 'none',
+                onUpdate: () => {
+                    if (lineEl) lineEl.textContent = text.slice(0, Math.round(proxy.n));
+                }
+            }, typePos);
+            // Brief beat between lines, then the next line begins
+            typePos += text.length / CPS + 0.15;
+        });
+        tl.call(() => {
+            if (bootTerminal && savedStatusEl) bootTerminal.appendChild(savedStatusEl);
+        }, [], typePos);
+    }
 
     // Step 3 (0.6s): HUD bar fades in — only add hud-ready here once during boot
     if (hudBar) {
         hudBar.classList.add('hud-ready');
-        tl.to(hudBar, { opacity: 1, duration: 0.4 }, '+=0.5');
+        tl.to(hudBar, { opacity: 1, duration: 0.4 }, SCHEDULE.hud);
     }
 
     // Hero panel reveals
@@ -133,13 +165,22 @@ export function runBootSequence(onCompleteCallback) {
         // Set, then immediately clear inline styles: without clearProps the inline
         // opacity/visibility would permanently override the .panel-active CSS toggle
         // in journey.js, leaving the hero panel stuck on top of every other section.
-        tl.set(heroPanel, { opacity: 1, visibility: 'visible', clearProps: 'opacity,visibility' }, '+=0.2');
+        tl.set(heroPanel, { opacity: 1, visibility: 'visible', clearProps: 'opacity,visibility' }, SCHEDULE.heroPanel);
     }
 
-    // Typewriter effect for subtitle
-    tl.add(() => {
-        typewriterEffect(subtitleEl, "ECE + Data Science · Builds Real, Working Projects", 30);
-    }, '+=0.3');
+    // Subtitle — timeline-driven typewriter (same proxy pattern)
+    if (subtitleEl) {
+        const text = 'ECE + Data Science · Builds Real, Working Projects';
+        const proxy = { n: 0 };
+        tl.to(proxy, {
+            n: text.length,
+            duration: text.length / CPS,
+            ease: 'none',
+            onUpdate: () => {
+                subtitleEl.textContent = text.slice(0, Math.round(proxy.n));
+            }
+        }, SCHEDULE.subtitle);
+    }
 
     // Fade in stat badges
     tl.to(badges, {
@@ -148,13 +189,13 @@ export function runBootSequence(onCompleteCallback) {
         stagger: 0.1,
         duration: 0.35,
         ease: 'back.out(1.7)'
-    }, '+=0.15');
+    }, SCHEDULE.badges);
 
     // Step 4: PCB board fades in from below, floats up to position
     tl.to(canvasContainer, {
         opacity: 1,
         duration: 0.8
-    }, '+=0.3');
+    }, SCHEDULE.canvas);
 
     if (boardGroup) {
         tl.to(boardGroup.position, {
@@ -162,14 +203,14 @@ export function runBootSequence(onCompleteCallback) {
             z: 0,
             duration: 1.2,
             ease: 'power2.out'
-        }, '-=0.8');
+        }, SCHEDULE.board);
 
         tl.to(boardGroup.rotation, {
             x: -Math.PI / 10,
             y: -Math.PI / 20,
             duration: 1.2,
             ease: 'power2.out'
-        }, '-=1.2');
+        }, SCHEDULE.board);
 
         const underline = document.querySelector('.header-underline');
         if (underline) {
@@ -177,86 +218,84 @@ export function runBootSequence(onCompleteCallback) {
                 width: '280px',
                 duration: 1.0,
                 ease: 'power2.out'
-            }, '-=1.2');
+            }, SCHEDULE.board);
         }
     }
 
     // Step 5 (1.8s): Traces light up one by one (left to right)
-    tl.add(() => {
-        updateTerminalText('// SYSTEM STATUS: ROUTING COPPER TRACES...');
-        traceData.forEach((trace, index) => {
-            // Flash traces using GSAP emissive controls
-            trace.meshes.forEach(mesh => {
-                gsap.fromTo(mesh.material, 
-                    { emissiveIntensity: 0.05 },
-                    { emissiveIntensity: 0.8, duration: 0.3, yoyo: true, repeat: 1, delay: index * 0.05 }
-                );
-            });
+    tl.call(() => updateTerminalText('// SYSTEM STATUS: ROUTING COPPER TRACES...'), [], SCHEDULE.traces);
+    traceData.forEach((trace, index) => {
+        // Flash traces using GSAP emissive controls — one timeline tween per
+        // mesh at a stagger of 0.05s per trace, all finite (repeat: 1).
+        trace.meshes.forEach(mesh => {
+            tl.fromTo(mesh.material,
+                { emissiveIntensity: 0.05 },
+                { emissiveIntensity: 0.8, duration: 0.3, yoyo: true, repeat: 1 },
+                SCHEDULE.traces + index * 0.05
+            );
         });
-    }, '+=0.2');
+    });
 
     // Step 6 (2.4s): CPU pins flash gold one by one (signal propagation)
-    tl.add(() => {
-        updateTerminalText('// SYSTEM STATUS: INITIALIZING MCU SIGNAL PATHS...');
-        if (cpuPins.length > 0) {
-            cpuPins.forEach((pin, idx) => {
-                gsap.fromTo(pin.material,
-                    { emissiveIntensity: 0.05 },
-                    {
-                        emissiveIntensity: 1.3,
-                        duration: 0.08,
-                        yoyo: true,
-                        repeat: 1,
-                        delay: idx * 0.015
-                    }
-                );
-            });
-        }
-    }, '+=0.2');
+    tl.call(() => updateTerminalText('// SYSTEM STATUS: INITIALIZING MCU SIGNAL PATHS...'), [], SCHEDULE.pins);
+    if (cpuPins.length > 0) {
+        cpuPins.forEach((pin, idx) => {
+            tl.fromTo(pin.material,
+                { emissiveIntensity: 0.05 },
+                {
+                    emissiveIntensity: 1.3,
+                    duration: 0.08,
+                    yoyo: true,
+                    repeat: 1
+                },
+                SCHEDULE.pins + idx * 0.015
+            );
+        });
+    }
 
     // Step 7 (3.0s): LEDs blink on sequentially
-    tl.add(() => {
-        updateTerminalText('// SYSTEM STATUS: REGISTERING LED DIAGNOSTIC CHANNELS...');
-        ledMeshes.forEach((led, idx) => {
-            gsap.to(led.material, {
-                emissiveIntensity: 0.75,
-                duration: 0.15,
-                delay: idx * 0.1,
-                yoyo: true,
-                repeat: 3
-            });
-        });
-    }, '+=0.2');
+    tl.call(() => updateTerminalText('// SYSTEM STATUS: REGISTERING LED DIAGNOSTIC CHANNELS...'), [], SCHEDULE.leds);
+    ledMeshes.forEach((led, idx) => {
+        tl.to(led.material, {
+            emissiveIntensity: 0.75,
+            duration: 0.15,
+            yoyo: true,
+            repeat: 3
+        }, SCHEDULE.leds + idx * 0.1);
+    });
 
     // Step 8 (3.5s): Electricity particles begin flowing
-    tl.add(() => {
+    tl.call(() => {
         updateTerminalText('// SYSTEM STATUS: BOOTING CORES. ELECTRON CHANNELS ONLINE.');
         particles.forEach(p => {
             p.mesh.visible = true;
         });
-        
-        // Pulse CPU Silicon die grid (finite, 8 pulses then settle)
-        if (siliconDieMesh) {
-            gsap.to(siliconDieMesh.material, {
-                opacity: 0.4,
-                duration: 0.8,
-                yoyo: true,
-                repeat: 7,
-                onComplete: () => {
-                    // Settle at a steady glow after boot
-                    if (siliconDieMesh) siliconDieMesh.material.opacity = 0.65;
-                }
-            });
-        }
-    }, '+=0.3');
+    }, [], SCHEDULE.cores);
+
+    // Silicon die pulse — fixed-delay FINITE tween (repeat: 7), started at the
+    // same beat but detached from the timeline so it can never stretch the boot
+    // duration. Deterministic: fixed delay, fixed repeat count, fixed values.
+    if (siliconDieMesh) {
+        gsap.to(siliconDieMesh.material, {
+            opacity: 0.4,
+            duration: 0.8,
+            yoyo: true,
+            repeat: 7,
+            delay: SCHEDULE.cores,
+            onComplete: () => {
+                // Settle at a steady glow after boot
+                if (siliconDieMesh) siliconDieMesh.material.opacity = 0.65;
+            }
+        });
+    }
 
     // Step 9 (4.0s): Small text bottom: "// ALL SYSTEMS OPERATIONAL"
-    tl.add(() => {
+    tl.call(() => {
         updateTerminalText('// ALL SYSTEMS OPERATIONAL - RECENT TELEMETRY SYNCED');
         if (terminalStatus) {
             terminalStatus.classList.add('system-operational-active');
         }
-    }, '+=0.3');
+    }, [], SCHEDULE.statusFinal);
 
     // Step 10 (4.2s): Boot overlay fades out, portfolio interactive
     tl.to(overlay, {
@@ -265,43 +304,7 @@ export function runBootSequence(onCompleteCallback) {
         onComplete: () => {
             overlay.style.display = 'none';
         }
-    }, '+=0.4');
-}
-
-// Utility to run typewriter text printing
-function typewriterEffect(element, text, speed) {
-    if (!element) return;
-    element.innerHTML = '';
-    let i = 0;
-    
-    function type() {
-        if (i < text.length) {
-            element.innerHTML += text.charAt(i);
-            i++;
-            setTimeout(type, speed);
-        }
-    }
-    type();
-}
-
-// Type a line into the terminal, then fire an optional callback
-function typeTerminalLine(container, text, speed, onComplete) {
-    if (!container) { if (onComplete) onComplete(); return; }
-    const line = document.createElement('div');
-    line.className = 'term-green';
-    container.appendChild(line);
-    let i = 0;
-    function type() {
-        if (i < text.length) {
-            line.textContent = text.substring(0, i + 1);
-            i++;
-            setTimeout(type, speed);
-        } else {
-            // Brief pause then fire callback
-            setTimeout(() => { if (onComplete) onComplete(); }, speed * 5);
-        }
-    }
-    type();
+    }, SCHEDULE.overlayFade);
 }
 
 // Update terminal diagnostic text
