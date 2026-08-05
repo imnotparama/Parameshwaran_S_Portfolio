@@ -99,12 +99,65 @@ export function initScene(canvasElement) {
         }, 100);
     });
 
-    // 6. Start Render/Animation Tick loop
+    // 6. FPS monitoring and performance guardrail
+    // Tracks frame times; reduces bloom if sustained below thresholds
+    let fpsHistory = [];
+    const FPS_SAMPLE_WINDOW = 30; // frames
+    let bloomReducedLevel = 0; // 0 = normal, 1 = reduced, 2 = minimal
+    const originalBloomSettings = { strength: 0.45, radius: 0.3 };
+
+    function checkPerformance(deltaMs) {
+        fpsHistory.push(deltaMs);
+        if (fpsHistory.length > FPS_SAMPLE_WINDOW) fpsHistory.shift();
+
+        if (fpsHistory.length === FPS_SAMPLE_WINDOW && composer) {
+            const avgMs = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
+            const avgFps = 1000 / avgMs;
+
+            // Multi-level performance scaling
+            let newLevel = 0;
+            if (avgFps < 30) {
+                newLevel = 2; // Severe performance reduction
+            } else if (avgFps < 45) {
+                newLevel = 1; // Moderate reduction
+            }
+
+            // Only update if level changed
+            if (newLevel !== bloomReducedLevel) {
+                bloomReducedLevel = newLevel;
+                const bloomPass = composer.passes.find(p => p instanceof UnrealBloomPass);
+                if (bloomPass) {
+                    switch (newLevel) {
+                        case 0: // Normal
+                            bloomPass.strength = originalBloomSettings.strength;
+                            bloomPass.radius = originalBloomSettings.radius;
+                            console.log(`[Performance] FPS ${avgFps.toFixed(1)} - restoring normal bloom`);
+                            break;
+                        case 1: // Reduced
+                            bloomPass.strength = Math.min(originalBloomSettings.strength * 0.5, 0.2);
+                            bloomPass.radius = Math.min(originalBloomSettings.radius * 0.5, 0.15);
+                            console.log(`[Performance] FPS ${avgFps.toFixed(1)} < 45 - reducing bloom`);
+                            break;
+                        case 2: // Minimal
+                            bloomPass.strength = Math.min(originalBloomSettings.strength * 0.25, 0.1);
+                            bloomPass.radius = Math.min(originalBloomSettings.radius * 0.25, 0.08);
+                            console.log(`[Performance] FPS ${avgFps.toFixed(1)} < 30 - minimal bloom`);
+                            break;
+                    }
+                }
+            }
+        }
+    }
+
+    // 7. Start Render/Animation Tick loop
     const clock = new THREE.Clock();
 
     function animate() {
         const delta = clock.getDelta();
         const elapsed = clock.getElapsedTime();
+
+        // Performance check (every frame, delta is in seconds)
+        checkPerformance(delta * 1000);
 
         // Run registered callbacks
         tickCallbacks.forEach(callback => callback(elapsed, delta));

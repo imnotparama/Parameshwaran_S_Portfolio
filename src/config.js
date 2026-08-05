@@ -14,7 +14,7 @@ export function prefersReducedMotion() {
 }
 
 export function isSmallViewport() {
-    return window.innerWidth < 820;
+    return window.innerWidth < 768;
 }
 
 export function isLiteMode() {

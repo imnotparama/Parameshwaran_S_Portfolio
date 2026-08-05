@@ -11,7 +11,7 @@ import { initHover, checkHover, mouse, triggerComponentAction } from './src/util
 import { openSidePanel, closeSidePanel } from './src/ui/sidepanel.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode, isSmallViewport } from './src/config.js';
 import { renderSections } from './src/ui/sections.js';
-import { initJourney, scrollToSection } from './src/scroll/journey.js';
+import { initJourney, scrollToSection, updateJourneyEffects } from './src/scroll/journey.js';
 
 // Font loading detection for fallback management
 function detectFontLoading() {
@@ -83,12 +83,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Store journey flag for after boot
     const shouldInitJourney = !isLiteMode();
 
-    // 9b. Enable bloom post-processing (unless lite mode)
+    // 10. Enable bloom post-processing (unless lite mode)
     if (!isLiteMode()) {
         enableBloom();
     }
 
-    // 10. Add animation loops to ticks callback registry
+    // 11. Add animation loops to ticks callback registry
     tickCallbacks.push((elapsed, delta) => {
         // Run electron pathing animations
         updateParticles(delta);
@@ -101,26 +101,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Apply mouse movement 3D board parallax tilts
         updateBoardParallax(elapsed, mouse);
+
+        // Update screen-space panel positioning, connector line, and vignette
+        if (typeof updateJourneyEffects === 'function' && !isLiteMode()) {
+            updateJourneyEffects(camera, boardGroup);
+        }
     });
 
-    // 10. Execute GSAP Power-on sequence — then init journey after boot
+    // 12. Execute GSAP Power-on sequence — then init journey after boot
     runBootSequence(() => {
         console.log("PARAMESHWARAN S PORTFOLIO SYSTEMS FULLY OPERATIONAL.");
-        
+
         // Init scroll journey after boot animation completes (camera is ready)
         if (shouldInitJourney) {
-            initJourney(camera);
+            initJourney(camera, boardGroup);
         }
-        
+
         // Show HUD bar after boot (whether journey or lite mode)
         const hudBar = document.getElementById('hud-bar');
         if (hudBar) hudBar.classList.add('hud-ready');
     });
 
-    // 10. Register memory cleanup on page unload
+    // 13. Register memory cleanup on page unload
     setupCleanup(scene, renderer, camera);
 
-    // 11. Bind Navigation Bar Buttons (scroll journey):
+    // 14. Bind Navigation Bar Buttons (scroll journey):
     // Every section reachable two ways: by scrolling to it, AND by clicking it directly.
     const navButtons = document.querySelectorAll('.nav-btn');
     navButtons.forEach(btn => {
@@ -143,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 11b. Hero section nav button for the HUD name/brand link
+    // 15. Hero section nav button for the HUD name/brand link
     const brandLink = document.querySelector('.hud-name');
     if (brandLink) {
         brandLink.addEventListener('click', (e) => {
@@ -156,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 12. Register global triggers (for hover.js direct access)
+    // 16. Register global triggers (for hover.js direct access)
     window.openSidePanel = openSidePanel;
     window.closeSidePanel = closeSidePanel;
 });

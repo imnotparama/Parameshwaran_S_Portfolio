@@ -14,8 +14,8 @@ export function runBootSequence(onCompleteCallback) {
 
     const overlay = document.getElementById('boot-overlay');
     const scanline = document.getElementById('scanline');
-    const header = document.getElementById('main-header');
-    const nameEl = document.getElementById('user-name');
+    const hudBar = document.getElementById('hud-bar');
+    const heroPanel = document.getElementById('panel-hero');
     const subtitleEl = document.getElementById('typewriter-subtitle');
     const badges = document.querySelectorAll('.stat-badge');
     const terminalStatus = document.getElementById('terminal-status-text');
@@ -24,13 +24,14 @@ export function runBootSequence(onCompleteCallback) {
     // If user prefers reduced motion or small viewport, skip animations
     if (isLiteMode()) {
         overlay.style.display = 'none';
-        gsap.set(header, { opacity: 1 });
         gsap.set(canvasContainer, { opacity: 1 });
         if (boardGroup) {
             gsap.set(boardGroup.position, { y: 0, z: 0 });
             gsap.set(boardGroup.rotation, { x: -Math.PI / 10, y: -Math.PI / 20 });
         }
         gsap.set(badges, { opacity: 1, y: 0 });
+        if (hudBar) hudBar.classList.add('hud-ready');
+        if (heroPanel) gsap.set(heroPanel, { opacity: 1, visibility: 'visible' });
         if (subtitleEl) subtitleEl.textContent = 'ECE + Data Science · Builds Real, Working Projects';
         particles.forEach(p => { p.mesh.visible = true; });
         const underline = document.querySelector('.header-underline');
@@ -41,7 +42,8 @@ export function runBootSequence(onCompleteCallback) {
 
     // Make sure elements start in hidden states for sequence
     gsap.set(overlay, { opacity: 1 });
-    gsap.set(header, { opacity: 0 });
+    if (hudBar) gsap.set(hudBar, { opacity: 0, pointerEvents: 'none' });
+    if (heroPanel) gsap.set(heroPanel, { opacity: 0, visibility: 'hidden' });
     gsap.set(badges, { opacity: 0, y: 10 });
     gsap.set(canvasContainer, { opacity: 0 });
     if (boardGroup) {
@@ -57,20 +59,50 @@ export function runBootSequence(onCompleteCallback) {
         delay: 0.3
     });
 
-    // Step 3 (0.6s): Header and HUD bar fade in
-    tl.to(header, {
-        opacity: 1,
-        duration: 0.4,
-        onStart: () => {
-            const hudBar = document.getElementById('hud-bar');
-            if (hudBar) hudBar.classList.add('hud-ready');
+    // Step 2b: Terminal-type boot messages with typewriter effect (runs in parallel)
+    const bootTerminal = document.querySelector('.boot-terminal-log');
+    let savedStatusEl = null;
+    tl.add(() => {
+        if (bootTerminal) {
+            // Save status element before clearing
+            savedStatusEl = document.getElementById('terminal-status-text');
+            bootTerminal.innerHTML = '';
+            // Type the boot lines first (they'll appear in order)
+            typeTerminalLine(bootTerminal, '> INITIALIZING PARAMA-DEV-BOARD...', 30, () => {
+                typeTerminalLine(bootTerminal, '> LOADING GEOMETRY...', 30, () => {
+                    typeTerminalLine(bootTerminal, '> ALL PCB SYSTEMS OPERATIONAL', 30, () => {
+                        // All lines done — now append status at the BOTTOM
+                        if (savedStatusEl) {
+                            bootTerminal.appendChild(savedStatusEl);
+                        } else {
+                            const newStatus = document.createElement('div');
+                            newStatus.className = 'terminal-status';
+                            newStatus.id = 'terminal-status-text';
+                            newStatus.textContent = '// LOADING BOARD ASSETS...';
+                            bootTerminal.appendChild(newStatus);
+                            savedStatusEl = newStatus;
+                        }
+                    });
+                });
+            });
         }
     }, '+=0.1');
 
-    // Typewriter effect for hero subtitle — from portfolio data
+    // Step 3 (0.6s): HUD bar fades in
+    if (hudBar) {
+        hudBar.classList.add('hud-ready');
+        tl.to(hudBar, { opacity: 1, duration: 0.4 }, '+=0.5');
+    }
+
+    // Hero panel reveals
+    if (heroPanel) {
+        tl.set(heroPanel, { opacity: 1, visibility: 'visible' }, '+=0.2');
+    }
+
+    // Typewriter effect for subtitle
     tl.add(() => {
-        typewriterEffect(subtitleEl, "ECE + Data Science · Builds Real, Working Projects", 35);
-    }, '-=0.1');
+        typewriterEffect(subtitleEl, "ECE + Data Science · Builds Real, Working Projects", 30);
+    }, '+=0.3');
 
     // Fade in stat badges
     tl.to(badges, {
@@ -79,13 +111,13 @@ export function runBootSequence(onCompleteCallback) {
         stagger: 0.1,
         duration: 0.35,
         ease: 'back.out(1.7)'
-    }, '+=0.2');
+    }, '+=0.15');
 
-    // Step 4 (1.2s): PCB board fades in from below, floats up to position
+    // Step 4: PCB board fades in from below, floats up to position
     tl.to(canvasContainer, {
         opacity: 1,
         duration: 0.8
-    }, '+=0.2');
+    }, '+=0.3');
 
     if (boardGroup) {
         tl.to(boardGroup.position, {
@@ -206,6 +238,26 @@ function typewriterEffect(element, text, speed) {
             element.innerHTML += text.charAt(i);
             i++;
             setTimeout(type, speed);
+        }
+    }
+    type();
+}
+
+// Type a line into the terminal, then fire an optional callback
+function typeTerminalLine(container, text, speed, onComplete) {
+    if (!container) { if (onComplete) onComplete(); return; }
+    const line = document.createElement('div');
+    line.className = 'term-green';
+    container.appendChild(line);
+    let i = 0;
+    function type() {
+        if (i < text.length) {
+            line.textContent = text.substring(0, i + 1);
+            i++;
+            setTimeout(type, speed);
+        } else {
+            // Brief pause then fire callback
+            setTimeout(() => { if (onComplete) onComplete(); }, speed * 5);
         }
     }
     type();

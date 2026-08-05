@@ -160,7 +160,7 @@ export function createBoard(scene) {
             ctx.lineTo(offset + w, offset + h - r);
             ctx.quadraticCurveTo(offset + w, offset + h, offset + w - r, offset + h);
             ctx.lineTo(offset + r, offset + h);
-            ctx.quadricCurveTo(offset, offset + h, offset, offset + h - r);
+            ctx.quadraticCurveTo(offset, offset + h, offset, offset + h - r);
             ctx.lineTo(offset, offset + r);
             ctx.quadraticCurveTo(offset, offset, offset + r, offset);
             ctx.stroke();

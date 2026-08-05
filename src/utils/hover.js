@@ -129,7 +129,7 @@ function toggleComponentShells(ref, isVisible) {
     if (entry.inside) entry.inside.visible = !isVisible;
 }
 
-// ─── Per-frame Raycast Check ────────────────────────────────
+// ─── Per-frame Raycast Check ────────────────────────────
 
 export function checkHover() {
     if (!raycaster || !activeCamera) return;
@@ -175,7 +175,7 @@ export function checkHover() {
     }
 }
 
-// ─── Hover Enter Logic ──────────────────────────────────────
+// ─── Hover Enter Logic ────────────────────────────────────
 
 function handleHoverEnter(mesh) {
     const mat = mesh.material;
@@ -184,31 +184,32 @@ function handleHoverEnter(mesh) {
     if (viewState === 'PCB') {
         const glowColor = PCB_GLOW_MAP[name] || 0x00ff88;
 
+        // Subtle glow only — this is a PREVIEW, not the full arrival
         if (mat.emissive) {
             mat.emissive.setHex(glowColor);
-            gsap.to(mat, { emissiveIntensity: 0.9, duration: 0.25, overwrite: 'auto' });
+            gsap.to(mat, { emissiveIntensity: 0.5, duration: 0.2, overwrite: 'auto' });
         }
 
-        // Scale pulse animation
+        // Subtle scale pulse — lighter than arrival zoom
         gsap.killTweensOf(mesh.scale);
-        gsap.fromTo(mesh.scale,
-            { x: 1, y: 1, z: 1 },
-            { x: 1.12, y: 1.12, z: 1.12, duration: 0.12, ease: 'power1.out',
-                onComplete: () => gsap.to(mesh.scale, { x: 1.08, y: 1.08, z: 1.08, duration: 0.18, ease: 'power2.out' })
-            }
-        );
+        gsap.to(mesh.scale, { x: 1.04, y: 1.04, z: 1.04, duration: 0.2, ease: 'power1.out', overwrite: 'auto' });
 
-        // Hover light
+        // Mini hover light — subtle preview glow only
         if (hoverLight) {
             hoverLight.color.setHex(glowColor);
             mesh.getWorldPosition(hoverLight.position);
             hoverLight.position.z += 0.3;
-            gsap.to(hoverLight, { intensity: 1.5, duration: 0.25, overwrite: 'auto' });
+            gsap.to(hoverLight, { intensity: 0.6, duration: 0.2, overwrite: 'auto' });
         }
 
-        setHoveredTraceSpeedBoost(name, true);
-        showTooltip(name, mesh.userData.componentName || 'SMD Module');
-        renderComponentHUD(name);
+        // No tooltip, no HUD, no trace speed boost during hover in journey mode
+        // These are reserved for the full scroll-arrival experience
+        // Only show minimal tooltip if NOT in full-journey mode (legacy zoom mode)
+        if (!document.body.classList.contains('full-journey')) {
+            setHoveredTraceSpeedBoost(name, true);
+            showTooltip(name, mesh.userData.componentName || 'SMD Module');
+            renderComponentHUD(name);
+        }
 
     } else if (viewState === 'ZOOMED_IN') {
         const glowColor = getSubCoreGlowColor(name);
@@ -225,7 +226,7 @@ function handleHoverEnter(mesh) {
     document.body.style.cursor = 'pointer';
 }
 
-// ─── Hover Exit Logic ───────────────────────────────────────
+// ─── Hover Exit Logic ────────────────────────────────────
 
 function resetHoverMesh(obj) {
     if (!obj || !(obj instanceof THREE.Mesh)) return;
@@ -234,11 +235,14 @@ function resetHoverMesh(obj) {
     const name = obj.name;
 
     if (viewState === 'PCB') {
-        setHoveredTraceSpeedBoost(name, false);
-        hideTooltip();
+        // Only reset hover-only effects in journey mode
+        if (!document.body.classList.contains('full-journey')) {
+            setHoveredTraceSpeedBoost(name, false);
+            hideTooltip();
+            hideHud();
+        }
 
-        if (hoverLight) gsap.to(hoverLight, { intensity: 0, duration: 0.35, overwrite: 'auto' });
-        hideHud();
+        if (hoverLight) gsap.to(hoverLight, { intensity: 0, duration: 0.25, overwrite: 'auto' });
     }
 
     // Immediate emissive reset (no ghosting)
@@ -248,10 +252,10 @@ function resetHoverMesh(obj) {
     }
 
     gsap.killTweensOf(obj.scale);
-    gsap.to(obj.scale, { x: 1, y: 1, z: 1, duration: 0.35, overwrite: 'auto' });
+    gsap.to(obj.scale, { x: 1, y: 1, z: 1, duration: 0.25, overwrite: 'auto' });
 }
 
-// ─── Navigation Bar Trigger ─────────────────────────────────
+// ─── Navigation Bar Trigger ──────────────────────────────
 
 export function triggerComponentAction(ref) {
     if (!activeScene) return;
