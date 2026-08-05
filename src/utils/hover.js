@@ -20,6 +20,10 @@ import {
 
 // ─── Exports ────────────────────────────────────────────────
 export const mouse = new THREE.Vector2();
+export const targetMouse = new THREE.Vector2();
+
+// Clamping helper for pointer bounds
+const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
 
 // ─── Internal State ─────────────────────────────────────────
 let raycaster;
@@ -64,10 +68,14 @@ export function initHover(camera, scene) {
     initCameraControls(handleZoomExit);
     initHud();
 
-    // Setup mouse/touch coordinate tracking
+    // Setup mouse/touch coordinate tracking with bounded clamp & smooth target
     const updateMouseCoords = (clientX, clientY) => {
-        mouse.x = (clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+        const hw = window.innerWidth / 2;
+        const hh = window.innerHeight / 2;
+        const rawX = (clientX - hw) / hw;
+        const rawY = -(clientY - hh) / hh;
+        targetMouse.x = clamp(rawX, -1.0, 1.0);
+        targetMouse.y = clamp(rawY, -1.0, 1.0);
     };
 
     window.addEventListener('mousemove', (e) => updateMouseCoords(e.clientX, e.clientY));
@@ -133,6 +141,10 @@ function toggleComponentShells(ref, isVisible) {
 
 export function checkHover() {
     if (!raycaster || !activeCamera) return;
+
+    // Smooth target mouse LERP for bounded inertia deceleration (~500ms smooth feel)
+    mouse.x += (targetMouse.x - mouse.x) * 0.08;
+    mouse.y += (targetMouse.y - mouse.y) * 0.08;
 
     // Camera LERP update (delegated to camera-states)
     updateCamera(activeCamera);

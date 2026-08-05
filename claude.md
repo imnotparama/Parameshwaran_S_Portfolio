@@ -91,6 +91,17 @@ c:\Users\hunte\Parameshwaran_S_Portfolio\
 ### Step 1: Pointer Click Raycasting (`THREE.Raycaster`)
 - **Module**: `src/utils/hover.js`
 - **Logic**: A click event listener captures mouse pointer coordinates (`mouse.x`, `mouse.y` normalized device coordinates between -1 and +1).
+- **Pointer Motion Engine**: Implements Anime.js-style `clamp` boundary calculations and 500ms cubic deceleration smooth tracking (`mouse.x += (targetMouse.x - mouse.x) * 0.08`):
+  ```javascript
+  const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+
+  const updateMouseCoords = (clientX, clientY) => {
+      const hw = window.innerWidth / 2;
+      const hh = window.innerHeight / 2;
+      targetMouse.x = clamp((clientX - hw) / hw, -1.0, 1.0);
+      targetMouse.y = clamp(-(clientY - hh) / hh, -1.0, 1.0);
+  };
+  ```
 - `THREE.Raycaster.setFromCamera(mouse, camera)` computes the ray from the camera lens through the pointer.
 - Hit testing targets `interactiveObjects` (meshes with `userData.isInteractive = true`). DOM click handlers on overlay divs are strictly forbidden.
 
