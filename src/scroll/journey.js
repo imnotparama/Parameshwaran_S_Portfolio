@@ -22,6 +22,10 @@ window.addEventListener('load', () => ScrollTrigger.refresh());
 const CAMERA_OFFSET = new THREE.Vector3(0, 2.6, 4.2);
 const LOOK_AT_OFFSET = new THREE.Vector3(0, 0.15, 0);
 
+// Boot→hero arrival glide duration (seconds) — a short repositioning beat so
+// the boot's establishing shot reads as one continuous motion, not a cut.
+const ARRIVAL_GLIDE_DURATION = 1.0;
+
 // Fixed camera configurations for non-component sections (hero, contact)
 const FIXED_CAMERAS = {
   'sec-hero': {
@@ -68,6 +72,7 @@ let cameraRef = null;
 let boardGroupRef = null;
 let vignetteEl = null;
 let connectorLine = null;
+let arrivalGlide = null;
 const curLook = new THREE.Vector3();
 const worldPos = new THREE.Vector3();
 const screenPos = new THREE.Vector3();
@@ -136,11 +141,56 @@ function getCameraConfigForStop(sectionId) {
 
 export function setCameraAtT(t) {
   if (!posCurve || !cameraRef) return;
+  // Scroll scrubbing always wins: if an arrival glide is still settling, kill
+  // it the moment the user scrolls so the scrub and the tween never fight.
+  killArrivalGlide();
   const clamped = Math.min(Math.max(t, 0), 1);
   const p = posCurve.getPoint(clamped);
   lookCurve.getPoint(clamped, curLook);
   cameraRef.position.copy(p);
   cameraRef.lookAt(curLook);
+}
+
+// ─── Boot→hero arrival glide ───────────────────────────────
+// The boot sequence animates only the board — the camera sits at its initScene
+// pose (0, -2, 17) the whole time. initJourney previously called setCameraAtT(0)
+// which SNAPPED the camera to the hero stop (0, -5.2, 13): a hard cut on every
+// load, most jarring on the skip-boot path. Instead, glide position + lookAt
+// into the hero framing (power2.inOut repositioning, transform-space only —
+// 3D vectors, no layout properties). The glide endpoint equals the path's
+// t=0 pose (both derive from FIXED_CAMERAS['sec-hero']), so after settle the
+// camera is exactly where setCameraAtT(0) would have put it — zero drift.
+// Interruptible: setCameraAtT kills it on the first scroll scrub.
+function killArrivalGlide() {
+  if (arrivalGlide) {
+    arrivalGlide.kill();
+    arrivalGlide = null;
+  }
+}
+
+function glideToHero() {
+  if (!cameraRef) return;
+  killArrivalGlide();
+  const cfg = getCameraConfigForStop('sec-hero');
+  arrivalGlide = gsap.timeline({
+    onComplete: () => { arrivalGlide = null; }
+  });
+  arrivalGlide.to(cameraRef.position, {
+    x: cfg.pos.x,
+    y: cfg.pos.y,
+    z: cfg.pos.z,
+    duration: ARRIVAL_GLIDE_DURATION,
+    ease: 'power2.inOut',
+    overwrite: 'auto'
+  }, 0);
+  arrivalGlide.to(curLook, {
+    x: cfg.look.x,
+    y: cfg.look.y,
+    z: cfg.look.z,
+    duration: ARRIVAL_GLIDE_DURATION,
+    ease: 'power2.inOut',
+    onUpdate: () => { if (cameraRef) cameraRef.lookAt(curLook); }
+  }, 0);
 }
 
 // ─── Leg state: which section is active given where the scroll is ──
@@ -344,7 +394,9 @@ export function initJourney(camera, boardGroup) {
     return;
   }
 
-  setCameraAtT(0);
+  // Glide from the boot pose into the hero framing — replacing the old
+  // instant setCameraAtT(0) snap (a visible camera cut after every boot).
+  glideToHero();
   setActivePanel('panel-hero');
   if (vignetteEl) vignetteEl.style.opacity = 0.35;
 

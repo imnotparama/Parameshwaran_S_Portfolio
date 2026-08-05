@@ -248,6 +248,12 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 
 ## 📝 Developer Change & Session Log
 
+- **2026-08 Session — Boot→hero camera glide (hyperframes-animation applied)**:
+  - Fixed the **boot→journey camera cut**: `scene.js` inits the camera at `(0, -2, 17)` and the boot animates only the board, so `initJourney`'s old `setCameraAtT(0)` SNAPPED to the hero stop `(0, -5.2, 13)` — a hard cut on every load, worst on the skip-boot path.
+  - `journey.js` now calls `glideToHero()` instead: a GSAP timeline tweening `cameraRef.position` + `curLook` (both Vector3) to the hero config over `ARRIVAL_GLIDE_DURATION` (1.0s) with `power2.inOut` (repositioning ease per the camera rules), `onUpdate: cameraRef.lookAt(curLook)`, `onComplete` nulls the ref. Transform-space only (3D vectors — no layout properties).
+  - **Interruptible**: `setCameraAtT` kills the glide via `killArrivalGlide()` on the first scroll scrub, so the tween and the scrub never fight; the glide endpoint equals `posCurve.getPoint(0)` (both derive from `FIXED_CAMERAS['sec-hero']`) → zero drift after settle.
+  - Lite mode (skips `initJourney`) and `?og=1` (gets the glide — fine, captures wait anyway) unaffected.
+  - **Verified live**: full boot → journey inits, hero panel active, overlay gone; scroll after boot kills the glide cleanly (projects panel + nav sync at 27%); console clean. Build + tsc green; code review: no defects (applied its nits — named duration const, `killArrivalGlide()` helper).
 - **2026-08 Session — Signal-path scroll progress + keyboard nav (animejs discipline, GSAP-free)**:
   - `index.html`: HUD legend gained a signal-path readout — `.sig-path` track > `.sig-path-fill` + `.sig-path-pct` (percentage register).
   - `scroll.css`: `.sig-path`/`.sig-path-fill`/`.sig-path-pct` — fill uses `transform: scaleX(0)` with `transform-origin: left center` and a 0.08s linear transition (transform-only, no layout); ENIG-gold gradient + glow matches the fab-shop palette; `prefers-reduced-motion` gets `transition: none` for the fill.
