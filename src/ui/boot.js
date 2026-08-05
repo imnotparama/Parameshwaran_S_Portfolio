@@ -1,4 +1,5 @@
 // @ts-check
+import * as THREE from 'three';
 import gsap from 'gsap';
 import { boardGroup } from '../three/board.js';
 import { cpuPins, ledMeshes, siliconDieMesh } from '../three/components.js';
@@ -97,7 +98,7 @@ export function runBootSequence(onCompleteCallback) {
         if (subtitleEl) subtitleEl.textContent = 'ECE + Data Science · Builds Real, Working Projects';
         particles.forEach(p => { p.mesh.visible = true; });
         const underline = document.querySelector('.header-underline');
-        if (underline) gsap.set(underline, { width: '280px' });
+        if (underline) gsap.set(underline, { scaleX: 1 });
         if (onCompleteCallback) onCompleteCallback();
         return;
     }
@@ -217,8 +218,10 @@ export function runBootSequence(onCompleteCallback) {
 
         const underline = document.querySelector('.header-underline');
         if (underline) {
+            // scaleX draw (transform-only) — the old width tween forced layout
+            // every frame; CSS now owns the 280px width and starts at scaleX(0).
             tl.to(underline, {
-                width: '280px',
+                scaleX: 1,
                 duration: 1.0,
                 ease: 'power2.out'
             }, SCHEDULE.board);
@@ -230,7 +233,7 @@ export function runBootSequence(onCompleteCallback) {
     traceData.forEach((trace, index) => {
         // Flash traces using GSAP emissive controls — one timeline tween per
         // mesh at a stagger of 0.05s per trace, all finite (repeat: 1).
-        trace.meshes.forEach((/** @type {any} */ mesh) => {
+        trace.meshes.forEach(mesh => {
             tl.fromTo(mesh.material,
                 { emissiveIntensity: 0.05 },
                 { emissiveIntensity: 0.8, duration: 0.3, yoyo: true, repeat: 1 },
@@ -286,8 +289,11 @@ export function runBootSequence(onCompleteCallback) {
             repeat: 7,
             delay: SCHEDULE.cores,
             onComplete: () => {
-                // Settle at a steady glow after boot
-                if (siliconDieMesh) siliconDieMesh.material.opacity = 0.65;
+                // Settle at a steady glow after boot — the die material is a
+                // MeshBasicMaterial (components.js), narrow to make the write safe.
+                if (siliconDieMesh && siliconDieMesh.material instanceof THREE.MeshBasicMaterial) {
+                    siliconDieMesh.material.opacity = 0.65;
+                }
             }
         });
     }

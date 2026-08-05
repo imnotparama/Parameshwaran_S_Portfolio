@@ -1,3 +1,4 @@
+// @ts-check
 // ============================================================
 // Section content renderer — injects datasheet content from
 // portfolio data, and wires every LinkedIn/GitHub link.
@@ -5,6 +6,7 @@
 import { portfolioData } from '../data/portfolio.js';
 import { LINKEDIN_URL, GITHUB_URL } from '../config.js';
 
+/** @param {string} str */
 function esc(str) {
     const div = document.createElement('div');
     div.textContent = str;
@@ -25,15 +27,17 @@ export function renderSections() {
 function wireProfileLinks() {
     // LinkedIn — primary CTAs (the entire point of the site)
     document.querySelectorAll('.js-linkedin, #cta-linkedin-hud').forEach((a) => {
-        a.href = LINKEDIN_URL;
-        a.setAttribute('target', '_blank');
-        a.setAttribute('rel', 'noopener noreferrer');
+        const anchor = /** @type {HTMLAnchorElement} */ (a);
+        anchor.href = LINKEDIN_URL;
+        anchor.setAttribute('target', '_blank');
+        anchor.setAttribute('rel', 'noopener noreferrer');
     });
     // GitHub — secondary, lower contrast, never competes for the click
     document.querySelectorAll('.js-github').forEach((a) => {
-        a.href = GITHUB_URL;
-        a.setAttribute('target', '_blank');
-        a.setAttribute('rel', 'noopener noreferrer');
+        const anchor = /** @type {HTMLAnchorElement} */ (a);
+        anchor.href = GITHUB_URL;
+        anchor.setAttribute('target', '_blank');
+        anchor.setAttribute('rel', 'noopener noreferrer');
     });
 }
 

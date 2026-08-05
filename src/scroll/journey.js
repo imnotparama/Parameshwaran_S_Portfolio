@@ -13,7 +13,10 @@ import { traceData } from '../three/traces.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
-document.fonts?.ready?.then(() => ScrollTrigger.refresh());
+document.fonts?.ready?.then(() => {
+  invalidatePanelSizeCache(); // font swap can change panel heights
+  ScrollTrigger.refresh();
+});
 window.addEventListener('load', () => ScrollTrigger.refresh());
 
 // ─── Camera offsets for component-based sections ─────
@@ -96,6 +99,33 @@ const curLook = new THREE.Vector3();
 const worldPos = new THREE.Vector3();
 const screenPos = new THREE.Vector3();
 
+// ─── Pre-calculated panel dimensions ────────────────────────
+// Panel width/height are static per panel (only viewport media queries and
+// font loading change them), so measure ONCE per panel per resize and reuse —
+// reading offsetWidth/offsetHeight in updateJourneyEffects every frame forced
+// layout during the scroll scrub (hyperframes-animation: pre-calculated layout
+// constants, never tween/measure-time getBoundingClientRect).
+/** @type {Record<string, { w: number, h: number }>} */
+const panelSizeCache = {};
+
+/** @param {string} panelId */
+function getPanelSize(panelId) {
+  const cached = panelSizeCache[panelId];
+  if (cached) return cached;
+  const panel = document.getElementById(panelId);
+  const size = {
+    w: (panel && panel.offsetWidth) || Math.min(480, window.innerWidth - 40),
+    h: (panel && panel.offsetHeight) || Math.min(300, window.innerHeight * 0.5)
+  };
+  panelSizeCache[panelId] = size;
+  return size;
+}
+
+function invalidatePanelSizeCache() {
+  for (const k in panelSizeCache) delete panelSizeCache[k];
+}
+window.addEventListener('resize', invalidatePanelSizeCache, { passive: true });
+
 // ─── Scroll-leg state — the source of truth for panel activation ──
 // The camera position is a pure function of scroll progress inside the
 // current leg, so the active section is too: no distance scanning, no
@@ -167,7 +197,7 @@ function getCameraConfigForStop(sectionId) {
 }
 
 /** @param {number} t */
-export function setCameraAtT(t) {
+function setCameraAtT(t) {
   if (!posCurve || !lookCurve || !cameraRef) return;
   // Scroll scrubbing always wins: if an arrival glide is still settling, kill
   // it the moment the user scrolls so the scrub and the tween never fight.
@@ -256,11 +286,14 @@ function pulseArrival(secId) {
     }
     const ref = ARRIVAL_TRACE[secId];
     if (!ref) return;
-    traceData.forEach((/** @type {any} */ t) => {
+    traceData.forEach(t => {
         if (t.component !== ref) return;
-        t.meshes.forEach((/** @type {any} */ m) => {
-            if (m.material && m.material.emissiveIntensity !== undefined) {
-                gsap.fromTo(m.material, { emissiveIntensity: 0.4 }, { emissiveIntensity: 1.3, duration: 0.35, yoyo: true, repeat: 1, ease: 'power1.out', delay: 0.05, overwrite: 'auto' });
+        t.meshes.forEach(m => {
+            // Trace segments always use a MeshStandardMaterial with emissive —
+            // instanceof narrows the Material | Material[] union for checkJs.
+            const mat = m.material;
+            if (mat instanceof THREE.MeshStandardMaterial) {
+                gsap.fromTo(mat, { emissiveIntensity: 0.4 }, { emissiveIntensity: 1.3, duration: 0.35, yoyo: true, repeat: 1, ease: 'power1.out', delay: 0.05, overwrite: 'auto' });
             }
         });
     });
@@ -344,11 +377,11 @@ export function updateJourneyEffects(camera, boardGroup) {
     const cy = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
 
     const panel = activePanelId ? document.getElementById(activePanelId) : null;
-    if (panel && connectorLine) {
-      // Use the panel's real rendered width — #panel-projects is .ds-panel-wide
-      // (up to 980px), so a hardcoded 480 would shove it off-screen.
-      const panelW = panel.offsetWidth || Math.min(480, window.innerWidth - 40);
-      const panelH = panel.offsetHeight || Math.min(300, window.innerHeight * 0.5);
+    if (activePanelId && panel && connectorLine) {
+      // Pre-calculated layout constants — measured once per panel per resize.
+      // #panel-projects is .ds-panel-wide (up to 980px); hardcoding 480 would
+      // shove it off-screen.
+      const { w: panelW, h: panelH } = getPanelSize(activePanelId);
       const margin = 24;
 
       // Decide which side: place panel on left when component is on right half, and vice versa

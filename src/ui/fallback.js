@@ -1,3 +1,4 @@
+// @ts-check
 import * as THREE from 'three';
 
 // ============================================================
@@ -7,7 +8,10 @@ import * as THREE from 'three';
 export function detectWebGL() {
     try {
         const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        /** @type {WebGLRenderingContext | null} */
+        const gl = /** @type {WebGLRenderingContext | null} */ (
+            canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+        );
         if (!gl) return false;
         // Check for minimum required extensions
         const ext = gl.getExtension('WEBGL_lose_context');
@@ -47,7 +51,8 @@ export function showFallbackUI() {
 }
 
 // Clean up Three.js resources on page unload
-export function setupCleanup(scene, renderer, camera) {
+/** @param {THREE.Scene} scene @param {THREE.WebGLRenderer} renderer */
+export function setupCleanup(scene, renderer) {
     window.addEventListener('beforeunload', () => {
         disposeScene(scene);
         if (renderer) {
@@ -57,9 +62,10 @@ export function setupCleanup(scene, renderer, camera) {
     });
 }
 
+/** @param {THREE.Scene | undefined} scene */
 function disposeScene(scene) {
     if (!scene) return;
-    scene.traverse((obj) => {
+    scene.traverse((/** @type {THREE.Object3D} */ obj) => {
         if (obj instanceof THREE.Mesh || obj instanceof THREE.LineSegments) {
             if (obj.geometry) obj.geometry.dispose();
             if (obj.material) {
@@ -73,9 +79,13 @@ function disposeScene(scene) {
     });
 }
 
+/** @param {THREE.Material} mat */
 function disposeMaterial(mat) {
-    if (mat.map) mat.map.dispose();
-    if (mat.lightMap) mat.lightMap.dispose();
-    if (mat.envMap) mat.envMap.dispose();
+    // MeshStandardMaterial carries map/lightMap/envMap — dispose them
+    // defensively for any material that has them.
+    const texMat = /** @type {THREE.MeshStandardMaterial} */ (mat);
+    if (texMat.map) texMat.map.dispose();
+    if (texMat.lightMap) texMat.lightMap.dispose();
+    if (texMat.envMap) texMat.envMap.dispose();
     mat.dispose();
 }

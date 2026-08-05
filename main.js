@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 13. Register memory cleanup on page unload
-    setupCleanup(scene, renderer, camera);
+    setupCleanup(scene, renderer);
 
     // 14. Bind Navigation Bar Buttons (scroll journey):
     // Every section reachable two ways: by scrolling to it, AND by clicking it directly.

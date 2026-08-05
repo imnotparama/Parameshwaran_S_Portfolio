@@ -1,11 +1,13 @@
+// @ts-check
 import * as THREE from 'three';
 import { traceData } from './traces.js';
 
+/** @typedef {{ mesh: THREE.Mesh, points: THREE.Vector3[], progress: number, baseSpeed: number }} Particle */
+
+/** @type {Particle[]} */
 export const particles = [];
 
-// Electrons are LIVE — they use the signal green, the only glow in the fab-shop palette
-const DEFAULT_PARTICLE_COLOR = 0x3ee6a0;
-
+/** @param {THREE.Group} boardGroup */
 export function createParticles(boardGroup) {
     // Increase particle radius from 0.046 to 0.09
     const particleGeo = new THREE.SphereGeometry(0.09, 8, 8);
@@ -49,6 +51,7 @@ export function createParticles(boardGroup) {
 }
 
 // Animate particles along the trace points
+/** @param {number} delta */
 export function updateParticles(delta) {
     particles.forEach(p => {
         if (!p.mesh || !p.mesh.visible) return;

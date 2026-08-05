@@ -1,3 +1,4 @@
+// @ts-check
 // Central config — public profile links come from Vite env vars.
 // These are public URLs, not secrets: env keeps them in one place.
 export const LINKEDIN_URL =

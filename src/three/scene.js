@@ -1,11 +1,18 @@
+// @ts-check
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-export let scene;
-export let camera;
-export let renderer;
+// Module-level exports are null until initScene() runs (main.js calls it before
+// anything else consumes them). enableBloom/animate guard for the null case.
+/** @type {THREE.Scene | null} */
+export let scene = null;
+/** @type {THREE.PerspectiveCamera | null} */
+export let camera = null;
+/** @type {THREE.WebGLRenderer | null} */
+export let renderer = null;
+/** @type {EffectComposer | null} */
 export let composer = null;
 
 // Glowing traces via bloom post-processing. Tuned conservatively so
@@ -30,6 +37,7 @@ export function enableBloom() {
     }
 }
 
+/** @type {Array<(elapsed: number, delta: number) => void>} */
 export const tickCallbacks = [];
 
 // Track all disposable resources for cleanup
@@ -50,7 +58,8 @@ function createBackdropTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
-    const ctx = canvas.getContext('2d');
+    // '2d' is always available on a freshly created canvas — assert for checkJs.
+    const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
 
     // 1. FR-4 substrate gradient
     const base = ctx.createLinearGradient(0, 0, 0, size);
@@ -122,6 +131,7 @@ function createBackdropTexture() {
     return tex;
 }
 
+/** @param {HTMLCanvasElement} canvasElement */
 export function initScene(canvasElement) {
     // 1. Initialize Scene
     scene = new THREE.Scene();
@@ -210,10 +220,11 @@ export function initScene(canvasElement) {
     disposableResources.materials.add(benchMat);
 
     // 5. Handle Resize (debounced for performance)
-    let resizeTimeout;
+    let resizeTimeout = 0;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
+            if (!camera || !renderer) return; // initScene always assigns before resize can fire
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -224,11 +235,13 @@ export function initScene(canvasElement) {
 
     // 6. FPS monitoring and performance guardrail
     // Tracks frame times; reduces bloom if sustained below thresholds
+    /** @type {number[]} */
     let fpsHistory = [];
     const FPS_SAMPLE_WINDOW = 30; // frames
     let bloomReducedLevel = 0; // 0 = normal, 1 = reduced, 2 = minimal
     const originalBloomSettings = { strength: 0.45, radius: 0.3 };
 
+    /** @param {number} deltaMs */
     function checkPerformance(deltaMs) {
         fpsHistory.push(deltaMs);
         if (fpsHistory.length > FPS_SAMPLE_WINDOW) fpsHistory.shift();
@@ -285,6 +298,9 @@ export function initScene(canvasElement) {
     const MAX_DELTA = 0.05; // 50ms cap — slower frames get a bounded response
 
     function animate() {
+        // initScene assigns all three exports before starting the loop — the
+        // guard satisfies checkJs narrowing for the module-level lets.
+        if (!scene || !camera || !renderer) return;
         const delta = Math.min(timer.getDelta(), MAX_DELTA);
         const elapsed = timer.getElapsed();
 

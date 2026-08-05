@@ -1,10 +1,16 @@
+// @ts-check
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
 
+/** @type {THREE.Mesh[]} */
 export const interactiveObjects = [];
+/** @type {THREE.Mesh[]} */
 export const cpuPins = [];
+/** @type {THREE.Mesh | undefined} */
 export let siliconDieMesh;
+/** @type {THREE.Mesh[]} */
 export let ledMeshes = [];
+/** @type {THREE.Mesh | undefined} */
 export let cpuRadarRing;
 
 // ─── CPU radar sweep — the ring is an open arc that rotates like a
@@ -15,16 +21,21 @@ export let cpuRadarRing;
 const RADAR_REDUCED_MOTION = typeof window !== 'undefined' &&
     window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/** @param {number} elapsed */
 export function updateRadarRing(elapsed) {
     if (!cpuRadarRing) return;
     if (RADAR_REDUCED_MOTION) return; // static arc for reduced-motion users
     cpuRadarRing.rotation.z = elapsed * 0.8; // full revolution ≈ 7.8s
+    // The ring is created with MeshBasicMaterial above — keep in sync if that
+    // ever changes (instanceof narrows Material | Material[]; the old property
+    // check couldn't).
     const mat = cpuRadarRing.material;
-    if (mat && mat.opacity !== undefined) {
+    if (mat instanceof THREE.MeshBasicMaterial) {
         mat.opacity = 0.45 + Math.sin(elapsed * 2.2) * 0.15;
     }
 }
 
+/** @param {THREE.Group} boardGroup */
 export function createComponents(boardGroup) {
     const thickness = 0.16;
     const surfaceZ = thickness / 2 + 0.005;
@@ -154,6 +165,7 @@ export function createComponents(boardGroup) {
     disposableResources.geometries.add(cpuPinGeo);
     const offsetStride = 0.25;
 
+    /** @param {number} px @param {number} py @param {number} rotation */
     const addPin = (px, py, rotation) => {
         const pinMesh = new THREE.Mesh(cpuPinGeo, goldMaterial.clone());
         pinMesh.position.set(px, py, -0.08);

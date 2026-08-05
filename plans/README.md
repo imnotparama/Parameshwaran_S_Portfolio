@@ -28,10 +28,17 @@
 
 | Plan | Severity | Category | Status |
 | --- | --- | --- | --- |
-| `plans/001-nav-sheen-transform-only.md` | HIGH | perf | READY — not started |
-| `plans/002-boot-underline-scaleX.md` | MEDIUM | perf | READY — not started |
-| `plans/003-motion-token-consolidation.md` | MEDIUM | cohesion | READY — not started |
-| `plans/004-hover-gated-pointer-fine.md` | MEDIUM | a11y | READY — not started |
+| `plans/001-nav-sheen-transform-only.md` | HIGH | perf | **DONE (2026-08)** — executed as translateX conversion, not deletion (see execution log) |
+| `plans/002-boot-underline-scaleX.md` | MEDIUM | perf | **DONE (2026-08)** — hyperframes-animation session (see execution log) |
+| `plans/003-motion-token-consolidation.md` | MEDIUM | cohesion | **DONE (2026-08)** — curves tokenized, Minimalist block deleted (see execution log) |
+| `plans/004-hover-gated-pointer-fine.md` | MEDIUM | a11y | **DONE (2026-08)** — hover lifts gated (see execution log) |
+
+## Execution log
+
+- **2026-08 — 004 DONE**: all six hover transform-lifts gated behind `@media (hover: hover) and (pointer: fine)` — `.hud-nav .nav-btn:hover` (scroll.css), `.cta-linkedin:hover` (scroll.css — split from the combined `:focus-visible` rule so the keyboard half stays ungated), `.proj-ds:hover` + `.proj-ds.is-building:hover` (current lift is `-3px`; both merged into one gated block), `.skill-pill:hover` (found live in addition to the plan's list — the verification grep would have flagged it), `.nav-btn:hover` (style.css — also removed the green box-shadow that leaked onto HUD hovers), `.cta-linkedin:hover, .cta-contact:hover` (style.css). Color/bg/border/shadow feedback, `:active` dips, and `:focus-visible` all stay ungated. Verified: every `translateY(-1px/-2px/-3px)` declaration now sits inside a gated media block (6 blocks); desktop computed styles resolve the same curve; build + tsc green.
+- **2026-08 — 003 DONE**: all six hand-typed `cubic-bezier(0.22, 1, 0.36, 1)` → `var(--ease-out)` (`.vignette-overlay` + the five panel/typography rules — `body.full-journey .ds-panel`, `.panel-active`, `.ds-ref`, `.ds-title`, `.ds-body`; every duration preserved verbatim). Deleted the entire "Minimalist Navbar styles" `.nav-btn` block (a strict subset of "Enhanced" — `border-radius: 2px` vs `var(--radius-sm)`; the HUD cascade is owned by `scroll.css` regardless). Tokenized the surviving Enhanced `.nav-btn` + CTA transitions `0.25s ease` → `var(--duration-fast) var(--ease-out)` (0.18s — deliberate snappiness correction, flagged) and both `.skip-link` `0.3s ease` → `var(--duration-base) var(--ease-out)`. `.proj-ds` transitions left untouched per plan scope. Verified: the only remaining raw curve is the `:root` token definition; zero `0.25s ease` left; build + tsc green; live computed styles resolve to the tokens.
+- **2026-08 — 002 DONE** (hyperframes-animation session): `.header-underline` pinned to `width: 280px; transform: scaleX(0); transform-origin: center;`; boot tweens `scaleX: 1` in the full path and `gsap.set(underline, { scaleX: 1 })` in the skip/`?og=1`/lite paths. Matches the plan exactly, including the center origin.
+- **2026-08 — 001 DONE (per user direction)**: executed as **translateX conversion, not deletion** — the sheen is kept but moved to `transform: translateX(-100% → 100%)` with `transition: transform var(--duration-base) var(--ease-out)` (0.5s → 0.3s, token-eased). Two deviations from the plan body, both required by that strategy: `overflow: hidden` stays on `.nav-btn` (the sweep still needs clipping), and `.hud-nav .nav-btn.nav-active::after` gained `transition: none` in `scroll.css` so the gold pad doesn't inherit a transform slide (finding #3 stays fixed). **Note for 003**: its excerpts assume the sheen was deleted and the duplicated `.nav-btn` blocks are simpler — re-read the current `style.css` before executing.
 
 ## Recommended execution order & dependencies
 

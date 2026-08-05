@@ -1,9 +1,21 @@
+// @ts-check
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
 
-export const traceData = [];
-export const vias = [];
+/**
+ * A routed copper trace between two components, materialized as solid 3D
+ * segments plus endpoint/corner vias.
+ * @typedef {Object} TraceRoute
+ * @property {string} component Ref designator the trace feeds (e.g. 'U2', 'C1', 'J1').
+ * @property {THREE.Vector3[]} points Route polyline (board-local space).
+ * @property {number} width Trace width in world units.
+ * @property {THREE.Mesh[]} meshes Solid 3D segment meshes that make up the trace.
+ */
 
+/** @type {TraceRoute[]} */
+export const traceData = [];
+
+/** @param {THREE.Group} boardGroup */
 export function createTraces(boardGroup) {
     const thickness = 0.16;
     const surfaceZ = thickness / 2 + 0.005;
@@ -164,7 +176,7 @@ export function createTraces(boardGroup) {
     ];
 
     // Helper to generate solid 3D traces (rotates box geometry between points)
-    const addTraceMesh = (pA, pB, traceWidth) => {
+    const addTraceMesh = (/** @type {THREE.Vector3} */ pA, /** @type {THREE.Vector3} */ pB, /** @type {number} */ traceWidth) => {
         const distance = pA.distanceTo(pB);
         const midpoint = new THREE.Vector3().addVectors(pA, pB).multiplyScalar(0.5);
         
@@ -181,7 +193,7 @@ export function createTraces(boardGroup) {
     };
 
     // Helper to create small copper vias (rings)
-    const addVia = (px, py) => {
+    const addVia = (/** @type {number} */ px, /** @type {number} */ py) => {
         const viaGroup = new THREE.Group();
         viaGroup.position.set(px, py, surfaceZ);
         boardGroup.add(viaGroup);
@@ -198,8 +210,6 @@ export function createTraces(boardGroup) {
         const hole = new THREE.Mesh(holeGeo, viaInnerMaterial);
         hole.position.z = 0.001;
         viaGroup.add(hole);
-
-        vias.push(viaGroup);
     };
 
     // Construct traces and vias

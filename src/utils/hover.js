@@ -1,3 +1,4 @@
+// @ts-check
 // ============================================================
 // Hover Controller — raycast hover-glow on the interactive board.
 // Single interaction model: the scroll journey owns the camera;
@@ -9,19 +10,26 @@ import { interactiveObjects } from '../three/components.js';
 
 // ─── Exports ────────────────────────────────────────────────
 export const mouse = new THREE.Vector2();
-export const targetMouse = new THREE.Vector2();
+// Module-private: instant (unlagged) pointer position — only main.js's parallax
+// feeds from the smoothed `mouse`; nothing external imports targetMouse.
+const targetMouse = new THREE.Vector2();
 
 // Clamping helper for pointer bounds
-const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+const clamp = (/** @type {number} */ val, /** @type {number} */ min, /** @type {number} */ max) => Math.min(Math.max(val, min), max);
 
 // ─── Internal State ─────────────────────────────────────────
-let raycaster;
-let activeCamera;
+/** @type {THREE.Raycaster | null} */
+let raycaster = null;
+/** @type {THREE.Camera | null} */
+let activeCamera = null;
+/** @type {THREE.Object3D | null} */
 let currentHovered = null;
 let frameCounter = 0;
+/** @type {THREE.PointLight | null} */
 let hoverLight = null;
 
 // ─── PCB Hover Glow Color Map ───────────────────────────────
+/** @type {Record<string, number>} */
 const PCB_GLOW_MAP = {
     'U1': 0x3ee6a0, 'U2': 0x00bfff, 'Y1': 0xaa44ff,
     'ANT1': 0x00ffff, 'J1': 0xff8800, 'VR1': 0xff4444,
@@ -30,6 +38,7 @@ const PCB_GLOW_MAP = {
 
 // ─── Init ───────────────────────────────────────────────────
 
+/** @param {THREE.Camera} camera @param {THREE.Scene} scene */
 export function initHover(camera, scene) {
     activeCamera = camera;
     raycaster = new THREE.Raycaster();
@@ -39,7 +48,7 @@ export function initHover(camera, scene) {
     scene.add(hoverLight);
 
     // Setup mouse/touch coordinate tracking with bounded clamp & smooth target
-    const updateMouseCoords = (clientX, clientY) => {
+    const updateMouseCoords = (/** @type {number} */ clientX, /** @type {number} */ clientY) => {
         const hw = window.innerWidth / 2;
         const hh = window.innerHeight / 2;
         const rawX = (clientX - hw) / hw;
@@ -78,7 +87,9 @@ export function checkHover(delta = 1 / 60) {
     // Throttle raycasts to every 3rd frame
     if (frameCounter % 3 !== 0) return;
 
-    const targets = interactiveObjects.filter(obj => obj.userData && obj.userData.isInteractive);
+    // components.js is now in the checked set — interactiveObjects is typed
+    // THREE.Mesh[], so the filter callback narrows without a cast.
+    const targets = interactiveObjects.filter((obj) => obj.userData && obj.userData.isInteractive);
     // Use targetMouse (instant, unlagged) for accurate raycasting — smoothed mouse
     // is only used for parallax board tilt via updateBoardParallax()
     raycaster.setFromCamera(targetMouse, activeCamera);
@@ -102,8 +113,11 @@ export function checkHover(delta = 1 / 60) {
 
 // ─── Hover Enter Logic ────────────────────────────────────
 
+/** @param {THREE.Mesh} mesh */
 function handleHoverEnter(mesh) {
-    const mat = mesh.material;
+    // Materials are heterogeneous across component types (Standard/Basic/Phong) —
+    // hover only touches .emissive/.emissiveIntensity, which all share.
+    const mat = /** @type {any} */ (mesh.material);
     const name = mesh.name;
     const glowColor = PCB_GLOW_MAP[name] || 0x3ee6a0;
 
@@ -130,10 +144,11 @@ function handleHoverEnter(mesh) {
 
 // ─── Hover Exit Logic ────────────────────────────────────
 
+/** @param {THREE.Object3D | null} obj */
 function resetHoverMesh(obj) {
     if (!obj || !(obj instanceof THREE.Mesh)) return;
 
-    const mat = obj.material;
+    const mat = /** @type {any} */ (obj.material);
 
     if (hoverLight) gsap.to(hoverLight, { intensity: 0, duration: 0.25, overwrite: 'auto' });
 

@@ -6,18 +6,27 @@ Hi! This file is the primary reference prompt and technical transfer guide for a
 
 ## 🚦 NEXT SESSION — RESUME HERE (2026-08: post-cleanup state)
 
-**Status: `origin master` is current through the fab-shop redesign + OG card (`d7b8f52`). UNCOMMITTED local work (one cohesive batch, ready to commit+push when asked): the daughterboard card redesign, full-board framing + fab-bench backdrop, board grounding shadow catcher, board-first hero composition, and this session's dead-symbol sweep + checkJs enablement.**
+**Status: `origin master` is current through `fa6e363` (pushed). UNCOMMITTED local work (a type-hygiene + docs batch, ready to commit+push when asked): full checkJs coverage (all 12 modules), the traces.js TraceRoute typing, all four motion plans (001–004) executed, the animejs/hyperframes discipline fixes, the README refresh, and this claude.md log update.**
 
-### Shipped in recent sessions (commit order)
-- `8726fef` + `05199ad` — fab-shop redesign (palette/fonts/HUD/CTAs/Three.js color pass) + gold gerber panel chrome.
-- `7cf9c70` — elevated 3/4 camera framing (`CAMERA_OFFSET (0,2.6,4.2)`), retuned flight path, tightened panel transitions.
-- `976b818` — component quality (mounting holes, lead frames, hemisphere light) + arrival power-on pulse + connector signal-flow dashes.
-- `cdb44e2` — panel activation derived from scroll-leg t (deleted distance-threshold hysteresis; see session log).
-- **Current session** — legacy interaction stack deleted (single scroll-journey model). See session log.
+### Shipped in recent sessions (commit order, newest first)
+- `fa6e363` — **daughterboard card redesign + full-board framing (z=23) + fab-bench backdrop + shadow grounding + board-first hero + dead-symbol sweep + checkJs on journey/boot** (one batch, pushed).
+- `d7b8f52` — `public/og-preview.png` (1200×630 social share card) via the `.freebuff/og-tools` headless pipeline + `?og=1` instant-boot capture mode.
+- `e43a9e4` — improve-animations motion audit: 4 self-contained plans in `plans/` (vetted findings; **not yet executed**).
+- `cd8b451` — frame-clock hygiene (clamped tick delta, delta-scaled parallax lerps).
+- `4da7a76` — boot→hero arrival glide (kills the boot→journey camera cut).
+- `5e64df4` — signal-path scroll progress HUD + keyboard section nav (1–6).
+- `9f9b852` — deterministic single-timeline boot (no setTimeout, no wall-clock).
+- `26efc8a` — dead layout CSS sweep (no DOM behind it).
+- `2e1f85b` — orphaned sub-core export pruning (post legacy-stack deletion).
+- `f3558b0` — hash deep links (`#/about`, `#/projects`) + skip-boot-on-return (`sessionStorage`).
+- `6f9d0d0` — legacy interaction stack deleted (single scroll-journey model).
+- `cdb44e2` — panel activation derived from scroll-leg t (deleted distance-threshold hysteresis).
+- `976b818`, `7cf9c70`, `05199ad`, `8726fef` — component quality pass, elevated camera framing, fab-shop panel chrome, fab-shop redesign.
 
 ### Open items (nice-to-haves, no urgency)
-- **~~`public/og-preview.png`~~ DONE (`d7b8f52`)**: 1200×630 board hero shot captured via the `.freebuff/og-tools` pipeline (SwiftShader headless + `?og=1` instant boot), verified not-black (96.7% non-black cells, 29 color buckets), committed, and confirmed copied into `dist/`. LinkedIn/Discord may still show cached cards — refresh via their debugger tools. (Note: LinkedIn/Discord cache scraped images; the first share after deploy may need a re-scrape.)
-- Optional: deep-linkable sections (`#/about` via hashchange), skip-boot-on-return (`sessionStorage`), delete stale `src/schema.ts`, README refresh (bloom thresholds changed).
+- **~~Execute the `plans/` motion audit~~ DONE** — all four plans executed: 001 (nav sheen translateX, per user direction), 002 (boot underline scaleX), 003 (motion-token consolidation), 004 (hover lifts gated). See `plans/README.md` execution log. The audit's missed opportunities (key-hint affordance, gold-pad transition, PWR LED glow-in) remain optional.
+- **~~Delete stale `src/schema.ts`~~ DONE** — removed; the typecheck is `npm run typecheck` (`tsc --noEmit`) over the `// @ts-check` JS modules only.
+- **~~Finish checkJs coverage~~ DONE** — `// @ts-check` now covers **all 12 modules**: journey, boot, hover, scene, traces, board, components, particles, project-chips, config, sections, fallback. See session log for what surfaced (the last `@type {any}` interop cast is gone — hover.js now narrows the typed `interactiveObjects`).
 
 ---
 
@@ -86,8 +95,8 @@ c:\Users\hunte\Parameshwaran_S_Portfolio\
     │   ├── scene.js         # PerspectiveCamera, lighting setup, renderer config, bloom pass, FPS performance guardrail
     │   ├── board.js         # Board substrate extrusion, soldermask plane, CanvasTexture silkscreen, micro-tilt parallax
     │   ├── components.js    # 3D SMD components (U1, U2, Y1, ANT1, J1, VR1, RN1, D1-D7), silicon die + radar ring, interaction flags
-    │   ├── traces.js        # Solid 3D copper trace segments (BoxGeometry), corner vias (Cylinders), trace pathways data
-    │   ├── particles.js     # Electron flow particles along trace paths with speed boost on hover
+    │   ├── traces.js        # Solid 3D copper trace segments (BoxGeometry), corner vias (Cylinders), trace pathways data (TraceRoute typedef)
+    │   ├── particles.js     # Electron flow particles along trace paths (constant speed — hover speed boost removed)
     │   └── project-chips.js # Data-driven project chips (soldered vs breadboard jumpers based on portfolioData.projects.status)
     ├── scroll/
     │   └── journey.js       # CatmullRomCurve3 camera path, GSAP ScrollTrigger legs, per-frame Vector3.project screen positioning
@@ -217,12 +226,23 @@ npm run dev
 # 2. Run production build check (must exit with code 0)
 npm run build
 
-# 3. Check for TypeScript / linting issues
-#    Validates src/schema.ts PLUS the checkJs-opted files: src/scroll/journey.js and
-#    src/ui/boot.js (opt-in via "// @ts-check" at the top of each; tsconfig sets
-#    "allowJs": true, "checkJs": false). These are the two most logic-dense modules —
-#    keep their JSDoc types accurate when refactoring so the check stays green.
-npx tsc --noEmit
+# 3. Check for TypeScript / linting issues — npm run typecheck (tsc --noEmit)
+#    No .ts files in src. Validates the checkJs-opted files (opt-in via "// @ts-check"
+#    at the top of each; tsconfig sets "allowJs": true, "checkJs": false):
+#      - src/scroll/journey.js  (camera path, leg state, panel positioning)
+#      - src/ui/boot.js         (deterministic boot choreography)
+#      - src/utils/hover.js     (raycast hover-glow + pointer inertia)
+#      - src/three/scene.js     (renderer, lights, backdrop, shadow catcher, tick loop)
+#      - src/three/traces.js    (copper trace routes — TraceRoute typedef feeds journey/boot/particles)
+#      - src/three/board.js     (substrate, silkscreen canvas, mounting holes, parallax)
+#      - src/three/components.js (SMD components — interactiveObjects typed THREE.Mesh[])
+#      - src/three/particles.js (electron flow — Particle typedef)
+#      - src/three/project-chips.js (project chips — FlickerLed typedef)
+#      - src/config.js          (URLs, breakpoints, env helpers)
+#      - src/ui/sections.js     (datasheet injection, profile link wiring)
+#      - src/ui/fallback.js     (WebGL detection, cleanup)
+#    Keep their JSDoc types accurate when refactoring so the check stays green.
+npm run typecheck
 ```
 
 ### Manual Browser Checklist
@@ -252,6 +272,53 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 
 ## 📝 Developer Change & Session Log
 
+- **2026-08 Session — JSON-LD Person structured data added**: `index.html` head gained an `application/ld+json` block — `@type: Person` with `name`, `jobTitle` ("ECE + Data Science Student"), `alumniOf` (SRM Institute of Science and Technology, Ramapuram), `sameAs` (LinkedIn + GitHub, mirroring `config.js`), `image` (`/og-preview.png`), and `knowsAbout` (all 25 skills across the four `portfolio.js` groups: ai_ml/web/data/hardware). **Static in the raw HTML by design** — crawlers and recruiter scrapers read markup without executing JS (dynamic injection from portfolio.js would defeat the purpose). A comment in the block flags the sync requirement with `portfolio.js`. Validated: `JSON.parse` of the extracted block via node + in the live DOM (25 skills, 2 sameAs), `npm run build` green.
+- **2026-08 Session — Plans 003 + 004 executed (motion audit COMPLETE)**:
+  - **004 — hover lifts gated** behind `@media (hover: hover) and (pointer: fine)` in six places: `.hud-nav .nav-btn:hover` (scroll.css), `.cta-linkedin:hover` (scroll.css, split from `:focus-visible` — keyboard half stays ungated), `.proj-ds:hover` + `.proj-ds.is-building:hover` (merged into one gated block, current lift `-3px`), `.skill-pill:hover` (found live beyond the plan's list — its `-1px` lift would have tripped the verification grep), `.nav-btn:hover` (style.css — also removed the green box-shadow that leaked onto HUD hovers), `.cta-linkedin:hover, .cta-contact:hover` (style.css). Color/bg/border/shadow feedback, `:active` dips, and `:focus-visible` stay ungated. Every `translateY` lift now sits inside a gated block (6 media blocks).
+  - **003 — motion tokens consolidated**: all six hand-typed `cubic-bezier(0.22, 1, 0.36, 1)` → `var(--ease-out)` (vignette + 5 panel/typography rules; durations preserved verbatim — the only remaining raw curve is the `:root` token definition). Deleted the "Minimalist Navbar styles" `.nav-btn` block (strict subset of Enhanced; `scroll.css` owns the HUD cascade). Tokenized Enhanced `.nav-btn` + CTA `0.25s ease` → `var(--duration-fast) var(--ease-out)` (0.18s — deliberate snappiness correction) and both `.skip-link` `0.3s ease` → `var(--duration-base) var(--ease-out)`. `.proj-ds` transitions untouched per plan scope.
+  - **Verified**: build + tsc green; greps clean (no raw curve outside `:root`, no `0.25s ease`, no Minimalist block, all lifts inside media blocks); live computed styles resolve to tokens (nav/CTA `0.18s cubic-bezier(0.22,1,0.36,1)`, panels `0.5s` unchanged curve); boot → hero active, HUD clickable, console clean. `plans/README.md` status + execution log updated.
+- **2026-08 Session — checkJs coverage sweep COMPLETE (all 12 modules checked)**: `// @ts-check` added to `components.js`, `particles.js`, `project-chips.js`, `board.js`, `config.js`, `sections.js`, `fallback.js` (config.js surfaced zero errors). Fixes required:
+  - **components.js**: `interactiveObjects`/`cpuPins`/`ledMeshes` typed `THREE.Mesh[]`, `siliconDieMesh`/`cpuRadarRing` `THREE.Mesh | undefined`; the radar-ring material check became `mat instanceof THREE.MeshBasicMaterial` (the ring is created with MeshBasicMaterial — true at runtime, and it narrows the `Material | Material[]` union that the old `mat.opacity !== undefined` guard couldn't).
+  - **board.js**: `boardGroup` typed `THREE.Group | undefined`; params typed on `createBoard`/`updateBoardParallax`/`lerpFactor`/`drawHatchedPour`/`drawCrosshair`; the mounting-holes `forEach` captures `const board = boardGroup` — a module-level `let` is 'possibly undefined' inside closures even right after assignment, so the closure needs a captured const.
+  - **particles.js**: `Particle` typedef (`{mesh, points, progress, baseSpeed}`), `particles` typed `Particle[]`; deleted the unused `DEFAULT_PARTICLE_COLOR` const (TS6133).
+  - **project-chips.js**: `FlickerLed` typedef (`{mat: MeshStandardMaterial, seed}`), `flickerLeds`/`steadyLeds` typed; `buildBreadboardPatch(group, goldMat)` dropped its unused `goldMat` param (TS6133) and the call site now passes `(group)` only.
+  - **fallback.js**: `canvas.getContext('webgl') || getContext('experimental-webgl')` asserted to `WebGLRenderingContext | null` (the raw `RenderingContext` union has no `getExtension`); `setupCleanup` dropped its unused `camera` param (main.js now calls `setupCleanup(scene, renderer)`); `disposeScene`/`disposeMaterial` params typed, with `disposeMaterial` casting to `MeshStandardMaterial` for the defensive map/lightMap/envMap disposal.
+  - **sections.js**: `esc(str)` param typed; the `querySelectorAll(...).forEach` callbacks cast each element inside the body (`/** @type {HTMLAnchorElement} */ (a)`) — an arrow-param annotation is rejected by the NodeList.forEach callback signature (contravariance).
+  - **boot.js**: added `import * as THREE` for the silicon-die settle — `siliconDieMesh.material.opacity = 0.65` became `instanceof THREE.MeshBasicMaterial` narrowing (the die material is MeshBasicMaterial in components.js).
+  - **hover.js**: the last `/** @type {any} */` interop cast deleted — `interactiveObjects` is typed `THREE.Mesh[]` now, so the filter callback narrows without a cast.
+  - **Verified**: `npm run typecheck` exits 0 across all 12 modules; `npm run build` green; live journey re-checked (boot → overlay gone, all 6 panels live, canvas WebGL rendering); console clean.
+- **2026-08 Session — Dead-export sweep + typecheck script + schema.ts removed**:
+  - De-exported four symbols verified dead by full-repo search (zero importers): `vias` (traces.js — export + the `vias.push(viaGroup)` collection dropped; the via groups are still created and added to the board), `silkscreenMesh` (board.js — now module-private `let`, still assigned and added to the board), `targetMouse` (hover.js — now module-private `const`, still fed by `updateMouseCoords` and read by `checkHover`), `setCameraAtT` (journey.js — now internal, still called by the ScrollTrigger `onUpdate`). All type-only de-exports — runtime identical.
+  - `package.json` gained `"typecheck": "tsc --noEmit"`; **`src/schema.ts` deleted** (its only purpose was giving tsc a `.ts` file — the real checks are the `// @ts-check` JS modules). `npm run typecheck` passes with zero `.ts` files in src. README + claude.md protocol now use `npm run typecheck`; the stale open item is marked DONE.
+  - **Verified**: `npm run typecheck` + build green; grep confirms no `export` remains on the four symbols; live journey re-checked (boot → hero active, vignette 0.35). Reviewer: no defects.
+- **2026-08 Session — Plan 001 executed (nav sheen transform-only) + plans 001/002 marked DONE**:
+  - Per user direction, plan 001 was executed as a **translateX conversion, not deletion**: `style.css` `.nav-btn::after` sweep moved from `left: -100% → 100%` (`transition: left 0.5s` — a layout property on a hot control) to `left: 0` + `transform: translateX(-100% → 100%)` with `transition: transform var(--duration-base) var(--ease-out)` (0.3s, token-eased). Two deviations from the plan body, both required by that strategy: `overflow: hidden` stays on `.nav-btn` (the sweep still needs clipping), and `.hud-nav .nav-btn.nav-active::after` in `scroll.css` gained `transition: none` so the ENIG gold pad doesn't inherit a transform slide-in on section change (plan finding #3 stays fixed).
+  - `plans/README.md`: 001 and 002 marked **DONE** with an execution log; 002 was already implemented in the hyperframes-animation session (`.header-underline` pinned `280px` + `scaleX(0→1)`, center origin — matches the plan exactly). Note added for 003 that its excerpts assume the sheen was deleted — re-read current `style.css` before executing.
+  - **Verified**: build + tsc green; `grep transition: left` clean in style.css; live computed-style check — sheen transition is `transform 0.3s` at `translateX(-100%)`, and the gold pad's computed transition is `none` with the transform identical before/after a nav-active toggle (snaps instantly, no slide).
+- **2026-08 Session — animejs discipline audit — last unseeded randomness removed**:
+  - Audited the whole animation surface for the animejs contract (deterministic, finite, single-clock, no unseeded randomness, no animations built in timers):
+    - `Math.random` / `Date.now` / `performance.now` — **one hit**, fixed: `project-chips.js` seeded each breadboard LED flicker phase with `Math.random() * 100`, so the "in build" LEDs pulsed differently on every page load and every `?og=1` capture. The flicker formula was already deterministic (`sin(elapsed·7 + seed) · sin(elapsed·13.7 + seed·2)`); now the seed is `flickerLeds.length * 2.4` — a fixed per-LED phase offset, out of lockstep, reproducible every visit.
+    - `setTimeout` — only the `scene.js` resize debounce remains (a debounce, not an animation); boot is setTimeout-free.
+    - `repeat: -1` / `Infinity` — zero hits; all GSAP pulses are finite (boot flashes `repeat: 1`, LED blinks `repeat: 3`, silicon die `repeat: 7`).
+    - `requestAnimationFrame` — exactly two: the `scene.js` tick loop (the single clock — correct) and a one-shot `ScrollTrigger.refresh()` scheduling in journey.js.
+  - **Verified**: grep clean (only the explanatory comment mentions Math.random); `npm run build` + `npx tsc --noEmit` green.
+- **2026-08 Session — hyperframes-animation discipline applied (transform-only tweens + pre-calculated layout constants)**:
+  - **Boot underline `width` → `scaleX`** (the skill's transform-only spatial-motion rule): `style.css` `.header-underline` now has a fixed `width: 280px` + `transform: scaleX(0); transform-origin: center;` (grows from center, the same feel as the old width draw); `boot.js` tweens `scaleX: 1` instead of `width: '280px'` in the full boot path, and the skip/lite path sets `gsap.set(underline, { scaleX: 1 })`. The old tween forced layout every frame of the 1s draw; scaleX is compositor-only. Verified live: underline draws to `matrix(1,0,0,1,0,0)` after boot. *(Note: this supersedes plan 002's left-origin suggestion for the underline — center origin was chosen deliberately to preserve the shipped centered-grow visual.)*
+  - **Panel dimensions measured once, not per frame** (the skill's pre-calculated layout constants rule): `updateJourneyEffects` read `panel.offsetWidth`/`offsetHeight` every animation frame — forcing layout on every scroll-scrub frame. New `panelSizeCache` (keyed per panel) measures once per panel; `invalidatePanelSizeCache()` runs on `window.resize` (media-query widths) and in the existing `document.fonts.ready` hook (font-swap heights). Fallbacks (`Math.min(480, vw-40)` / `Math.min(300, vh*0.5)`) and the `.ds-panel-wide` 980px handling are preserved. Verified live: panel-projects still right-anchors with correct cached-width placement.
+  - **Verified**: tsc + build green; live journey re-checked (boot → underline drawn via scaleX → panel anchors on scroll); console clean; reviewer-clean.
+- **2026-08 Session — README refresh (uncommitted)**: rewrote `README.md` to the shipped state — scroll-journey-only interaction model table, daughterboard datasheet panels, fab-bench backdrop + shadow grounding, board-first hero, deterministic boot, deep links, single-CTA rule, `og-preview.png` card embedded, and the checkJs verification protocol. Removed stale content for deleted systems (legacy hover-boost mode, tooltips/camera-states, Orbitron/Share Tech Mono fonts, canvas-renderer fallback). Setup/stack/structure sections corrected to Three.js r185 + GSAP 3.15 + Chakra Petch/Fragment Mono/Instrument Sans.
+- **2026-08 Session — OG social card shipped (`d7b8f52`)**: ran the `.freebuff/og-tools` capture pipeline (headless Chrome + SwiftShader WebGL against `?og=1` instant-boot mode) and generated `public/og-preview.png` (1200×630). Verified not black — 96.7% non-black cells, 20.8% FR-4 green, 29 color buckets, board centered with lit traces, zero console errors. Committed the PNG alone (kept the redesign batch separate), confirmed Vite copies it into `dist/` so the `og:image` meta resolves. LinkedIn/Discord cache scrapes — re-scrape via their debugger tools after deploy.
+- **2026-08 Session — Big batch committed + pushed (`fa6e363`)**: committed the daughterboard redesign (scroll.css), full-board framing + vignette (journey.js), fab-bench backdrop + shadow catcher (scene.js), board-first hero, dead-symbol sweep (main.js/board.js), and checkJs on journey/boot (tsconfig.json, boot.js) as one cohesive commit; pushed `cd8b451..fa6e363` to `origin master`. Validation before push: tsc + build green.
+- **2026-08 Session — traces.js typed (last `@type {any}` interop casts removed)**:
+  - Added `// @ts-check` to `src/three/traces.js` with a `TraceRoute` JSDoc typedef (`component: string`, `points: THREE.Vector3[]`, `width: number`, `meshes: THREE.Mesh[]`); `traceData` typed `TraceRoute[]`, `vias` typed `THREE.Group[]`; params typed on `createTraces`/`addTraceMesh`/`addVia`.
+  - **journey.js**: `pulseArrival`'s `/** @type {any} */` casts on the trace callbacks are gone — `t`/`m` now flow from the typedef, and the material check became `mat instanceof THREE.MeshStandardMaterial` (trace segments always use that material; narrows the `Material | Material[]` union). **boot.js**: the `/** @type {any} */` mesh cast dropped — `mesh.material` is directly assignable to gsap's `TweenTarget`.
+  - particles.js (unchecked) now receives the typed `TraceRoute[]` too — same runtime data, but its `traceData.forEach(trace => …)` reads are type-checkable when it gets `@ts-check`.
+  - **Verified**: tsc exits 0 (now 6 checked files: schema + journey, boot, hover, scene, traces); build green; live journey re-checked (boot → hero active, overlay gone, console clean).
+- **2026-08 Session — checkJs extended to hover.js + scene.js (full interaction core checked)**:
+  - Added `// @ts-check` to `src/utils/hover.js` and `src/three/scene.js`. `npx tsc --noEmit` now type-checks the whole interaction core: journey, boot, hover, scene (+ schema.ts).
+  - **hover.js**: typed module state (`raycaster`/`activeCamera`/`currentHovered`/`hoverLight` as `| null` — the runtime guards already existed), `PCB_GLOW_MAP` as `Record<string, number>`, param types for `initHover`/`handleHoverEnter`/`resetHoverMesh`, inline param annotations for the `clamp` and `updateMouseCoords` arrows, a `Record`-indexable glow map, and `/** @type {any} */` casts for the heterogeneous `mesh.material` (Standard/Basic/Phong all share `.emissive`) and the unchecked-module `interactiveObjects` filter callback.
+  - **scene.js**: module exports typed as `THREE.Scene | null` etc. (honest — null until `initScene`), `tickCallbacks` as `Array<(elapsed, delta) => void>`, `canvas.getContext('2d')` asserted non-null, `checkPerformance(deltaMs)` param, `resizeTimeout = 0` + `fpsHistory: number[]` initializers, and two new **type-only guards** in the resize debounce and `animate()` (`if (!camera || !renderer) return`) — closures can't narrow module-level lets; both were already guaranteed assigned at runtime.
+  - **Verified**: tsc exits 0; build green; live journey re-checked (boot → hero active, vignette 0.35, connector present, console clean).
 - **2026-08 Session — Dead-symbol sweep + checkJs enabled (tsc now meaningful)**:
   - Removed dead symbols: `boardGroupRef` (declaration + assignment) and the now-unused `boardGroup` param of `initJourney` (call site is now `initJourney(camera)` in `main.js`); the unused `composer` and `isSmallViewport` imports in `main.js`; the unused `showFallbackUI` import in `board.js`.
   - **checkJs opt-in**: `tsconfig.json` now sets `"allowJs": true` (`checkJs` stays `false` — opt-in per file). Added `// @ts-check` to `src/scroll/journey.js` and `src/ui/boot.js`, so `npx tsc --noEmit` now type-checks them instead of only the trivial `schema.ts`. Journey.js needed JSDoc for its index-signature tables (`COMPONENT_WORLD`, `FIXED_CAMERAS`, `ARRIVAL_TRACE`, `stopTs`, `PATH` → `Record`/tuple types), typed module-level bindings (curves, cameraRef, connectorLine, vignetteEl, arrivalGlide, activePanelId…), params on every exported function, a `filter(Boolean)` cast for the `sections` array, `String(intensity)`/`'0.35'` for the two `style.opacity` writes (CSSStyleDeclaration.opacity is a string property), and `lookCurve` added to the `setCameraAtT` null guard. Boot.js needed param types + `overlay` null guards. Behavior unchanged — the guards and values already existed at runtime.
@@ -312,11 +379,11 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
   - `boot.js`: `hud-ready` applied once inside boot step 3 (duplicate add removed from `main.js`); hero panel reveal uses `clearProps`; silicon die pulse now finite (8 pulses → settle 0.65).
   - `scroll.css`: `#hud-bar.hud-ready { pointer-events: auto !important; }` (HUD was unclickable in full-journey mode); hidden HUD LinkedIn CTA (hero/contact) also gets `visibility: hidden` (tab-order fix).
   - **Verified live in browser (full-journey)**: boot → HUD interactive → nav clicks navigate each section → panels activate anchored on-screen → hero panel hidden at all other sections → HUD CTA hidden only at hero/contact. `npm run build` + `npx tsc --noEmit` pass; console clean.
-- **2026-08 Session — "Fab-shop" redesign + journey bugfix (NOT yet committed/pushed)**:
+- **2026-08 Session — "Fab-shop" redesign + journey bugfix (committed as `8726fef` + `05199ad`, follow-ups done)**:
   - Applied the fab-shop design (matte soldermask palette, warm silkscreen, ENIG gold accents, signal green reserved for "live") across HTML/CSS/Three.js — see the 🚦 NEXT SESSION block at the top of this file for the full change list.
   - **Fixed a Chromium `visibility`-transition deadlock** in `scroll.css` `.ds-panel` (panels froze at opacity 0 with transitions stuck at `currentTime 0` after nav clicks): visibility now flips instantly on activate and waits out the fade on deactivate (`visibility 0s` / `visibility 0s linear 0.6s`). **Applied but not yet re-verified live.**
   - Made the single-LinkedIn-CTA rule data-driven (`body.hud-cta-hidden` when the active panel has its own CTA) — About no longer shows a duplicate.
-  - **Remaining**: live-verify the visibility fix, gitignore `.freebuff/`, commit + push to `origin master` (user explicitly requested the push).
+  - **All follow-ups done**: visibility fix verified live, `.freebuff/` gitignored, committed (`8726fef`/`05199ad`) + pushed to `origin master`.
 - **2026-08 Session — 3D framing + animation pass (pushed as `05199ad` + follow-ups)**:
   - **Camera framing fix** (`journey.js`): component stops were viewed horizontally at component height (`CAMERA_OFFSET (0,0,1.915)`) — chips read as edge-on slivers. Now elevated 3/4 angle: `CAMERA_OFFSET (0, 2.6, 4.2)`, `LOOK_AT_OFFSET (0, 0.15, 0)` (~31° elevation). Via points retuned to the same z depth (~4.2) for consistent travel speed instead of per-leg zoom pulsing.
   - **Panel transition timing** (`scroll.css`): container 0.6s→0.5s; `.ds-ref`/`.ds-body` 0.6s→0.45s, `.ds-title` 0.7s→0.5s; delays 0.2/0.3/0.4s→0.1/0.15/0.25s; replaced `transition: all` with enumerated opacity/transform.

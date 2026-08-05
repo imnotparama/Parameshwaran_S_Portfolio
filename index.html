@@ -23,6 +23,33 @@
     <meta name="twitter:title" content="PARAMESHWARAN S | PCB Portfolio">
     <meta name="twitter:description" content="ECE + Data Science — Interactive 3D PCB Portfolio">
 
+    <!-- Structured Data: JSON-LD Person (Google rich results + recruiter scrapers).
+         Static in the raw HTML on purpose — crawlers read markup without executing JS.
+         KEEP IN SYNC with src/data/portfolio.js (personalInfo + skills). -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "name": "Parameshwaran S",
+        "jobTitle": "ECE + Data Science Student",
+        "alumniOf": {
+            "@type": "CollegeOrUniversity",
+            "name": "SRM Institute of Science and Technology, Ramapuram, Chennai"
+        },
+        "image": "/og-preview.png",
+        "sameAs": [
+            "https://www.linkedin.com/in/parameshwaran-s-datascientist",
+            "https://github.com/imnotparama"
+        ],
+        "knowsAbout": [
+            "Python", "Machine Learning", "OpenCV", "YOLO", "Pandas", "NumPy", "Scikit-learn",
+            "Django", "FastAPI", "React", "JavaScript", "HTML", "CSS", "Vite", "Tailwind",
+            "SQL", "Power BI", "Data Analysis", "Excel", "Git",
+            "Arduino", "IoT", "IR Sensors", "ESP32", "C"
+        ]
+    }
+    </script>
+
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 

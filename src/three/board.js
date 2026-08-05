@@ -1,12 +1,16 @@
 // ============================================================
 // Board geometry + canvas silkscreen
 // ============================================================
+// @ts-check
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
 
+/** @type {THREE.Group | undefined} */
 export let boardGroup;
-export let silkscreenMesh;
+// Module-private: the silkscreen mesh is live on the board but nothing imports it.
+let silkscreenMesh;
 
+/** @param {THREE.Scene} scene */
 export function createBoard(scene) {
     boardGroup = new THREE.Group();
 
@@ -82,6 +86,7 @@ export function createBoard(scene) {
             ctx.strokeStyle = 'rgba(201, 162, 75, 0.22)';
             ctx.lineWidth = 8;
 
+            /** @param {number} startX @param {number} startY @param {number} endX @param {number} endY */
             const drawHatchedPour = (startX, startY, endX, endY) => {
                 ctx.save();
                 ctx.beginPath();
@@ -202,6 +207,7 @@ export function createBoard(scene) {
             ctx.fillText('ம்', 120, 260);
 
             // I. Small crosshair registration targets in 4 corners
+            /** @param {number} cx @param {number} cy */
             const drawCrosshair = (cx, cy) => {
                 ctx.strokeStyle = '#ece7d8';
                 ctx.lineWidth = 4;
@@ -312,13 +318,17 @@ export function createBoard(scene) {
     disposableResources.materials.add(holeMat);
     disposableResources.materials.add(ringMat);
 
+    // Mounting holes share boardGroup; capture a local const so TS narrowing
+    // survives the closure (a module-level `let` is 'possibly undefined'
+    // inside callbacks even though createBoard assigned it above).
+    const board = boardGroup;
     [[4.64, 6.92], [-4.64, 6.92], [4.64, -6.92], [-4.64, -6.92]].forEach(([hx, hy]) => {
         const hole = new THREE.Mesh(holeGeo, holeMat);
         hole.position.set(hx, hy, 0);
-        boardGroup.add(hole);
+        board.add(hole);
         const ring = new THREE.Mesh(ringGeo, ringMat);
         ring.position.set(hx, hy, 0);
-        boardGroup.add(ring);
+        board.add(ring);
     });
 
     boardGroup.scale.set(0.85, 0.85, 0.85);
@@ -327,10 +337,12 @@ export function createBoard(scene) {
 // Delta-scaled lerp factor — same convention as hover.js (1 - pow(1-k, d*60))
 // so the parallax response is IDENTICAL at any frame rate: at 60fps it equals
 // k exactly, at 30fps it halves per frame but doubles per second of real time.
+/** @param {number} k @param {number} [delta] */
 function lerpFactor(k, delta) {
     return 1 - Math.pow(1 - k, (delta || 1 / 60) * 60);
 }
 
+/** @param {number} elapsed @param {THREE.Vector2} mouse @param {number} [delta] */
 export function updateBoardParallax(elapsed, mouse, delta) {
     if (!boardGroup) return;
 

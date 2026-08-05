@@ -108,7 +108,7 @@ body {
     z-index: 9998;
     pointer-events: none;
     opacity: 0.4;
-    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 0.5s var(--ease-out);
 }
 
 /* -------------------------------------------------------------
@@ -184,10 +184,15 @@ h1#user-name {
 }
 
 .header-underline {
-    width: 0%;
+    /* Fixed width; the boot draw is scaleX (transform-only — animating width
+       would force layout every frame of the tween). Grows from center, the
+       same feel as the old width draw. */
+    width: 280px;
     height: 2px;
     background-color: var(--enig-gold);
     margin: -4px auto 14px;
+    transform: scaleX(0);
+    transform-origin: center;
 }
 
 .subtitle-wrap {
@@ -336,7 +341,9 @@ h1#user-name {
     padding: 6px 14px;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+    /* Plan 003: bare 0.25s ease → duration/curve tokens (0.18s --duration-fast,
+       --ease-out) — snappier hover, same family as the rest of the sheet. */
+    transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
     letter-spacing: 1px;
     font-weight: 500;
     position: relative;
@@ -345,9 +352,16 @@ h1#user-name {
 
 .nav-btn:hover {
     background-color: rgba(0, 255, 136, 0.15);
-    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
     color: #ffffff;
-    transform: translateY(-1px);
+}
+
+/* Plan 004: lift gated behind (hover: hover) and (pointer: fine). The green
+   box-shadow was also removed here — it leaked onto HUD nav hovers (scroll.css
+   intentionally uses a subtler silkscreen hover for those). */
+@media (hover: hover) and (pointer: fine) {
+    .nav-btn:hover {
+        transform: translateY(-1px);
+    }
 }
 
 .nav-btn:focus-visible {
@@ -360,7 +374,7 @@ h1#user-name {
     content: '';
     position: absolute;
     top: 0;
-    left: -100%;
+    left: 0;
     width: 100%;
     height: 100%;
     background: linear-gradient(
@@ -369,11 +383,16 @@ h1#user-name {
         rgba(0, 255, 136, 0.2),
         transparent
     );
-    transition: left 0.5s;
+    /* Plan 001: transform-only sweep — was left: -100% → 100%, a layout
+       property that forced reflow every frame of the hover. Now translateX,
+       short (--duration-base) and token-eased. The .nav-active gold pad
+       overrides this transition to stay crisp. */
+    transform: translateX(-100%);
+    transition: transform var(--duration-base) var(--ease-out);
 }
 
 .nav-btn:hover::after {
-    left: 100%;
+    transform: translateX(100%);
 }
 
 /* Enhanced CTA Buttons */
@@ -390,7 +409,8 @@ h1#user-name {
     text-decoration: none;
     position: relative;
     overflow: hidden;
-    transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+    /* Plan 003: 0.25s ease → tokens */
+    transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
 
 .cta-linkedin {
@@ -408,8 +428,15 @@ h1#user-name {
 .cta-linkedin:hover,
 .cta-contact:hover {
     box-shadow: 0 0 34px rgba(0, 255, 136, 0.7);
-    transform: translateY(-2px);
     background: rgba(0, 255, 136, 0.1);
+}
+
+/* Plan 004: hover lift gated — shadow/background feedback stays on touch */
+@media (hover: hover) and (pointer: fine) {
+    .cta-linkedin:hover,
+    .cta-contact:hover {
+        transform: translateY(-2px);
+    }
 }
 
 .cta-linkedin:focus-visible,
@@ -461,7 +488,7 @@ a:focus-visible,
     padding: 8px 16px;
     z-index: 10000;
     transform: translateY(-100%);
-    transition: transform 0.3s ease;
+    transition: transform var(--duration-base) var(--ease-out);
     font-family: var(--font-mono);
     font-size: 14px;
     font-weight: 500;
@@ -471,26 +498,6 @@ a:focus-visible,
 .skip-link:focus {
     top: 0;
     transform: translateY(0);
-}
-
-/* Minimalist Navbar styles */
-.nav-btn {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    color: var(--glow-green);
-    background-color: rgba(5, 15, 5, 0.8);
-    border: 1px solid var(--glow-green);
-    padding: 6px 14px;
-    border-radius: 2px;
-    cursor: pointer;
-    transition: color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
-    letter-spacing: 1px;
-}
-
-.nav-btn:hover {
-    background-color: rgba(0, 255, 136, 0.15);
-    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
-    color: #ffffff;
 }
 
 /* ================================================================

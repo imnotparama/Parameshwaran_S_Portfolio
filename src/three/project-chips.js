@@ -5,14 +5,20 @@
 //   building → open breadboard patch: jumper wires, faint flicker
 // This gives "still figuring the rest out" a literal visual form.
 // ============================================================
+// @ts-check
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
 import { interactiveObjects } from './components.js';
 import { portfolioData } from '../data/portfolio.js';
 
-const flickerLeds = []; // { mat, seed }
+/** @typedef {{ mat: THREE.MeshStandardMaterial, seed: number }} FlickerLed */
+
+/** @type {FlickerLed[]} */
+const flickerLeds = [];
+/** @type {THREE.MeshStandardMaterial[]} */
 const steadyLeds = [];
 
+/** @param {THREE.Group} boardGroup */
 export function createProjectChips(boardGroup) {
     const thickness = 0.16;
     const surfaceZ = thickness / 2 + 0.005;
@@ -66,7 +72,7 @@ export function createProjectChips(boardGroup) {
         const isBuilding = proj.status === 'building';
 
         if (isBuilding) {
-            buildBreadboardPatch(group, goldMat);
+            buildBreadboardPatch(group);
         } else {
             buildSolderedChip(group, chipMat, goldMat, solderTraceMat, busY - rowY);
         }
@@ -87,6 +93,13 @@ export function createProjectChips(boardGroup) {
 }
 
 // Finished, soldered chip — solid trace to the bus, steady glow LED.
+/**
+ * @param {THREE.Group} group
+ * @param {THREE.MeshStandardMaterial} chipMat
+ * @param {THREE.MeshStandardMaterial} goldMat
+ * @param {THREE.MeshStandardMaterial} traceMat
+ * @param {number} busOffsetY
+ */
 function buildSolderedChip(group, chipMat, goldMat, traceMat, busOffsetY) {
     const bodyGeo = new THREE.BoxGeometry(0.42, 0.42, 0.12);
     const body = new THREE.Mesh(bodyGeo, chipMat.clone());
@@ -128,7 +141,8 @@ function buildSolderedChip(group, chipMat, goldMat, traceMat, busOffsetY) {
 }
 
 // Open breadboard patch — visible jumper wires, faint flicker.
-function buildBreadboardPatch(group, goldMat) {
+/** @param {THREE.Group} group */
+function buildBreadboardPatch(group) {
     const plateGeo = new THREE.BoxGeometry(0.56, 0.56, 0.05);
     const plateMat = new THREE.MeshStandardMaterial({ color: 0xd6c8a2, roughness: 0.95 });
     const plate = new THREE.Mesh(plateGeo, plateMat);
@@ -182,10 +196,15 @@ function buildBreadboardPatch(group, goldMat) {
     const led = new THREE.Mesh(ledGeo, ledMat);
     led.position.set(0.18, -0.18, 0.09);
     group.add(led);
-    flickerLeds.push({ mat: ledMat, seed: Math.random() * 100 });
+    // Deterministic per-LED phase (animejs discipline — no unseeded randomness):
+    // each breadboard LED gets a fixed offset so they flicker out of lockstep,
+    // identical on every page load and OG capture. The old Math.random() seed
+    // made the board's "in build" LEDs pulse differently every visit.
+    flickerLeds.push({ mat: ledMat, seed: flickerLeds.length * 2.4 });
 }
 
 // Per-frame: flicker the breadboard LEDs, keep soldered ones steady.
+/** @param {number} elapsed */
 export function updateProjectChips(elapsed) {
     for (const f of flickerLeds) {
         const n = Math.sin(elapsed * 7 + f.seed) * Math.sin(elapsed * 13.7 + f.seed * 2);

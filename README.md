@@ -1,110 +1,98 @@
-# Parameshwaran S Portfolio
+# Parameshwaran S — Portfolio
 
-An interactive 3D PCB portfolio showcasing ECE (Electronics and Communication Engineering) and Data Science skills. Navigate through a printed circuit board where each component represents a different aspect of my background and projects.
+An interactive 3D PCB portfolio showcasing ECE (Electronics & Communication Engineering) + Data Science. The site is a printed circuit board: you scroll to fly a camera along the board's copper traces, and each section is a *daughterboard datasheet* docked next to its component.
+
+**Live demo:** `npm run dev` → http://localhost:5173
+
+![og-preview](public/og-preview.png)
+
+## The Interaction Model
+
+There is exactly **one** interaction model — a scroll-journey. The camera is owned by the scroll position (GSAP ScrollTrigger scrub along a Catmull-Rom spline); hover produces a raycast glow; there is no click-to-zoom.
+
+| Mode | Who gets it | What happens |
+|:---|:---|:---|
+| **Scroll-Journey** (`full-journey`) | Default — viewport ≥ 768px and no `prefers-reduced-motion` | Camera flies between components as you scroll. The active section's panel activates as a pure function of the current scroll leg. |
+| **Lite** (`lite-mode`) | `prefers-reduced-motion: reduce` OR viewport < 768px | No scroll-jacking — sections stack normally and are all reachable by scrolling. Hover glow still works. |
 
 ## Features
 
-- **Interactive 3D PCB Board**: Explore a layered circuit board with smooth camera movement
-- **Scroll-Journey Navigation**: Scroll to move the camera between key components (CPU, Projects, Skills, Experience, Contact)
-- **Tiered Interactions**: 
-  - In journey mode: subtle hover glow only (preserves performance)
-  - In legacy mode: full tooltip, HUD, and trace speed boost on hover
-- **Data-Driven Projects**: Project status (`shipped`/`building`) automatically determines rendering (soldered chip with steady glow vs breadboard with flickering LEDs)
-- **Terminal Boot Sequence**: Typewriter-style boot messages on page load
-- **Responsive Design**: 
-  - Mobile fallback (<=768px viewport) disables scroll-jacking for vertical stacking
-  - Responsive layouts at 900px and 640px breakpoints
-- **Reduced Motion Support**: Respects `prefers-reduced-motion` media query
-- **Performance Optimization**:
-  - FPS monitor reduces bloom effect if sustained FPS < 50
-  - Raycaster throttling (every 3rd frame)
-  - Frustum culling and render call minimization
-- **Accessibility**:
-  - Skip-to-content link
-  - ARIA labels on interactive elements
-  - Keyboard navigable controls
-  - Semantic HTML structure
-- **Error Handling**: Graceful fallback for canvas texture generation
-- **Continuous Camera Motion**: Smooth Catmull-Rom spline path between sections (no teleporting)
-- **Nav-Click Synchronization**: Clicking navigation buttons smoothly scrolls to corresponding section
-- **Persistent LinkedIn CTA**: Always-visible call-to-action in header and section panels
+- **Scroll-journey camera flight** — a CatmullRomCurve3 path between U1 (About), U2 (Projects), C1–C4 (Skills), J1 (Experience) and the hero/contact stops; component stops use an elevated 3/4 angle so chips read with their silkscreen, and the hero/contact stops pull back far enough to frame the whole 15-unit board on any viewport.
+- **Daughterboard datasheet panels** — every section panel is a physical PCB module: FR-4 glass-weave texture, four gold corner mounting holes, a gold edge-connector pad strip (via `border-image`, pinned in the border box so it never scrolls), a seated double-shadow, via-chip reference headers with fading copper traces, SMD skill pills with silver end-caps, and project cards as mini-PCBs with LED-glow status chips (green = shipped, amber flicker = building).
+- **Fab-bench backdrop** — the view is never a void: a pre-rendered 1024² canvas texture (`scene.background`) paints a deep FR-4 gradient with a faint fabrication grid and plated gold vias, plus a transparent **shadow-catcher bench plane** so the board's real-time shadows land on a visible band instead of hovering in space.
+- **Board-first hero** — the hero datasheet docks right (like the component sections) so the fully-framed board shows around it; it recenters below 900px where a wide panel would cover the board.
+- **Deterministic boot sequence** — one GSAP timeline with all-absolute positions (no `setTimeout`, no wall-clock): laser scanline, terminal typewriter, trace/pin/LED power-on flashes, hero reveal. Return visitors skip it via `sessionStorage`; `?og=1` is an instant-capture mode for headless screenshots.
+- **Shareable deep links** — every section has a URL (`#/about`, `#/projects`, …) with back/forward support; number keys 1–6 jump sections.
+- **Signal-path progress** — a HUD legend fill tracks scroll progress as a pure function of position (transform-only, rAF-coalesced).
+- **Exactly one LinkedIn CTA per section** — the HUD button hides whenever the active panel carries its own CTA.
+- **Social card** — `public/og-preview.png` (1200×630) renders a proper LinkedIn/Discord card.
+- **Accessibility & performance** — reduced-motion mode, keyboard nav, skip-to-content link, ARIA labels; FPS guardrail scales bloom below 45/30fps, raycasts throttle to every 3rd frame, backdrop is painted once.
 
 ## Setup
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd Parameshwaran_S_Portfolio
-   ```
+```bash
+# 1. Install
+npm install
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+# 2. Dev server
+npm run dev            # http://localhost:5173
 
-3. **Start development server**
-   ```bash
-   npm run dev
-   ```
-   Then open `http://localhost:5173` in your browser.
+# 3. Production build
+npm run build          # outputs to /dist
 
-4. **Build for production**
-   ```bash
-   npm run build
-   ```
-   Outputs to `/dist` directory.
+# 4. Type check (validates the // @ts-check JS modules — no .ts files in src)
+npm run typecheck
+```
+
+Profile links come from Vite env vars (`VITE_LINKEDIN_URL`, `VITE_GITHUB_URL`) with public fallbacks in `src/config.js`.
 
 ## Technology Stack
 
-- **Build Tool**: Vite (ES modules, fast HMR)
-- **3D Graphics**: Three.js (renders PCB board, components, traces)
-- **Animations**: GSAP (timeline-based sequences, smooth transitions)
-- **Scrolling**: GSAP ScrollTrigger (scroll-linked camera movement)
-- **Styling**: CSS3 (CSS variables, flexbox, grid, backdrop-filter)
-- **Typography**: 
-  - Orbitron (headings, ECE aesthetic)
-  - Share Tech Mono (terminal, monospace elements)
-- **Asset Pipeline**: Vite (handles images, fonts, etc.)
+- **Build**: Vite (ES modules, fast HMR)
+- **3D**: Three.js r185 (WebGL2) — extruded board, SMD components, copper traces, particles, bloom post-processing
+- **Animation**: GSAP 3.15 + ScrollTrigger (scrubbed camera path) + ScrollToPlugin (nav)
+- **Typography**: Chakra Petch (HUD, component IDs) · Fragment Mono (data, terminal) · Instrument Sans (body prose)
+- **Styling**: vanilla CSS3 with a custom-property design system; CRT scanline overlays
 
 ## Project Structure
 
 ```
-/src
-  /data          # Portfolio data (projects, skills, experience)
-  /three         # Three.js scene, board, components, traces, particles, project chips
-  /scroll        # Scroll-journey logic (camera path, panel positioning)
-  /ui            # UI elements (boot sequence, tooltips, panels, sections, fallback)
-  /utils         # Utilities (hover detection, camera states)
-index.html       # Main HTML structure
-main.js          # Application entry point
-style.css        # Core styling (variables, layouts)
-scroll.css       # Journey-specific panel styles
+main.js                    # Entry point: scene init, tick loop, boot, nav, hash routing
+index.html                 # HUD, boot overlay, section datasheet templates, meta/OG tags
+style.css                  # Design tokens, scanlines, HUD, hero, CTA styles
+scroll.css                 # Journey panel system: daughterboard cards, connector SVG
+claude.md                  # Architecture blueprint + developer session log (read before refactoring)
+src/
+  config.js                # Profile URLs, lite-mode detection
+  data/portfolio.js        # Data source of truth (projects, skills, timeline)
+  three/scene.js           # Renderer, lights, bloom, fab-bench backdrop, shadow catcher, tick loop
+  three/board.js           # Board substrate, silkscreen canvas texture, mounting holes
+  three/components.js      # SMD components (U1, U2, caps, crystal, antenna, USB, LEDs…)
+  three/traces.js          # Copper trace routes (TraceRoute typedef)
+  three/particles.js       # Electron flow along traces
+  three/project-chips.js   # Project chips (soldered vs breadboard by status)
+  scroll/journey.js        # Camera path, leg-derived panel activation, screen-space anchoring
+  ui/boot.js               # Deterministic boot choreography
+  ui/sections.js           # Datasheet HTML from portfolio data, link wiring
+  ui/fallback.js           # WebGL detection + no-WebGL fallback
+  utils/hover.js           # Raycast hover glow + pointer parallax
 ```
 
-## Browser Support
+## Verification Protocol
 
-- **Primary**: Modern browsers (Chrome, Firefox, Safari, Edge) with WebGL 2 support
-- **Fallback**: 
-  - WebGL 1 fallback via Three.js
-  - Canvas renderer fallback for very old browsers
-  - No-JS fallback shows basic styling and content
-- **Mobile**: Fully responsive; touch interactions supported
+After any change:
 
-## Development Notes
+```bash
+npm run build        # must exit 0
+npx tsc --noEmit     # must exit 0
+```
 
-- The PCB board is modeled in Three.js with extruded geometry for the base
-- Silkscreen textures are dynamically generated using HTML5 Canvas
-- Project chips render based on `status` field in `/src/data/portfolio.js`
-- Camera path uses Catmull-Rom spline for smooth interpolation between components
-- Performance monitored via frame timing; adjusts bloom effect dynamically
+`npm run typecheck` (`tsc --noEmit`) genuinely checks the modules opted into `// @ts-check` (`tsconfig.json` sets `allowJs: true`, `checkJs: false`): `src/scroll/journey.js`, `src/ui/boot.js`, `src/utils/hover.js`, `src/three/scene.js`, `src/three/traces.js`. Keep their JSDoc types accurate when refactoring.
 
 ## Customization
 
-- Update profile data in `/src/data/portfolio.js`
-- Adjust colors in `style.css` CSS variables (`--bg-color`, `--glow-green`, etc.)
-- Modify boot sequence text in `/src/ui/boot.js`
-- Change camera path points in `/src/scroll/journey.js`
-
----
-
-*Built with Three.js, GSAP, and Vite. Deployed via Vercel/Netlify.*
+- **Profile data** — `src/data/portfolio.js` (projects, skills, experience, stats)
+- **Colors** — CSS custom properties in `style.css` (`--mask-green`, `--enif-gold`, `--signal-green`, …)
+- **Boot text / timing** — `SCHEDULE` + `BOOT_LINES` in `src/ui/boot.js`
+- **Camera path** — `PATH` stops/vias in `src/scroll/journey.js`; `FIXED_CAMERAS` for hero/contact framing
+- **Social card** — regenerate `public/og-preview.png` via the local headless-capture pipeline in `.freebuff/og-tools` (gitignored, `?og=1` capture mode)
