@@ -14,8 +14,11 @@ document.fonts?.ready?.then(() => ScrollTrigger.refresh());
 window.addEventListener('load', () => ScrollTrigger.refresh());
 
 // ─── Camera offsets for component-based sections ─────
-const CAMERA_OFFSET = new THREE.Vector3(0, 0, 1.915); // offset from component to camera
-const LOOK_AT_OFFSET = new THREE.Vector3(0, 0, -0.025); // offset from component to lookat
+// Elevated + pulled back: the old (0, 0, 1.915) sat the camera horizontally at
+// component height, viewing the board edge-on so chips read as thin slivers.
+// This 3/4 angle (~31°) shows each component's top surface and silkscreen.
+const CAMERA_OFFSET = new THREE.Vector3(0, 2.6, 4.2);
+const LOOK_AT_OFFSET = new THREE.Vector3(0, 0.15, 0);
 
 // Fixed camera configurations for non-component sections (hero, contact)
 const FIXED_CAMERAS = {
@@ -40,15 +43,17 @@ const COMPONENT_WORLD = {
 // ─── Path definition: stops (section IDs) and via points (hardcoded) ─────
 const PATH = [
   { stop: 'sec-hero' },
-  { via: true, pos: [2.8, -2.4, 7.5], look: [0.8, 0.6, 0] },
+  // Via points now sit at the same z depth as the elevated component stops
+  // (~4.2) so travel speed is consistent instead of zooming in/out per leg.
+  { via: true, pos: [0, -2.6, 8.5], look: [0.5, 0.9, 0] },
   { stop: 'sec-about' },
-  { via: true, pos: [-1.6, 2.2, 3.8], look: [-2.0, 3.0, 0.05] },
+  { via: true, pos: [-1.6, 5.4, 4.2], look: [-2.0, 4.2, 0.05] },
   { stop: 'sec-projects' },
-  { via: true, pos: [0.5, 5.0, 4.2], look: [1.8, 4.2, 0.1] },
+  { via: true, pos: [0, 7.1, 4.4], look: [0.5, 4.6, 0.1] },
   { stop: 'sec-skills' },
-  { via: true, pos: [2.0, -2.0, 4.8], look: [0.5, -4.5, 0.05] },
+  { via: true, pos: [1.6, 1.2, 4.6], look: [0.5, -3.2, 0.05] },
   { stop: 'sec-experience' },
-  { via: true, pos: [-1.8, -8.0, 8.5], look: [-0.3, -2.0, 0] },
+  { via: true, pos: [-1.5, -4.8, 8.5], look: [-0.3, -2.0, 0] },
   { stop: 'sec-contact' }
 ];
 

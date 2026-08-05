@@ -323,7 +323,7 @@ body.full-journey .ds-panel {
        won't tick transitions on un-rendered (visibility:hidden) elements, so a
        visibility transition deadlocks — the panel freezes at opacity 0 while
        its transitions sit perpetually at currentTime 0. */
-    transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 0.6s;
+    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 0.5s;
     max-height: calc(100vh - 140px);
     overflow-y: auto;
     will-change: transform, opacity;
@@ -334,7 +334,7 @@ body.full-journey .ds-panel.panel-active {
     opacity: 1;
     visibility: visible;
     transform: translateY(0) scale(1);
-    transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s;
+    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s;
 }
 
 /* Hero and contact panels: still centered by default (JS overrides for others) */
@@ -364,13 +364,13 @@ body.full-journey #panel-contact.panel-active {
     text-transform: uppercase;
     opacity: 0;
     transform: translateY(-8px);
-    transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .ds-panel.panel-active .ds-ref {
     opacity: 1;
     transform: translateY(0);
-    transition-delay: 0.2s;
+    transition-delay: 0.1s;
 }
 
 .ds-title {
@@ -382,13 +382,13 @@ body.full-journey #panel-contact.panel-active {
     text-shadow: 0 0 20px rgba(201, 162, 75, 0.25);
     opacity: 0;
     transform: translateY(-10px);
-    transition: all 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .ds-panel.panel-active .ds-title {
     opacity: 1;
     transform: translateY(0);
-    transition-delay: 0.3s;
+    transition-delay: 0.15s;
 }
 
 .ds-body {
@@ -398,13 +398,13 @@ body.full-journey #panel-contact.panel-active {
     margin: 14px 0 18px;
     opacity: 0;
     transform: translateY(12px);
-    transition: all 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .ds-panel.panel-active .ds-body {
     opacity: 1;
     transform: translateY(0);
-    transition-delay: 0.4s;
+    transition-delay: 0.25s;
 }
 
 .spec-table {

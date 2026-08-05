@@ -272,3 +272,7 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
   - **Fixed a Chromium `visibility`-transition deadlock** in `scroll.css` `.ds-panel` (panels froze at opacity 0 with transitions stuck at `currentTime 0` after nav clicks): visibility now flips instantly on activate and waits out the fade on deactivate (`visibility 0s` / `visibility 0s linear 0.6s`). **Applied but not yet re-verified live.**
   - Made the single-LinkedIn-CTA rule data-driven (`body.hud-cta-hidden` when the active panel has its own CTA) — About no longer shows a duplicate.
   - **Remaining**: live-verify the visibility fix, gitignore `.freebuff/`, commit + push to `origin master` (user explicitly requested the push).
+- **2026-08 Session — 3D framing + animation pass (pushed as `05199ad` + follow-ups)**:
+  - **Camera framing fix** (`journey.js`): component stops were viewed horizontally at component height (`CAMERA_OFFSET (0,0,1.915)`) — chips read as edge-on slivers. Now elevated 3/4 angle: `CAMERA_OFFSET (0, 2.6, 4.2)`, `LOOK_AT_OFFSET (0, 0.15, 0)` (~31° elevation). Via points retuned to the same z depth (~4.2) for consistent travel speed instead of per-leg zoom pulsing.
+  - **Panel transition timing** (`scroll.css`): container 0.6s→0.5s; `.ds-ref`/`.ds-body` 0.6s→0.45s, `.ds-title` 0.7s→0.5s; delays 0.2/0.3/0.4s→0.1/0.15/0.25s; replaced `transition: all` with enumerated opacity/transform.
+  - **Verified live**: U1 projects near screen center with panel anchored + connector attached; projects panel fully on-screen; console clean.
