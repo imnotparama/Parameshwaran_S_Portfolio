@@ -3,10 +3,8 @@ import { traceData } from './traces.js';
 
 export const particles = [];
 
-const PARTICLE_RADIUS = 0.09;
 // Electrons are LIVE — they use the signal green, the only glow in the fab-shop palette
 const DEFAULT_PARTICLE_COLOR = 0x3ee6a0;
-const BOOST_PARTICLE_COLOR = 0xffffff;
 
 export function createParticles(boardGroup) {
     // Increase particle radius from 0.046 to 0.09
@@ -44,10 +42,7 @@ export function createParticles(boardGroup) {
                 mesh: pMesh,
                 points: pathPoints,
                 progress: progress,
-                baseSpeed: 0.2, // Constant speed to prevent clumping over time
-                speedMultiplier: 1.0,
-                connectedComponent: trace.component,
-                material: mat
+                baseSpeed: 0.2 // Constant speed to prevent clumping over time
             });
         }
     });
@@ -60,7 +55,7 @@ export function updateParticles(delta) {
 
         // Calculate speed with delta clamping to prevent jumps
         const clampedDelta = Math.min(delta, 0.05);
-        const speed = p.baseSpeed * p.speedMultiplier;
+        const speed = p.baseSpeed;
         p.progress += clampedDelta * speed;
 
         if (p.progress >= 1.0) {
@@ -81,25 +76,6 @@ export function updateParticles(delta) {
 
             // Linear interpolate position
             p.mesh.position.lerpVectors(startNode, endNode, subProgress);
-        }
-    });
-}
-
-// Speed up and brighten particles connected to hovered component
-export function setHoveredTraceSpeedBoost(componentRef, isHovered) {
-    particles.forEach(p => {
-        if (p.connectedComponent === componentRef || (isHovered && componentRef === 'U1')) {
-            p.speedMultiplier = isHovered ? 3.0 : 1.0;
-            p.material.color.setHex(isHovered ? 0xffffff : 0x3ee6a0);
-            if (p.material.emissive) {
-                p.material.emissive.setHex(isHovered ? 0xffffff : 0x3ee6a0);
-            }
-        } else {
-            p.speedMultiplier = 1.0;
-            p.material.color.setHex(0x3ee6a0);
-            if (p.material.emissive) {
-                p.material.emissive.setHex(0x3ee6a0);
-            }
         }
     });
 }

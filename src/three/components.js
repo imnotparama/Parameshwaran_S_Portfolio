@@ -2,19 +2,10 @@ import * as THREE from 'three';
 import { disposableResources } from './scene.js';
 
 export const interactiveObjects = [];
-export const insideInteractiveObjects = [];
 export const cpuPins = [];
 export let siliconDieMesh;
 export let ledMeshes = [];
 export let cpuRadarRing;
-
-// Groups containing internal architectures of components
-export let cpuInsideGroup;
-export let gpuInsideGroup;
-export let oscInsideGroup;
-export let antInsideGroup;
-export let usbInsideGroup;
-export let vrInsideGroup;
 
 // ─── CPU radar sweep — the ring is an open arc that rotates like a
 // radar line, with a gentle opacity pulse. Driven per-frame from
@@ -176,32 +167,6 @@ export function createComponents(boardGroup) {
     for (let i = 0; i < 8; i++) addPin(1.25, (3.5 - i) * offsetStride, 0); // Right
     for (let i = 0; i < 8; i++) addPin((3.5 - i) * offsetStride, -1.25, Math.PI / 2); // Bottom
 
-    // CPU Microarchitecture Internals
-    cpuInsideGroup = new THREE.Group();
-    cpuInsideGroup.position.set(0, 0, 0.12);
-    cpuInsideGroup.visible = false;
-    cpuGroup.add(cpuInsideGroup);
-
-    const subCoreGeo = new THREE.BoxGeometry(0.68, 0.68, 0.05);
-    const makeSubCore = (name, x, y, color) => {
-        const mat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.5, metalness: 0.4 });
-        const mesh = new THREE.Mesh(subCoreGeo, mat);
-        mesh.position.set(x, y, 0.03);
-        mesh.name = name;
-        cpuInsideGroup.add(mesh);
-        insideInteractiveObjects.push(mesh);
-
-        const edges = new THREE.EdgesGeometry(subCoreGeo);
-        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color }));
-        line.position.copy(mesh.position);
-        cpuInsideGroup.add(line);
-    };
-
-    makeSubCore('core_alu', -0.38, 0.38, 0xf59e0b); // ALU Core
-    makeSubCore('core_npu', 0.38, 0.38, 0xef4444);  // Neural Core
-    makeSubCore('core_cu', -0.38, -0.38, 0x3b82f6); // CU Core
-    makeSubCore('core_io', 0.38, -0.38, 0x10b981);  // I/O Core
-
     // -------------------------------------------------------------
     // COMPONENT 2 — GPU / DSP Chip (U2) - Projects
     // -------------------------------------------------------------
@@ -238,39 +203,6 @@ export function createComponents(boardGroup) {
     const gpuFrame = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(gpuFramePts), goldFrameMat);
     gpuFrame.position.set(-3.2, 4.5, 0);
     boardGroup.add(gpuFrame);
-
-    // GPU Silicon execution cores (Projects)
-    gpuInsideGroup = new THREE.Group();
-    gpuInsideGroup.position.set(-3.2, 4.5, surfaceZ + 0.09);
-    gpuInsideGroup.visible = false;
-    boardGroup.add(gpuInsideGroup);
-
-    const gpuSiliconGeom = new THREE.BoxGeometry(1.3, 1.3, 0.04);
-    const gpuSilicon = new THREE.Mesh(gpuSiliconGeom, chipMaterial);
-    gpuInsideGroup.add(gpuSilicon);
-
-    const projCoreGeo = new THREE.BoxGeometry(0.32, 0.32, 0.05);
-    const makeProjCore = (name, x, y) => {
-        const mat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.4, metalness: 0.3 });
-        const mesh = new THREE.Mesh(projCoreGeo, mat);
-        mesh.position.set(x, y, 0.03);
-        mesh.name = name;
-        gpuInsideGroup.add(mesh);
-        insideInteractiveObjects.push(mesh);
-
-        const edges = new THREE.EdgesGeometry(projCoreGeo);
-        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x00bfff }));
-        line.position.copy(mesh.position);
-        gpuInsideGroup.add(line);
-    };
-
-    // 3 x 2 grid of project cores
-    makeProjCore('proj_core_1', -0.38, 0.38);
-    makeProjCore('proj_core_2', 0.0, 0.38);
-    makeProjCore('proj_core_3', 0.38, 0.38);
-    makeProjCore('proj_core_4', -0.38, -0.38);
-    makeProjCore('proj_core_5', 0.0, -0.38);
-    makeProjCore('proj_core_6', 0.38, -0.38);
 
     // -------------------------------------------------------------
     // COMPONENT 3 — Capacitor Bank (C1-C4) - Skills (Display only)
@@ -338,31 +270,6 @@ export function createComponents(boardGroup) {
     padR.position.set(-2.85, 0.5, surfaceZ - 0.04);
     boardGroup.add(padR);
 
-    // Oscillator internal timing plates (Education Nodes)
-    oscInsideGroup = new THREE.Group();
-    oscInsideGroup.position.set(-3.5, 0.5, surfaceZ + 0.15);
-    oscInsideGroup.visible = false;
-    boardGroup.add(oscInsideGroup);
-
-    const makeEduPlate = (name, x, label) => {
-        const plateGeo = new THREE.BoxGeometry(0.24, 0.36, 0.04);
-        const mat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.3, metalness: 0.8 });
-        const mesh = new THREE.Mesh(plateGeo, mat);
-        mesh.position.set(x, 0, 0);
-        mesh.name = name;
-        oscInsideGroup.add(mesh);
-        insideInteractiveObjects.push(mesh);
-
-        const edges = new THREE.EdgesGeometry(plateGeo);
-        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xaa44ff }));
-        line.position.copy(mesh.position);
-        oscInsideGroup.add(line);
-    };
-
-    makeEduPlate('edu_plate_1', -0.32, 'BTech');
-    makeEduPlate('edu_plate_2', 0.0, 'Class12');
-    makeEduPlate('edu_plate_3', 0.32, 'Class10');
-
     // -------------------------------------------------------------
     // COMPONENT 5 — WiFi/Bluetooth Antenna (ANT1) - Contact
     // -------------------------------------------------------------
@@ -403,23 +310,6 @@ export function createComponents(boardGroup) {
     boardGroup.add(antBoundsMesh);
     interactiveObjects.push(antBoundsMesh);
 
-    // Antenna contact details internally
-    antInsideGroup = new THREE.Group();
-    antInsideGroup.position.set(3.5, 0.5, surfaceZ + 0.1);
-    antInsideGroup.visible = false;
-    boardGroup.add(antInsideGroup);
-
-    const antReceiverGeo = new THREE.BoxGeometry(0.5, 0.5, 0.05);
-    const antReceiverMat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.4, metalness: 0.8 });
-    const antReceiver = new THREE.Mesh(antReceiverGeo, antReceiverMat);
-    antReceiver.name = 'ant_receiver';
-    antInsideGroup.add(antReceiver);
-    insideInteractiveObjects.push(antReceiver);
-
-    const antEdges = new THREE.EdgesGeometry(antReceiverGeo);
-    const antLine = new THREE.LineSegments(antEdges, new THREE.LineBasicMaterial({ color: 0x00ffff }));
-    antInsideGroup.add(antLine);
-
     // -------------------------------------------------------------
     // COMPONENT 6 — USB Power Connector (J1) - Experience
     // -------------------------------------------------------------
@@ -432,30 +322,6 @@ export function createComponents(boardGroup) {
     usbMesh.userData = { componentName: 'USB Connector J1 (Experience)', type: 'USB' };
     boardGroup.add(usbMesh);
     interactiveObjects.push(usbMesh);
-
-    // USB inside contact gold pins (Experience Nodes)
-    usbInsideGroup = new THREE.Group();
-    usbInsideGroup.position.set(0, -7.3, surfaceZ + 0.2);
-    usbInsideGroup.visible = false;
-    boardGroup.add(usbInsideGroup);
-
-    const makeUsbContact = (name, x) => {
-        const contactGeo = new THREE.BoxGeometry(0.18, 0.4, 0.04);
-        const mesh = new THREE.Mesh(contactGeo, goldMaterial);
-        mesh.position.set(x, 0, 0);
-        mesh.name = name;
-        usbInsideGroup.add(mesh);
-        insideInteractiveObjects.push(mesh);
-
-        const edges = new THREE.EdgesGeometry(contactGeo);
-        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xff8800 }));
-        line.position.copy(mesh.position);
-        usbInsideGroup.add(line);
-    };
-
-    makeUsbContact('usb_contact_1', -0.3);
-    makeUsbContact('usb_contact_2', 0.0);
-    makeUsbContact('usb_contact_3', 0.3);
 
     // -------------------------------------------------------------
     // COMPONENT 7 — LED Array (D1-D7) - Certifications
@@ -488,7 +354,6 @@ export function createComponents(boardGroup) {
         dome.name = `led_diode_${index + 1}`; // unique names for individual hovers
         ledGroup.add(dome);
         ledMeshes.push(dome);
-        insideInteractiveObjects.push(dome);
 
         const base = new THREE.Mesh(ledBaseGeo, chipMaterial.clone());
         ledGroup.add(base);
@@ -527,32 +392,6 @@ export function createComponents(boardGroup) {
     vrGroup.add(vrBoundsMesh);
     interactiveObjects.push(vrBoundsMesh);
 
-    // Tech Stack Cooling Fins slices (Voltage Regulator Internals)
-    vrInsideGroup = new THREE.Group();
-    vrInsideGroup.position.set(3.5, -4.5, surfaceZ + 0.2);
-    vrInsideGroup.visible = false;
-    boardGroup.add(vrInsideGroup);
-
-    const makeVrFin = (name, x) => {
-        const finGeom = new THREE.BoxGeometry(0.08, 0.6, 0.25);
-        const mesh = new THREE.Mesh(finGeom, metalMaterial);
-        mesh.position.set(x, 0, 0);
-        mesh.name = name;
-        vrInsideGroup.add(mesh);
-        insideInteractiveObjects.push(mesh);
-
-        const edges = new THREE.EdgesGeometry(finGeom);
-        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xff4444 }));
-        line.position.copy(mesh.position);
-        vrInsideGroup.add(line);
-    };
-
-    makeVrFin('vr_fin_1', -0.32);
-    makeVrFin('vr_fin_2', -0.16);
-    makeVrFin('vr_fin_3', 0.0);
-    makeVrFin('vr_fin_4', 0.16);
-    makeVrFin('vr_fin_5', 0.32);
-
     // -------------------------------------------------------------
     // COMPONENT 9 — Resistor Network (RN1) - Languages (Display only)
     // -------------------------------------------------------------
@@ -588,10 +427,6 @@ export function createComponents(boardGroup) {
 
     // Dynamic tagging of isInteractive = true
     interactiveObjects.forEach(obj => {
-        if (!obj.userData) obj.userData = {};
-        obj.userData.isInteractive = true;
-    });
-    insideInteractiveObjects.forEach(obj => {
         if (!obj.userData) obj.userData = {};
         obj.userData.isInteractive = true;
     });

@@ -85,7 +85,7 @@ c:\Users\hunte\Parameshwaran_S_Portfolio\
     ├── three/
     │   ├── scene.js         # PerspectiveCamera, lighting setup, renderer config, bloom pass, FPS performance guardrail
     │   ├── board.js         # Board substrate extrusion, soldermask plane, CanvasTexture silkscreen, micro-tilt parallax
-    │   ├── components.js    # 3D SMD components (U1, U2, Y1, ANT1, J1, VR1, RN1, D1-D7), sub-core geometry groups, interaction flags
+    │   ├── components.js    # 3D SMD components (U1, U2, Y1, ANT1, J1, VR1, RN1, D1-D7), silicon die + radar ring, interaction flags
     │   ├── traces.js        # Solid 3D copper trace segments (BoxGeometry), corner vias (Cylinders), trace pathways data
     │   ├── particles.js     # Electron flow particles along trace paths with speed boost on hover
     │   └── project-chips.js # Data-driven project chips (soldered vs breadboard jumpers based on portfolioData.projects.status)
@@ -248,6 +248,10 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 
 ## 📝 Developer Change & Session Log
 
+- **2026-08 Session — Orphaned export pruning (post legacy-stack deletion)**:
+  - **`particles.js`**: removed `setHoveredTraceSpeedBoost` (only consumer was the deleted legacy hover path) and its supporting state (`speedMultiplier`, `connectedComponent`, `material` fields on particles, `BOOST_PARTICLE_COLOR`). Particles now flow at constant `baseSpeed`.
+  - **`components.js`**: removed the never-visible sub-core architecture — `insideInteractiveObjects`, `cpuInsideGroup`/`gpuInsideGroup`/`oscInsideGroup`/`antInsideGroup`/`usbInsideGroup`/`vrInsideGroup` + all their meshes (core_*, proj_core_*, edu_plate_*, ant_receiver, usb_contact_*, vr_fin_*). These groups were always `visible = false` and only toggled by the deleted `toggleComponentShells`. Kept: `siliconDieMesh`, `cpuRadarRing`, `cpuPins`, `ledMeshes`, `interactiveObjects` (all still used by boot/journey/hover). The LED domes stay (they're the visible LED array), only their `insideInteractiveObjects` registration was dropped.
+  - `boot.js` retains the **`?og=1` capture mode** (added for the shelved OG-card task): same instant path as a return visit, with the hero panel set inline (CSS transitions don't tick under software rendering). Harmless; used only when the query param is present.
 - **2026-08 Session — Deep links + boot skip**:
   - **Hash routing** (`main.js`): `SECTION_HASHES` maps `sec-*` → `#/about`-style slugs; `navigateToSection()` does `history.pushState` + `scrollToSection` (nav buttons + brand link); `applyHashNavigation()` listens for `hashchange` + `popstate` so the back/forward buttons and manually edited hashes navigate sections; on first load an existing hash is honored after `initJourney`. Hero = no hash (clean URL). Unknown hashes are ignored.
   - **Boot skip** (`boot.js`): `sessionStorage['psb-booted']` flag (try/catch-guarded) — return visitors in the same tab take the instant path (same as lite mode: overlay hidden, board at rest, HUD + badges + particles on). For the full-journey fast path the hero panel reveal uses `clearProps: 'opacity,visibility'` so the `.panel-active` CSS toggle keeps ownership (gotcha #1).

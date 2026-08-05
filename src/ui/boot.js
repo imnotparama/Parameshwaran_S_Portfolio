@@ -6,11 +6,16 @@ import { traceData } from '../three/traces.js';
 import { isLiteMode } from '../config.js';
 
 export function runBootSequence(onCompleteCallback) {
+    // ?og=1 = social-share capture mode (headless screenshots): take the same
+    // instant path as a return visit so the ~6s boot timeline never delays
+    // (and at software-rendered FPS never blocks) a capture.
+    const isOgCapture = new URLSearchParams(window.location.search).get('og') === '1';
+
     // Return visitors in the same tab skip the boot ceremony (sessionStorage
     // flag). Wrapped in try/catch — storage can throw in hardened privacy modes.
     let skipBoot = false;
     try {
-        skipBoot = sessionStorage.getItem('psb-booted') === '1';
+        skipBoot = isOgCapture || sessionStorage.getItem('psb-booted') === '1';
         sessionStorage.setItem('psb-booted', '1');
     } catch { /* storage unavailable — always run the full boot */ }
 
@@ -42,7 +47,13 @@ export function runBootSequence(onCompleteCallback) {
         gsap.set(badges, { opacity: 1, y: 0 });
         if (hudBar) hudBar.classList.add('hud-ready');
         if (heroPanel) {
-            if (skipBoot && !liteMode) {
+            if (isOgCapture) {
+                // og=1 is a headless capture mode that never navigates — set
+                // the panel inline because the .panel-active CSS transition
+                // does not tick under software rendering (the panel would stay
+                // invisible in the capture).
+                gsap.set(heroPanel, { opacity: 1, visibility: 'visible' });
+            } else if (skipBoot && !liteMode) {
                 // Journey fast path: clear inline styles so the .panel-active
                 // CSS toggle keeps ownership (see Critical Gotchas — inline
                 // visibility would pin the hero panel over every section).
