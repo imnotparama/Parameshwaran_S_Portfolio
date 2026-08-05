@@ -165,23 +165,8 @@ body {
 }
 
 /* -------------------------------------------------------------
- * 3. Page Header Section (above PCB)
+ * 3. Hero panel typography (establishing shot)
  * ------------------------------------------------------------- */
-#main-header {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    z-index: 10;
-    pointer-events: none;
-    background: transparent;
-    padding: 30px 20px 0;
-}
-
-.header-container {
-    pointer-events: auto;
-}
-
 .ece-label {
     font-size: 12px;
     color: var(--enig-gold);
@@ -250,44 +235,6 @@ h1#user-name {
 }
 
 /* -------------------------------------------------------------
- * 4. Animated Gold Trace SVG Separator
- * ------------------------------------------------------------- */
-.svg-separator {
-    position: absolute;
-    width: 100%;
-    max-width: 1200px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-    pointer-events: none;
-}
-
-.svg-separator:nth-of-type(1) {
-    top: 195px;
-}
-
-.svg-separator:nth-of-type(2) {
-    bottom: 145px;
-}
-
-.trace-active-line {
-    stroke-dasharray: 1000;
-    stroke-dashoffset: 1000;
-    animation: traceDraw 2.5s ease-out forwards;
-}
-
-.spark {
-    animation: sparkMove 6s linear infinite;
-    offset-path: path("M 0,10 L 450,10 L 470,20 L 530,20 L 550,10 L 1000,10");
-    box-shadow: 0 0 10px #ffffff;
-}
-
-/* Adapt offset path for the second separator */
-.svg-separator:nth-of-type(2) .spark {
-    offset-path: path("M 0,10 L 400,10 L 420,2 L 580,2 L 600,10 L 1000,10");
-}
-
-/* -------------------------------------------------------------
  * 5. Three.js PCB Canvas Area
  * ------------------------------------------------------------- */
 #canvas-container {
@@ -307,125 +254,12 @@ h1#user-name {
     display: block;
 }
 
-.canvas-hint {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 11px;
-    color: var(--color-text-muted);
-    letter-spacing: 1px;
-    text-align: center;
-    pointer-events: none;
-}
-
-/* -------------------------------------------------------------
- * 7. Sliding Side Info Panel
- * ------------------------------------------------------------- */
-/* -------------------------------------------------------------
- * 8. Page Footer Area (below PCB)
- * ------------------------------------------------------------- */
-#main-footer {
-    position: fixed;
-    bottom: 20px;
-    left: 0;
-    width: 100%;
-    z-index: 10;
-    pointer-events: none;
-    background: transparent;
-    padding: 0 20px;
-}
-
-.footer-container {
-    max-width: 600px;
-    margin: 0 auto;
-    pointer-events: auto;
-}
-
-.footer-details {
-    font-size: 16px;
-    color: #ffffff;
-    font-weight: bold;
-    letter-spacing: 1px;
-    margin-bottom: 6px;
-}
-
-.footer-meta {
-    font-size: 12px;
-    color: var(--color-text-muted);
-    margin-bottom: 10px;
-}
-
-.footer-status {
-    font-size: 11px;
-    color: var(--glow-green);
-    letter-spacing: 1px;
-    animation: blink 1.5s infinite;
-    margin-bottom: 25px;
-}
-
-/* Social link pin elements matching ECE pin footprints */
-.social-pins {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    margin-bottom: 20px;
-}
-
-.social-pin {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-decoration: none;
-    color: var(--color-text-muted);
-    transition: color 0.2s;
-}
-
-.pin-dot {
-    width: 12px;
-    height: 12px;
-    background-color: #1a5c1a;
-    border: 2px solid #ffffff;
-    border-radius: 50%;
-    box-shadow: 0 0 5px rgba(255, 255, 255, 0.4);
-    margin-bottom: 6px;
-    transition: background-color 0.2s, box-shadow 0.2s;
-}
-
-.pin-lbl {
-    font-size: 11px;
-}
-
-.social-pin:hover {
-    color: var(--glow-green);
-}
-
-.social-pin:hover .pin-dot {
-    background-color: var(--glow-green);
-    box-shadow: 0 0 8px var(--glow-green);
-}
-
-.copyright {
-    font-size: 10px;
-    color: #335c33;
-    letter-spacing: 0.5px;
-}
-
 /* -------------------------------------------------------------
  * 9. Keyframes & Animation Classes
  * ------------------------------------------------------------- */
 @keyframes blink {
     0%, 100% { opacity: 0; }
     50% { opacity: 1; }
-}
-
-@keyframes traceDraw {
-    to { stroke-dashoffset: 0; }
-}
-
-@keyframes sparkMove {
-    0% { offset-distance: 0%; }
-    100% { offset-distance: 100%; }
 }
 
 @keyframes pulse-glow {
@@ -441,16 +275,6 @@ h1#user-name {
  * 10. Mobile Responsiveness Layout Adapters
  * ------------------------------------------------------------- */
 @media (max-width: 768px) {
-    #main-header {
-        padding: 15px 12px 0;
-    }
-
-    .header-nav {
-        gap: 6px;
-        margin-top: 10px;
-        margin-bottom: 15px;
-    }
-
     .nav-btn {
         font-size: 10px;
         padding: 4px 8px;
@@ -464,27 +288,9 @@ h1#user-name {
         font-size: 10px;
         padding: 3px 10px;
     }
-
-    .svg-separator:nth-of-type(1) {
-        top: 170px;
-    }
-
-    
-
-    .footer-details {
-        font-size: 12px;
-    }
-
-    .social-pins {
-        gap: 15px;
-    }
 }
 
 @media (max-width: 480px) {
-    .header-nav {
-        gap: 4px;
-    }
-
     .nav-btn {
         font-size: 9px;
         padding: 3px 6px;
@@ -517,14 +323,6 @@ h1#user-name {
     #canvas-container {
         height: 50vh;
         min-height: 320px;
-    }
-
-    .footer-details {
-        font-size: 10px;
-    }
-
-    .footer-meta {
-        font-size: 9px;
     }
 }
 
@@ -676,16 +474,6 @@ a:focus-visible,
 }
 
 /* Minimalist Navbar styles */
-.header-nav {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-top: 15px;
-    margin-bottom: 25px;
-    flex-wrap: wrap;
-    pointer-events: auto;
-}
-
 .nav-btn {
     font-family: var(--font-mono);
     font-size: 13px;
@@ -765,18 +553,11 @@ a:focus-visible,
         transition-duration: 0.01ms !important;
     }
     
-    #scanline,
-    .trace-active-line,
-    .spark {
+    #scanline {
         animation: none !important;
     }
     
     .terminal-cursor {
-        animation: none !important;
-        opacity: 1 !important;
-    }
-    
-    .footer-status {
         animation: none !important;
         opacity: 1 !important;
     }
@@ -787,8 +568,7 @@ a:focus-visible,
 }
 
 /* Focus visible for keyboard navigation */
-.nav-btn:focus-visible,
-.social-pin:focus-visible {
+.nav-btn:focus-visible {
     outline: 2px solid var(--glow-green);
     outline-offset: 3px;
 }
