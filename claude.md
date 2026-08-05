@@ -4,23 +4,20 @@ Hi! This file is the primary reference prompt and technical transfer guide for a
 
 ---
 
-## 🚦 NEXT SESSION — RESUME HERE (2026-08: "fab-shop" redesign)
+## 🚦 NEXT SESSION — RESUME HERE (2026-08: post-cleanup state)
 
-**Status: ~90% complete — edits are on disk, `npm run build` + `npx tsc --noEmit` pass, but NOT committed or pushed. No `git commit`/`git push` has run.**
+**Status: everything below is committed & pushed to `origin master`. The only uncommitted work is this session's legacy-stack deletion (pending commit).**
 
-### DONE this session (verified working live unless noted)
-- **Layer 1a `index.html`**: fonts → Chakra Petch (display) + Fragment Mono (mono) + Instrument Sans (body); HUD silkscreen legend added (`PWR` LED + `REV 1.0 · 2026`).
-- **Layer 1b `style.css`**: fab-shop tokens — `--fr4`, `--mask-green`, `--silkscreen`, `--silkscreen-muted`, `--enig-gold`, `--signal` + `--ease-*`/`--duration-*`; hero/stat-badge restyle; legacy aliases kept.
-- **Layer 1c `scroll.css`**: silkscreen HUD legend, gold-pad nav active + `:active`, gold-pad CTAs (rotating shine sweep REMOVED), `hud-cta-hidden` rule.
-- **Layer 2 Three.js**: particles → signal green `0x3ee6a0`; radar sweep gated by `prefers-reduced-motion`; soldermask-green backlight; warm silkscreen `#ece7d8` canvas texture; mask `0x1e4d33`; every remaining `0x00ff88`/`0xfffacd` glow → `0x3ee6a0` (hover.js, project-chips.js, components.js).
-- **Single-CTA rule is now data-driven**: `setActivePanel()` toggles `body.hud-cta-hidden` whenever the active panel embeds its own `.cta-linkedin` (hero, about, contact) — the About dual-CTA gap is FIXED. Live-verified CTA counts: hero=1, about=1, projects=1.
-- **FIXED a Chromium `visibility`-transition deadlock** (reproduced live after nav clicks): panels froze at `opacity 0` with transitions stuck at `currentTime 0`. Fix in `scroll.css` `.ds-panel`: inactive `transition: ..., visibility 0s linear 0.6s`; `.panel-active` gets `..., visibility 0s` — visibility flips instantly on activate, waits out the fade on deactivate. ⚠️ **Applied but NOT yet re-verified live — verify before pushing.**
+### Shipped in recent sessions (commit order)
+- `8726fef` + `05199ad` — fab-shop redesign (palette/fonts/HUD/CTAs/Three.js color pass) + gold gerber panel chrome.
+- `7cf9c70` — elevated 3/4 camera framing (`CAMERA_OFFSET (0,2.6,4.2)`), retuned flight path, tightened panel transitions.
+- `976b818` — component quality (mounting holes, lead frames, hemisphere light) + arrival power-on pulse + connector signal-flow dashes.
+- `cdb44e2` — panel activation derived from scroll-leg t (deleted distance-threshold hysteresis; see session log).
+- **Current session** — legacy interaction stack deleted (single scroll-journey model). See session log.
 
-### REMAINING (do these first next session)
-1. **Verify the visibility fix live**: reload preview → click `[CONTACT]` nav → `#panel-contact` must reach `opacity 1` and `getAnimations()` must settle to `[]` (no frozen transitions). Also click every nav button.
-2. **Add `.freebuff/` to `.gitignore`** — it's untracked and currently NOT ignored; must never be pushed.
-3. **Commit + push to GitHub** (user explicitly requested). Changed files: `index.html`, `style.css`, `scroll.css`, `main.js`, `src/three/*.js`, `src/utils/hover.js`, `src/scroll/journey.js`, `src/ui/boot.js`, `claude.md`. Push to `origin master`.
-4. Optional polish: panel chrome now uses silkscreen-white/gold gerber-style borders + shadows (`.ds-panel`, `.hero-panel`, `.spec-table`, `.proj-ds`, `.skill-pill`, `.contact-footer`). The `0.6s` panel transition delays (`.ds-ref` 0.2s / `.ds-title` 0.3s / `.ds-body` 0.4s) could still be tightened.
+### Open items (nice-to-haves, no urgency)
+- **`public/og-preview.png` (1200×630 share card) is NOT generated yet.** `index.html` references it; without it LinkedIn/Discord cards render bare. Work done so far: headless-Chrome pipeline in `.freebuff/og-tools/` (gitignored; puppeteer-core + SwiftShader WebGL verified working) — but boot is a ~6.4s GSAP timeline that runs at a few FPS under software rendering, so `initJourney` (which activates panels) hasn't fired by capture time and the canvas reads black. Fix path: wait ~30-45s in the capture, OR add an `?og=1` capture mode that skips/shortens boot and sets the hero camera.
+- Optional: deep-linkable sections (`#/about` via hashchange), skip-boot-on-return (`sessionStorage`), delete stale `src/schema.ts`, README refresh (bloom thresholds changed).
 
 ---
 
@@ -43,22 +40,22 @@ Also fix the duplicate 'Connect on LinkedIn' button currently stacked in Contact
 
 ---
 
-## 🧭 Current Interaction Model — Two Modes (READ FIRST)
+## 🧭 Current Interaction Model — SINGLE scroll-journey model (READ FIRST)
 
-The portfolio has **two mutually exclusive modes**, selected at boot via body class:
+**The legacy click-to-zoom stack was DELETED (2026-08): `camera-states.js`, `sidepanel.js`, `tooltip.js`, `pcb-hud.js` are gone; hover.js is hover-glow only; `#pcb-tooltip` removed from `index.html`; all related CSS removed.** There is now ONE interaction model, with a degraded static-scroll mode for accessibility:
 
 | Mode | Body Class | Who Gets It | Camera / Interaction |
 |:---|:---|:---|:---|
-| **Full Scroll-Journey** | `full-journey` | Default (viewport ≥ 768px AND no reduced-motion) | Camera flies along a CatmullRomCurve3 path driven by GSAP ScrollTrigger scrub (`setCameraAtT(t)`). Panels are fixed overlays side-anchored to the projected component position. |
-| **Lite / Legacy** | `lite-mode` | `prefers-reduced-motion: reduce` OR viewport < 768px (`isLiteMode()` in `src/config.js`) | No scroll-jacking; sections stack normally. Legacy raycast **click-to-zoom** (`zoomToComponent`) still works here. |
+| **Scroll-Journey** | `full-journey` | Default (viewport ≥ 768px AND no reduced-motion) | Camera flies along a CatmullRomCurve3 path driven by GSAP ScrollTrigger scrub (`setCameraAtT(t)`). Panels are fixed overlays side-anchored to the projected component position; activation is a pure function of the current scroll leg. |
+| **Lite** | `lite-mode` | `prefers-reduced-motion: reduce` OR viewport < 768px (`isLiteMode()` in `src/config.js`) | No scroll-jacking; sections stack normally (all content reachable by scrolling). Hover glow still works on the fixed canvas. No zoom, no tooltip, no sidepanel. |
 
 **Consequences you must respect in code:**
 
-1. In `full-journey` mode, clicks on components are **ignored** (`hover.js` click handler early-returns) and `updateCamera()` (legacy zoom LERP) is **never called** — `setCameraAtT(t)` owns the camera every frame. Calling `updateCamera()` in journey mode would fight the scrub position.
-2. Hover glow + scale pulse still work in both modes; tooltip / HUD telemetry / trace speed-boost are legacy-mode only.
-3. `initJourney(camera, boardGroup)` runs **after** the boot sequence completes (main.js boot callback). Before that, `stopPosVectors` is empty so `updateJourneyEffects` no-ops safely.
+1. `setCameraAtT(t)` owns the camera every frame in journey mode — do NOT reintroduce any camera LERP/zoom.
+2. `initJourney(camera, boardGroup)` runs **after** the boot sequence completes (main.js boot callback). Before that, `journeyReady` is false and `updateJourneyEffects` no-ops — this gate exists so boot's GSAP inline styles on the hero panel are never fought mid-boot.
+3. Panel activation is leg-derived (`setLegState` in ScrollTrigger `onUpdate`, switch at ≥0.55 progress) — no distance scanning, no cooldowns. See session log.
 4. `#hud-bar` interactivity is gated by the `.hud-ready` class — see the Critical Gotchas section.
-5. `main.js` step 14 binds nav buttons to `scrollToSection()` (journey) with a legacy `triggerComponentAction(ref)` fallback when the section element is missing.
+5. `main.js` step 14 binds nav buttons to `scrollToSection()` only.
 
 ---
 
@@ -97,13 +94,9 @@ c:\Users\hunte\Parameshwaran_S_Portfolio\
     ├── ui/
     │   ├── boot.js          # Retro terminal boot sequence: laser scanline, typewriter status logs, badge pop-ins
     │   ├── sections.js      # Datasheet HTML injection from portfolio.js data, profile link wiring
-    │   ├── pcb-hud.js       # Diagnostic HUD bar & component telemetry overlays
-    │   ├── tooltip.js       # Hover tooltip for 3D components
-    │   ├── sidepanel.js     # Side panel drawer UI for detailed component viewing
     │   └── fallback.js      # WebGL detection & non-WebGL fallback screen
     └── utils/
-        ├── hover.js         # THREE.Raycaster hover/click logic, bounded pointer clamp + targetMouse inertia, journey vs legacy mode split
-        └── camera-states.js # GSAP Camera Position & LookAt Tween State Machine (PCB / ZOOMING_IN / ZOOMED_IN / ZOOMING_OUT)
+        └── hover.js         # THREE.Raycaster hover-glow ONLY: bounded pointer clamp + targetMouse inertia + parallax feed. No camera control, no click-zoom.
 ```
 
 ---
@@ -127,7 +120,7 @@ c:\Users\hunte\Parameshwaran_S_Portfolio\
 
 ## ⚡ The 4-Step Raycast → Camera Tween → Anchored Panel System
 
-*(This describes the legacy click-to-zoom interaction, active in lite mode. In full-journey mode the same screen-anchoring math runs continuously from ScrollTrigger — see `updateJourneyEffects()` in `src/scroll/journey.js` — and the click-zoom steps are disabled.)*
+*(⚠️ HISTORICAL — the legacy click-to-zoom stack described below was DELETED in 2026-08 (`camera-states.js`, `sidepanel.js`, `tooltip.js`, `pcb-hud.js` removed; hover.js is glow-only). Kept as the original build blueprint. The shipped interaction is the scroll journey: `setCameraAtT(t)` + leg-derived panel activation + screen-anchored panels in `src/scroll/journey.js`. The only parts still live: the `THREE.Raycaster` hover-glow pattern in `src/utils/hover.js` and the screen-projection anchoring math in `updateJourneyEffects()`.)*
 
 ### Step 1: Pointer Click Raycasting (`THREE.Raycaster`)
 - **Module**: `src/utils/hover.js`
@@ -229,11 +222,8 @@ npx tsc --noEmit
 ```
 
 ### Manual Browser Checklist
-1. Click the **U1 CPU component** (About/Education) on the 3D board.
-2. Confirm the camera visibly travels through 3D space over **1.2 seconds** with `power2.inOut` easing (no instant snap).
-3. Confirm the info panel reveals and stays **anchored to the component's projected 2D position** when panning/rotating.
-4. Click the close button `[X]` or press `Escape` — confirm the camera smoothly reverses to the starting view.
-5. Check the **Contact section** — confirm there is **exactly ONE 'Connect on LinkedIn' button** visible (no duplicate stacking).
+*(The legacy click-to-zoom checklist is obsolete — the zoom flow was deleted. Journey-mode checks below.)*
+1. Check the **Contact section** — confirm there is **exactly ONE 'Connect on LinkedIn' button** visible (no duplicate stacking).
 
 ### Manual Browser Checklist (scroll-journey mode)
 1. After boot, the **HUD nav buttons are clickable** — `getComputedStyle(hudBar).pointerEvents` must be `auto` (the `!important` on `.hud-ready` beats boot's inline `pointer-events: none`).
@@ -258,6 +248,13 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 
 ## 📝 Developer Change & Session Log
 
+- **2026-08 Session — Legacy interaction stack deleted (single scroll-journey model)**:
+  - **Deleted files**: `src/utils/camera-states.js` (zoom state machine), `src/ui/sidepanel.js` (drawer), `src/ui/tooltip.js`, `src/ui/pcb-hud.js` (hover telemetry HUD).
+  - **`src/utils/hover.js`** rewritten as a pure hover-glow module: removed click-to-zoom handler, `viewState` branches, `toggleComponentShells`, `updateCamera`, tooltip/HUD/trace-boost calls, `triggerComponentAction` export. Kept: bounded pointer clamp, `targetMouse` inertia, parallax feed, glow/scale/hover-light. Exports are now only `mouse`, `targetMouse`, `initHover`, `checkHover`.
+  - **`main.js`**: dropped `initTooltip`/`initSidePanel`/`openSidePanel`/`closeSidePanel`/`triggerComponentAction` imports + the tooltip/sidepanel init guards + the `data-ref` legacy nav fallback + `window.openSidePanel/closeSidePanel` globals.
+  - **`index.html`**: removed `#pcb-tooltip`.
+  - **`style.css`**: removed ~600 lines of legacy CSS (`.pcb-tooltip-hud`, `#component-panel`, section-7 side-panel builder classes, `.info-panel-layout`, `.btn-hud-control`, `.pcb-hud-layout` + all `.hud-*`, tooltip-frame classes, and their media/focus/reduced-motion references). Kept live hero classes (`.ece-label`, `h1#user-name`, `.stat-badge`, `.nav-btn`, etc.).
+  - **Verified**: `npm run build` + `npx tsc --noEmit` pass; zero references to deleted modules remain; journey mode re-checked live.
 - **Panel Activation Refactor**: `updateJourneyEffects` no longer scans camera distance thresholds. Panel activation is now a **pure function of the current scroll leg** — `setLegState(destination, source, progress)` runs in each ScrollTrigger `onUpdate` and switches sections at 0.55 progress (0.05 boundary band vs. 0.5). Deleted the hysteresis/cooldown machinery (`ARRIVED_THRESHOLD`, `LEFT_THRESHOLD`, `DEACTIVATE_FRAMES`, `inAnyZone` second scan). Activation is applied idempotently each frame via the `activePanelId` early-return in `setActivePanel`. Also gated panel driving behind `journeyReady` (set at the end of `initJourney`) so the boot sequence's GSAP inline styles on the hero panel are never fought mid-boot.
 - **Build Fixes**: Fixed malformed font fallback link tag in `index.html` and removed duplicate snippet syntax error in `src/three/board.js`.
 - **CSS Improvements**: Added design system tokens (`--space-*`, `--radius-*`, `--depth-*`) in `style.css`, enhanced focus states, and skip-to-content links for accessibility.

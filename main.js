@@ -6,10 +6,8 @@ import { createTraces } from './src/three/traces.js';
 import { createParticles, updateParticles } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips } from './src/three/project-chips.js';
 import { updateRadarRing } from './src/three/components.js';
-import { initTooltip } from './src/ui/tooltip.js';
 import { runBootSequence } from './src/ui/boot.js';
-import { initHover, checkHover, mouse, triggerComponentAction } from './src/utils/hover.js';
-import { openSidePanel, closeSidePanel } from './src/ui/sidepanel.js';
+import { initHover, checkHover, mouse } from './src/utils/hover.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode, isSmallViewport } from './src/config.js';
 import { renderSections } from './src/ui/sections.js';
 import { initJourney, scrollToSection, updateJourneyEffects } from './src/scroll/journey.js';
@@ -65,13 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.js-linkedin, #cta-linkedin-hud').forEach(a => { a.href = LINKEDIN_URL; });
     document.querySelectorAll('.js-github').forEach(a => { a.href = GITHUB_URL; });
 
-    // 8. Bind hover raycast checking (guarded — legacy tooltip/sidepanel elements may not exist)
-    if (document.getElementById('pcb-tooltip')) {
-        initTooltip();
-    }
-    if (document.getElementById('component-panel')) {
-        initSidePanel();
-    }
+    // 8. Bind hover raycast checking
     initHover(camera, scene);
 
     // 9. Set up body class for mode detection
@@ -132,8 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
     navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const section = btn.getAttribute('data-section');
-            const ref = btn.getAttribute('data-ref');
-
             if (section && document.getElementById(section)) {
                 // Scroll-journey navigation
                 if (typeof scrollToSection === 'function') {
@@ -141,10 +131,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     document.getElementById(section).scrollIntoView({ behavior: 'smooth' });
                 }
-            } else if (ref) {
-                // Legacy zoom-based navigation
-                closeSidePanel();
-                triggerComponentAction(ref);
             }
         });
     });
@@ -162,7 +148,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 16. Register global triggers (for hover.js direct access)
-    window.openSidePanel = openSidePanel;
-    window.closeSidePanel = closeSidePanel;
 });
