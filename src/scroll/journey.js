@@ -137,6 +137,7 @@ function setActivePanel(panelId) {
     el.classList.toggle('panel-active', el.id === panelId);
   });
   const secId = panelId ? panelId.replace('panel-', 'sec-') : '';
+  document.body.classList.toggle('in-contact-section', panelId === 'panel-contact');
   document.querySelectorAll('.hud-nav .nav-btn').forEach((btn) => {
     btn.classList.toggle('nav-active', btn.getAttribute('data-section') === secId);
   });

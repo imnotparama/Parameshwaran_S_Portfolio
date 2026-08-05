@@ -1,356 +1,189 @@
-# PCB 3D Zoom Microarchitecture Portfolio - Developer Transfer Log & Comprehensive Code Blueprint
+# PCB 3D Portfolio — Technical Architecture, Microarchitecture Blueprint & Developer Transfer Log
 
-Hi! This file is for the incoming AI agent (Claude) to provide a complete, deep-dive technical transfer of all logic, mathematics, rendering rules, layout configurations, coordinates, and component dimensions built in this repository.
-
----
-
-## 🛠️ Core Tech Stack & Specifications
-
-- **Vite & Vanilla JavaScript (ES Modules)**: Fast bundler without TypeScript compiles or framework boilerplates.
-- **Three.js**: Custom WebGL board substrate, solid 3D box segment traces, timing crystals, copper pins, and glowing electron flow nodes.
-- **GSAP (GreenSock)**: Drives multi-phase booting timeline sequences, typewriter cursor loops, and hover emissive color transitions.
-- **Pure CSS**: Scanline CRT overlay filter, absolute flex header/footer positions, and HUD panel designs.
-- **Fonts**: Orbitron (ECE style headings) + Share Tech Mono (Monospaced registers).
+Hi! This file is the primary reference prompt and technical transfer guide for any AI coding assistant (Claude / Antigravity / Gemini) working on this repository.
 
 ---
 
-## 📁 Detailed Directory Structure & Code Layout
+## 🎯 MANDATORY PRIMARY PROMPT & EXECUTION DIRECTIVE
+
+> **IMPORTANT**: The following prompt defines the exact architectural pattern and phased implementation workflow for all 3D PCB component interactions in this portfolio. You MUST follow this blueprint strictly.
+
+```text
+"Build and verify ONE interaction before touching anything else: clicking a single labeled component on the PCB board (start with the About/education component) must do the following, in order:
+
+1. Raycast against pointer click position to detect which mesh was clicked — use THREE.Raycaster, not a DOM click handler on an invisible div layered over the canvas.
+2. On hit, animate camera.position and the camera's lookAt target from current values toward that mesh's position using GSAP (duration: 1.2, ease: 'power2.inOut'). The camera must visibly travel through 3D space — no cuts, no instant snaps.
+3. Once the tween completes, reveal an info panel anchored to the mesh's projected 2D screen position (mesh.position.clone().project(camera), converted to screen coordinates, updated every frame) — so the panel visually tracks the component instead of floating independently.
+4. Add a close control (X, or click elsewhere) that reverses the camera tween back to the prior position and hides the panel.
+
+Do not build, touch, or 'improve' any other section until this exact loop works and I've confirmed it live in the browser myself. Once I confirm it, apply the identical pattern — raycast → camera tween → anchored panel → reverse tween — to every other labeled component (experience, skills, projects, certs), swapping only the content.
+
+Also fix the duplicate 'Connect on LinkedIn' button currently stacked in Contact — there should be exactly one per section, no leftover elements."
+```
+
+---
+
+## 🛠️ Core Tech Stack & Tooling
+
+- **Vite & Vanilla JavaScript (ES Modules)**: Fast development server and production bundler without framework overhead.
+- **Three.js (WebGL)**: Custom 3D printed circuit board substrate, SMD IC component meshes, trace copper pathways, cylinder vias, project chips, and glowing electron flow particles.
+- **GSAP (GreenSock Animation Platform)**: Powers camera 3D space travel (`duration: 1.2`, `ease: 'power2.inOut'`), boot scanline sequence, typewriter terminal logs, and panel transitions.
+- **Pure Vanilla CSS**: SCANLINE CRT overlay filters, CSS custom property design system tokens, responsive glassmorphism HUD cards.
+- **Typography**: `Orbitron` (HUD headings, component IDs) + `Share Tech Mono` (Data registers, spec tables).
+
+---
+
+## 📁 Repository Directory Blueprint & Responsibilities
 
 ```
-c:\Users\hunte\Parameshwaran S_Portfolio\
-├── main.js                  # Central bootstrapping, ticks registration, and boot triggers
-├── index.html               # Floating typography overlays, stat badges, and CRT filter divs
-├── style.css                # Full-screen fixed canvas containers, CRT console styles, HUD templates
-├── scroll.css               # Scroll journey layer - panel styles, lite mode, mobile responsive
+c:\Users\hunte\Parameshwaran_S_Portfolio\
+├── main.js                  # Entry point: scene initialization, tick callbacks, boot execution, event listeners
+├── index.html               # Semantic HTML structure, CRT filters, HUD header, section datasheet templates
+├── style.css                # Primary design system: CSS tokens, scanlines, glassmorphism panels, CTA button styles
+├── scroll.css               # Scroll journey overrides: camera path container, screen-space panel positioning, connector SVG
+├── claude.md                # Master developer transfer log & prompt blueprint (this file)
 └── src/
-    ├── config.js            # Public URLs, lite mode / reduced motion / viewport detection
+    ├── config.js            # External URLs (LinkedIn, GitHub), responsive breakpoints (768px lite mode), env helpers
     ├── data/
-    │   └── portfolio.js     # Master database of CV stats, education, projects, skills, tools
+    │   └── portfolio.js     # Data source of truth: CV metrics, project list with status ('shipped' | 'building'), timeline, skills
     ├── three/
-    │   ├── scene.js         # Viewport, lights, bloom, FPS guardrail, tick callbacks registry
-    │   ├── board.js         # Green board extrusion, silkscreen CanvasTexture, parallax tilt
-    │   ├── components.js    # Component definitions, interactive targets, sub-core groups
-    │   ├── traces.js        # Coordinate pathways, box segment traces, cylinder vias
-    │   ├── particles.js     # Path interpolation, segment mapping, hover speed boosts
-    │   └── project-chips.js # Breadboard/soldered project chips driven by data.status
+    │   ├── scene.js         # PerspectiveCamera, lighting setup, renderer config, bloom pass, FPS performance guardrail
+    │   ├── board.js         # Board substrate extrusion, soldermask plane, CanvasTexture silkscreen, micro-tilt parallax
+    │   ├── components.js    # 3D SMD components (U1, U2, Y1, ANT1, J1, VR1, RN1, D1-D7), sub-core geometry groups, interaction flags
+    │   ├── traces.js        # Solid 3D copper trace segments (BoxGeometry), corner vias (Cylinders), trace pathways data
+    │   ├── particles.js     # Electron flow particles along trace paths with speed boost on hover
+    │   └── project-chips.js # Data-driven project chips (soldered vs breadboard jumpers based on portfolioData.projects.status)
     ├── scroll/
-    │   └── journey.js       # Scroll journey: camera path, screen-space panels, connector SVG, vignette
+    │   └── journey.js       # CatmullRomCurve3 camera path, GSAP ScrollTrigger legs, per-frame Vector3.project screen positioning
     ├── ui/
-    │   ├── boot.js          # Multi-phase boot: scanline sweep + typewriter terminal lines
-    │   ├── sections.js      # Datasheet content injection from portfolio data
-    │   ├── pcb-hud.js       # Diagnostics HUD terminal for component hover/zoom
-    │   ├── tooltip.js       # Mouse-following tooltip for PCB hovers
-    │   ├── sidepanel.js     # Legacy side info panel
-    │   └── fallback.js      # WebGL fallback UI
+    │   ├── boot.js          # Retro terminal boot sequence: laser scanline, typewriter status logs, badge pop-ins
+    │   ├── sections.js      # Datasheet HTML injection from portfolio.js data, profile link wiring
+    │   ├── pcb-hud.js       # Diagnostic HUD bar & component telemetry overlays
+    │   ├── tooltip.js       # Hover tooltip for 3D components
+    │   ├── sidepanel.js     # Side panel drawer UI for detailed component viewing
+    │   └── fallback.js      # WebGL detection & non-WebGL fallback screen
     └── utils/
-        ├── hover.js         # Raycasting, hover glow/pulse, view state transitions
-        └── camera-states.js # Camera zoom state machine (PCB/ZOOMING_IN/ZOOMED_IN/ZOOMING_OUT)
+        ├── hover.js         # THREE.Raycaster pointer click/hover logic, mesh emission updates, view state handler
+        └── camera-states.js # GSAP Camera Position & LookAt Tween State Machine (PCB / ZOOMING_IN / ZOOMED_IN / ZOOMING_OUT)
 ```
 
 ---
 
-## ⚙️ Module-by-Module Technical Logic & Mathematics
+## 🔬 Component Coordinate & Dimension Specification Table
 
-### 1. Central Initializer: `main.js`
-- **Logic**: Executes on `DOMContentLoaded`. Triggers scene, board, components, traces, particles, project chips, sections render, hover init, bloom, and boot sequence in order.
-- **Tick Callbacks**: Registers `updateParticles`, `updateProjectChips`, `checkHover`, `updateBoardParallax`, and `updateJourneyEffects` (if full-journey mode) into `tickCallbacks` array.
-- **Navigation**: Binds `.nav-btn` click handlers to `scrollToSection()` for scroll-journey, falls back to `triggerComponentAction()` for legacy zoom mode.
-- **Journey Init**: Calls `initJourney(camera, boardGroup)` after boot sequence completes.
+| Ref Identifier | Component Description | 3D Mesh Geometry | Board Position (x, y, z) | Camera Target Pos (x, y, z) | Camera LookAt (x, y, z) |
+|:---|:---|:---|:---|:---|:---|
+| **U1** | Main CPU (About / Education) | Box 2.4 × 2.4 × 0.22 | `(0, 1.0, 0.085)` | `(0, 1.0, 2.0)` | `(0, 1.0, 0.085)` |
+| **U2** | GPU (Project Array) | Box 1.8 × 1.8 × 0.18 | `(-3.2, 4.5, 0.085)` | `(-3.2, 4.5, 2.0)` | `(-3.2, 4.5, 0.085)` |
+| **C1–C4** | Decoupling Capacitor Bank (Skills) | Cylinders R=0.2, H=0.7 | `(3.2, 4.5, 0.085)` | `(3.2, 4.5, 2.0)` | `(3.2, 4.5, 0.085)` |
+| **Y1** | Crystal Oscillator (Education detail) | Box 1.2 × 0.6 × 0.26 | `(-3.5, 0.5, 0.115)` | `(-3.5, 0.5, 1.8)` | `(-3.5, 0.5, 0.085)` |
+| **ANT1** | RF Antenna (Contact TX/RX) | Box 1.0 × 1.0 × 0.15 | `(3.5, 0.5, 0.135)` | `(3.5, 0.5, 1.8)` | `(3.5, 0.5, 0.085)` |
+| **J1** | USB-C Power Bus (Experience) | Box 1.2 × 0.8 × 0.32 | `(0, -7.3, 0.145)` | `(0, -7.3, 2.0)` | `(0, -7.3, 0.085)` |
+| **VR1** | Voltage Regulator (Tech Stack) | Box 0.7 × 0.7 × 0.16 | `(3.5, -4.5, 0.085)` | `(3.5, -4.5, 2.0)` | `(3.5, -4.5, 0.085)` |
+| **D1–D7** | Status LED Array | Bounds 2.4 × 1.4 | `(-3.5, -4.5, 0.085)` | `(-3.5, -4.5, 2.4)` | `(-3.5, -4.5, 0.085)` |
 
-### 2. Viewport & Lighting Setup: `src/three/scene.js`
-- **Camera**: `PerspectiveCamera(45, Aspect, 0.1, 1000)` at `(0, -2, 17)` looking at origin.
-- **Lights**: AmbientLight (green tint), DirectionalLight (key + fill), PointLight (green underglow behind board).
-- **Renderer**: WebGL with alpha, antialias, PCFSoftShadowMap, pixel ratio capped at 2.
-- **Bloom**: UnrealBloomPass (strength 0.45, radius 0.3, threshold 0.7). Created by `enableBloom()`.
-- **FPS Guardrail**: 30-frame sliding window of frame deltas. If sustained average <50fps, reduces bloom strength to 0.2 and radius to 0.1. Runs once (bloomReduced flag).
-- **Tick Loop**: `requestAnimationFrame` drives all callbacks, renders via composer (bloom) or plain renderer.
-
-### 3. Board Geometry & Canvas Silkscreen: `src/three/board.js`
-- **Board Shape**: Extruded rounded rectangle (width 11, height 15, thickness 0.16, corner radius 0.4).
-- **Solder Mask**: Dark green with soldermask overlay plane.
-- **Silkscreen**: 2048x4096 offscreen canvas → CanvasTexture → thin overlay mesh at z = thickness/2 + 0.003. Contains component outlines, border tracing, hatched copper pours, SRM markings, Tamil character, crosshairs, mock QR.
-- **Parallax Tilt**: `updateBoardParallax(elapsed, mouse)` tilts board via LERP. In journey mode: ultra-smooth micro-tilt (magnitude 0.003, lerp 0.035, no deadzone). In legacy mode: full tilt (magnitude 0.08, lerp 0.08, bob).
-
-### 4. Solid Traces Routing: `src/three/traces.js`
-- **3D Solid Traces**: BoxGeometry segments between node points. Each segment: calculate distance, midpoint, rotation angle (atan2). Width varies by trace.
-- **Vias**: Gold cylinders at corners with dark center cylinders. Edge trace around board perimeter.
-- **Trace Data**: Exported `traceData` array used by boot sequence (emissive flash) and particles.
-
-### 5. Electron Flows: `src/three/particles.js`
-- **Spawn**: 3 glowing spheres per trace path. Multi-segment LERP interpolation with progress wrapping.
-- **Hover Boost**: `setHoveredTraceSpeedBoost()` accelerates connected particles (3x speed) and turns gold→white.
-
-### 6. Interactive Raycasting & Camera Zooms: `src/utils/hover.js`
-- **State Machine**: `viewState` tracks 'PCB' | 'ZOOMING_IN' | 'ZOOMED_IN' | 'ZOOMING_OUT'.
-- **Hover Disambiguation (Req 3)**: In journey mode (`full-journey` class present), hover is **subtle glow only**:
-  - Emissive intensity: 0.5 (not 0.9)
-  - Scale pulse: 1.04 (not 1.12)
-  - Hover light intensity: 0.6 (not 1.5)
-  - No tooltip / HUD / trace speed boost during hover
-  - These effects are reserved for scroll-arrival (full camera zoom + datasheet panel)
-- **Legacy Hover**: Outside journey mode, full tooltip + HUD + trace boost still activates.
-- **Component Shell Toggle**: `toggleComponentShells()` hides outer body, shows internal sub-core groups.
-- **Camera LERP**: `updateCamera()` drives position and lookAt toward target with LERP factor 0.08.
-
-### 7. Scroll Journey: `src/scroll/journey.js` (MAJOR REWRITE)
-- **Camera Path**: `PATH` array defines 6 stop sections + 5 via points along a CatmullRomCurve3.
-- **Stop Positions**: Each section's camera positioned at z=2.0 from its component (About: U1 CPU, Projects: U2 GPU, Skills: capacitor bank, Experience: J1 USB). Hero/contact at z=13/14 for wide establishing shots.
-- **ScrollTrigger**: One trigger per travel leg, `scrub: 0.6`, `power2.out` easing, drives `setCameraAtT()`.
-- **Panel Activation by Camera Arrival**: NOT by scroll position. `updateJourneyEffects()` runs per frame:
-  - Finds nearest section via cached `stopPosVectors` (squared distance, no GC per frame)
-  - Activates panel when camera distance < threshold (3.5 for components, 6.0 for hero/contact)
-  - 10-frame cooldown (`DEACTIVATE_FRAMES`) + `inAnyZone` check prevents flickering
-  - Panels deactivate only after sustained absence from all zones
-- **Screen-Space Panel Positioning**:
-  - `COMPONENT_WORLD` maps section IDs to board-local 3D positions
-  - `boardGroup.localToWorld()` + `Vector3.project()` converts to CSS pixel coordinates every frame
-  - Panels positioned adjacent to component, left or right based on screen half
-  - CSS `translateY(24px) scale(0.97)` → `translateY(0) scale(1)` animation preserved
-- **Connector SVG Line**:
-  - Fixed SVG overlay at z-index 29, `pointer-events: none`
-  - Dashed line (`stroke-dasharray: 4 4`, color: rgba(0,255,136,0.45)) from component center to panel edge
-  - Glowing dot (circle r=3) at component end
-  - Visible only for component sections (hero/contact have no connector)
-- **Dynamic Vignette**:
-  - `.vignette-overlay` opacity varies 0.35 (base) → 0.85 (when zoomed into component)
-  - CSS transition on opacity: `0.5s cubic-bezier(0.22, 1, 0.36, 1)`
-  - Intensity mapped from camera distance: closer = darker vignette
-- **Direct Navigation**: `scrollToSection()` uses `gsap.to(window, { scrollTo, overwrite: 'auto' })` - scroll position stays synced with GSAP.
-
-### 8. Power-on Boot Sequencer: `src/ui/boot.js` (MODIFIED)
-- **GSAP Timeline**: Multi-step sequence:
-  1. Set initial hidden states (overlay opacity 1, canvas/badges/HUD hidden)
-  2. Scanline sweep: horizontal laser from top:0% to top:100% (duration 0.85s)
-  3. **Terminal typewriter** (NEW - Req 5): Sequential lines at 30ms/character:
-     - `> INITIALIZING PARAMA-DEV-BOARD...`
-     - `> LOADING GEOMETRY...`
-     - `> ALL PCB SYSTEMS OPERATIONAL`
-     - Status element preserved and appended at bottom after all lines finish
-  4. HUD bar fade in, hero panel reveal, subtitle typewriter effect
-  5. Stat badges stagger in with back.out easing
-  6. PCB board floats up from below (position y: -15 → 0, rotation 0 → -π/10, -π/20)
-  7. Traces emissive flash one-by-one
-  8. CPU pins sequential gold flash (32 pins, staggered)
-  9. LEDs sequential blink
-  10. Electron particles appear, CPU silicon die pulses
-  11. Terminal status: "ALL SYSTEMS OPERATIONAL"
-  12. Overlay fades out, interactive mode unlocked
-- **Lite Mode**: Skip all animations, show everything immediately.
-
-### 9. Project Chips: `src/three/project-chips.js`
-- **Data-Driven Rendering (Req 4)**: `proj.status` from portfolio.js drives visual:
-  - `'shipped'` → soldered chip: solid gold trace to bus, steady glow LED (emissive intensity 1.4)
-  - `'building'` → breadboard patch: visible jumper wires (3 colors), hole grid, loosely-seated chip, flickering LED
-  - Adding a new project with the correct `status` field automatically selects rendering
-- **Per-frame Update**: `updateProjectChips(elapsed)` flickers breadboard LEDs via sin modulation, keeps soldered ones steady.
+*Board substrate dimensions: width = 11.0, height = 15.0, thickness = 0.16, top surface Z = 0.085.*
 
 ---
 
-## 📐 Precise Dimensions & Mesh Coordinates
+## ⚡ The 4-Step Raycast → Camera Tween → Anchored Panel System
 
-### 1. Board Extrusion
-- Thickness = 0.16 units. Surface Z = 0.085 units.
+### Step 1: Pointer Click Raycasting (`THREE.Raycaster`)
+- **Module**: `src/utils/hover.js`
+- **Logic**: A click event listener captures mouse pointer coordinates (`mouse.x`, `mouse.y` normalized device coordinates between -1 and +1).
+- `THREE.Raycaster.setFromCamera(mouse, camera)` computes the ray from the camera lens through the pointer.
+- Hit testing targets `interactiveObjects` (meshes with `userData.isInteractive = true`). DOM click handlers on overlay divs are strictly forbidden.
 
-### 2. Component Centers & Geometries
-| Ref | Description | Geometry | Position (x, y, z) |
-|:---|:---|:---|:---|
-| U1 | Main CPU | Box 2.4×2.4×0.22 | (0, 1.0, 0.085) |
-| U2 | GPU (Projects) | Box 1.8×1.8×0.18 | (-3.2, 4.5, 0.085) |
-| C1-C4 | Capacitor bank | Cylinder R=0.2, H=0.7 | (2.3/2.9/3.5/4.1, 4.5, 0.085) |
-| Y1 | Crystal Oscillator | Box 1.2×0.6×0.26 | (-3.5, 0.5, 0.115) |
-| ANT1 | Antenna bounding | Box 1.0×1.0×0.15 | (3.5, 0.5, 0.135) |
-| J1 | USB-C power | Box 1.2×0.8×0.32 | (0, -7.3, 0.145) |
-| VR1 | Regulator | Box 0.7×0.7×0.16 | (3.5, -4.5, 0.085) |
-| RN1 | Resistor Network | Box 1.3×0.16×0.35 | (0, -3.5, 0.235) |
-| D1-D7 | LED Array | Bounds 2.4×1.4 | centered at (-3.5, -4.5) |
+### Step 2: Visible 3D Camera Travel (`GSAP Tween`)
+- **Module**: `src/utils/camera-states.js` & `src/utils/hover.js`
+- **Logic**: On hit detection, GSAP animates both `camera.position` and `currentLookAt` vector over 1.2 seconds:
+  ```javascript
+  gsap.to(camera.position, {
+      x: targetPos.x,
+      y: targetPos.y,
+      z: targetPos.z,
+      duration: 1.2,
+      ease: 'power2.inOut'
+  });
+  gsap.to(currentLookAt, {
+      x: targetLook.x,
+      y: targetLook.y,
+      z: targetLook.z,
+      duration: 1.2,
+      ease: 'power2.inOut',
+      onUpdate: () => camera.lookAt(currentLookAt),
+      onComplete: () => revealScreenAnchoredPanel(ref)
+  });
+  ```
+- No instant jumps or camera position cuts. The camera visibly glides through 3D space.
 
-### 3. Camera Path Stop Positions
-| Section | Camera Position (x, y, z) | lookAt (x, y, z) |
-|:---|:---|:---|
-| sec-hero | (0, -5.2, 13) | (0, 0.4, 0) |
-| sec-about | (0, 1.0, 2.0) | (0, 1.0, 0.06) |
-| sec-projects | (-3.2, 4.5, 2.0) | (-3.2, 4.5, 0.06) |
-| sec-skills | (3.2, 4.5, 2.0) | (3.2, 4.5, 0.06) |
-| sec-experience | (0, -7.3, 2.0) | (0, -7.3, 0.06) |
-| sec-contact | (0, -5.0, 14) | (0, 0, 0) |
+### Step 3: Screen-Space 2D Anchored Panel Positioning
+- **Module**: `src/scroll/journey.js` & `src/ui/pcb-hud.js`
+- **Logic**: During the render loop (every tick), the 3D world position of the focused component is projected into 2D viewport pixel coordinates:
+  ```javascript
+  const worldPos = new THREE.Vector3();
+  componentMesh.getWorldPosition(worldPos);
+  
+  // Project vector into normalized device coordinates (-1 to +1)
+  const ndc = worldPos.clone().project(camera);
+  
+  // Convert NDC to screen pixel coordinates
+  const screenX = (ndc.x * 0.5 + 0.5) * window.innerWidth;
+  const screenY = (-ndc.y * 0.5 + 0.5) * window.innerHeight;
+  
+  // Update anchored panel CSS position
+  panelElement.style.left = `${screenX + offsetX}px`;
+  panelElement.style.top = `${screenY + offsetY}px`;
+  ```
+- An SVG connector line (`<svg id="connector-overlay"><line ... /></svg>`) connects the component center to the screen card edge in real time.
 
-### 4. Component World Positions (boardGroup local space, for screen-space projection)
-| Section | Position |
-|:---|:---|
-| sec-about | (0, 1.0, 0.085) |
-| sec-projects | (-3.2, 4.5, 0.085) |
-| sec-skills | (3.2, 4.5, 0.085) |
-| sec-experience | (0, -7.3, 0.085) |
-
----
-
-## 🧩 Zoomed-in 3D Internal Architecture Mappings
-
-### CPU (U1) - Sub-Cores
-- 4 cores at z=0.12: ALU (orange, top-left), NPU (red, top-right), CU (blue, bottom-left), IO (green, bottom-right)
-- Silicon die: 6×6 grid CanvasTexture on PlaneGeometry at z=0.115
-- 32 gold pins around border (8 per side, pitch 0.25)
-- CPU Radar Ring: RingGeometry with additive blending
-
-### GPU (U2) - Project Cores
-- 6 execution cores in 3×2 grid on silicon baseplate
-- Each core: Box 0.32×0.32×0.05 with blue edge line
-
-### Crystal Oscillator (Y1) - Education Plates
-- 3 quartz plates: BTech (left), Class12 (center), Class10 (right)
-- Purple edge lines
-
-### USB (J1) - Experience Contacts
-- 3 gold contact pins with orange edge lines
-
-### Regulator (VR1) - Tech Stack Fins
-- 5 cooling fins with red edge lines: Languages, Frameworks, AI/ML, Tools, Cloud
+### Step 4: Reverse Camera Tween & Panel Dismissal
+- **Logic**: Clicking the close control (`[X]`), hitting the `Escape` key, or clicking empty board space triggers `reverseCameraTween()`:
+  - Hides the active screen-space datasheet card (`opacity: 0`, `pointer-events: none`).
+  - Animates `camera.position` and `currentLookAt` back to their prior values (or default PCB view `(0, -2, 17)`) using GSAP (`duration: 1.2`, `ease: 'power2.inOut'`).
+  - Restores board component shell visibilities and interactivity.
 
 ---
 
-## 🎨 Theme & CSS Architecture
+## 🎨 UI & Layout Rules: LinkedIn CTA Single-Button Constraint
 
-### Root Variables (style.css)
-- `--bg-color: #030b06`, `--glow-green: #00ff88`, `--pcb-gold: #c8960c`
-- Glass-morphism panels: `backdrop-filter: blur(8px)`, layered box-shadows
-- Vignette: `radial-gradient(circle, transparent 30%, rgba(0,0,0,0.6) 100%)` with dynamic opacity
+### Problem & Fix Requirement
+Previously, multiple `.cta-linkedin` elements were present simultaneously in the Contact section (one in `#hud-bar` header and one in `#panel-contact`), causing stacked duplicate buttons.
 
-### Panel System (scroll.css)
-- Full-journey mode: `position: fixed` with JS-driven left/right/top pixel positioning
-- Hero/contact centered with `!important` CSS transforms (protected from JS)
-- Transition: `opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s` with scale+slide animation
-- `will-change: transform, opacity` for GPU acceleration
-
-### Lite Mode (<768px viewport or prefers-reduced-motion)
-- Body `class="lite-mode"`, no scroll-jacking, vertical CSS section stack
-- Same PCB visual language, colors, typography — 3D canvas still visible as background
-- Detect via `config.js`: `isSmallViewport()` checks `window.innerWidth < 768`
-
-### Mobile Responsive
-- 900px breakpoint: HUD bar wraps, smaller nav buttons
-- 640px breakpoint: Full-width panels, smaller typography, grid→single column
+### Execution Rule
+1. There MUST be **exactly ONE LinkedIn button visible per section**.
+2. When the user scrolls into or views `sec-contact` / `#panel-contact`, `#cta-linkedin-hud` inside `#hud-bar` is hidden via CSS/JS (`body.in-contact-section #cta-linkedin-hud { opacity: 0; pointer-events: none; }`) so it does not stack over the Contact section's primary CTA.
+3. Every LinkedIn CTA element automatically receives `href = LINKEDIN_URL` via `wireProfileLinks()` in `src/ui/sections.js`.
+4. All secondary links (e.g. GitHub) must have accurate accessibility attributes (`aria-label="Visit my GitHub profile (opens in new tab)"`).
 
 ---
 
-## 🚀 How to Run & Build
+## 🔍 Verification & Testing Protocols
+
+After making any code changes, verify your work using these exact steps:
+
 ```bash
-npm run dev     # Development server
-npm run build   # Production build to dist/
+# 1. Run development server and verify live in browser
+npm run dev
+
+# 2. Run production build check (must exit with code 0)
+npm run build
+
+# 3. Check for TypeScript / linting issues
+npx tsc --noEmit
 ```
 
----
-
-## ⚡ Performance Optimizations
-
-1. **Raycaster Throttling**: Every 3rd frame (`frameCounter % 3 === 0`), 66% CPU reduction.
-2. **Target Isolation**: `interactiveObjects` / `insideInteractiveObjects` filtered by `obj.userData.isInteractive`.
-3. **Immediate Hover Reset**: `emissiveIntensity = 0.0` set directly (bypasses GSAP) for instant feedback.
-4. **Static Coordinate Reuse**: Mouse vectors declared once at module scope.
-5. **Cached Vectors**: `stopPosVectors` pre-allocated, no garbage collection per frame.
-6. **Squared Distance First**: Nearest-section check uses squared distance, sqrt only once for thresholds.
-7. **FPS Guardrail** (Req 7): Bloom strength/radius reduced if sustained <50fps over 30-frame window.
-8. **Debounced Resize**: 100ms timeout on window resize.
-9. **Pixel Ratio Cap**: `Math.min(window.devicePixelRatio, 2)`.
+### Manual Browser Checklist
+1. Click the **U1 CPU component** (About/Education) on the 3D board.
+2. Confirm the camera visibly travels through 3D space over **1.2 seconds** with `power2.inOut` easing (no instant snap).
+3. Confirm the info panel reveals and stays **anchored to the component's projected 2D position** when panning/rotating.
+4. Click the close button `[X]` or press `Escape` — confirm the camera smoothly reverses to the starting view.
+5. Check the **Contact section** — confirm there is **exactly ONE 'Connect on LinkedIn' button** visible (no duplicate stacking).
 
 ---
 
-## ✅ Session Change Log (All Modifications Made)
+## 📝 Developer Change & Session Log
 
-The following is a complete log of every file changed during the session, organized by requirement:
-
-### Req 1: Section-to-Section Camera Continuity
-- Already satisfied by CatmullRomCurve3 path with scrub:0.6 + power2.out. No changes needed.
-
-### Req 2: Nav Clicks Sync With Scroll State
-- Already satisfied by `gsap.to(window, { scrollTo, overwrite: 'auto' })` in `scrollToSection()`. No changes needed.
-
-### Req 3: Hover vs Scroll-Arrival Disambiguation
-- **File**: `src/utils/hover.js`
-- Changed `handleHoverEnter()`: wrapped tooltip/HUD/trace boost behind `if (!document.body.classList.contains('full-journey'))` guard
-- Reduced hover emissive intensity: 0.9 → 0.5
-- Reduced hover scale pulse: 1.12 → 1.04
-- Reduced hover light intensity: 1.5 → 0.6
-- Changed `resetHoverMesh()`: tooltip/HUD cleanup also guarded by journey mode check
-
-### Req 4: Breadboard/Soldered From Data (Already Implemented)
-- `src/three/project-chips.js` reads `proj.status` from `portfolio.data`.
-- `'building'` → breadboard patch with flicker, `'shipped'` → soldered chip with steady glow.
-- No changes needed.
-
-### Req 5: Terminal Boot Sequence
-- **File**: `src/ui/boot.js`
-- Added `typeTerminalLine()` helper function (appends div, types char by char at 30ms, fires callback on complete)
-- Replaced generic boot terminal text with sequential: `> INITIALIZING PARAMA-DEV-BOARD...`, `> LOADING GEOMETRY...`, `> ALL PCB SYSTEMS OPERATIONAL`
-- Status element preserved before `innerHTML = ''`, re-appended at bottom after all 3 lines finish
-- Subtitle typewriter speed: 35ms → 30ms
-- **Bug fixed**: `#terminal-status-text` was destroyed by `innerHTML = ''` — now preserved and re-inserted
-- **Bug fixed**: Scanline sweep was removed — now restored as step 2 before terminal messages
-- **Bug fixed**: Status appeared at top of terminal (visual inversion) — now appended at bottom after all lines finish
-
-### Req 6: Mobile Fallback at 768px
-- **File**: `src/config.js`
-- Changed `isSmallViewport()` threshold: 820 → 768
-- Lite mode activates: no scroll-jacking, vertical CSS stack, same PCB styling
-
-### Req 7: Performance Guardrail (50+ fps)
-- **File**: `src/three/scene.js`
-- Added FPS monitoring: 30-frame sliding window of delta times
-- If sustained avg <50fps, reduces bloom strength to 0.2 and radius to 0.1
-- `bloomReduced` flag prevents repeated reductions
-- `checkPerformance(deltaMs)` called every frame before tick callbacks
-
-### Smoothness Improvements (Earlier Session)
-- **File**: `src/scroll/journey.js`
-- Scrub: 0.3 → 0.5 (later adjusted to 0.6)
-- Easing: power1.out → power2.out
-- Path tension: 0.35 → 0.4
-- scrollToSection duration: 1.4s → 1.6s
-
-- **File**: `scroll.css`
-- Added `overscroll-behavior: contain`
-- Added `-webkit-overflow-scrolling: touch`
-- Added `will-change: transform, opacity` to panels and CTAs
-- Panel transition: 0.45s → 0.55s ease, then 0.6s with scale animation and cubic-bezier
-- Removed `content-visibility: auto` (was breaking `position: fixed` panels)
-
-- **File**: `src/three/board.js`
-- Removed mouse threshold deadzone for micro-tilt (was `Math.abs(mouse.x) > 0.3`)
-- Lerp: 0.02 → 0.035, magnitude: 0.005 → 0.003
-
-### Camera Zoom + Screen-Space Panels (Major Feature)
-- **File**: `src/scroll/journey.js` — Complete rewrite:
-  - Camera PATH updated to z=2.0 for all component stops (was 2.6-3.1)
-  - Added `COMPONENT_WORLD` mapping for screen-space projection
-  - Added `updateJourneyEffects()` per-frame callback: finds nearest section, activates panels on arrival, positions panels via Vector3.project(), draws connector SVG line, controls vignette intensity
-  - Added SVG connector overlay with dashed line + glow dot
-  - Added distance-threshold panel activation with 10-frame cooldown
-  - Added `stopPosVectors` cache (no GC per frame)
-  - Exported `updateJourneyEffects()`
-
-- **File**: `main.js`
-  - Imported `updateJourneyEffects`
-  - Passes `boardGroup` to `initJourney(camera, boardGroup)`
-  - Registers `updateJourneyEffects` in tick callbacks (guarded by `!isLiteMode()`)
-
-- **File**: `scroll.css`
-  - Removed per-section fixed panel positions (about, projects, skills, experience now positioned by JS)
-  - Hero/contact panels protected with `!important` centering
-  - Panel transition: 0.6s with scale(0.97→1.0) + translateY animation
-
-- **File**: `style.css`
-  - Updated root variables: richer color palette (`--glow-green-dim`, `--panel-bg`, `--panel-border`, `--panel-shadow`)
-  - Vignette: stronger gradient + CSS opacity transition
-
-### Complete File Manifest (All Changed Files)
-| File | Changes |
-|:---|:---|
-| `src/scroll/journey.js` | Complete rewrite: camera path, screen-space panels, connector SVG, vignette, distance activation |
-| `src/utils/hover.js` | Hover disambiguation: subtle glow only in journey mode |
-| `src/config.js` | Mobile threshold 820→768 |
-| `src/ui/boot.js` | Terminal boot sequence + scanline + status element fix |
-| `src/three/scene.js` | FPS guardrail with bloom reduction |
-| `scroll.css` | Dynamic panel positioning, glass-morphism, will-change, connector z-index |
-| `style.css` | Richer color variables, vignette transition |
-| `main.js` | Pass boardGroup to initJourney, register updateJourneyEffects |
-| `src/three/board.js` | Smoother micro-tilt (no deadzone, higher lerp) |
-| `claude.md` | This file - complete session memory |
+- **Build Fixes**: Fixed malformed font fallback link tag in `index.html` and removed duplicate snippet syntax error in `src/three/board.js`.
+- **CSS Improvements**: Added design system tokens (`--space-*`, `--radius-*`, `--depth-*`) in `style.css`, enhanced focus states, and skip-to-content links for accessibility.
+- **Claude Blueprint Update**: Updated `claude.md` with complete architecture specification, raycasting interaction blueprint, single LinkedIn CTA constraints, and testing protocols.

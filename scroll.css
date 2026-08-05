@@ -61,6 +61,14 @@ body::-webkit-scrollbar-thumb:hover { background: var(--glow-green, #00ff88); }
     pointer-events: auto;
 }
 
+/* Hide top HUD LinkedIn button when in contact section to prevent duplicate stacked CTAs */
+body.in-contact-section #cta-linkedin-hud {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: scale(0.95);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
 .hud-name {
     color: var(--glow-green, #00ff88);
     text-decoration: none;
