@@ -12,6 +12,48 @@ import { LINKEDIN_URL, GITHUB_URL, isLiteMode, isSmallViewport } from './src/con
 import { renderSections } from './src/ui/sections.js';
 import { initJourney, scrollToSection, updateJourneyEffects } from './src/scroll/journey.js';
 
+// ─── Hash-based deep links ─────────────────────────────────
+// Each section gets a shareable URL (#/about, #/projects, ...). Nav clicks
+// pushState + scroll; back/forward fire hashchange/popstate and we scroll
+// to match the hash — so every section is linkable and the back button works.
+const SECTION_HASHES = {
+    'sec-hero': '',
+    'sec-about': 'about',
+    'sec-projects': 'projects',
+    'sec-skills': 'skills',
+    'sec-experience': 'experience',
+    'sec-contact': 'contact'
+};
+
+function sectionFromHash() {
+    const raw = window.location.hash.replace(/^#\/?/, '').trim().toLowerCase();
+    if (!raw) return 'sec-hero';
+    const secId = `sec-${raw}`;
+    return document.getElementById(secId) ? secId : null;
+}
+
+let lastAppliedHash = null;
+function applyHashNavigation() {
+    // hashchange AND popstate both fire on back/forward — dedupe so the
+    // scroll tween isn't restarted twice per history step.
+    if (window.location.hash === lastAppliedHash) return;
+    lastAppliedHash = window.location.hash;
+    const secId = sectionFromHash();
+    if (secId) scrollToSection(secId);
+}
+
+function navigateToSection(sectionId) {
+    const slug = SECTION_HASHES[sectionId];
+    if (slug === undefined) return;
+    const targetHash = slug ? `#/${slug}` : '';
+    if (window.location.hash !== targetHash) {
+        const base = window.location.pathname + window.location.search;
+        history.pushState(null, '', slug ? `${base}#/${slug}` : base);
+        lastAppliedHash = targetHash;
+    }
+    scrollToSection(sectionId);
+}
+
 // Font loading detection for fallback management
 function detectFontLoading() {
     if (document.fonts && document.fonts.ready) {
@@ -112,6 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (shouldInitJourney) {
             initJourney(camera, boardGroup);
         }
+        // Honor a deep link (#/about, #/projects) on first load
+        if (window.location.hash) applyHashNavigation();
         // Note: hud-ready class is already set inside runBootSequence step 3
     });
 
@@ -125,27 +169,20 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => {
             const section = btn.getAttribute('data-section');
             if (section && document.getElementById(section)) {
-                // Scroll-journey navigation
-                if (typeof scrollToSection === 'function') {
-                    scrollToSection(section);
-                } else {
-                    document.getElementById(section).scrollIntoView({ behavior: 'smooth' });
-                }
+                // Scroll-journey navigation + shareable hash URL
+                navigateToSection(section);
             }
         });
-    });
-
-    // 15. Hero section nav button for the HUD name/brand link
+    });    // 15. Hero section nav button for the HUD name/brand link
     const brandLink = document.querySelector('.hud-name');
     if (brandLink) {
         brandLink.addEventListener('click', (e) => {
             e.preventDefault();
-            if (typeof scrollToSection === 'function') {
-                scrollToSection('sec-hero');
-            } else {
-                document.getElementById('sec-hero')?.scrollIntoView({ behavior: 'smooth' });
-            }
+            navigateToSection('sec-hero');
         });
     }
 
+    // 16. Hash routing: back/forward + manual hash edits navigate sections
+    window.addEventListener('hashchange', applyHashNavigation);
+    window.addEventListener('popstate', applyHashNavigation);
 });

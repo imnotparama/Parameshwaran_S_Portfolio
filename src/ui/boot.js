@@ -6,6 +6,14 @@ import { traceData } from '../three/traces.js';
 import { isLiteMode } from '../config.js';
 
 export function runBootSequence(onCompleteCallback) {
+    // Return visitors in the same tab skip the boot ceremony (sessionStorage
+    // flag). Wrapped in try/catch — storage can throw in hardened privacy modes.
+    let skipBoot = false;
+    try {
+        skipBoot = sessionStorage.getItem('psb-booted') === '1';
+        sessionStorage.setItem('psb-booted', '1');
+    } catch { /* storage unavailable — always run the full boot */ }
+
     const tl = gsap.timeline({
         onComplete: () => {
             if (onCompleteCallback) onCompleteCallback();
@@ -21,8 +29,10 @@ export function runBootSequence(onCompleteCallback) {
     const terminalStatus = document.getElementById('terminal-status-text');
     const canvasContainer = document.getElementById('canvas-container');
 
-    // If user prefers reduced motion or small viewport, skip animations
-    if (isLiteMode()) {
+    // Skip animations for reduced-motion/small viewport (lite mode) OR a
+    // return visit in this tab (skipBoot) — same instant "already on" state.
+    const liteMode = isLiteMode();
+    if (liteMode || skipBoot) {
         overlay.style.display = 'none';
         gsap.set(canvasContainer, { opacity: 1 });
         if (boardGroup) {
@@ -31,7 +41,16 @@ export function runBootSequence(onCompleteCallback) {
         }
         gsap.set(badges, { opacity: 1, y: 0 });
         if (hudBar) hudBar.classList.add('hud-ready');
-        if (heroPanel) gsap.set(heroPanel, { opacity: 1, visibility: 'visible' });
+        if (heroPanel) {
+            if (skipBoot && !liteMode) {
+                // Journey fast path: clear inline styles so the .panel-active
+                // CSS toggle keeps ownership (see Critical Gotchas — inline
+                // visibility would pin the hero panel over every section).
+                gsap.set(heroPanel, { opacity: 1, visibility: 'visible', clearProps: 'opacity,visibility' });
+            } else {
+                gsap.set(heroPanel, { opacity: 1, visibility: 'visible' });
+            }
+        }
         if (subtitleEl) subtitleEl.textContent = 'ECE + Data Science · Builds Real, Working Projects';
         particles.forEach(p => { p.mesh.visible = true; });
         const underline = document.querySelector('.header-underline');

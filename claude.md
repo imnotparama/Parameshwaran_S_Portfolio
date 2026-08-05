@@ -248,6 +248,9 @@ The following were found by adversarial review (2026-08) and fixed. Any future r
 
 ## 📝 Developer Change & Session Log
 
+- **2026-08 Session — Deep links + boot skip**:
+  - **Hash routing** (`main.js`): `SECTION_HASHES` maps `sec-*` → `#/about`-style slugs; `navigateToSection()` does `history.pushState` + `scrollToSection` (nav buttons + brand link); `applyHashNavigation()` listens for `hashchange` + `popstate` so the back/forward buttons and manually edited hashes navigate sections; on first load an existing hash is honored after `initJourney`. Hero = no hash (clean URL). Unknown hashes are ignored.
+  - **Boot skip** (`boot.js`): `sessionStorage['psb-booted']` flag (try/catch-guarded) — return visitors in the same tab take the instant path (same as lite mode: overlay hidden, board at rest, HUD + badges + particles on). For the full-journey fast path the hero panel reveal uses `clearProps: 'opacity,visibility'` so the `.panel-active` CSS toggle keeps ownership (gotcha #1).
 - **2026-08 Session — Legacy interaction stack deleted (single scroll-journey model)**:
   - **Deleted files**: `src/utils/camera-states.js` (zoom state machine), `src/ui/sidepanel.js` (drawer), `src/ui/tooltip.js`, `src/ui/pcb-hud.js` (hover telemetry HUD).
   - **`src/utils/hover.js`** rewritten as a pure hover-glow module: removed click-to-zoom handler, `viewState` branches, `toggleComponentShells`, `updateCamera`, tooltip/HUD/trace-boost calls, `triggerComponentAction` export. Kept: bounded pointer clamp, `targetMouse` inertia, parallax feed, glow/scale/hover-light. Exports are now only `mouse`, `targetMouse`, `initHover`, `checkHover`.
