@@ -17,6 +17,49 @@ export let composer = null;
 
 // Glowing traces via bloom post-processing. Tuned conservatively so
 // frame rate holds on mid-range hardware; skipped entirely in lite mode.
+
+// Renderer quality is a BUDGET, not one knob: the three adapter discipline is
+// to step the whole pipeline down under load (composer resolution first — it
+// is the dominant fill cost in the bloom path — then shadow map, then bloom
+// strength). EffectComposer._pixelRatio defaults to 1 and is NOT auto-synced
+// to the renderer, so without this the bloom path silently renders the scene
+// at CSS-pixel resolution on retina and upscales (soft) — and the old
+// guardrail only ever scaled bloom strength, leaving resolution + shadows
+// pegged at full cost. Level 0 must equal the tuned baseline exactly.
+/** @type {Array<{ composerRatio: number, shadowSize: number, strength: number, radius: number }>} */
+const QUALITY_LEVELS = [
+    { composerRatio: 1.0, shadowSize: 1024, strength: 0.45, radius: 0.3 },
+    { composerRatio: 0.75, shadowSize: 768, strength: 0.2, radius: 0.15 },
+    { composerRatio: 0.5, shadowSize: 512, strength: 0.1, radius: 0.08 }
+];
+
+/** @type {number} */
+let qualityLevel = 0;
+
+/** @param {number} level @param {THREE.DirectionalLight} keyLight @param {number | null} avgFps */
+function applyQualityLevel(level, keyLight, avgFps) {
+    qualityLevel = level;
+    const q = QUALITY_LEVELS[level];
+    if (composer) {
+        // Composer resolution is the real fill cost in the bloom path — scale
+        // it with the renderer's pixel ratio (level 0 == full device ratio).
+        composer.setPixelRatio((renderer ? renderer.getPixelRatio() : 1) * q.composerRatio);
+        composer.setSize(window.innerWidth, window.innerHeight);
+        const bloomPass = composer.passes.find(p => p instanceof UnrealBloomPass);
+        if (bloomPass) {
+            bloomPass.strength = q.strength;
+            bloomPass.radius = q.radius;
+        }
+    }
+    // Shadow map fill is the second biggest fixed cost — shrink it under load.
+    keyLight.shadow.mapSize.set(q.shadowSize, q.shadowSize);
+    if (keyLight.shadow.map) {
+        keyLight.shadow.map.dispose();
+        keyLight.shadow.map = null; // force re-render at the new size
+    }
+    if (avgFps !== null) console.log(`[Performance] FPS ${avgFps.toFixed(1)} — quality ${level} (composer ×${q.composerRatio}, shadows ${q.shadowSize}², bloom ${q.strength})`);
+}
+
 export function enableBloom() {
     if (!renderer || !scene || !camera) return;
     try {
@@ -29,6 +72,9 @@ export function enableBloom() {
             0.7   // threshold — only emissive traces/LEDs bloom
         );
         composer.addPass(bloomPass);
+        // Sync the composer to the renderer's pixel ratio (defaults to 1 —
+        // without this the bloom path renders at CSS resolution on retina).
+        composer.setPixelRatio(renderer.getPixelRatio() * QUALITY_LEVELS[qualityLevel].composerRatio);
         composer.setSize(window.innerWidth, window.innerHeight);
         composer.renderToScreen = true;
     } catch (err) {
@@ -229,17 +275,23 @@ export function initScene(canvasElement) {
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+            // Re-apply the current quality level so the composer resolution and
+            // shadow map stay in budget after a resize (not just CSS size).
+            if (composer) applyQualityLevel(qualityLevel, dirLight1, null);
         }, 100);
     });
 
     // 6. FPS monitoring and performance guardrail
-    // Tracks frame times; reduces bloom if sustained below thresholds
+    // Steps the WHOLE quality budget (composer resolution → shadow map → bloom)
+    // down under sustained load — not just bloom strength like the old ladder.
+    // Hysteresis: recover only when fps climbs ~5 above the downgrade floor,
+    // so borderline machines don't thrash between levels every 30 frames.
     /** @type {number[]} */
     let fpsHistory = [];
     const FPS_SAMPLE_WINDOW = 30; // frames
-    let bloomReducedLevel = 0; // 0 = normal, 1 = reduced, 2 = minimal
-    const originalBloomSettings = { strength: 0.45, radius: 0.3 };
+    const DOWNGRADE_FLOOR = 45; // fps
+    const SEVERE_FLOOR = 30;    // fps
+    const RECOVERY_MARGIN = 5;  // fps above the floor to step back up
 
     /** @param {number} deltaMs */
     function checkPerformance(deltaMs) {
@@ -250,37 +302,17 @@ export function initScene(canvasElement) {
             const avgMs = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
             const avgFps = 1000 / avgMs;
 
-            // Multi-level performance scaling
-            let newLevel = 0;
-            if (avgFps < 30) {
-                newLevel = 2; // Severe performance reduction
-            } else if (avgFps < 45) {
-                newLevel = 1; // Moderate reduction
+            let newLevel = qualityLevel;
+            if (avgFps < SEVERE_FLOOR) {
+                newLevel = 2;
+            } else if (avgFps < DOWNGRADE_FLOOR) {
+                newLevel = Math.max(newLevel, 1);
+            } else if (qualityLevel > 0 && avgFps >= DOWNGRADE_FLOOR + RECOVERY_MARGIN) {
+                newLevel = qualityLevel - 1; // one step back per check
             }
 
-            // Only update if level changed
-            if (newLevel !== bloomReducedLevel) {
-                bloomReducedLevel = newLevel;
-                const bloomPass = composer.passes.find(p => p instanceof UnrealBloomPass);
-                if (bloomPass) {
-                    switch (newLevel) {
-                        case 0: // Normal
-                            bloomPass.strength = originalBloomSettings.strength;
-                            bloomPass.radius = originalBloomSettings.radius;
-                            console.log(`[Performance] FPS ${avgFps.toFixed(1)} - restoring normal bloom`);
-                            break;
-                        case 1: // Reduced
-                            bloomPass.strength = Math.min(originalBloomSettings.strength * 0.5, 0.2);
-                            bloomPass.radius = Math.min(originalBloomSettings.radius * 0.5, 0.15);
-                            console.log(`[Performance] FPS ${avgFps.toFixed(1)} < 45 - reducing bloom`);
-                            break;
-                        case 2: // Minimal
-                            bloomPass.strength = Math.min(originalBloomSettings.strength * 0.25, 0.1);
-                            bloomPass.radius = Math.min(originalBloomSettings.radius * 0.25, 0.08);
-                            console.log(`[Performance] FPS ${avgFps.toFixed(1)} < 30 - minimal bloom`);
-                            break;
-                    }
-                }
+            if (newLevel !== qualityLevel) {
+                applyQualityLevel(newLevel, dirLight1, avgFps);
             }
         }
     }

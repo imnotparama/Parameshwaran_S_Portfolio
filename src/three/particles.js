@@ -13,6 +13,13 @@ export function createParticles(boardGroup) {
     const particleGeo = new THREE.SphereGeometry(0.09, 8, 8);
     
     // Bright glowing MeshStandardMaterial (emissiveIntensity 2.5)
+    // No per-particle PointLight: the electrons are emissive at 2.5 and bloom
+    // threshold is 0.7, so they glow brightly on their own. 60 moving point
+    // lights (5 per trace x 12 traces) forced every lit material's shader to
+    // evaluate 60 attenuations per fragment all journey long — the subtle
+    // 0.3-intensity "moving glow" they added is redundant with the emissive +
+    // bloom already in the scene (threejs-animation perf discipline: limit
+    // active lights, disable what's not needed).
     const defaultMaterial = new THREE.MeshStandardMaterial({
         color: 0x3ee6a0,
         emissive: 0x3ee6a0,
@@ -29,14 +36,13 @@ export function createParticles(boardGroup) {
         const numParticlesPerTrace = 5; // Increased from 3 to 5
 
         for (let i = 0; i < numParticlesPerTrace; i++) {
-            const mat = defaultMaterial.clone();
-            const pMesh = new THREE.Mesh(particleGeo, mat);
+            // Share ONE material across all particles — nothing differentiates
+            // them per-particle (only mesh.visible toggles), and 60 clones were
+            // 60 identical program bindings for zero gain (threejs-animation
+            // perf discipline: share resources).
+            const pMesh = new THREE.Mesh(particleGeo, defaultMaterial);
             pMesh.visible = false;
             boardGroup.add(pMesh);
-
-            // Add subtle PointLight to cast moving glows on the board
-            const pLight = new THREE.PointLight(0xffffff, 0.3, 1.5);
-            pMesh.add(pLight);
 
             const progress = i / numParticlesPerTrace;
 

@@ -174,13 +174,41 @@ body {
     margin-bottom: 8px;
 }
 
-h1#user-name {
+.headline-stack {
+    /* grid stacks h1 + the gradient twin in ONE cell — pixel-identical
+       glyphs, so the sweep masks into the exact same letterforms. */
+    display: grid;
+    margin-bottom: 12px; /* was h1#user-name's margin — moved to the wrapper */
+}
+
+h1#user-name,
+.headline-twin {
+    grid-area: 1 / 1;
     font-family: var(--font-heading);
     font-size: clamp(32px, 5vw, 64px);
     font-weight: 700;
-    color: var(--silkscreen);
     letter-spacing: 0.18em;
-    margin-bottom: 12px;
+}
+
+h1#user-name {
+    color: var(--silkscreen);
+    margin-bottom: 0; /* spacing lives on .headline-stack now */
+}
+
+.headline-twin {
+    /* gradient-text-sweep twin — masked INTO the type. Opacity 0 by default;
+       the boot raises it for a one-shot sweep, then it fades back and the
+       solid silkscreen h1 owns the rest state. background-size > 100% is what
+       makes the backgroundPosition tween travel (at 100% it's pinned). */
+    color: transparent;
+    background-image: linear-gradient(90deg, #ece7d8 0%, #c9a24b 24%, #3ee6a0 50%, #c9a24b 76%, #ece7d8 100%);
+    background-size: 300% 100%;
+    background-position: 100% 50%; /* boot tweens to 0% (left→right travel) */
+    -webkit-background-clip: text;
+    background-clip: text;
+    opacity: 0;
+    pointer-events: none;
+    user-select: none;
 }
 
 .header-underline {
@@ -311,7 +339,8 @@ h1#user-name {
         padding: 2px 8px;
     }
 
-    h1#user-name {
+    h1#user-name,
+    .headline-twin {
         font-size: clamp(22px, 6vw, 32px);
         letter-spacing: 0.08em;
     }
@@ -352,7 +381,7 @@ h1#user-name {
 
 .nav-btn:hover {
     background-color: rgba(0, 255, 136, 0.15);
-    color: #ffffff;
+    color: var(--silkscreen);
 }
 
 /* Plan 004: lift gated behind (hover: hover) and (pointer: fine). The green
@@ -530,7 +559,7 @@ a:focus-visible,
 .fallback-title {
     font-family: var(--font-heading);
     font-size: 22px;
-    color: #ffffff;
+    color: var(--silkscreen);
     margin-bottom: 20px;
     letter-spacing: 1px;
 }

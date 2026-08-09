@@ -13,10 +13,20 @@ import { portfolioData } from '../data/portfolio.js';
 
 /** @typedef {{ mat: THREE.MeshStandardMaterial, seed: number }} FlickerLed */
 
+/**
+ * Chip lookup for the click-to-component focus interaction (journey.js).
+ * pos is the chip group's position in boardGroup LOCAL space — the same
+ * space COMPONENT_WORLD uses, so focus reuses the CAMERA_OFFSET language.
+ * @typedef {{ pos: THREE.Vector3, data: any, ledMat: THREE.MeshStandardMaterial }} ChipRecord
+ */
+
 /** @type {FlickerLed[]} */
 const flickerLeds = [];
 /** @type {THREE.MeshStandardMaterial[]} */
 const steadyLeds = [];
+
+/** @type {Record<string, ChipRecord>} */
+export const projectChips = {};
 
 /** @param {THREE.Group} boardGroup */
 export function createProjectChips(boardGroup) {
@@ -71,11 +81,16 @@ export function createProjectChips(boardGroup) {
 
         const isBuilding = proj.status === 'building';
 
-        if (isBuilding) {
-            buildBreadboardPatch(group);
-        } else {
-            buildSolderedChip(group, chipMat, goldMat, solderTraceMat, busY - rowY);
-        }
+        const ledMat = isBuilding
+            ? buildBreadboardPatch(group)
+            : buildSolderedChip(group, chipMat, goldMat, solderTraceMat, busY - rowY);
+
+        // Local position + data for the focus camera glide and detail datasheet.
+        projectChips[proj.ref] = {
+            pos: group.position.clone(),
+            data: proj,
+            ledMat
+        };
 
         // Invisible hover bounds → tooltip shows the project name
         const boundsGeo = new THREE.BoxGeometry(0.6, 0.6, 0.3);
@@ -99,6 +114,7 @@ export function createProjectChips(boardGroup) {
  * @param {THREE.MeshStandardMaterial} goldMat
  * @param {THREE.MeshStandardMaterial} traceMat
  * @param {number} busOffsetY
+ * @returns {THREE.MeshStandardMaterial} the steady status LED material (for focus flash)
  */
 function buildSolderedChip(group, chipMat, goldMat, traceMat, busOffsetY) {
     const bodyGeo = new THREE.BoxGeometry(0.42, 0.42, 0.12);
@@ -138,10 +154,11 @@ function buildSolderedChip(group, chipMat, goldMat, traceMat, busOffsetY) {
     led.position.set(0.14, 0.14, 0.14);
     group.add(led);
     steadyLeds.push(ledMat);
+    return ledMat;
 }
 
 // Open breadboard patch — visible jumper wires, faint flicker.
-/** @param {THREE.Group} group */
+/** @param {THREE.Group} group @returns {THREE.MeshStandardMaterial} the flicker LED material (for focus flash) */
 function buildBreadboardPatch(group) {
     const plateGeo = new THREE.BoxGeometry(0.56, 0.56, 0.05);
     const plateMat = new THREE.MeshStandardMaterial({ color: 0xd6c8a2, roughness: 0.95 });
@@ -201,6 +218,7 @@ function buildBreadboardPatch(group) {
     // identical on every page load and OG capture. The old Math.random() seed
     // made the board's "in build" LEDs pulse differently every visit.
     flickerLeds.push({ mat: ledMat, seed: flickerLeds.length * 2.4 });
+    return ledMat;
 }
 
 // Per-frame: flicker the breadboard LEDs, keep soldered ones steady.

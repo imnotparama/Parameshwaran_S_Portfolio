@@ -15,11 +15,34 @@ import { isLiteMode } from '../config.js';
 // bug class). Text stepping uses proxy tweens with onUpdate textContent
 // writes — no setTimeout anywhere in the sequence.
 const CPS = 33.3; // typewriter chars/second (matches the original 30ms/char feel)
-const BOOT_LINES = [
-  '> INITIALIZING PARAMA-DEV-BOARD...',
+
+/**
+ * Boot terminal lines. Plain strings type uniformly (one char per tick).
+ * An entry with a `sequence` uses the discrete-text-sequence pattern — a
+ * sparse {t, text} schedule (keystroke clusters → typo → backspace to the
+ * fork → corrected bulk paste) so that line reads as typed by a human,
+ * identical on every run. The driver tween is ease:'none' — a pure function
+ * of timeline time, no timers, seek-safe.
+ * @typedef {{ text: string, sequence?: Array<{ t: number, text: string }>, total?: number }} BootLine
+ */
+const BOOT_LINES = /** @type {Array<string | BootLine>} */ ([
+  {
+    text: '> INITIALIZING PARAMA-DEV-BOARD...',
+    total: 1.4,
+    // deterministic typo + backspace correction: 'INITILIZING' drops the 'A',
+    // backspaces to the fork ('> INITI'), then pastes the corrected line.
+    sequence: [
+      { t: 0.0, text: '' },
+      { t: 0.3, text: '> INI' },
+      { t: 0.5, text: '> INITI' },
+      { t: 0.75, text: '> INITILIZING' },                       // typo — dropped 'A' in INITIALIZING
+      { t: 1.05, text: '> INITI' },                             // backspace to the fork
+      { t: 1.25, text: '> INITIALIZING PARAMA-DEV-BOARD...' }   // corrected bulk paste
+    ]
+  },
   '> LOADING GEOMETRY...',
   '> ALL PCB SYSTEMS OPERATIONAL'
-];
+]);
 const SCHEDULE = {
   scanline: 0.3,      // scanline sweep (0.85s)
   terminal: 1.25,     // boot terminal typing starts (parallel track)
@@ -137,21 +160,54 @@ export function runBootSequence(onCompleteCallback) {
     if (bootTerminal) {
         bootTerminal.innerHTML = '';
         savedStatusEl = terminalStatus;
-        BOOT_LINES.forEach((text) => {
+        BOOT_LINES.forEach((entry) => {
+            const isSequenced = typeof entry !== 'string';
+            const text = isSequenced ? entry.text : entry;
             const lineEl = document.createElement('div');
             lineEl.className = 'term-green';
             bootTerminal.appendChild(lineEl);
-            const proxy = { n: 0 };
-            tl.to(proxy, {
-                n: text.length,
-                duration: text.length / CPS,
-                ease: 'none',
-                onUpdate: () => {
-                    if (lineEl) lineEl.textContent = text.slice(0, Math.round(proxy.n));
-                }
-            }, typePos);
-            // Brief beat between lines, then the next line begins
-            typePos += text.length / CPS + 0.15;
+
+            if (isSequenced && entry.sequence) {
+                // Discrete-text-sequence: one driver tween, onUpdate
+                // reverse-searches the sparse {t, text} schedule (same pattern
+                // as the subtitle) — typo → backspace → corrected paste.
+                const seq = entry.sequence;
+                const total = entry.total || text.length / CPS;
+                const driver = { t: 0 };
+                /** @param {number} time */
+                const textAt = (time) => {
+                    for (let i = seq.length - 1; i >= 0; i--) {
+                        if (time >= seq[i].t) return seq[i].text;
+                    }
+                    return '';
+                };
+                tl.to(driver, {
+                    t: total,
+                    duration: total,
+                    ease: 'none',
+                    onUpdate: () => {
+                        if (lineEl) lineEl.textContent = textAt(driver.t);
+                    }
+                }, typePos);
+                // Final-state safety: whatever the reverse search renders, the
+                // last schedule entry is the corrected full line — snap it exact.
+                tl.call(() => {
+                    if (lineEl) lineEl.textContent = text;
+                }, [], typePos + total);
+                typePos += total + 0.15;
+            } else {
+                const proxy = { n: 0 };
+                tl.to(proxy, {
+                    n: text.length,
+                    duration: text.length / CPS,
+                    ease: 'none',
+                    onUpdate: () => {
+                        if (lineEl) lineEl.textContent = text.slice(0, Math.round(proxy.n));
+                    }
+                }, typePos);
+                // Brief beat between lines, then the next line begins
+                typePos += text.length / CPS + 0.15;
+            }
         });
         tl.call(() => {
             if (bootTerminal && savedStatusEl) bootTerminal.appendChild(savedStatusEl);
@@ -172,18 +228,46 @@ export function runBootSequence(onCompleteCallback) {
         tl.set(heroPanel, { opacity: 1, visibility: 'visible', clearProps: 'opacity,visibility' }, SCHEDULE.heroPanel);
     }
 
-    // Subtitle — timeline-driven typewriter (same proxy pattern)
+    // Subtitle — humanized typing via a discrete text sequence
+    // (discrete-text-sequence rule): keystroke clusters → a typo → backspaces
+    // peeling back to the fork → a corrected bulk paste. The display is a
+    // pure function of timeline time — one driver tween at ease:'none', and
+    // onUpdate reverse-searches the sparse {t, text} schedule. No per-char
+    // easing, no timers — identical on every run.
     if (subtitleEl) {
-        const text = 'ECE + Data Science · Builds Real, Working Projects';
-        const proxy = { n: 0 };
-        tl.to(proxy, {
-            n: text.length,
-            duration: text.length / CPS,
-            ease: 'none',
-            onUpdate: () => {
-                subtitleEl.textContent = text.slice(0, Math.round(proxy.n));
+        const FINAL_TEXT = 'ECE + Data Science · Builds Real, Working Projects';
+        /** @type {Array<{ t: number, text: string }>} */
+        const SEQUENCE = [
+            { t: 0.0, text: '' },
+            { t: 0.35, text: 'ECE' },
+            { t: 0.55, text: 'ECE +' },
+            { t: 0.75, text: 'ECE + Data' },
+            { t: 0.95, text: 'ECE + Data Sience' },          // typo — dropped 'c'
+            { t: 1.25, text: 'ECE + Data S' },               // backspace to the fork
+            { t: 1.45, text: 'ECE + Data Science' },         // corrected bulk paste
+            { t: 1.75, text: 'ECE + Data Science ·' },
+            { t: 2.05, text: 'ECE + Data Science · Builds Real, Working Projects' }
+        ];
+        const TOTAL = 2.15;
+        const driver = { t: 0 };
+        /** @param {number} time */
+        const textAt = (time) => {
+            for (let i = SEQUENCE.length - 1; i >= 0; i--) {
+                if (time >= SEQUENCE[i].t) return SEQUENCE[i].text;
             }
+            return '';
+        };
+        tl.to(driver, {
+            t: TOTAL,
+            duration: TOTAL,
+            ease: 'none',
+            onUpdate: () => { subtitleEl.textContent = textAt(driver.t); }
         }, SCHEDULE.subtitle);
+        // Final-state safety: whatever the reverse search renders, the last
+        // schedule entry is the full corrected phrase — the text ends exact.
+        tl.call(() => {
+            if (subtitleEl) subtitleEl.textContent = FINAL_TEXT;
+        }, [], SCHEDULE.subtitle + TOTAL);
     }
 
     // Fade in stat badges
@@ -202,18 +286,21 @@ export function runBootSequence(onCompleteCallback) {
     }, SCHEDULE.canvas);
 
     if (boardGroup) {
+        // power3.out = the house entrance settle (easing doctrine) — the board
+        // float-up is the hero entrance, so it gets the confident long-tail
+        // landing, not the gentler power2 used for secondary motion.
         tl.to(boardGroup.position, {
             y: 0,
             z: 0,
             duration: 1.2,
-            ease: 'power2.out'
+            ease: 'power3.out'
         }, SCHEDULE.board);
 
         tl.to(boardGroup.rotation, {
             x: -Math.PI / 10,
             y: -Math.PI / 20,
             duration: 1.2,
-            ease: 'power2.out'
+            ease: 'power3.out'
         }, SCHEDULE.board);
 
         const underline = document.querySelector('.header-underline');
@@ -223,9 +310,31 @@ export function runBootSequence(onCompleteCallback) {
             tl.to(underline, {
                 scaleX: 1,
                 duration: 1.0,
-                ease: 'power2.out'
+                ease: 'power3.out'
             }, SCHEDULE.board);
         }
+    }
+
+    // Gradient sweep through the hero name (gradient-text-sweep rule, Form A
+    // one-shot): the .headline-twin is a background-clip:text layer masked into
+    // the same glyphs. Tweening backgroundPosition 100%→0% slides the
+    // gold→green highlight left→right THROUGH the letterforms (percent axis
+    // inverted — 100%→0% is left→right travel). ease:'none' — an eased sweep
+    // reads as an object, not light. One-shot, then the twin fades back to
+    // opacity 0 and the solid silkscreen h1 owns the rest state.
+    const headlineTwin = document.querySelector('.headline-twin');
+    if (headlineTwin) {
+        tl.set(headlineTwin, { opacity: 1 }, SCHEDULE.board + 0.05);
+        tl.fromTo(headlineTwin,
+            { backgroundPosition: '100% 50%' },
+            { backgroundPosition: '0% 50%', duration: 1.6, ease: 'none' },
+            SCHEDULE.board + 0.1
+        );
+        tl.to(headlineTwin, {
+            opacity: 0,
+            duration: 0.4,
+            ease: 'power1.out'
+        }, SCHEDULE.board + 1.75);
     }
 
     // Step 5 (1.8s): Traces light up one by one (left to right)

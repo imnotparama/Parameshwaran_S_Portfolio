@@ -7,10 +7,10 @@ import { createParticles, updateParticles } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips } from './src/three/project-chips.js';
 import { updateRadarRing } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
-import { initHover, checkHover, mouse } from './src/utils/hover.js';
+import { initHover, checkHover, mouse, setBoardClickHandler } from './src/utils/hover.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { renderSections } from './src/ui/sections.js';
-import { initJourney, scrollToSection, updateJourneyEffects } from './src/scroll/journey.js';
+import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode } from './src/scroll/journey.js';
 
 // ─── Hash-based deep links ─────────────────────────────────
 // Each section gets a shareable URL (#/about, #/projects, ...). Nav clicks
@@ -146,6 +146,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 8. Bind hover raycast checking
     initHover(camera, scene);
+
+    // 8b. Click-to-component: clicking a project chip on the board glides the
+    // camera to it and opens its focused datasheet (journey.focusProject).
+    // The close button releases the same way Esc does.
+    setBoardClickHandler((ref) => focusProject(ref));
+    const projectCloseBtn = document.getElementById('btn-project-close');
+    if (projectCloseBtn) {
+        projectCloseBtn.addEventListener('click', () => exitFocusMode());
+    }
 
     // 9. Set up body class for mode detection
     if (isLiteMode()) {

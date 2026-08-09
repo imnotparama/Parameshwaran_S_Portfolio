@@ -82,7 +82,7 @@ body.hud-cta-hidden #cta-linkedin-hud {
     pointer-events: none !important;
     visibility: hidden !important;
     transform: scale(0.95);
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
 }
 
 .hud-name {
@@ -121,6 +121,25 @@ body.hud-cta-hidden #cta-linkedin-hud {
     position: relative;
     font-weight: 500;
     border-radius: var(--radius-sm, 2px);
+}
+
+/* Reference designator (U1, U2, C1–C4, J1, ANT1) — a tiny gold silkscreen
+   glyph before each section label, matching the refs printed on the panels.
+   Kept quiet (9px, 0.8 opacity) so the label stays the primary read; it
+   brightens with the button's own hover/active states. */
+.nav-ref {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    color: var(--enig-gold);
+    opacity: 0.8;
+    margin-right: 6px;
+    font-weight: 500;
+}
+
+.hud-nav .nav-btn:hover .nav-ref,
+.hud-nav .nav-btn.nav-active .nav-ref {
+    color: var(--enig-gold);
+    opacity: 1;
 }
 
 .hud-nav .nav-btn:hover {
@@ -336,6 +355,44 @@ body.hud-cta-hidden #cta-linkedin-hud {
     min-height: 280vh;
 }
 
+/* Focused project detail: display:contents removes the section box entirely
+   (a .journey-sec would otherwise add 180vh to the scroll path), while the
+   fixed .ds-panel inside still renders. */
+#sec-project-detail {
+    display: contents;
+}
+
+/* Close button — gold SMD push-button in the panel's top-right corner. */
+.panel-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(201, 162, 75, 0.45);
+    border-radius: 2px;
+    background: linear-gradient(180deg, rgba(30, 77, 51, 0.55), rgba(30, 77, 51, 0.18));
+    color: var(--enig-gold);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    transition: box-shadow var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+
+.panel-close:hover,
+.panel-close:focus-visible {
+    border-color: var(--enig-gold);
+    box-shadow: 0 0 12px rgba(201, 162, 75, 0.35);
+    outline: none;
+}
+
+.panel-close:active {
+    transform: scale(0.9);
+}
+
 #sec-hero {
     min-height: 120vh;
 }
@@ -515,7 +572,7 @@ body.full-journey #panel-hero.panel-active {
     padding-left: 12px;
     font-size: 22px;
     letter-spacing: 3px;
-    color: #ffffff;
+    color: var(--silkscreen);
     margin: 0 0 14px;
     font-weight: 700;
     text-shadow: 0 0 20px rgba(201, 162, 75, 0.25);
@@ -549,6 +606,34 @@ body.full-journey #panel-hero.panel-active {
 
 .contact-panel .ds-title::before {
     display: none;
+}
+
+/* ─── ds-title-stack — gradient-text-sweep twin (hero mechanism extended) ──
+   The datasheet heading sits in a grid with a pixel-identical twin that
+   carries the gold→green gradient masked INTO the glyphs (base rules live
+   on .headline-twin in style.css). The twin is opacity 0 by default and
+   only raised by journey.js for the one-shot sweep on panel activation.
+   These overrides match .ds-title's metrics so the twins stack exactly. */
+.ds-title-stack {
+    display: grid;
+    margin: 0 0 14px; /* was h2.ds-title's margin — moved to the wrapper */
+}
+
+.ds-title-stack .ds-title {
+    margin: 0;
+}
+
+.ds-title-stack .headline-twin {
+    padding-left: 12px; /* matches .ds-title's tick padding so glyphs align */
+    font-size: 22px;
+    letter-spacing: 3px;
+    font-weight: 700;
+    font-family: var(--font-heading);
+}
+
+/* Centered panels drop the tick — the twin's padding drops with it */
+.contact-panel .ds-title-stack .headline-twin {
+    padding-left: 0;
 }
 
 .ds-body {
@@ -678,7 +763,9 @@ body.full-journey #panel-hero.panel-active {
     flex-direction: column;
     gap: 10px;
     box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.04), 0 8px 18px rgba(0, 0, 0, 0.35);
-    transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+    /* Plan 003 scope note: proj-ds was left off-token; tokenize it now so the
+       highest-frequency interactive cards share the house curve. */
+    transition: box-shadow var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
     backdrop-filter: blur(4px);
 }
 
@@ -728,7 +815,7 @@ body.full-journey #panel-hero.panel-active {
     font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.5px;
-    color: #ffffff;
+    color: var(--silkscreen);
 }
 
 .proj-ds-status {
@@ -782,7 +869,7 @@ body.full-journey #panel-hero.panel-active {
     text-decoration: none;
     border-bottom: 1px solid rgba(0, 255, 136, 0.3);
     padding-bottom: 2px;
-    transition: border-color 0.2s, text-shadow 0.2s;
+    transition: border-color var(--duration-fast) var(--ease-out), text-shadow var(--duration-fast) var(--ease-out);
 }
 
 .proj-ds-link:hover {
@@ -927,7 +1014,7 @@ body.full-journey #panel-hero.panel-active {
 .tl-title {
     font-size: 14px;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--silkscreen);
     margin: 4px 0;
 }
 
@@ -956,7 +1043,7 @@ body.full-journey #panel-hero.panel-active {
     color: rgba(127, 191, 143, 0.7);
     text-decoration: none;
     border-bottom: 1px dotted rgba(127, 191, 143, 0.4);
-    transition: color 0.2s, border-color 0.2s;
+    transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
 
 .secondary-link:hover {
@@ -1111,6 +1198,9 @@ body.lite-mode .journey-sec:not(#sec-hero) {
         grid-template-columns: 1fr;
     }
     .ds-title {
+        font-size: 16px;
+    }
+    .ds-title-stack .headline-twin {
         font-size: 16px;
     }
     .ds-body {

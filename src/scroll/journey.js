@@ -10,6 +10,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import { cpuRadarRing, siliconDieMesh } from '../three/components.js';
 import { traceData } from '../three/traces.js';
+import { projectChips } from '../three/project-chips.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
@@ -25,6 +26,11 @@ window.addEventListener('load', () => ScrollTrigger.refresh());
 // This 3/4 angle (~31°) shows each component's top surface and silkscreen.
 const CAMERA_OFFSET = new THREE.Vector3(0, 2.6, 4.2);
 const LOOK_AT_OFFSET = new THREE.Vector3(0, 0.15, 0);
+
+// Click-to-component focus framing: a chip is small (0.42u), so a focused
+// stop sits closer than the section stops — ~2.8u back at a 28° elevation
+// frames the chip with one or two neighbors either side (0.68u spacing).
+const CHIP_FOCUS_OFFSET = new THREE.Vector3(0, 1.5, 2.8);
 
 // Boot→hero arrival glide duration (seconds) — a short repositioning beat so
 // the boot's establishing shot reads as one continuous motion, not a cut.
@@ -138,6 +144,13 @@ let currentLegProgress = 0;
 // styles, and toggling panel-active mid-boot re-triggers frozen transitions.
 let journeyReady = false;
 
+// ─── Click-to-component focus state ────────────────────────
+// When a project chip is clicked, the camera glides to the chip (same arrival
+// language as the section stops) and the focused datasheet panel is anchored
+// near it. Any scroll releases focus — the scrub owns the camera again.
+/** @type {{ ref: string, localPos: THREE.Vector3, data: any } | null} */
+let focusedChip = null;
+
 // ─── Build CatmullRom curves from PATH ─────────────────────
 function buildCurves() {
   // Reset accumulated state so re-initializing (HMR, re-entry) can't
@@ -199,8 +212,10 @@ function getCameraConfigForStop(sectionId) {
 /** @param {number} t */
 function setCameraAtT(t) {
   if (!posCurve || !lookCurve || !cameraRef) return;
-  // Scroll scrubbing always wins: if an arrival glide is still settling, kill
-  // it the moment the user scrolls so the scrub and the tween never fight.
+  // Scroll scrubbing always wins: any user scroll releases chip focus (no
+  // glide back — the scrub takes the camera from here), and kills a settling
+  // arrival glide so the scrub and the tween never fight.
+  if (focusedChip) clearFocus(false);
   killArrivalGlide();
   const clamped = Math.min(Math.max(t, 0), 1);
   const p = posCurve.getPoint(clamped);
@@ -226,29 +241,124 @@ function killArrivalGlide() {
   }
 }
 
-function glideToHero() {
+/** Glide camera position + lookAt to a pose (power2.inOut repositioning —
+ *  transform-space only). Interruptible: the next scroll scrub kills it.
+ * @param {THREE.Vector3} pos
+ * @param {THREE.Vector3} look
+ * @param {number} [duration] */
+function glideCameraTo(pos, look, duration = ARRIVAL_GLIDE_DURATION) {
   if (!cameraRef) return;
   killArrivalGlide();
-  const cfg = getCameraConfigForStop('sec-hero');
   arrivalGlide = gsap.timeline({
     onComplete: () => { arrivalGlide = null; }
   });
   arrivalGlide.to(cameraRef.position, {
-    x: cfg.pos.x,
-    y: cfg.pos.y,
-    z: cfg.pos.z,
-    duration: ARRIVAL_GLIDE_DURATION,
+    x: pos.x,
+    y: pos.y,
+    z: pos.z,
+    duration,
     ease: 'power2.inOut',
     overwrite: 'auto'
   }, 0);
   arrivalGlide.to(curLook, {
-    x: cfg.look.x,
-    y: cfg.look.y,
-    z: cfg.look.z,
-    duration: ARRIVAL_GLIDE_DURATION,
+    x: look.x,
+    y: look.y,
+    z: look.z,
+    duration,
     ease: 'power2.inOut',
     onUpdate: () => { if (cameraRef) cameraRef.lookAt(curLook); }
   }, 0);
+}
+
+function glideToHero() {
+  if (!cameraRef) return;
+  const cfg = getCameraConfigForStop('sec-hero');
+  glideCameraTo(cfg.pos, cfg.look);
+}
+
+// ─── Focus mode: chip click → camera glide + detail datasheet ──
+/** Fill the focused-project panel from portfolio data (textContent only —
+ *  no HTML injection). @param {any} proj */
+function fillProjectDetailPanel(proj) {
+  const q = (/** @type {string} */ id) => document.getElementById(id);
+  const refEl = q('pdetail-ref');
+  const titleEl = q('pdetail-title');
+  const titleTwinEl = q('pdetail-title-twin');
+  const problemEl = q('pdetail-problem');
+  const stateEl = q('pdetail-state');
+  const tagsEl = q('pdetail-tags');
+  const linkEl = /** @type {HTMLAnchorElement | null} */ (q('pdetail-link'));
+  if (refEl) refEl.textContent = `${proj.ref} — ${proj.status === 'building' ? 'BREADBOARD (IN BUILD)' : 'SOLDERED (SHIPPED)'}`;
+  const title = `// PROJECT: ${proj.title}`;
+  // The sweep twin mirrors the title glyphs — fill it with the same text.
+  if (titleEl) titleEl.textContent = title;
+  if (titleTwinEl) titleTwinEl.textContent = title;
+  if (problemEl) problemEl.textContent = proj.problem;
+  if (stateEl) stateEl.textContent = proj.state;
+  if (tagsEl) {
+    tagsEl.textContent = '';
+    (proj.tags || []).forEach((/** @type {string} */ t) => {
+      const pill = document.createElement('span');
+      pill.className = 'skill-pill';
+      pill.textContent = t;
+      tagsEl.appendChild(pill);
+    });
+  }
+  if (linkEl) {
+    linkEl.href = proj.link || '#';
+    linkEl.textContent = proj.linkLabel || 'VIEW PROJECT →';
+  }
+}
+
+/** Release focus. With glideBack, the camera returns to the current
+ *  section's stop pose (Esc / close button); on scroll the scrub owns the
+ *  camera instead, so no glide. @param {boolean} [glideBack] */
+function clearFocus(glideBack = false) {
+  if (!focusedChip) return;
+  focusedChip = null;
+  if (glideBack && cameraRef) {
+    const cfg = getCameraConfigForStop(currentSectionId);
+    glideCameraTo(cfg.pos, cfg.look, 0.7);
+  }
+}
+
+/** Click-to-component entry: glide the camera to the clicked chip, flash
+ *  its LED, and anchor the focused datasheet panel near it. Clicking the
+ *  same chip again (or Esc / close) releases. @param {string} ref */
+export function focusProject(ref) {
+  if (!cameraRef || !journeyReady) return;
+  const chip = projectChips[ref];
+  if (!chip) return;
+  // Toggle: clicking the already-focused chip closes the focus view.
+  if (focusedChip && focusedChip.ref === ref) {
+    clearFocus(true);
+    return;
+  }
+  focusedChip = { ref, localPos: chip.pos, data: chip.data };
+
+  fillProjectDetailPanel(chip.data);
+  setActivePanel('panel-project-detail');
+
+  // Flash the chip's status LED — same "if it glows, it's live" language
+  // as pulseArrival, but the chip's own light.
+  gsap.killTweensOf(chip.ledMat);
+  gsap.fromTo(chip.ledMat, { emissiveIntensity: 0.15 }, {
+    emissiveIntensity: 1.9,
+    duration: 0.3,
+    yoyo: true,
+    repeat: 1,
+    ease: 'power1.out',
+    overwrite: 'auto'
+  });
+
+  const look = chip.pos.clone().add(new THREE.Vector3(0, 0.05, 0));
+  const pos = chip.pos.clone().add(CHIP_FOCUS_OFFSET);
+  glideCameraTo(pos, look, 1.2);
+}
+
+/** Public release (close button / Esc wiring). */
+export function exitFocusMode() {
+  clearFocus(true);
 }
 
 // ─── Leg state: which section is active given where the scroll is ──
@@ -316,6 +426,32 @@ function setActivePanel(panelId) {
   document.querySelectorAll('.hud-nav .nav-btn').forEach((btn) => {
     btn.classList.toggle('nav-active', btn.getAttribute('data-section') === secId);
   });
+  // One-shot gold sweep on the activated panel's datasheet title
+  // (gradient-text-sweep — same background-clip:text twin mechanism as the
+  // boot's hero sweep: raised, backgroundPosition 100%→0% (left→right
+  // travel), then faded back so the solid silkscreen title owns the rest
+  // state). The hero panel is excluded — boot.js owns its twin, and
+  // initJourney's setActivePanel('panel-hero') would otherwise re-sweep it
+  // right after boot.
+  if (panelId && panelId !== 'panel-hero' && activePanelEl) {
+    const titleTwin = activePanelEl.querySelector('.headline-twin');
+    if (titleTwin) {
+      gsap.killTweensOf(titleTwin);
+      gsap.set(titleTwin, { backgroundPosition: '100% 50%', opacity: 1 });
+      gsap.fromTo(titleTwin,
+        { backgroundPosition: '100% 50%' },
+        { backgroundPosition: '0% 50%', duration: 1.2, ease: 'none' }
+      );
+      gsap.to(titleTwin, {
+        opacity: 0,
+        duration: 0.4,
+        ease: 'power1.out',
+        delay: 1.2,
+        clearProps: 'backgroundPosition'
+      });
+    }
+  }
+
   // Power-on micro-moment for the section's component
   pulseArrival(secId);
   // Show/hide connector
@@ -327,6 +463,9 @@ function setActivePanel(panelId) {
 
 // ─── Create connector SVG overlay ───────────────────────────
 function createConnector() {
+  // Idempotent: a re-init (HMR re-entry, double module graph in dev) must
+  // never stack a second fixed overlay on the page.
+  document.querySelectorAll('#connector-line').forEach((el) => el.remove());
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.id = 'connector-line';
   svg.setAttribute('class', 'connector-svg');
@@ -347,27 +486,100 @@ function createConnector() {
   connectorLine = svg;
 }
 
+/** Anchor a panel next to a projected screen point (component dot) and draw
+ *  the connector line from the dot to the panel edge. Pre-calculated layout
+ *  constants — panel size measured once per panel per resize.
+ *  @param {string} panelId @param {number} cx @param {number} cy */
+function positionPanelAt(panelId, cx, cy) {
+  const panel = document.getElementById(panelId);
+  if (!panel || !connectorLine) return;
+  // #panel-projects is .ds-panel-wide (up to 980px); hardcoding 480 would
+  // shove it off-screen.
+  const { w: panelW, h: panelH } = getPanelSize(panelId);
+  const margin = 24;
+
+  // Decide which side: place panel on left when component is on right half, and vice versa
+  const placeLeft = cx < window.innerWidth * 0.55;
+
+  /** @type {number | 'auto'} */
+  let panelLeft;
+  /** @type {number | 'auto'} */
+  let panelRight;
+  if (placeLeft) {
+    // Anchor left edge of panel just to the right of the component dot
+    const rawLeft = cx + 50;
+    // Clamp so panel doesn't go off right edge
+    panelLeft = Math.min(rawLeft, window.innerWidth - panelW - margin);
+    panelLeft = Math.max(margin, panelLeft);
+    panelRight = 'auto';
+  } else {
+    // Anchor right edge of panel just to the left of the component dot
+    const rawRight = window.innerWidth - cx + 50;
+    panelRight = Math.min(rawRight, window.innerWidth - panelW - margin);
+    panelRight = Math.max(margin, panelRight);
+    panelLeft = 'auto';
+  }
+
+  const panelY = Math.max(80, Math.min(cy - panelH / 2, window.innerHeight - panelH - margin));
+
+  panel.style.left = panelLeft === 'auto' ? 'auto' : `${panelLeft}px`;
+  panel.style.right = panelRight === 'auto' ? 'auto' : `${panelRight}px`;
+  panel.style.top = `${panelY}px`;
+
+  // Connector SVG: line from component dot to panel edge
+  const line = connectorLine.querySelector('line');
+  const dot = connectorLine.querySelector('circle');
+  if (line && dot) {
+    // Panel edge X in viewport coordinates
+    const lineEndX = placeLeft
+      ? (typeof panelLeft === 'number' ? panelLeft : 0) // left edge of panel
+      : window.innerWidth - (typeof panelRight === 'number' ? panelRight : 0) - panelW; // right-side panel left edge
+    const lineEndY = panelY + panelH * 0.5;
+    line.setAttribute('x1', cx.toFixed(1));
+    line.setAttribute('y1', cy.toFixed(1));
+    line.setAttribute('x2', lineEndX.toFixed(1));
+    line.setAttribute('y2', lineEndY.toFixed(1));
+    dot.setAttribute('cx', cx.toFixed(1));
+    dot.setAttribute('cy', cy.toFixed(1));
+    connectorLine.style.display = 'block';
+  }
+}
+
 // ─── Per-frame update: screen-space panels + connector + vignette ──
 // Panel activation is NOT computed here — it's a pure function of the
-// current scroll leg (setLegState runs in the ScrollTrigger onUpdate).
+// current scroll leg (setLegState runs in the ScrollTrigger onUpdate),
+// except while a chip is focused: then the detail panel is active.
 // This function only handles the per-frame visual work.
 /** @param {THREE.PerspectiveCamera} camera @param {THREE.Group} boardGroup */
 export function updateJourneyEffects(camera, boardGroup) {
   if (!camera || !boardGroup || !journeyReady) return;
 
   // 1. Apply the leg-derived panel state (idempotent thanks to the
-  //    activePanelId early-return in setActivePanel).
-  const panelId = currentSectionId ? currentSectionId.replace('sec-', 'panel-') : null;
-  if (panelId && activePanelId !== panelId) {
-    setActivePanel(panelId);
-  } else if (!panelId && activePanelId !== null) {
-    setActivePanel(null);
+  //    activePanelId early-return in setActivePanel). Skipped while a chip
+  //    is focused — the detail panel owns activation until release.
+  if (!focusedChip) {
+    const panelId = currentSectionId ? currentSectionId.replace('sec-', 'panel-') : null;
+    if (panelId && activePanelId !== panelId) {
+      setActivePanel(panelId);
+    } else if (!panelId && activePanelId !== null) {
+      setActivePanel(null);
+    }
   }
 
-  // 2. Screen-space panel positioning + connector line for active
-  //    component sections (hero/contact are centered by CSS).
+  // 2. Screen-space panel positioning + connector line.
+  //    Chip focus: the detail panel anchors to the clicked chip. Otherwise
+  //    active component sections anchor their panel (hero/contact are
+  //    centered by CSS).
   const activeSecId = activePanelId ? activePanelId.replace('panel-', 'sec-') : null;
-  if (activeSecId && COMPONENT_WORLD[activeSecId]) {
+  if (focusedChip) {
+    worldPos.copy(focusedChip.localPos);
+    boardGroup.localToWorld(worldPos);
+    screenPos.copy(worldPos).project(camera);
+
+    const cx = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
+    const cy = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
+    positionPanelAt('panel-project-detail', cx, cy);
+  } else if (activeSecId && COMPONENT_WORLD[activeSecId]) {
     const localPos = COMPONENT_WORLD[activeSecId];
     worldPos.copy(localPos);
     boardGroup.localToWorld(worldPos);
@@ -376,56 +588,8 @@ export function updateJourneyEffects(camera, boardGroup) {
     const cx = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
     const cy = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
 
-    const panel = activePanelId ? document.getElementById(activePanelId) : null;
-    if (activePanelId && panel && connectorLine) {
-      // Pre-calculated layout constants — measured once per panel per resize.
-      // #panel-projects is .ds-panel-wide (up to 980px); hardcoding 480 would
-      // shove it off-screen.
-      const { w: panelW, h: panelH } = getPanelSize(activePanelId);
-      const margin = 24;
-
-      // Decide which side: place panel on left when component is on right half, and vice versa
-      const placeLeft = cx < window.innerWidth * 0.55;
-
-      let panelLeft, panelRight;
-      if (placeLeft) {
-        // Anchor left edge of panel just to the right of the component dot
-        const rawLeft = cx + 50;
-        // Clamp so panel doesn't go off right edge
-        panelLeft = Math.min(rawLeft, window.innerWidth - panelW - margin);
-        panelLeft = Math.max(margin, panelLeft);
-        panelRight = 'auto';
-      } else {
-        // Anchor right edge of panel just to the left of the component dot
-        const rawRight = window.innerWidth - cx + 50;
-        panelRight = Math.min(rawRight, window.innerWidth - panelW - margin);
-        panelRight = Math.max(margin, panelRight);
-        panelLeft = 'auto';
-      }
-
-      const panelY = Math.max(80, Math.min(cy - panelH / 2, window.innerHeight - panelH - margin));
-
-      panel.style.left = panelLeft === 'auto' ? 'auto' : `${panelLeft}px`;
-      panel.style.right = panelRight === 'auto' ? 'auto' : `${panelRight}px`;
-      panel.style.top = `${panelY}px`;
-
-      // Connector SVG: line from component dot to panel edge
-      const line = connectorLine.querySelector('line');
-      const dot = connectorLine.querySelector('circle');
-      if (line && dot) {
-        // Panel edge X in viewport coordinates
-        const lineEndX = placeLeft
-          ? (typeof panelLeft === 'number' ? panelLeft : 0) // left edge of panel
-          : window.innerWidth - (typeof panelRight === 'number' ? panelRight : 0) - panelW; // right-side panel left edge
-        const lineEndY = panelY + panelH * 0.5;
-        line.setAttribute('x1', cx.toFixed(1));
-        line.setAttribute('y1', cy.toFixed(1));
-        line.setAttribute('x2', lineEndX.toFixed(1));
-        line.setAttribute('y2', lineEndY.toFixed(1));
-        dot.setAttribute('cx', cx.toFixed(1));
-        dot.setAttribute('cy', cy.toFixed(1));
-        connectorLine.style.display = 'block';
-      }
+    if (activePanelId && connectorLine) {
+      positionPanelAt(activePanelId, cx, cy);
     }
   } else if (connectorLine) {
     connectorLine.style.display = 'none';
@@ -496,6 +660,15 @@ export function initJourney(camera) {
 
   requestAnimationFrame(() => {
     ScrollTrigger.refresh();
+  });
+
+  // Esc releases chip focus (close button lives in the panel; scroll does
+  // it implicitly via setCameraAtT). Ignored while typing in a field.
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const tag = (document.activeElement && document.activeElement.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (focusedChip) clearFocus(true);
   });
 
   // Panels are now safe to drive (boot sequence is done)

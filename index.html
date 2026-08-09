@@ -10,11 +10,20 @@
     <meta name="keywords" content="Parameshwaran S, portfolio, ECE, data science, AI, machine learning, Three.js, SRMIST, Chennai, flyrank">
     <meta name="author" content="Parameshwaran S">
 
+    <!-- Canonical + absolute social-card URLs. Scrapers (LinkedIn, Discord,
+         Google) resolve og:image/twitter:image/canonical against an absolute
+         URL — relative paths get dropped or mis-cached. SITE_BASE is the one
+         place to update if a custom domain replaces GitHub Pages. -->
+    <link rel="canonical" href="https://imnotparama.github.io/Parameshwaran_S_Portfolio/">
+
     <!-- Open Graph / Social Sharing -->
+    <meta property="og:site_name" content="PARAMESHWARAN S | PCB Portfolio">
     <meta property="og:title" content="PARAMESHWARAN S | PCB Portfolio">
     <meta property="og:description" content="Scroll an interactive 3D circuit board — real, working projects in ML, DSA, and flyrank.ai.">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="/og-preview.png">
+    <meta property="og:url" content="https://imnotparama.github.io/Parameshwaran_S_Portfolio/">
+    <meta property="og:image" content="https://imnotparama.github.io/Parameshwaran_S_Portfolio/og-preview.png">
+    <meta property="og:image:secure_url" content="https://imnotparama.github.io/Parameshwaran_S_Portfolio/og-preview.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
 
@@ -22,6 +31,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="PARAMESHWARAN S | PCB Portfolio">
     <meta name="twitter:description" content="ECE + Data Science — Interactive 3D PCB Portfolio">
+    <meta name="twitter:image" content="https://imnotparama.github.io/Parameshwaran_S_Portfolio/og-preview.png">
 
     <!-- Structured Data: JSON-LD Person (Google rich results + recruiter scrapers).
          Static in the raw HTML on purpose — crawlers read markup without executing JS.
@@ -36,7 +46,7 @@
             "@type": "CollegeOrUniversity",
             "name": "SRM Institute of Science and Technology, Ramapuram, Chennai"
         },
-        "image": "/og-preview.png",
+        "image": "https://imnotparama.github.io/Parameshwaran_S_Portfolio/og-preview.png",
         "sameAs": [
             "https://www.linkedin.com/in/parameshwaran-s-datascientist",
             "https://github.com/imnotparama"
@@ -102,11 +112,15 @@
     <header id="hud-bar" role="banner">
         <a class="hud-name" href="#sec-hero" data-section="sec-hero">PARAMESHWARAN&nbsp;S</a>
         <nav class="hud-nav" aria-label="Board sections">
-            <button class="nav-btn" data-section="sec-about" aria-label="Go to About section">[ABOUT]</button>
-            <button class="nav-btn" data-section="sec-projects" aria-label="Go to Projects section">[PROJECTS]</button>
-            <button class="nav-btn" data-section="sec-skills" aria-label="Go to Skills section">[SKILLS]</button>
-            <button class="nav-btn" data-section="sec-experience" aria-label="Go to Experience section">[EXPERIENCE]</button>
-            <button class="nav-btn" data-section="sec-contact" aria-label="Go to Contact section">[CONTACT]</button>
+            <!-- Each nav button carries its board reference designator (U1, U2,
+                 C1–C4, J1, ANT1) — the same silkscreen refs printed on the
+                 panels — so the HUD reads as the board's pin map. The ref is
+                 aria-hidden: the button's aria-label keeps the clean name. -->
+            <button class="nav-btn" data-section="sec-about" aria-label="Go to About section"><span class="nav-ref" aria-hidden="true">U1</span>[ABOUT]</button>
+            <button class="nav-btn" data-section="sec-projects" aria-label="Go to Projects section"><span class="nav-ref" aria-hidden="true">U2</span>[PROJECTS]</button>
+            <button class="nav-btn" data-section="sec-skills" aria-label="Go to Skills section"><span class="nav-ref" aria-hidden="true">C1–C4</span>[SKILLS]</button>
+            <button class="nav-btn" data-section="sec-experience" aria-label="Go to Experience section"><span class="nav-ref" aria-hidden="true">J1</span>[EXPERIENCE]</button>
+            <button class="nav-btn" data-section="sec-contact" aria-label="Go to Contact section"><span class="nav-ref" aria-hidden="true">ANT1</span>[CONTACT]</button>
         </nav>
         <div class="hud-legend" aria-hidden="true">
             <span class="pwr-led"></span>
@@ -125,7 +139,14 @@
         <section class="journey-sec" id="sec-hero" data-panel="panel-hero">
             <div class="ds-panel hero-panel" id="panel-hero">
                 <div class="ece-label">// ECE + DATA SCIENCE @ SRM RAMAPURAM — CHENNAI, INDIA</div>
-                <h1 id="user-name">PARAMESHWARAN S</h1>
+                <div class="headline-stack">
+                    <h1 id="user-name">PARAMESHWARAN S</h1>
+                    <!-- Gradient twin for the boot sweep (gradient-text-sweep):
+                         same glyphs, stacked pixel-identically via grid; the
+                         gradient is masked INTO the type and only raised during
+                         the sweep, so the resting h1 stays solid silkscreen. -->
+                    <span class="headline-twin" aria-hidden="true">PARAMESHWARAN S</span>
+                </div>
                 <div class="header-underline"></div>
                 <div class="subtitle-wrap">
                     <span id="typewriter-subtitle"></span><span class="terminal-cursor"></span>
@@ -148,7 +169,14 @@
         <section class="journey-sec" id="sec-about" data-panel="panel-about">
             <div class="ds-panel" id="panel-about">
                 <div class="ds-ref">U1 &mdash; "PARAM-CORE"</div>
-                <h2 class="ds-title">// DATASHEET: ABOUT</h2>
+                <!-- ds-title-stack: the gradient-text-sweep twin mechanism (same
+                     as the hero name) — a pixel-identical background-clip:text
+                     twin raised only during the one-shot sweep on panel
+                     activation, then the solid silkscreen title owns the rest. -->
+                <div class="headline-stack ds-title-stack">
+                    <h2 class="ds-title">// DATASHEET: ABOUT</h2>
+                    <span class="headline-twin" aria-hidden="true">// DATASHEET: ABOUT</span>
+                </div>
                 <table class="spec-table">
                     <tbody>
                         <tr><th scope="row">ARCH</th><td>ECE + Data Science (3rd year)</td></tr>
@@ -166,7 +194,10 @@
         <section class="journey-sec journey-sec-tall" id="sec-projects" data-panel="panel-projects">
             <div class="ds-panel ds-panel-wide" id="panel-projects">
                 <div class="ds-ref">U2 &mdash; PROJECT ARRAY</div>
-                <h2 class="ds-title">// DATASHEET: PROJECTS</h2>
+                <div class="headline-stack ds-title-stack">
+                    <h2 class="ds-title">// DATASHEET: PROJECTS</h2>
+                    <span class="headline-twin" aria-hidden="true">// DATASHEET: PROJECTS</span>
+                </div>
                 <p class="ds-legend"><span class="legend-soldered">■ SOLDERED — SHIPPED & WORKING</span><span class="legend-breadboard">□ BREADBOARD — STILL BUILDING</span></p>
                 <div id="projects-grid" class="projects-grid"><!-- injected --></div>
             </div>
@@ -176,7 +207,10 @@
         <section class="journey-sec" id="sec-skills" data-panel="panel-skills">
             <div class="ds-panel" id="panel-skills">
                 <div class="ds-ref">C1&ndash;C4 &mdash; DECOUPLING BANK</div>
-                <h2 class="ds-title">// DATASHEET: SKILLS</h2>
+                <div class="headline-stack ds-title-stack">
+                    <h2 class="ds-title">// DATASHEET: SKILLS</h2>
+                    <span class="headline-twin" aria-hidden="true">// DATASHEET: SKILLS</span>
+                </div>
                 <div id="skills-groups" class="skills-groups"><!-- injected --></div>
             </div>
         </section>
@@ -185,7 +219,10 @@
         <section class="journey-sec" id="sec-experience" data-panel="panel-experience">
             <div class="ds-panel" id="panel-experience">
                 <div class="ds-ref">J1 &mdash; SIGNAL HISTORY BUS</div>
-                <h2 class="ds-title">// DATASHEET: EXPERIENCE</h2>
+                <div class="headline-stack ds-title-stack">
+                    <h2 class="ds-title">// DATASHEET: EXPERIENCE</h2>
+                    <span class="headline-twin" aria-hidden="true">// DATASHEET: EXPERIENCE</span>
+                </div>
                 <div id="timeline-list" class="timeline-list"><!-- injected --></div>
             </div>
         </section>
@@ -194,7 +231,10 @@
         <section class="journey-sec" id="sec-contact" data-panel="panel-contact">
             <div class="ds-panel contact-panel" id="panel-contact">
                 <div class="ds-ref">ANT1 &mdash; TX/RX</div>
-                <h2 class="ds-title">// ALL PCB SYSTEMS OPERATIONAL</h2>
+                <div class="headline-stack ds-title-stack">
+                    <h2 class="ds-title">// ALL PCB SYSTEMS OPERATIONAL</h2>
+                    <span class="headline-twin" aria-hidden="true">// ALL PCB SYSTEMS OPERATIONAL</span>
+                </div>
                 <p class="ds-body text-pretty">If any of this looked useful, the fastest way to reach me is LinkedIn. I reply.</p>
                 <a class="cta-linkedin cta-primary cta-contact js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
                 <div class="contact-secondary">
@@ -207,6 +247,26 @@
                     <span>Built with Three.js + GSAP + Vite</span>
                     <span>&copy; 2026 &mdash; ALL SYSTEMS SECURED</span>
                 </div>
+            </div>
+        </section>
+
+        <!-- PROJECT DETAIL — focused datasheet shown when a board project
+             chip is clicked (click-to-component). The section is display:contents
+             (scroll.css) so it never extends the scroll path; the fixed panel
+             inside is anchored near the chip by journey.js. Content is filled
+             from portfolio.js on each focus. -->
+        <section class="journey-sec" id="sec-project-detail" data-panel="panel-project-detail">
+            <div class="ds-panel" id="panel-project-detail" role="dialog" aria-modal="false" aria-label="Focused project details">
+                <button type="button" class="panel-close" id="btn-project-close" aria-label="Close project details">✕</button>
+                <div class="ds-ref" id="pdetail-ref"></div>
+                <div class="headline-stack ds-title-stack">
+                    <h2 class="ds-title" id="pdetail-title"></h2>
+                    <span class="headline-twin" id="pdetail-title-twin" aria-hidden="true"></span>
+                </div>
+                <p class="ds-body proj-field" id="pdetail-problem"></p>
+                <p class="ds-body proj-field" id="pdetail-state"></p>
+                <div class="skill-pills" id="pdetail-tags"></div>
+                <a class="cta-linkedin" id="pdetail-link" href="#" target="_blank" rel="noopener noreferrer"></a>
             </div>
         </section>
     </main>

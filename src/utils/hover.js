@@ -27,6 +27,8 @@ let currentHovered = null;
 let frameCounter = 0;
 /** @type {THREE.PointLight | null} */
 let hoverLight = null;
+/** @type {((chipRef: string) => void) | null} */
+let clickHandler = null;
 
 // ─── PCB Hover Glow Color Map ───────────────────────────────
 /** @type {Record<string, number>} */
@@ -67,6 +69,35 @@ export function initHover(camera, scene) {
     window.addEventListener('touchmove', (e) => {
         if (e.touches.length > 0) updateMouseCoords(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: true });
+
+    // Click-to-component: raycast the click against interactive objects and
+    // forward PROJECT hits (the project chips) to the registered handler.
+    // Listener is on the canvas element only — clicks on HUD/panels (higher
+    // z-index) never reach it, so nav and panel interactions stay untouched.
+    const canvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('threejs-canvas'));
+    if (canvas) {
+        canvas.addEventListener('click', (e) => {
+            if (!clickHandler || !raycaster || !activeCamera) return;
+            const hw = window.innerWidth / 2;
+            const hh = window.innerHeight / 2;
+            const ndc = new THREE.Vector2((e.clientX - hw) / hw, -(e.clientY - hh) / hh);
+            raycaster.setFromCamera(ndc, activeCamera);
+            const targets = interactiveObjects.filter((obj) => obj.userData && obj.userData.isInteractive);
+            const hits = raycaster.intersectObjects(targets, false);
+            if (hits.length > 0) {
+                const obj = hits[0].object;
+                if (obj.userData && obj.userData.type === 'PROJECT' && obj.name) {
+                    clickHandler(obj.name);
+                }
+            }
+        });
+    }
+}
+
+/** Register the callback fired when a project chip is clicked on the board.
+ * @param {(chipRef: string) => void} fn */
+export function setBoardClickHandler(fn) {
+    clickHandler = fn;
 }
 
 // ─── Per-frame Raycast Check ────────────────────────────
