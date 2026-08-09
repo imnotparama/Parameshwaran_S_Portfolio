@@ -42,7 +42,11 @@
 
     /* Motion tokens */
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    /* Site-wide section-transition curve: ≈ GSAP power2.inOut — the camera
+       arrival glides (journey.js glideCameraTo / scrollToSection) and the
+       sidebar content cross-fade share ONE curve so no section transition
+       ever eases differently than another. */
+    --ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
     --duration-fast: 0.18s;
     --duration-base: 0.3s;
     --duration-slow: 0.6s;
@@ -109,6 +113,171 @@ body {
     pointer-events: none;
     opacity: 0.4;
     transition: opacity 0.5s var(--ease-out);
+}
+
+/* -------------------------------------------------------------
+ * 1b. Scope-Probe Custom Cursor
+ * The pointer is the board's test probe: a graticule crosshair with a
+ * per-section signal readout chip. JS writes translate3d on the fixed
+ * container only; state comes from body classes (cursor-probe set by the
+ * raycast hover in hover.js via body.probe-target, cursor-link by DOM
+ * interactives in cursor.js). Native cursor is suppressed while active.
+ * ------------------------------------------------------------- */
+#cursor-probe {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 20000; /* above the boot overlay (10000) — visible even mid-boot */
+    pointer-events: none;
+    will-change: transform;
+    /* translate3d from JS parks the container's origin at the pointer; the
+       children hang off that origin. */
+}
+
+body.custom-cursor,
+body.custom-cursor * {
+    cursor: none !important;
+}
+
+/* Crosshair arms — 1px graticule lines, 3px gap around the tip, scaled
+   outward from the gap. A shared --arm-scale var lets the state classes
+   re-tune one number per arm instead of restating transforms. */
+#cursor-probe .arm {
+    --arm-scale: 1;
+    position: absolute;
+    background: var(--signal);
+    opacity: 0.85;
+    transition: transform var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
+}
+.arm-n, .arm-s {
+    width: 1px;
+    height: 6px;
+    left: 50%;
+    top: 50%;
+}
+.arm-n {
+    margin: -3px 0 0 -0.5px;
+    transform: translateY(-6px) scaleY(var(--arm-scale));
+    transform-origin: 50% 100%;
+}
+.arm-s {
+    margin: -3px 0 0 -0.5px;
+    transform: translateY(6px) scaleY(var(--arm-scale));
+    transform-origin: 50% 0%;
+}
+.arm-w, .arm-e {
+    height: 1px;
+    width: 6px;
+    left: 50%;
+    top: 50%;
+}
+.arm-w {
+    margin: -0.5px 0 0 -3px;
+    transform: translateX(-6px) scaleX(var(--arm-scale));
+    transform-origin: 100% 50%;
+}
+.arm-e {
+    margin: -0.5px 0 0 -3px;
+    transform: translateX(6px) scaleX(var(--arm-scale));
+    transform-origin: 0% 50%;
+}
+
+/* Probe tip — the contact point. */
+#cursor-probe .probe-tip {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    left: 50%;
+    top: 50%;
+    margin: -1.5px 0 0 -1.5px;
+    background: var(--signal);
+    box-shadow: 0 0 6px rgba(62, 230, 160, 0.8);
+    transition: background-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+
+/* Readout chip — a floating datasheet pin label, offset from the tip. */
+#cursor-probe .probe-readout {
+    position: absolute;
+    top: 14px;
+    left: 12px;
+    padding: 2px 5px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    color: var(--silkscreen-muted);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0.95;
+    transition: opacity var(--duration-base) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+/* Trail halo — a slow-following ring, lerped by JS. */
+#cursor-probe .probe-halo {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 28px;
+    height: 28px;
+    margin: -14px 0 0 -14px;
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    border-radius: 50%;
+    will-change: transform;
+}
+
+/* State: probe (measuring a board component) — arms pull in, gold, tip
+   reads as live; readout says MEASURE. */
+body.cursor-probe #cursor-probe .arm {
+    --arm-scale: 0.55;
+    background: var(--enig-gold);
+}
+body.cursor-probe #cursor-probe .probe-tip {
+    background: var(--enig-gold);
+    box-shadow: 0 0 8px rgba(201, 162, 75, 0.9);
+}
+body.cursor-probe #cursor-probe .probe-readout {
+    color: var(--enig-gold);
+    border-color: rgba(201, 162, 75, 0.5);
+}
+
+/* State: link (DOM interactive) — arms extend, gold, readout fades (the
+   element under the pointer self-describes). */
+body.cursor-link #cursor-probe .arm {
+    --arm-scale: 1.45;
+    background: var(--enig-gold);
+}
+body.cursor-link #cursor-probe .probe-tip {
+    background: var(--enig-gold);
+    box-shadow: 0 0 6px rgba(201, 162, 75, 0.7);
+}
+body.cursor-link #cursor-probe .probe-readout {
+    opacity: 0;
+}
+
+/* Touch / coarse pointers never see the probe — native cursor stays.
+   (initCursor is also gated on pointer:fine in main.js; this is the belt.) */
+@media (pointer: coarse) {
+    #cursor-probe {
+        display: none;
+    }
+    body.custom-cursor,
+    body.custom-cursor * {
+        cursor: auto;
+    }
+}
+
+/* Reduced motion: kill the trail and arm transitions — the crosshair stays
+   static under the pointer. (Lite mode already skips init; belt again.) */
+@media (prefers-reduced-motion: reduce) {
+    #cursor-probe .probe-halo {
+        display: none;
+    }
+    #cursor-probe .arm,
+    #cursor-probe .probe-tip,
+    #cursor-probe .probe-readout {
+        transition: none;
+    }
 }
 
 /* -------------------------------------------------------------

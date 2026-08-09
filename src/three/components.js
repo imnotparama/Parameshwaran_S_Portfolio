@@ -1,6 +1,8 @@
 // @ts-check
 import * as THREE from 'three';
+import gsap from 'gsap';
 import { disposableResources } from './scene.js';
+import { beepBuzzer } from '../utils/buzzer.js';
 
 /** @type {THREE.Mesh[]} */
 export const interactiveObjects = [];
@@ -418,6 +420,81 @@ export function createComponents(boardGroup) {
     interactiveObjects.push(rnMesh);
 
     // -------------------------------------------------------------
+    // COMPONENT 10 — Piezo Buzzer (BZ1) - the horn
+    // A brass piezo disc with a center dimple + two wire legs. Clicking it
+    // fires pulseBuzzer(): a scale pulse, an emissive flash, an expanding
+    // sound-wave ring, and the WebAudio beep (the horn moment).
+    // Positioned at (-1, -5.5): the board's right half is off-frame at the
+    // establishing shot (rotated framing), so a buzzer at x=4.2 was
+    // invisible — this spot is on-canvas and near the LED array / J1.
+    // -------------------------------------------------------------
+    const buzzerGroup = new THREE.Group();
+    buzzerGroup.position.set(-1, -5.5, surfaceZ);
+    boardGroup.add(buzzerGroup);
+
+    const piezoMat = new THREE.MeshStandardMaterial({
+        color: 0xd97706,
+        roughness: 0.35,
+        metalness: 0.85,
+        emissive: 0x3ee6a0,
+        emissiveIntensity: 0 // dark until pulsed — "if it glows, it's live"
+    });
+    const dimpleMat = new THREE.MeshStandardMaterial({
+        color: 0x1c1917,
+        roughness: 0.6,
+        metalness: 0.4
+    });
+
+    const discGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 24);
+    discGeo.rotateX(Math.PI / 2);
+    const disc = new THREE.Mesh(discGeo, piezoMat);
+    disc.position.z = 0.045;
+    disc.castShadow = true;
+    disc.name = 'BZ1';
+    disc.userData = { componentName: 'Piezo Buzzer BZ1 (Sound)', type: 'BUZZER' };
+    buzzerGroup.add(disc);
+    interactiveObjects.push(disc);
+
+    // Center dimple (the piezo's contact pin)
+    const dimpleGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.04, 20);
+    dimpleGeo.rotateX(Math.PI / 2);
+    const dimple = new THREE.Mesh(dimpleGeo, dimpleMat);
+    dimple.position.z = 0.07;
+    buzzerGroup.add(dimple);
+
+    // Two gold wire legs to the board
+    const legGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.1, 8);
+    const legL = new THREE.Mesh(legGeo, goldMaterial);
+    legL.position.set(-0.18, 0, 0.02);
+    legL.rotation.x = 0.5;
+    buzzerGroup.add(legL);
+    const legR = new THREE.Mesh(legGeo, goldMaterial);
+    legR.position.set(0.18, 0, 0.02);
+    legR.rotation.x = 0.5;
+    buzzerGroup.add(legR);
+
+    // Expanding sound-wave ring (the visible "beep") — spawned per click
+    const buzzerRingGeo = new THREE.RingGeometry(0.22, 0.27, 32);
+    const buzzerRingMat = new THREE.MeshBasicMaterial({
+        color: 0x3ee6a0,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    const buzzerRing = new THREE.Mesh(buzzerRingGeo, buzzerRingMat);
+    buzzerRing.rotation.x = -Math.PI / 2;
+    buzzerRing.position.z = 0.1;
+    buzzerRing.visible = false;
+    buzzerGroup.add(buzzerRing);
+
+    disposableResources.geometries.add(discGeo);
+    disposableResources.geometries.add(dimpleGeo);
+    disposableResources.geometries.add(legGeo);
+    disposableResources.geometries.add(buzzerRingGeo);
+
+    // -------------------------------------------------------------
     // TP1, TP2 — Test Points
     // -------------------------------------------------------------
     const tpGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.015, 12);
@@ -442,4 +519,68 @@ export function createComponents(boardGroup) {
         if (!obj.userData) obj.userData = {};
         obj.userData.isInteractive = true;
     });
+}
+
+// ─── Buzzer horn moment ───────────────────────────────────────
+// Clicking the piezo fires the whole moment: the disc pulses and flashes
+// live-green, an additive ring expands like a sound wave, and the WebAudio
+// beep plays (the horn). The ring stays hidden at rest (opacity 0, visible
+// false) so nothing ambient renders.
+/** @type {THREE.Group | null} */
+let buzzerGroupRef = null;
+/** @type {THREE.MeshStandardMaterial | null} */
+let buzzerMatRef = null;
+/** @type {THREE.Mesh | null} */
+let buzzerRingRef = null;
+
+// The builder sets these during createComponents; pulseBuzzer reads them
+// (module-scope refs survive HMR re-entry via re-init).
+export function pulseBuzzer() {
+    // Lazy lookup keeps the module free of init-order coupling — the refs
+    // are set whenever createComponents ran.
+    if (!buzzerGroupRef) {
+        // Find by walking interactiveObjects for the BUZZER entry's parent.
+        const disc = interactiveObjects.find((o) => o.userData && o.userData.type === 'BUZZER');
+        if (disc) {
+            buzzerGroupRef = /** @type {THREE.Group | null} */ (disc.parent);
+            const mat = /** @type {any} */ (disc.material);
+            if (mat && mat.emissive) buzzerMatRef = mat;
+            const ring = buzzerGroupRef && buzzerGroupRef.children.find((c) => c instanceof THREE.Mesh && c.geometry && c.geometry.type === 'RingGeometry');
+            if (ring instanceof THREE.Mesh) buzzerRingRef = ring;
+        }
+    }
+    if (!buzzerGroupRef) return;
+
+    gsap.killTweensOf(buzzerGroupRef.scale);
+    gsap.fromTo(buzzerGroupRef.scale, { x: 1, y: 1, z: 1 }, {
+        x: 1.28, y: 1.28, z: 1.28,
+        duration: 0.16, yoyo: true, repeat: 1, ease: 'power1.out', overwrite: 'auto'
+    });
+
+    if (buzzerMatRef) {
+        gsap.killTweensOf(buzzerMatRef);
+        gsap.fromTo(buzzerMatRef, { emissiveIntensity: 0 }, {
+            emissiveIntensity: 2.4,
+            duration: 0.1, yoyo: true, repeat: 1, ease: 'power1.out', overwrite: 'auto'
+        });
+    }
+
+    if (buzzerRingRef) {
+        gsap.killTweensOf(buzzerRingRef.scale);
+        gsap.killTweensOf(buzzerRingRef.material);
+        buzzerRingRef.visible = true;
+        // THREE scale is a Vector3 — tween its components, not the property
+        // (a scalar `scale: 1.7` tween throws on Object3D).
+        gsap.fromTo(buzzerRingRef.scale, { x: 0.25, y: 0.25, z: 0.25 }, {
+            x: 1.7, y: 1.7, z: 1.7,
+            duration: 0.55, ease: 'power2.out', overwrite: 'auto'
+        });
+        gsap.fromTo(buzzerRingRef.material, { opacity: 0.9 }, {
+            opacity: 0,
+            duration: 0.55, ease: 'power2.out', overwrite: 'auto',
+            onComplete: () => { if (buzzerRingRef) buzzerRingRef.visible = false; }
+        });
+    }
+
+    beepBuzzer();
 }

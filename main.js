@@ -1,16 +1,18 @@
 import { detectWebGL, showFallbackUI, setupCleanup } from './src/ui/fallback.js';
-import { initScene, scene, camera, renderer, tickCallbacks, enableBloom } from './src/three/scene.js';
+import { initScene, scene, camera, renderer, tickCallbacks, enableBloom, syncCanvasSize } from './src/three/scene.js';
 import { createBoard, boardGroup, updateBoardParallax } from './src/three/board.js';
 import { createComponents } from './src/three/components.js';
-import { createTraces } from './src/three/traces.js';
+import { createTraces, updateTraceCurrent } from './src/three/traces.js';
 import { createParticles, updateParticles } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips } from './src/three/project-chips.js';
-import { updateRadarRing } from './src/three/components.js';
+import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
-import { initHover, checkHover, mouse, setBoardClickHandler } from './src/utils/hover.js';
+import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler } from './src/utils/hover.js';
+import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeTarget, isProbeModeActive, deactivateProbe } from './src/three/probe.js';
+import { initCursor } from './src/ui/cursor.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { renderSections } from './src/ui/sections.js';
-import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode } from './src/scroll/journey.js';
+import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId } from './src/scroll/journey.js';
 
 // ─── Hash-based deep links ─────────────────────────────────
 // Each section gets a shareable URL (#/about, #/projects, ...). Nav clicks
@@ -54,7 +56,7 @@ function navigateToSection(sectionId) {
     scrollToSection(sectionId);
 }
 
-// ─── Signal-path scroll progress readout (HUD legend) ──────
+// ─── Signal-path scroll progress readout (HUD legend + top-edge meter) ──────
 // The fill is a pure function of scroll position — deterministic, no
 // wall-clock anywhere. Driven by a passive scroll listener + rAF coalescing
 // (one compositor write per frame max), reading the elements that exist.
@@ -63,6 +65,8 @@ let progressRaf = null;
 // Static elements — cache once so the per-frame hot path never queries the DOM.
 let sigFillEl = null;
 let sigPctEl = null;
+let meterFillEl = null;
+let meterHeadEl = null;
 function updateSigPath() {
     progressRaf = null;
     if (!sigFillEl || !sigPctEl) {
@@ -70,10 +74,19 @@ function updateSigPath() {
         sigPctEl = document.querySelector('.sig-path-pct');
         if (!sigFillEl || !sigPctEl) return;
     }
+    if (!meterFillEl || !meterHeadEl) {
+        meterFillEl = document.getElementById('sig-meter-fill');
+        meterHeadEl = document.getElementById('sig-meter-head');
+    }
     const max = document.documentElement.scrollHeight - window.innerHeight;
     const p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
     sigFillEl.style.transform = `scaleX(${p.toFixed(4)})`;
     sigPctEl.textContent = `${Math.round(p * 100)}%`;
+    // Top-edge signal meter: segmented fill (scaleX) + glowing head LED
+    // (translateX in vw — the meter spans the viewport, so p*100vw is its
+    // exact position; transform-only, no layout writes).
+    if (meterFillEl) meterFillEl.style.transform = `scaleX(${p.toFixed(4)})`;
+    if (meterHeadEl) meterHeadEl.style.transform = `translateX(calc(${(p * 100).toFixed(2)}vw - 50%))`;
 }
 function scheduleSigPath() {
     if (progressRaf === null) progressRaf = requestAnimationFrame(updateSigPath);
@@ -137,6 +150,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6b. Build project chips on the board
     createProjectChips(boardGroup);
 
+    // 6c. Flying scope probe (WASD) — the board's test probe, flyable over
+    // the components. Scroll stays the primary path; this is additive.
+    createProbe(boardGroup);
+
     // 7. Render section datasheet content from portfolio data
     renderSections();
 
@@ -147,10 +164,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // 8. Bind hover raycast checking
     initHover(camera, scene);
 
+    // 8a. Scope-probe custom cursor (pointer:fine desktop only — lite mode
+    // keeps the native cursor for reduced-motion and touch users).
+    if (!isLiteMode() && window.matchMedia('(pointer: fine)').matches) {
+        initCursor();
+    }
+
     // 8b. Click-to-component: clicking a project chip on the board glides the
     // camera to it and opens its focused datasheet (journey.focusProject).
     // The close button releases the same way Esc does.
     setBoardClickHandler((ref) => focusProject(ref));
+    // BZ1 — the horn: clicking the piezo on the board pulses it, fires an
+    // expanding sound ring, and beeps via WebAudio (user gesture required).
+    setBuzzerHandler(pulseBuzzer);
     const projectCloseBtn = document.getElementById('btn-project-close');
     if (projectCloseBtn) {
         projectCloseBtn.addEventListener('click', () => exitFocusMode());
@@ -162,6 +188,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         document.body.classList.add('full-journey');
     }
+    // The mode class resizes the canvas region (desktop split: left 58%;
+    // mobile: 48vh strip) — initScene measured it full-width before the class
+    // existed, so re-sync renderer/camera/composer to the actual region now.
+    syncCanvasSize();
 
     // Store journey flag for after boot
     const shouldInitJourney = !isLiteMode();
@@ -182,11 +212,26 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update project chip LEDs (flicker breadboard LEDs)
         updateProjectChips(elapsed);
 
-        // Run hover raycasting intersection diagnostics
-        checkHover(delta);
+        // Run hover raycasting intersection diagnostics (suspended while the
+        // flying scope probe is active — one probe at a time)
+        if (!isProbeModeActive()) {
+            checkHover(delta);
+        }
 
-        // Apply mouse movement 3D board parallax tilts (delta-scaled lerp)
-        updateBoardParallax(elapsed, mouse, delta);
+        // Fly the scope probe (WASD/arrows) — moves in board-local space,
+        // raycasts its tip, drives the HUD scope readout
+        updateProbe(delta);
+
+        // Apply mouse movement 3D board parallax tilts (delta-scaled lerp).
+        // The active section gates the tilt strength — boosted on About so the
+        // "move cursor to tilt board" affordance is felt, capped everywhere.
+        const activeSectionId = getActiveSectionId();
+        updateBoardParallax(elapsed, mouse, delta, activeSectionId);
+
+        // Traveling current dot: power visibly flows along the active
+        // section's trace (the arrival pulse is the flash; this is the
+        // sustained current).
+        updateTraceCurrent(elapsed, activeSectionId);
 
         // Update screen-space panel positioning, connector line, and vignette
         if (typeof updateJourneyEffects === 'function' && !isLiteMode()) {
@@ -241,4 +286,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 18. Keyboard section navigation (1–6)
     window.addEventListener('keydown', handleSectionKey);
+
+    // 19. Flying scope probe keyboard (full-journey only): WASD activates +
+    // flies (arrows fly only once the probe is already active — they stay
+    // free for keyboard scrolling otherwise); Enter MEASUREs the component
+    // under the tip; Esc exits probe mode.
+    const PROBE_MOVE_KEYS = ['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+    const normalizeProbeKey = (/** @type {string} */ k) => (k.length === 1 ? k.toLowerCase() : k);
+    window.addEventListener('keydown', (e) => {
+        if (isLiteMode()) return;
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        const tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) return;
+        const key = normalizeProbeKey(e.key);
+        if (PROBE_MOVE_KEYS.includes(key)) {
+            // Arrows are the page's scroll keys — only hijack them once the
+            // probe is already active (WASD is the activation affordance).
+            if (key.startsWith('Arrow') && !isProbeModeActive()) return;
+            e.preventDefault();
+            pressProbeKey(key);
+        } else if (e.key === 'Enter' && isProbeModeActive()) {
+            e.preventDefault();
+            measureProbeTarget();
+        } else if (e.key === 'Escape' && isProbeModeActive()) {
+            deactivateProbe();
+        }
+    });
+    window.addEventListener('keyup', (e) => releaseProbeKey(normalizeProbeKey(e.key)));
 });

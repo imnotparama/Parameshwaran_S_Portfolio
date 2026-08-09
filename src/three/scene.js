@@ -35,6 +35,11 @@ const QUALITY_LEVELS = [
 
 /** @type {number} */
 let qualityLevel = 0;
+// The shadow-casting key light — module-level so the resize path and
+// syncCanvasSize (both outside initScene's closure) can re-apply the shadow
+// map size when the quality budget steps down.
+/** @type {THREE.DirectionalLight | null} */
+let keyLight = null;
 
 /** @param {number} level @param {THREE.DirectionalLight} keyLight @param {number | null} avgFps */
 function applyQualityLevel(level, keyLight, avgFps) {
@@ -44,7 +49,8 @@ function applyQualityLevel(level, keyLight, avgFps) {
         // Composer resolution is the real fill cost in the bloom path — scale
         // it with the renderer's pixel ratio (level 0 == full device ratio).
         composer.setPixelRatio((renderer ? renderer.getPixelRatio() : 1) * q.composerRatio);
-        composer.setSize(window.innerWidth, window.innerHeight);
+        const { w, h } = getCanvasViewportSize();
+        composer.setSize(w, h);
         const bloomPass = composer.passes.find(p => p instanceof UnrealBloomPass);
         if (bloomPass) {
             bloomPass.strength = q.strength;
@@ -65,8 +71,9 @@ export function enableBloom() {
     try {
         composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
+        const { w, h } = getCanvasViewportSize();
         const bloomPass = new UnrealBloomPass(
-            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            new THREE.Vector2(w, h),
             0.45, // strength — subtle glow, not a light show
             0.3,  // radius
             0.7   // threshold — only emissive traces/LEDs bloom
@@ -75,7 +82,7 @@ export function enableBloom() {
         // Sync the composer to the renderer's pixel ratio (defaults to 1 —
         // without this the bloom path renders at CSS resolution on retina).
         composer.setPixelRatio(renderer.getPixelRatio() * QUALITY_LEVELS[qualityLevel].composerRatio);
-        composer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(w, h);
         composer.renderToScreen = true;
     } catch (err) {
         console.warn('Bloom init failed (likely import error):', err);
@@ -177,6 +184,45 @@ function createBackdropTexture() {
     return tex;
 }
 
+/** The canvas's CSS viewport size — the split layout pins #canvas-container to
+ *  the left 58% on desktop (full-journey) and full-width at 48vh on mobile
+ *  (lite mode). Measuring the container keeps renderer size, camera aspect,
+ *  and bloom resolution all in lockstep with what CSS actually renders — a
+ *  stale window.innerWidth would stretch or squash the board on the split.
+ *  @returns {{ w: number, h: number }} */
+export function getCanvasViewportSize() {
+    const el = document.getElementById('canvas-container');
+    const w = el ? el.clientWidth : 0;
+    const h = el ? el.clientHeight : 0;
+    if (w > 0 && h > 0) return { w, h };
+    // Fallback before layout/CSS resolves (mirrors the CSS split exactly).
+    const mobile = window.innerWidth < 768;
+    return {
+        w: mobile ? window.innerWidth : Math.round(window.innerWidth * 0.58),
+        h: mobile ? Math.round(window.innerHeight * 0.48) : window.innerHeight
+    };
+}
+
+/** Re-measure the canvas region and push the size into camera aspect,
+ *  renderer buffer, and (when bloom is on) composer resolution. Called on
+ *  window resize AND after the mode class flips (main.js adds
+ *  full-journey/lite-mode AFTER initScene — the container shrinks to 58% on
+ *  desktop the moment full-journey lands, so the initial full-viewport size
+ *  must be re-synced or the board renders stretched). */
+export function syncCanvasSize() {
+    if (!camera || !renderer) return;
+    const { w, h } = getCanvasViewportSize();
+    if (!w || !h) return;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false); // updateStyle false — CSS owns layout
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Re-apply the current quality level so composer resolution follows.
+    if (composer && keyLight) {
+        applyQualityLevel(qualityLevel, keyLight, null);
+    }
+}
+
 /** @param {HTMLCanvasElement} canvasElement */
 export function initScene(canvasElement) {
     // 1. Initialize Scene
@@ -188,7 +234,10 @@ export function initScene(canvasElement) {
     disposableResources.textures.add(backdrop);
 
     // 2. Initialize Camera (Perspective, positioned to view board at an angle)
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // Aspect comes from the canvas container (left-58% split / mobile strip),
+    // not the window — the board must frame correctly inside the region.
+    const { w: viewW, h: viewH } = getCanvasViewportSize();
+    camera = new THREE.PerspectiveCamera(45, viewW / viewH, 0.1, 1000);
     camera.position.set(0, -2, 17);
     camera.lookAt(0, 0, 0);
     scene.add(camera);
@@ -199,7 +248,9 @@ export function initScene(canvasElement) {
         alpha: true,
         antialias: true
     });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    // updateStyle false — CSS owns layout (58% split / mobile strip); the
+    // drawing buffer is set explicitly to the container size.
+    renderer.setSize(viewW, viewH, false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     // PCFSoftShadowMap was removed in r185 (deprecation warning) — PCF is the
@@ -218,6 +269,7 @@ export function initScene(canvasElement) {
 
     // Key directional light creating specular metallic reflections
     const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.0);
+    keyLight = dirLight1;
     dirLight1.position.set(6, 4, 15);
     dirLight1.castShadow = true;
     // Shadow frustum sized for the WHOLE board (12.75 world units tall at
@@ -265,19 +317,13 @@ export function initScene(canvasElement) {
     disposableResources.geometries.add(benchGeo);
     disposableResources.materials.add(benchMat);
 
-    // 5. Handle Resize (debounced for performance)
+    // 5. Handle Resize (debounced for performance) — re-measures the canvas
+    //    region (58% split / mobile strip) and re-applies the quality budget.
     let resizeTimeout = 0;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-            if (!camera || !renderer) return; // initScene always assigns before resize can fire
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            // Re-apply the current quality level so the composer resolution and
-            // shadow map stay in budget after a resize (not just CSS size).
-            if (composer) applyQualityLevel(qualityLevel, dirLight1, null);
+            syncCanvasSize();
         }, 100);
     });
 

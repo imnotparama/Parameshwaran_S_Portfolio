@@ -11,12 +11,12 @@ import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import { cpuRadarRing, siliconDieMesh } from '../three/components.js';
 import { traceData } from '../three/traces.js';
 import { projectChips } from '../three/project-chips.js';
+import { getCanvasViewportSize } from '../three/scene.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
 document.fonts?.ready?.then(() => {
-  invalidatePanelSizeCache(); // font swap can change panel heights
-  ScrollTrigger.refresh();
+  ScrollTrigger.refresh(); // font swap can change section heights
 });
 window.addEventListener('load', () => ScrollTrigger.refresh());
 
@@ -37,12 +37,11 @@ const CHIP_FOCUS_OFFSET = new THREE.Vector3(0, 1.5, 2.8);
 const ARRIVAL_GLIDE_DURATION = 1.0;
 
 // Fixed camera configurations for non-component sections (hero, contact).
-// z is computed so the WHOLE 15-unit board fits inside the 45° vertical FOV
-// with margin: visible half-height at the board plane is z * tan(22.5°) ≈
-// z * 0.414; z = 23 gives ±9.5 units — the board (y ∈ [-7.5, 7.5]) keeps
-// ~2 units of breathing room top and bottom even on short desktop viewports.
-// The old z=13 clipped the board's bottom edge outside the frustum (the board
-// rendered "only half" on shorter viewports). Camera sits below the lookAt
+// The z here is a placeholder — on the split layout the canvas is the left
+// 58% (a NARROWER aspect than full-screen), so full-board framing must fit
+// the 15-unit board in BOTH the 45° vertical FOV and the aspect-dependent
+// horizontal FOV. getHeroFramingZ() computes the binding z at build/glide
+// time and getCameraConfigForStop applies it. Camera sits below the lookAt
 // for the same 3/4 upward angle the component stops use.
 /** @type {Record<string, { pos: THREE.Vector3, look: THREE.Vector3 }>} */
 const FIXED_CAMERAS = {
@@ -91,6 +90,21 @@ let lookCurve = null;
 let stopTs = {};
 /** @type {string[]} */
 let stopOrder = [];
+
+// ─── Ride-the-trace legs ─────────────────────────────────────
+// Component→component legs travel along the ACTUAL copper (traceData
+// polylines, elevated to the stops' cruise altitude) instead of the straight
+// glide — navigation is the wiring. Hero/contact legs have no trace and keep
+// the glide. ridePosCurves[i] / rideLookCurves[i] are per-leg (1-based, same
+// index as the ScrollTrigger loop), null when the leg glides.
+/** @type {Array<THREE.CatmullRomCurve3 | null>} */
+let ridePosCurves = [];
+/** @type {Array<THREE.CatmullRomCurve3 | null>} */
+let rideLookCurves = [];
+/** @type {THREE.Mesh | null} */
+let rideGlow = null;
+/** How far ahead of the camera the current-flow glow rides (in leg t). */
+const RIDE_GLOW_LEAD = 0.06;
 /** @type {string | null} */
 let activePanelId = null;
 /** @type {THREE.PerspectiveCamera | null} */
@@ -104,33 +118,6 @@ let arrivalGlide = null;
 const curLook = new THREE.Vector3();
 const worldPos = new THREE.Vector3();
 const screenPos = new THREE.Vector3();
-
-// ─── Pre-calculated panel dimensions ────────────────────────
-// Panel width/height are static per panel (only viewport media queries and
-// font loading change them), so measure ONCE per panel per resize and reuse —
-// reading offsetWidth/offsetHeight in updateJourneyEffects every frame forced
-// layout during the scroll scrub (hyperframes-animation: pre-calculated layout
-// constants, never tween/measure-time getBoundingClientRect).
-/** @type {Record<string, { w: number, h: number }>} */
-const panelSizeCache = {};
-
-/** @param {string} panelId */
-function getPanelSize(panelId) {
-  const cached = panelSizeCache[panelId];
-  if (cached) return cached;
-  const panel = document.getElementById(panelId);
-  const size = {
-    w: (panel && panel.offsetWidth) || Math.min(480, window.innerWidth - 40),
-    h: (panel && panel.offsetHeight) || Math.min(300, window.innerHeight * 0.5)
-  };
-  panelSizeCache[panelId] = size;
-  return size;
-}
-
-function invalidatePanelSizeCache() {
-  for (const k in panelSizeCache) delete panelSizeCache[k];
-}
-window.addEventListener('resize', invalidatePanelSizeCache, { passive: true });
 
 // ─── Scroll-leg state — the source of truth for panel activation ──
 // The camera position is a pure function of scroll progress inside the
@@ -190,9 +177,74 @@ function buildCurves() {
       stopTs[p.stop] = i / (PATH.length - 1);
     }
   });
+
+  // Ride-the-trace: resolve a copper route for each component→component leg.
+  // Every traceData route is U1→X (the board is a star around the CPU), so a
+  // non-U1 pair rides back to U1 then out to the next component — the camera
+  // literally follows the bus. Hero/contact legs (no component) keep the glide.
+  /** @type {Record<string, string>} */
+  const SECTION_COMPONENT = {
+    'sec-about': 'U1', 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experience': 'J1'
+  };
+  ridePosCurves = [];
+  rideLookCurves = [];
+  const tracePolyline = (/** @type {string} */ ref) => {
+    const route = traceData.find((r) => r.component === ref);
+    return route ? route.points : null;
+  };
+  for (let i = 1; i < stopOrder.length; i++) {
+    const fromSec = stopOrder[i - 1];
+    const toSec = stopOrder[i];
+    ridePosCurves[i] = null;
+    rideLookCurves[i] = null;
+    const fromComp = SECTION_COMPONENT[fromSec];
+    const toComp = SECTION_COMPONENT[toSec];
+    if (!fromComp || !toComp) continue; // hero/contact legs glide
+    const traceTo = tracePolyline(toComp);
+    const traceFrom = fromComp !== 'U1' ? tracePolyline(fromComp) : null;
+    if (!traceTo) continue;
+    // Concatenate: (U1→fromComp reversed = fromComp→U1) + (U1→toComp)
+    /** @type {THREE.Vector3[]} */
+    const pts = [];
+    if (traceFrom) {
+      for (const p of traceFrom.slice().reverse()) pts.push(p);
+    }
+    for (const p of traceTo) pts.push(p);
+    // Ride pose: source stop → copper (elevated to the stops' cruise z, same
+    // altitude as every component stop) → dest stop. The look follows the
+    // copper at board level, snapping to the stops' look targets at both ends.
+    const srcCfg = getCameraConfigForStop(fromSec);
+    const dstCfg = getCameraConfigForStop(toSec);
+    const cruiseZ = srcCfg.pos.z;
+    const lookZ = COMPONENT_WORLD[fromSec].z + LOOK_AT_OFFSET.z;
+    const posPts = [new THREE.Vector3(srcCfg.pos.x, srcCfg.pos.y, cruiseZ)];
+    const lookPts = [srcCfg.look.clone()];
+    for (const p of pts) {
+      posPts.push(new THREE.Vector3(p.x, p.y, cruiseZ));
+      lookPts.push(new THREE.Vector3(p.x, p.y, lookZ));
+    }
+    posPts.push(new THREE.Vector3(dstCfg.pos.x, dstCfg.pos.y, cruiseZ));
+    lookPts.push(dstCfg.look.clone());
+    ridePosCurves[i] = new THREE.CatmullRomCurve3(posPts, false, 'catmullrom', 0.4);
+    rideLookCurves[i] = new THREE.CatmullRomCurve3(lookPts, false, 'catmullrom', 0.4);
+  }
 }
 
-// Get camera position and lookat for a section ID for a given section ID
+// Full-board framing z: fit the 15-unit board in BOTH the 45° vertical FOV
+// and the (narrower, aspect-dependent) horizontal FOV of the left-58% canvas.
+// halfExtent = 7.5 (board half-height, y ∈ ±7.5) + 2 units of margin; the
+// vertical axis alone needs z ≈ 23, but on the split layout the horizontal
+// axis is usually the binding constraint (the old hardcoded z=23 clipped the
+// board's sides once the canvas narrowed to 58%).
+function getHeroFramingZ() {
+  const { w, h } = getCanvasViewportSize();
+  const aspect = h > 0 ? w / h : 1.6;
+  const tanHalfV = Math.tan(THREE.MathUtils.degToRad(45) / 2);
+  const halfExtent = 7.5 + 2;
+  return Math.max(halfExtent / tanHalfV, halfExtent / (tanHalfV * Math.max(aspect, 0.4)));
+}
+
+// Get camera position and lookat for a section ID
 /** @param {string} sectionId */
 function getCameraConfigForStop(sectionId) {
   if (COMPONENT_WORLD[sectionId]) {
@@ -202,11 +254,15 @@ function getCameraConfigForStop(sectionId) {
       look: compPos.clone().add(LOOK_AT_OFFSET)
     };
   }
-  // Fallback to fixed configurations (hero, contact)
-  return FIXED_CAMERAS[sectionId] || {
-    pos: new THREE.Vector3(0, 0, 0),
-    look: new THREE.Vector3(0, 0, 0)
-  };
+  // Fallback to fixed configurations (hero, contact) — hero/contact z is
+  // aspect-aware so the whole board fits the narrower left-region canvas.
+  const cfg = FIXED_CAMERAS[sectionId];
+  if (!cfg) return { pos: new THREE.Vector3(0, 0, 0), look: new THREE.Vector3(0, 0, 0) };
+  const pos = cfg.pos.clone();
+  if (sectionId === 'sec-hero' || sectionId === 'sec-contact') {
+    pos.z = getHeroFramingZ();
+  }
+  return { pos, look: cfg.look.clone() };
 }
 
 /** @param {number} t */
@@ -222,6 +278,30 @@ function setCameraAtT(t) {
   lookCurve.getPoint(clamped, curLook);
   cameraRef.position.copy(p);
   cameraRef.lookAt(curLook);
+}
+
+// ─── Ride-the-trace camera ───────────────────────────────────
+// Sample a component leg's copper-ride curve (source stop → trace → dest
+// stop) and push the current-flow glow ahead of the camera along the same
+// curve. Returns false when the leg has no ride (hero/contact) so the caller
+// falls back to the straight glide. The glow hides at the leg's extremes
+// (progress 0/1 — the stops own the frame there).
+/** @param {number} legIndex @param {number} p leg progress 0..1 (eased) */
+function rideCamera(legIndex, p) {
+  const posCurve = ridePosCurves[legIndex];
+  const lookCurve = rideLookCurves[legIndex];
+  if (!posCurve || !lookCurve || !cameraRef) return false;
+  const pos = posCurve.getPoint(p);
+  lookCurve.getPoint(p, curLook);
+  cameraRef.position.copy(pos);
+  cameraRef.lookAt(curLook);
+  if (rideGlow) {
+    rideGlow.visible = p > 0.001 && p < 0.999;
+    if (rideGlow.visible) {
+      posCurve.getPoint(Math.min(p + RIDE_GLOW_LEAD, 1), rideGlow.position);
+    }
+  }
+  return true;
 }
 
 // ─── Boot→hero arrival glide ───────────────────────────────
@@ -486,63 +566,25 @@ function createConnector() {
   connectorLine = svg;
 }
 
-/** Anchor a panel next to a projected screen point (component dot) and draw
- *  the connector line from the dot to the panel edge. Pre-calculated layout
- *  constants — panel size measured once per panel per resize.
- *  @param {string} panelId @param {number} cx @param {number} cy */
-function positionPanelAt(panelId, cx, cy) {
-  const panel = document.getElementById(panelId);
-  if (!panel || !connectorLine) return;
-  // #panel-projects is .ds-panel-wide (up to 980px); hardcoding 480 would
-  // shove it off-screen.
-  const { w: panelW, h: panelH } = getPanelSize(panelId);
-  const margin = 24;
-
-  // Decide which side: place panel on left when component is on right half, and vice versa
-  const placeLeft = cx < window.innerWidth * 0.55;
-
-  /** @type {number | 'auto'} */
-  let panelLeft;
-  /** @type {number | 'auto'} */
-  let panelRight;
-  if (placeLeft) {
-    // Anchor left edge of panel just to the right of the component dot
-    const rawLeft = cx + 50;
-    // Clamp so panel doesn't go off right edge
-    panelLeft = Math.min(rawLeft, window.innerWidth - panelW - margin);
-    panelLeft = Math.max(margin, panelLeft);
-    panelRight = 'auto';
-  } else {
-    // Anchor right edge of panel just to the left of the component dot
-    const rawRight = window.innerWidth - cx + 50;
-    panelRight = Math.min(rawRight, window.innerWidth - panelW - margin);
-    panelRight = Math.max(margin, panelRight);
-    panelLeft = 'auto';
-  }
-
-  const panelY = Math.max(80, Math.min(cy - panelH / 2, window.innerHeight - panelH - margin));
-
-  panel.style.left = panelLeft === 'auto' ? 'auto' : `${panelLeft}px`;
-  panel.style.right = panelRight === 'auto' ? 'auto' : `${panelRight}px`;
-  panel.style.top = `${panelY}px`;
-
-  // Connector SVG: line from component dot to panel edge
+/** Draw the signal trace from a projected screen point (component dot) to the
+ *  left edge of the fixed datasheet sidebar — the trace "connects" the board
+ *  component to its datasheet. The sidebar never moves, so only the component
+ *  end travels with the camera; the sidebar end is the panel's left edge.
+ *  @param {number} cx @param {number} cy */
+function drawConnector(cx, cy) {
+  if (!connectorLine) return;
   const line = connectorLine.querySelector('line');
   const dot = connectorLine.querySelector('circle');
-  if (line && dot) {
-    // Panel edge X in viewport coordinates
-    const lineEndX = placeLeft
-      ? (typeof panelLeft === 'number' ? panelLeft : 0) // left edge of panel
-      : window.innerWidth - (typeof panelRight === 'number' ? panelRight : 0) - panelW; // right-side panel left edge
-    const lineEndY = panelY + panelH * 0.5;
-    line.setAttribute('x1', cx.toFixed(1));
-    line.setAttribute('y1', cy.toFixed(1));
-    line.setAttribute('x2', lineEndX.toFixed(1));
-    line.setAttribute('y2', lineEndY.toFixed(1));
-    dot.setAttribute('cx', cx.toFixed(1));
-    dot.setAttribute('cy', cy.toFixed(1));
-    connectorLine.style.display = 'block';
-  }
+  if (!line || !dot) return;
+  const sideX = Math.round(window.innerWidth * 0.58) + 24; // sidebar panel left edge
+  const sideY = Math.max(90, Math.min(cy, window.innerHeight - 24));
+  line.setAttribute('x1', cx.toFixed(1));
+  line.setAttribute('y1', cy.toFixed(1));
+  line.setAttribute('x2', sideX.toFixed(1));
+  line.setAttribute('y2', sideY.toFixed(1));
+  dot.setAttribute('cx', cx.toFixed(1));
+  dot.setAttribute('cy', cy.toFixed(1));
+  connectorLine.style.display = 'block';
 }
 
 // ─── Per-frame update: screen-space panels + connector + vignette ──
@@ -557,6 +599,7 @@ export function updateJourneyEffects(camera, boardGroup) {
   // 1. Apply the leg-derived panel state (idempotent thanks to the
   //    activePanelId early-return in setActivePanel). Skipped while a chip
   //    is focused — the detail panel owns activation until release.
+  if (focusedChip && rideGlow) rideGlow.visible = false;
   if (!focusedChip) {
     const panelId = currentSectionId ? currentSectionId.replace('sec-', 'panel-') : null;
     if (panelId && activePanelId !== panelId) {
@@ -566,31 +609,25 @@ export function updateJourneyEffects(camera, boardGroup) {
     }
   }
 
-  // 2. Screen-space panel positioning + connector line.
-  //    Chip focus: the detail panel anchors to the clicked chip. Otherwise
-  //    active component sections anchor their panel (hero/contact are
-  //    centered by CSS).
+  // 2. Signal trace: the active component (or focused chip) → the fixed
+  //    datasheet sidebar's left edge. The sidebar itself never moves — only
+  //    the component end of the trace travels with the camera.
   const activeSecId = activePanelId ? activePanelId.replace('panel-', 'sec-') : null;
-  if (focusedChip) {
-    worldPos.copy(focusedChip.localPos);
+  // Trace source: the focused chip takes precedence, else the active
+  // component section's board-local position.
+  /** @type {THREE.Vector3 | null} */
+  let traceLocalPos = focusedChip ? focusedChip.localPos : null;
+  if (!traceLocalPos && activeSecId) {
+    traceLocalPos = COMPONENT_WORLD[activeSecId] || null;
+  }
+  if (traceLocalPos) {
+    worldPos.copy(traceLocalPos);
     boardGroup.localToWorld(worldPos);
     screenPos.copy(worldPos).project(camera);
 
     const cx = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
     const cy = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
-    positionPanelAt('panel-project-detail', cx, cy);
-  } else if (activeSecId && COMPONENT_WORLD[activeSecId]) {
-    const localPos = COMPONENT_WORLD[activeSecId];
-    worldPos.copy(localPos);
-    boardGroup.localToWorld(worldPos);
-    screenPos.copy(worldPos).project(camera);
-
-    const cx = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
-    const cy = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
-
-    if (activePanelId && connectorLine) {
-      positionPanelAt(activePanelId, cx, cy);
-    }
+    drawConnector(cx, cy);
   } else if (connectorLine) {
     connectorLine.style.display = 'none';
   }
@@ -629,6 +666,19 @@ export function initJourney(camera) {
     return;
   }
 
+  // Ride-the-trace glow: the current-flow dot that runs ahead of the camera
+  // during copper legs. The camera is a direct child of the scene (initScene
+  // does scene.add(camera)), so camera.parent IS the scene — no new wiring.
+  if (!rideGlow && cameraRef && cameraRef.parent) {
+    rideGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 12, 12),
+      new THREE.MeshStandardMaterial({ color: 0x03160d, emissive: 0x3ee6a0, emissiveIntensity: 2.5 })
+    );
+    rideGlow.name = 'ride-glow';
+    rideGlow.visible = false;
+    cameraRef.parent.add(rideGlow);
+  }
+
   // Glide from the boot pose into the hero framing — replacing the old
   // instant setCameraAtT(0) snap (a visible camera cut after every boot).
   glideToHero();
@@ -640,18 +690,30 @@ export function initJourney(camera) {
     document.body.style.minHeight = '400vh';
   }
 
-  // One scrubbed trigger per travel leg
+  // One scrubbed trigger per travel leg. The window spans exactly one screen
+  // of scroll per leg ('top bottom' → 'top top' = 100vh regardless of section
+  // height), so the camera arrives at the stop exactly when the section fills
+  // the viewport, then parks for the remaining 20vh of the section's 120vh
+  // track while the next section enters. The old 'top 95% → top 5%' windows
+  // consumed only 0.9vh of scroll per leg — with a FIXED sidebar there's no
+  // full-screen overlay to park, so the rest of each 180–300vh section was
+  // pure dead road.
   for (let i = 1; i < sections.length; i++) {
     const prevT = stopTs[stopOrder[i - 1]];
     const thisT = stopTs[stopOrder[i]];
     ScrollTrigger.create({
       trigger: sections[i],
-      start: 'top 95%',
-      end: 'top 5%',
+      start: 'top bottom',
+      end: 'top top',
       scrub: 0.6,
       onUpdate: (self) => {
         const eased = gsap.parseEase('power2.out')(self.progress);
-        setCameraAtT(prevT + (thisT - prevT) * eased);
+        // Component legs ride the actual copper (rideCamera returns false for
+        // hero/contact legs, which keep the straight glide). The ride ends at
+        // the stop pose by leg end — same invariant as the glide.
+        if (!rideCamera(i, eased)) {
+          setCameraAtT(prevT + (thisT - prevT) * eased);
+        }
         // Panel activation follows the scroll, not camera distance
         setLegState(stopOrder[i], stopOrder[i - 1], self.progress);
       }
@@ -671,8 +733,26 @@ export function initJourney(camera) {
     if (focusedChip) clearFocus(true);
   });
 
+  // Rebuild curves on resize: the hero/contact framing z is aspect-dependent
+  // (the board must fit the left-58% canvas in BOTH FOV axes), so a resize
+  // that changes the canvas aspect needs fresh camera stops.
+  let curveResizeTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(curveResizeTimer);
+    curveResizeTimer = setTimeout(() => {
+      if (journeyReady) buildCurves();
+    }, 200);
+  }, { passive: true });
+
   // Panels are now safe to drive (boot sequence is done)
   journeyReady = true;
+}
+
+/** The section the current scroll leg has activated — exported so
+ *  cross-module consumers (e.g. board parallax gating) read the source of
+ *  truth instead of re-deriving it from DOM classes. */
+export function getActiveSectionId() {
+  return currentSectionId;
 }
 
 // ─── Direct navigation ──────────────────────────────────────
@@ -680,9 +760,14 @@ export function initJourney(camera) {
 export function scrollToSection(sectionId) {
   const el = document.getElementById(sectionId);
   if (!el) return;
+  // Land exactly on the section's stop pose: with the one-screen-per-leg
+  // geometry the camera arrives when the section fills the viewport (its top
+  // hits the viewport top), so the target is the section's offsetTop — the
+  // old offsetTop + 0.45h aimed into the dead park zone of the old 180–300vh
+  // legs, which no longer exists.
   const y = sectionId === 'sec-hero'
     ? 0
-    : el.offsetTop + Math.min(el.offsetHeight * 0.45, window.innerHeight * 0.7);
+    : el.offsetTop;
   gsap.to(window, {
     scrollTo: { y },
     duration: 1.6,

@@ -342,8 +342,8 @@ function lerpFactor(k, delta) {
     return 1 - Math.pow(1 - k, (delta || 1 / 60) * 60);
 }
 
-/** @param {number} elapsed @param {THREE.Vector2} mouse @param {number} [delta] */
-export function updateBoardParallax(elapsed, mouse, delta) {
+/** @param {number} elapsed @param {THREE.Vector2} mouse @param {number} [delta] @param {string} [activeSecId] */
+export function updateBoardParallax(elapsed, mouse, delta, activeSecId) {
     if (!boardGroup) return;
 
     // Check if we're in journey mode (camera controlled by scroll)
@@ -360,11 +360,17 @@ export function updateBoardParallax(elapsed, mouse, delta) {
         boardGroup.rotation.x += (targetRotX - boardGroup.rotation.x) * lerpFactor(0.08, delta);
         boardGroup.rotation.y += (targetRotY - boardGroup.rotation.y) * lerpFactor(0.08, delta);
     } else {
-        // Journey mode: camera controls all movement; board stays put
-        // Ultra-smooth micro-tilt with higher lerp for fluid response
-        const microTiltX = -mouse.y * 0.003;
-        const microTiltY = mouse.x * 0.003;
-        boardGroup.rotation.x += (microTiltX - boardGroup.rotation.x) * lerpFactor(0.035, delta);
-        boardGroup.rotation.y += (microTiltY - boardGroup.rotation.y) * lerpFactor(0.035, delta);
+        // Journey mode: the camera owns the view; the board gets only a subtle
+        // parallax tilt toward the cursor, CAPPED so it never fights the scroll
+        // camera. On About the tilt is boosted — still a small range (±1.7°)
+        // — so the "move cursor to tilt board" affordance is actually felt.
+        const boosted = activeSecId === 'sec-about';
+        const tiltScale = boosted ? 0.05 : 0.003;
+        const maxTilt = boosted ? 0.03 : 0.004;
+        const targetRotX = THREE.MathUtils.clamp(-mouse.y * tiltScale, -maxTilt, maxTilt);
+        const targetRotY = THREE.MathUtils.clamp(mouse.x * tiltScale, -maxTilt, maxTilt);
+        const k = boosted ? 0.05 : 0.035;
+        boardGroup.rotation.x += (targetRotX - boardGroup.rotation.x) * lerpFactor(k, delta);
+        boardGroup.rotation.y += (targetRotY - boardGroup.rotation.y) * lerpFactor(k, delta);
     }
 }

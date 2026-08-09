@@ -86,6 +86,34 @@
     <!-- Skip to content link for accessibility -->
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
+    <!-- Signal-strength scroll meter — a thin power rail along the very top
+         edge, filled by main.js updateSigPath with journey progress (same
+         gold→signal language as the HUD legend's sig-path; transform-only
+         writes, aria-hidden like the rest of the decorative chrome). -->
+    <div id="sig-meter" aria-hidden="true">
+        <span id="sig-meter-fill"></span>
+        <span id="sig-meter-head"></span>
+    </div>
+
+    <!-- Scope-probe custom cursor (pointer:fine only — hidden on touch via
+         CSS; never initialized in lite mode). The pointer becomes the board's
+         test probe: a graticule crosshair + per-section signal readout chip.
+         body classes cursor-probe / cursor-link switch its state; JS writes
+         translate3d only. pointer-events:none so it never blocks canvas
+         raycasts or DOM clicks. -->
+    <div id="cursor-probe" aria-hidden="true">
+        <div class="probe-arms">
+            <i class="arm arm-n"></i><i class="arm arm-s"></i>
+            <i class="arm arm-w"></i><i class="arm arm-e"></i>
+        </div>
+        <div class="probe-tip"></div>
+        <div class="probe-readout"><span id="probe-readout-text">CH1</span></div>
+    </div>
+    <!-- Trail halo is a SIBLING of the transformed probe (a transformed
+         ancestor would hijack its fixed positioning) — JS lerps it toward
+         the tip with its own translate3d. -->
+    <div class="probe-halo" aria-hidden="true"></div>
+
     <!-- Scanline overlays for retro CRT monitors -->
     <div class="screen-scanlines" aria-hidden="true"></div>
     <div class="vignette-overlay" aria-hidden="true"></div>
@@ -128,6 +156,14 @@
             <span class="sig-path"><span class="sig-path-fill"></span></span>
             <span class="sig-path-pct">0%</span>
             <span class="rev-mark">REV&nbsp;1.0&nbsp;·&nbsp;2026</span>
+            <!-- Live scope readout — filled by hover.js when the probe is over
+                 a component: REF + voltage/frequency/state per part. Idle it
+                 reads SCOPE · AWAIT PROBE; the gold→signal border marks live. -->
+            <span class="hud-scope" id="hud-scope" aria-hidden="true"><span class="hud-scope-ref" id="hud-scope-ref">SCOPE</span><span class="hud-scope-val" id="hud-scope-val">AWAIT PROBE</span></span>
+            <!-- Flying-probe hint — fades in after boot (hud-ready), fades out
+                 forever once the probe is first used (body.probe-used). The
+                 probe is additive: scroll stays the primary path. -->
+            <span class="hud-probe-hint" id="hud-probe-hint" aria-hidden="true">WASD&nbsp;·&nbsp;FLY&nbsp;PROBE&nbsp;—&nbsp;ENTER&nbsp;·&nbsp;MEASURE</span>
         </div>
         <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
     </header>

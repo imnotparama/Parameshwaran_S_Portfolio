@@ -15,6 +15,26 @@ import { disposableResources } from './scene.js';
 /** @type {TraceRoute[]} */
 export const traceData = [];
 
+// ─── Traveling current dot ────────────────────────────────────
+// A single emissive dot that flows along the ACTIVE section's trace —
+// the arrival pulse is the one-shot flash; this is the SUSTAINED current,
+// power visibly flowing from the CPU to whatever the sidebar is showing.
+// Deterministic: t = f(elapsed), position sampled from a cached CatmullRom
+// curve in board-local space (no DOM, no wall-clock reads).
+// Decorative ambient motion — reduced-motion users get a static dot at the
+// trace's source (still reads as powered, never flickers).
+const TRACE_CURRENT_SPEED = 0.3; // t units per second (≈1.3–2 world u/s)
+/** @type {Record<string, string>} */
+const SECTION_TRACE = { 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experience': 'J1' };
+
+/** @type {Map<string, THREE.CatmullRomCurve3>} */
+let traceCurves = new Map();
+/** @type {THREE.Mesh | null} */
+let currentDot = null;
+
+const TRACE_REDUCED_MOTION = typeof window !== 'undefined' &&
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 /** @param {THREE.Group} boardGroup */
 export function createTraces(boardGroup) {
     const thickness = 0.16;
@@ -237,4 +257,50 @@ export function createTraces(boardGroup) {
             meshes: meshes
         });
     });
+
+    // Cache one smooth curve per component (first route wins — ANT1 has two
+    // routes but is never an active-section ref, so no ambiguity in practice).
+    traceCurves = new Map();
+    traceData.forEach((route) => {
+        if (!traceCurves.has(route.component)) {
+            traceCurves.set(route.component, new THREE.CatmullRomCurve3(route.points, false, 'catmullrom', 0.4));
+        }
+    });
+
+    // The current dot — small, bright, blooms through the same threshold as
+    // the electrons (MeshStandardMaterial emissive, tone-mapped by bloom).
+    const dotGeo = new THREE.SphereGeometry(0.07, 16, 16);
+    const dotMat = new THREE.MeshStandardMaterial({
+        color: 0x03160d,
+        emissive: 0x3ee6a0,
+        emissiveIntensity: 2.5
+    });
+    currentDot = new THREE.Mesh(dotGeo, dotMat);
+    currentDot.name = 'trace-current-dot'; // named for debugging / scene-graph queries
+    currentDot.visible = false;
+    boardGroup.add(currentDot);
+    disposableResources.geometries.add(dotGeo);
+    disposableResources.materials.add(dotMat);
+}
+
+/** Drive the current dot along the active section's trace. Called per frame
+ *  from the tick loop with the live section id (getActiveSectionId).
+ *  @param {number} elapsed
+ *  @param {string} activeSectionId */
+export function updateTraceCurrent(elapsed, activeSectionId) {
+    if (!currentDot) return;
+    const ref = SECTION_TRACE[activeSectionId] || '';
+    const curve = ref ? traceCurves.get(ref) : undefined;
+    if (!curve) {
+        currentDot.visible = false;
+        return;
+    }
+    currentDot.visible = true;
+    // Reduced motion: pin the dot at the trace source (the CPU end) — the
+    // component still reads as powered without ambient travel.
+    const t = TRACE_REDUCED_MOTION ? 0 : (elapsed * TRACE_CURRENT_SPEED) % 1;
+    curve.getPoint(t, currentDot.position);
+    // Lift just above the trace surface (trace height 0.012, centered on
+    // surfaceZ — the polyline's own z is the board surface).
+    currentDot.position.z += 0.025;
 }

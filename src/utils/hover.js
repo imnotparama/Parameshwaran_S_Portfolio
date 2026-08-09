@@ -29,6 +29,8 @@ let frameCounter = 0;
 let hoverLight = null;
 /** @type {((chipRef: string) => void) | null} */
 let clickHandler = null;
+/** @type {(() => void) | null} */
+let buzzerHandler = null;
 
 // ─── PCB Hover Glow Color Map ───────────────────────────────
 /** @type {Record<string, number>} */
@@ -37,6 +39,82 @@ const PCB_GLOW_MAP = {
     'ANT1': 0x00ffff, 'J1': 0xff8800, 'VR1': 0xff4444,
     'RN1': 0x14b8a6, 'TP1': 0xffcc00, 'TP2': 0xffcc00
 };
+
+// ─── Live scope readout data ─────────────────────────────────
+// Per-component instrument values for the HUD scope chip (hover.js fills
+// #hud-scope while the probe is over a component). The voice matches the
+// rest of the board: refs, voltages, frequencies, states — a live datasheet.
+/** @typedef {{ v: string, f: string, state: string }} ScopeReading */
+/** @type {Record<string, ScopeReading>} */
+const SCOPE_MAP = {
+    'U1':     { v: '3.3V',      f: '27MHz',     state: 'RUNNING' },
+    'U2':     { v: '1.1V',      f: '16MHz',     state: 'ACCEL' },
+    'C1':     { v: '3.3V',      f: '100nF',     state: 'DECOUPLE' },
+    'C2':     { v: '3.3V',      f: '100nF',     state: 'DECOUPLE' },
+    'C3':     { v: '3.3V',      f: '10µF',      state: 'BULK' },
+    'C4':     { v: '3.3V',      f: '10µF',      state: 'BULK' },
+    'Y1':     { v: '—',         f: '27.000MHz', state: 'OSC' },
+    'ANT1':   { v: '—',         f: '2.4GHz',    state: 'TX/RX' },
+    'J1':     { v: '5V',        f: '480Mbps',   state: 'LINK' },
+    'VR1':    { v: '5V→3.3V',   f: '—',         state: 'REG' },
+    'D1-D7':  { v: '2.0V',      f: '20mA',      state: 'LIT' },
+    'RN1':    { v: '4.7kΩ',     f: '—',         state: 'PULL-UP' },
+    'TP1':    { v: '5V',        f: '—',         state: 'REF' },
+    'TP2':    { v: 'GND',       f: '—',         state: 'REF' },
+    'BZ1':    { v: '3.3V',      f: '2.7kHz',    state: 'SILENT' }
+};
+
+/** @type {HTMLElement | null} */
+let scopeRefEl = null;
+/** @type {HTMLElement | null} */
+let scopeValEl = null;
+
+/** Fill the HUD scope readout with a component's measurement.
+ *  @param {string} name Ref designator (mesh.name)
+ *  @param {any} userData The mesh's userData (type + componentName) */
+export function setScopeReadout(name, userData) {
+    if (!scopeRefEl || !scopeValEl) {
+        scopeRefEl = document.getElementById('hud-scope-ref');
+        scopeValEl = document.getElementById('hud-scope-val');
+        if (!scopeRefEl || !scopeValEl) return;
+    }
+    const type = userData && userData.type;
+    /** @type {ScopeReading} */
+    let reading = { v: '—', f: '—', state: '—' };
+    if (type === 'PROJECT') {
+        // The chip's status lives in its componentName ("TITLE — SOLDERED (SHIPPED)").
+        const status = String(userData && userData.componentName || '').split('—').pop();
+        reading = { v: '3.3V', f: '—', state: (status || '—').trim() };
+    } else if (SCOPE_MAP[name]) {
+        reading = SCOPE_MAP[name];
+    }
+    scopeRefEl.textContent = name || '? ';
+    scopeValEl.textContent = `${reading.v} · ${reading.f} · ${reading.state}`;
+    document.body.classList.add('hud-scope-live');
+}
+
+/** Return the HUD scope chip to its idle state. */
+export function clearScopeReadout() {
+    if (scopeRefEl) scopeRefEl.textContent = 'SCOPE';
+    if (scopeValEl) scopeValEl.textContent = 'AWAIT PROBE';
+    document.body.classList.remove('hud-scope-live');
+}
+
+/** Clear the active mouse hover (glow, cursor state, scope readout) — used
+ *  when the flying scope probe (probe.js) takes over: one probe at a time. */
+export function clearHover() {
+    if (!currentHovered) {
+        clearScopeReadout();
+        return;
+    }
+    resetHoverMesh(currentHovered);
+    currentHovered = null;
+    document.body.style.cursor = 'default';
+    document.body.classList.remove('probe-target');
+    delete document.body.dataset.hoverType;
+    delete document.body.dataset.hoverRef;
+    clearScopeReadout();
+}
 
 // ─── Init ───────────────────────────────────────────────────
 
@@ -86,8 +164,10 @@ export function initHover(camera, scene) {
             const hits = raycaster.intersectObjects(targets, false);
             if (hits.length > 0) {
                 const obj = hits[0].object;
-                if (obj.userData && obj.userData.type === 'PROJECT' && obj.name) {
+                if (obj.userData && obj.userData.type === 'PROJECT' && obj.name && clickHandler) {
                     clickHandler(obj.name);
+                } else if (obj.userData && obj.userData.type === 'BUZZER' && buzzerHandler) {
+                    buzzerHandler();
                 }
             }
         });
@@ -98,6 +178,12 @@ export function initHover(camera, scene) {
  * @param {(chipRef: string) => void} fn */
 export function setBoardClickHandler(fn) {
     clickHandler = fn;
+}
+
+/** Register the callback fired when the piezo buzzer (BZ1) is clicked.
+ * @param {() => void} fn */
+export function setBuzzerHandler(fn) {
+    buzzerHandler = fn;
 }
 
 // ─── Per-frame Raycast Check ────────────────────────────
@@ -136,9 +222,8 @@ export function checkHover(delta = 1 / 60) {
             }
         }
     } else if (currentHovered) {
-        resetHoverMesh(currentHovered);
-        currentHovered = null;
-        document.body.style.cursor = 'default';
+        // Same cleanup as clearHover (the pointer left the component).
+        clearHover();
     }
 }
 
@@ -171,6 +256,15 @@ function handleHoverEnter(mesh) {
     }
 
     document.body.style.cursor = 'pointer';
+    // The custom scope-probe cursor reads this class to enter its
+    // "measuring" state (cursor.js) — the pointer is ON a board component.
+    document.body.classList.add('probe-target');
+    // The hovered component's type + ref let the cursor readout specialize
+    // (BEEP over the buzzer, MEASURE over a project chip, the ref elsewhere)
+    // and the HUD scope chip shows the live measurement.
+    document.body.dataset.hoverType = String(mesh.userData && mesh.userData.type || '');
+    document.body.dataset.hoverRef = name;
+    setScopeReadout(name, mesh.userData);
 }
 
 // ─── Hover Exit Logic ────────────────────────────────────

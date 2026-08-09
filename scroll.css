@@ -49,6 +49,17 @@ body::-webkit-scrollbar-thumb:hover { background: var(--glow-green, #00ff88); }
     display: block;
 }
 
+/* Split-screen desktop layout: the board owns the LEFT 58% of the viewport
+   (the datasheet sidebar owns the right 42%). The camera aspect is driven by
+   this same box via scene.js getCanvasViewportSize — renderer size, camera
+   aspect, and bloom resolution all measure the container, so the board is
+   never stretched or squashed by the narrower canvas. */
+body.full-journey #canvas-container {
+    inset: 0 auto 0 0;
+    width: 58%;
+    height: 100vh;
+}
+
 /* ─── Fixed HUD bar ─────────────────────────────────────── */
 #hud-bar {
     position: fixed;
@@ -215,6 +226,95 @@ body.hud-cta-hidden #cta-linkedin-hud {
     opacity: 0.75;
 }
 
+/* Live scope readout — the probe's measurement, shown in the HUD legend
+   while the pointer is over a board component (hover.js fills ref + values).
+   Idle it reads SCOPE · AWAIT PROBE; body.hud-scope-live lights the chip
+   signal-green so the readout behaves like the rest of the "live" language. */
+.hud-scope {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 6px;
+    border: 1px solid rgba(236, 231, 216, 0.12);
+    border-radius: 2px;
+    background: rgba(9, 20, 15, 0.6);
+    font-size: 9px;
+    letter-spacing: 1px;
+    transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.hud-scope-ref {
+    color: var(--enig-gold);
+}
+
+.hud-scope-val {
+    color: var(--silkscreen-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+body.hud-scope-live .hud-scope {
+    border-color: rgba(62, 230, 160, 0.45);
+}
+
+body.hud-scope-live .hud-scope-ref {
+    color: var(--signal);
+    text-shadow: 0 0 6px rgba(62, 230, 160, 0.55);
+}
+
+/* The legend is right-packed next to the LinkedIn CTA — the scope chip is
+   the least essential segment, so narrow HUDs drop it rather than crowd. */
+@media (max-width: 1100px) {
+    .hud-scope {
+        display: none;
+    }
+}
+
+/* Flying-probe hint — the discoverability affordance for the WASD probe.
+   Hidden until boot completes (hud-ready), fades out forever after the
+   probe is first used (body.probe-used), with a gentle attention pulse
+   that reduced-motion users never see. */
+.hud-probe-hint {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: rgba(62, 230, 160, 0.8);
+    padding: 2px 6px;
+    border: 1px solid rgba(62, 230, 160, 0.25);
+    border-radius: 2px;
+    background: rgba(9, 20, 15, 0.6);
+    opacity: 0;
+    transition: opacity 0.8s var(--ease-out);
+    animation: probe-hint-pulse 2.6s var(--ease-in-out) infinite;
+}
+
+#hud-bar.hud-ready .hud-probe-hint {
+    opacity: 1;
+}
+
+/* Must out-specify #hud-bar.hud-ready .hud-probe-hint (the id wins over
+   two classes) — and animation:none is required because the pulse
+   keyframes would otherwise hold opacity regardless of the property. */
+body.probe-used #hud-bar.hud-ready .hud-probe-hint {
+    opacity: 0;
+    animation: none;
+}
+
+@keyframes probe-hint-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hud-probe-hint {
+        animation: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .hud-probe-hint {
+        display: none;
+    }
+}
+
 /* Signal-path scroll progress — a live trace that fills with journey progress.
    The fill uses transform: scaleX only (transform-origin left) so updating it
    never triggers layout — one compositor-cheap write per scroll, driven by
@@ -250,6 +350,51 @@ body.hud-cta-hidden #cta-linkedin-hud {
     min-width: 30px;
     text-align: left;
     font-variant-numeric: tabular-nums;
+}
+
+/* Top-edge signal-strength meter — the journey's power rail. A thin strip
+   along the very top edge that fills with scroll progress; SEGMENTED (not a
+   smooth bar) so it reads as a signal/power meter rather than a generic
+   progress bar. Same gold→signal language as the HUD legend's sig-path;
+   driven by updateSigPath (main.js), transform-only writes, deterministic. */
+#sig-meter {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 70; /* above the HUD bar — it is the HUD's top rail */
+    background: repeating-linear-gradient(90deg, rgba(236, 231, 216, 0.12) 0 5px, rgba(6, 14, 10, 0.95) 5px 9px);
+    pointer-events: none;
+}
+
+#sig-meter-fill {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(90deg, rgba(201, 162, 75, 0.9) 0 5px, var(--signal) 5px 9px);
+    box-shadow: 0 0 6px rgba(62, 230, 160, 0.5);
+    transform: scaleX(0);
+    transform-origin: left center;
+    /* same snap-as-readout behavior as .sig-path-fill — never lags the scrub */
+    transition: transform 0.08s linear;
+}
+
+/* Glowing leading-edge LED — the "signal present" marker at the meter tip.
+   Positioned transform-only: translateX(calc(p*100vw …)) uses viewport units
+   (the meter spans the viewport) so the head tracks the fill's scaleX edge
+   without ever writing a layout property. */
+#sig-meter-head {
+    position: absolute;
+    top: -2px;
+    left: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--signal);
+    box-shadow: 0 0 8px var(--signal);
+    transform: translateX(-50%);
+    transition: transform 0.08s linear;
 }
 
 /* Gold-pad CTA — reads as an ENIG pad on the board, not a neon pill.
@@ -346,13 +491,24 @@ body.hud-cta-hidden #cta-linkedin-hud {
     z-index: 10;
 }
 
+/* Split-screen scroll track: the datasheet sidebar is FIXED, so a section's
+   only job is to give its travel leg scroll room — no section needs extra
+   road for a full-screen overlay to sit in anymore. One leg = exactly one
+   screen of camera travel (the ScrollTrigger window in journey.js is 100vh:
+   'top bottom' → 'top top') plus a 20vh park where the camera settles at the
+   stop while the next section enters — ~1.2 screens per section, down from
+   the 180–300vh full-screen-overlay era. Sections are pure scroll track:
+   every .ds-panel inside is fixed, so nothing here needs breathing room. */
 .journey-sec {
     position: relative;
-    min-height: 180vh;
+    min-height: 120vh;
 }
 
+/* Kept for structure (sec-projects is the flagship section) and referenced
+   by lite mode; carries no extra height now — the fixed sidebar means no
+   section needs more scroll road than any other. */
 .journey-sec-tall {
-    min-height: 280vh;
+    min-height: 120vh;
 }
 
 /* Focused project detail: display:contents removes the section box entirely
@@ -393,29 +549,8 @@ body.hud-cta-hidden #cta-linkedin-hud {
     transform: scale(0.9);
 }
 
-#sec-hero {
-    min-height: 120vh;
-}
-
-#sec-about {
-    min-height: 200vh;
-}
-
-#sec-projects {
-    min-height: 300vh;
-}
-
-#sec-skills {
-    min-height: 220vh;
-}
-
-#sec-experience {
-    min-height: 200vh;
-}
-
-#sec-contact {
-    min-height: 150vh;
-}
+/* All sections share the base 120vh track — the old per-section overrides
+   (200–300vh) existed to park full-screen overlays that no longer exist. */
 
 /* ─── Datasheet panels ────────────────────────────────────
    Daughterboard treatment: each panel reads as a physical PCB
@@ -460,55 +595,43 @@ body.hud-cta-hidden #cta-linkedin-hud {
     will-change: transform, opacity;
 }
 
-/* Full-journey mode: panels are fixed overlays toggled by camera arrival */
+/* Full-journey mode — the fixed datasheet SIDEBAR. Every panel is pinned to
+   the SAME box in the right 42% of the viewport: identical daughterboard
+   chrome, identical position, across all six sections. Only the inner content
+   changes, via a pure-opacity cross-fade (~300ms) on the site-wide
+   power2.inOut curve (--ease-in-out). The box is bounded by the HUD above
+   (top: 84px) and a 24px margin below/right, with a 24px gap from the canvas
+   edge; max-width caps the daughterboard on ultrawide viewports and
+   margin:auto centers it within the right region. */
 body.full-journey .ds-panel {
     position: fixed;
     z-index: 30;
+    top: 84px;
+    bottom: 24px;
+    left: calc(58% + 24px);
+    right: 24px;
+    width: auto;
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+    overflow-y: auto;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(24px) scale(0.97);
+    transform: none;
+    will-change: opacity;
     /* Visibility flips instantly on activate, but waits out the fade on
-       deactivate (0s delay 0.6s). NEVER animate visibility itself: Chromium
+       deactivate (0s delay 0.3s). NEVER animate visibility itself: Chromium
        won't tick transitions on un-rendered (visibility:hidden) elements, so a
        visibility transition deadlocks — the panel freezes at opacity 0 while
        its transitions sit perpetually at currentTime 0. */
-    transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out), visibility 0s linear 0.5s;
-    max-height: calc(100vh - 140px);
-    overflow-y: auto;
-    will-change: transform, opacity;
-    /* JS sets left/right/top dynamically via style */
+    transition: opacity 0.3s var(--ease-in-out), visibility 0s linear 0.3s;
 }
 
 body.full-journey .ds-panel.panel-active {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0) scale(1);
-    transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out), visibility 0s;
-}
-
-/* Contact stays centered — the full-board "all systems operational" closer. */
-body.full-journey #panel-contact {
-    left: 50% !important;
-    top: 50% !important;
-    transform: translate(-50%, calc(-50% + 24px)) scale(0.97) !important;
-}
-
-body.full-journey #panel-contact.panel-active {
-    transform: translate(-50%, -50%) scale(1) !important;
-}
-
-/* Hero is BOARD-FIRST: right-anchored (same anchored-datasheet language as
-   the component sections) so the fully-framed board's chips and traces show
-   around the panel at the establishing shot instead of hiding behind it. */
-body.full-journey #panel-hero {
-    left: auto !important;
-    right: 24px !important; /* matches the component panels' 24px margin clamp */
-    top: 50% !important;
-    transform: translateY(calc(-50% + 24px)) scale(0.97) !important;
-}
-
-body.full-journey #panel-hero.panel-active {
-    transform: translateY(-50%) scale(1) !important;
+    transform: none;
+    transition: opacity 0.3s var(--ease-in-out), visibility 0s;
 }
 
 .ds-panel-wide {
@@ -539,8 +662,9 @@ body.full-journey #panel-hero.panel-active {
     font-weight: 500;
     text-transform: uppercase;
     opacity: 0;
-    transform: translateY(-8px);
-    transition: opacity 0.45s var(--ease-out), transform 0.45s var(--ease-out);
+    /* Inner content cross-fades (pure opacity, power2.inOut) with a tiny
+       stagger — the panel box itself never moves. */
+    transition: opacity 0.3s var(--ease-in-out);
 }
 
 .ds-ref::before {
@@ -562,8 +686,7 @@ body.full-journey #panel-hero.panel-active {
 
 .ds-panel.panel-active .ds-ref {
     opacity: 1;
-    transform: translateY(0);
-    transition-delay: 0.1s;
+    transition-delay: 0.05s;
 }
 
 /* ds-title = datasheet heading with a gold pad tick on the left */
@@ -577,8 +700,7 @@ body.full-journey #panel-hero.panel-active {
     font-weight: 700;
     text-shadow: 0 0 20px rgba(201, 162, 75, 0.25);
     opacity: 0;
-    transform: translateY(-10px);
-    transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+    transition: opacity 0.3s var(--ease-in-out);
 }
 
 .ds-title::before {
@@ -595,8 +717,7 @@ body.full-journey #panel-hero.panel-active {
 
 .ds-panel.panel-active .ds-title {
     opacity: 1;
-    transform: translateY(0);
-    transition-delay: 0.15s;
+    transition-delay: 0.1s;
 }
 
 /* Centered panels (contact) drop the left tick */
@@ -642,14 +763,12 @@ body.full-journey #panel-hero.panel-active {
     color: rgba(215, 255, 230, 0.9);
     margin: 14px 0 18px;
     opacity: 0;
-    transform: translateY(12px);
-    transition: opacity 0.45s var(--ease-out), transform 0.45s var(--ease-out);
+    transition: opacity 0.3s var(--ease-in-out);
 }
 
 .ds-panel.panel-active .ds-body {
     opacity: 1;
-    transform: translateY(0);
-    transition-delay: 0.25s;
+    transition-delay: 0.15s;
 }
 
 .spec-table {
@@ -746,6 +865,13 @@ body.full-journey #panel-hero.panel-active {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
+}
+
+/* In split mode the datasheet sidebar is ~42vw, so the project grid compacts
+   to two columns (the old 980px-wide full-viewport grid would overflow). */
+body.full-journey .projects-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
 }
 
 /* Project cards = mini-PCBs: gold trace header along the top, a corner
@@ -1105,7 +1231,9 @@ body.full-journey #panel-hero.panel-active {
     .cta-linkedin {
         transition: none !important;
     }
-    .sig-path-fill {
+    .sig-path-fill,
+    #sig-meter-fill,
+    #sig-meter-head {
         transition: none !important;
     }
     #hud-bar.hud-ready {
@@ -1151,49 +1279,25 @@ body.lite-mode .journey-sec:not(#sec-hero) {
 }
 
 /* ─── Mobile & tablet responsiveness ──────────────────── */
+/* Below 768px the site runs lite mode (config.isSmallViewport) — the
+   side-by-side split is never attempted. The board becomes a reduced-height
+   top strip and the panels stack in normal document flow below it. */
+@media (max-width: 767px) {
+    #canvas-container {
+        width: 100vw;
+        height: 48vh;
+        min-height: 0;
+    }
+}
+
 @media (max-width: 900px) {
     #hud-bar { flex-wrap: wrap; justify-content: center; padding: 10px 12px; gap: 6px; }
     #cta-linkedin-hud { font-size: 11px; padding: 7px 12px; }
     .hud-nav .nav-btn { font-size: 11px; padding: 4px 6px; }
     .hud-name { font-size: 12px; }
-    /* Below ~900px the 620px hero panel would fully cover the board, so the
-       board-first split is replaced by a centered hero (the phone rule below
-       repeats this for ≤640). */
-    body.full-journey #panel-hero {
-        left: 50% !important;
-        right: auto !important;
-        transform: translate(-50%, calc(-50% + 24px)) scale(0.97) !important;
-    }
-    body.full-journey #panel-hero.panel-active {
-        transform: translate(-50%, -50%) scale(1) !important;
-    }
 }
 
 @media (max-width: 640px) {
-    body.full-journey .ds-panel {
-        width: calc(100vw - 24px);
-        padding: 16px 18px;
-        max-height: calc(100vh - 100px);
-    }
-    body.full-journey #panel-hero {
-        width: calc(100vw - 24px);
-        /* Phone: recenter the hero — there's no room for the board beside it */
-        left: 50% !important;
-        right: auto !important;
-        transform: translate(-50%, calc(-50% + 24px)) scale(0.97) !important;
-    }
-    body.full-journey #panel-hero.panel-active {
-        transform: translate(-50%, -50%) scale(1) !important;
-    }
-    body.full-journey #panel-projects {
-        top: 70px;
-        left: 50%;
-        transform: translate(-50%, 18px);
-        width: calc(100vw - 16px);
-    }
-    body.full-journey #panel-projects.panel-active {
-        transform: translate(-50%, 0);
-    }
     .projects-grid {
         grid-template-columns: 1fr;
     }
