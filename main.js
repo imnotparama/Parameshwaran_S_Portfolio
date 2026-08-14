@@ -283,9 +283,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // The active section gates the tilt strength — boosted on About so the
         // "move cursor to tilt board" affordance is felt, capped everywhere.
         const activeSectionId = getActiveSectionId();
+        // Distance-scaled ambient intensity: the hero/contact cameras sit far
+        // back (z≈25-33) where a world-unit of motion projects to a few
+        // pixels, so the float and sweep would read as static on the first
+        // screen. Scale their amplitudes with camera distance — 1.0 at the
+        // component stops (z≈4.2), ramping to ≤3 at hero — so the board reads
+        // alive at EVERY framing; close stops are never amplified.
+        const distScale = Math.min(1 + Math.max(camera.position.z - 4.2, 0) / 12, 3);
         // isFocusMode(): while a chip is focused, board.js damps the levitation
         // to 20% so the focused composition steadies (probe touchdown).
-        updateBoardParallax(elapsed, mouse, delta, activeSectionId, journeyLive, isFocusMode());
+        updateBoardParallax(elapsed, mouse, delta, activeSectionId, journeyLive, isFocusMode(), distScale);
 
         // Hover shadow — the contact grounding that makes the levitation
         // legible (opacity tracks the float height; runs after the float
@@ -315,8 +322,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // probe-energized shimmer on hovered copper.
         updateTraceRipple(elapsed);
 
-        // Bench sweep: the CRT scan line crossing the board surface.
-        updateBenchSweep(elapsed);
+        // Bench sweep: the CRT scan line crossing the board surface (scaled
+        // with camera distance too — at hero a 0.05-wide plane is a 1px
+        // hairline; the mesh-scale widens it without touching the geometry
+        // the smoke test classifies).
+        updateBenchSweep(elapsed, distScale);
 
         // Update screen-space panel positioning, connector line, and vignette
         if (typeof updateJourneyEffects === 'function' && !isLiteMode()) {

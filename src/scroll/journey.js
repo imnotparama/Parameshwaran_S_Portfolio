@@ -245,9 +245,11 @@ function getHeroFramingZ() {
   return Math.max(halfExtent / tanHalfV, halfExtent / (tanHalfV * Math.max(aspect, 0.4)));
 }
 
-// Get camera position and lookat for a section ID
+// Get camera position and lookat for a section ID (exported for the headless
+// smoke test, which asserts the hero pose lands the board center on the
+// panel's center line).
 /** @param {string} sectionId */
-function getCameraConfigForStop(sectionId) {
+export function getCameraConfigForStop(sectionId) {
   if (COMPONENT_WORLD[sectionId]) {
     const compPos = COMPONENT_WORLD[sectionId].clone();
     return {
@@ -260,10 +262,43 @@ function getCameraConfigForStop(sectionId) {
   const cfg = FIXED_CAMERAS[sectionId];
   if (!cfg) return { pos: new THREE.Vector3(0, 0, 0), look: new THREE.Vector3(0, 0, 0) };
   const pos = cfg.pos.clone();
+  const look = cfg.look.clone();
   if (sectionId === 'sec-hero' || sectionId === 'sec-contact') {
     pos.z = getHeroFramingZ();
+    alignHeroToPanel(pos, look);
   }
-  return { pos, look: cfg.look.clone() };
+  return { pos, look };
+}
+
+// The datasheet sidebar is pinned below the HUD (top: 84px, bottom: 24px), so
+// its vertical center sits 30px BELOW the viewport center — while the hero
+// camera centers the board on the full canvas. Without a correction the board
+// reads ~19px high next to the panel (and the gap flips sign with aspect), so
+// the two columns never share a center line. Shift the hero/contact pose
+// (pos + look together — pure translation, the 3/4 view angle is preserved)
+// until the board's projected center lands on the panel's center line.
+// Computed per-viewport because the required shift changes with aspect (the
+// framing z is aspect-dependent). One Newton step: the projection is
+// essentially linear for the small shifts involved.
+/** @param {THREE.Vector3} pos @param {THREE.Vector3} look */
+function alignHeroToPanel(pos, look) {
+  const { w, h } = getCanvasViewportSize();
+  if (!w || !h) return;
+  const panelCenterPx = h / 2 + 30; // (84 + (h - 108) / 2) = h/2 + 30
+  // Project the board center with a throwaway camera at the candidate pose.
+  const cam = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
+  cam.position.copy(pos);
+  cam.lookAt(look);
+  cam.updateMatrixWorld(true);
+  const boardCenter = new THREE.Vector3(0, 0, 0.085).project(cam);
+  const boardCenterPx = ((-boardCenter.y + 1) / 2) * h;
+  const shiftPx = panelCenterPx - boardCenterPx;
+  if (Math.abs(shiftPx) < 1) return;
+  const tanHalfV = Math.tan(THREE.MathUtils.degToRad(45) / 2);
+  const pxPerWorld = h / (2 * pos.z * tanHalfV);
+  const dy = shiftPx / pxPerWorld;
+  pos.y += dy;
+  look.y += dy;
 }
 
 /** @param {number} t */

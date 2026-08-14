@@ -18,6 +18,11 @@
 //     noteInteraction resets the idle clock
 //   - NO NaN / Infinity in any mesh position, scale, rotation, or material
 //     emissiveIntensity / opacity
+//   - at hero camera distance (distScale=3) the SCALED float amplitudes stay
+//     in bounds, the shadow clamp holds, and the sweep widens exactly by the
+//     scale while staying on the board
+//   - the hero camera pose (getCameraConfigForStop) projects the board center
+//     onto the sidebar panel's center line (per-viewport alignment)
 //   - with motionPrefs.reduced forced true, everything goes STATIC:
 //     float planted, ripple frozen, sweep + dust + pulses hidden
 //   - the RAYCAST LAYER: a real camera + the app's own initHover/checkHover,
@@ -99,6 +104,12 @@ const { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFl
 const { createProjectChips, updateProjectChips } = await import('../src/three/project-chips.js');
 const { mouse, initHover, checkHover, clearHover } = await import('../src/utils/hover.js');
 const { motionPrefs } = await import('../src/utils/motion-prefs.js');
+// journey.js's getCameraConfigForStop exports the per-viewport hero pose —
+// the alignment assertion (phase A3) projects its board center and checks it
+// lands on the panel's center line. Safe headless: module top-level only
+// registers ScrollTrigger plugins + guarded load listeners (no ScrollTrigger
+// instances until initJourney, which the test never calls).
+const { getCameraConfigForStop } = await import('../src/scroll/journey.js');
 
 // NOTE: `board.boardGroup` is read via the module namespace GETTER after
 // createBoard runs — destructuring would snapshot the pre-create `undefined`.
@@ -302,6 +313,65 @@ for (let i = 0; i < NORMAL_FRAMES; i++) {
 const normalProblems = audit();
 assert.ok(firstTickY === 0, `wake-in: first live tick must write y=0 (settle-pop guard), got ${firstTickY}`);
 assert.ok(normalProblems.length === 0, `normal-motion invariants violated:\n  - ${normalProblems.join('\n  - ')}`);
+
+// ── 5b. Phase A2 — hero-distance amplitudes (distScale = 3) ──
+// main.js scales the ambient amplitudes with camera distance so the hero
+// framing (z≈25-33) reads alive instead of sub-pixel static: 1.0 at the
+// component stops, ramping to ≤3 at hero. Drive the float, shadow, and sweep
+// at the max scale and assert the SCALED bounds hold: float ≤ 3× its
+// amplitude, the shadow stays inside its own (unscaled) bounds via its new
+// clamp, the sweep widens by exactly the scale while still sweeping on the
+// board, and nothing goes NaN.
+const DIST_SCALE_MAX = 3;
+for (let i = 0; i < 1200; i++) {
+    mouse.set(Math.sin(i * 0.013), Math.cos(i * 0.011));
+    board.updateBoardParallax(i * DT, mouse, DT, 'sec-about', true, false, DIST_SCALE_MAX);
+    board.updateHoverShadow();
+    board.updateBenchSweep(i * DT, DIST_SCALE_MAX);
+}
+assert.ok(Math.abs(boardGroup.position.y) <= FLOAT_AMP_Y * DIST_SCALE_MAX + EPS, `scaled float y ${boardGroup.position.y} exceeds ${FLOAT_AMP_Y * DIST_SCALE_MAX}`);
+assert.ok(Math.abs(boardGroup.position.z) <= FLOAT_AMP_Z * DIST_SCALE_MAX + EPS, `scaled float z ${boardGroup.position.z} exceeds ${FLOAT_AMP_Z * DIST_SCALE_MAX}`);
+assert.ok(Math.abs(boardGroup.rotation.z) <= FLOAT_AMP_ROLL * DIST_SCALE_MAX + EPS, `scaled float roll ${boardGroup.rotation.z} exceeds ${FLOAT_AMP_ROLL * DIST_SCALE_MAX}`);
+assert.ok(
+    shadowBlob.material.opacity >= SHADOW_OPACITY_MIN - EPS && shadowBlob.material.opacity <= SHADOW_OPACITY_MAX + EPS,
+    `scaled float pushed the shadow outside its bounds (opacity ${shadowBlob.material.opacity.toFixed(3)})`
+);
+assert.ok(
+    shadowBlob.scale.x >= SHADOW_SCALE_MIN && shadowBlob.scale.x <= SHADOW_SCALE_MAX,
+    `scaled float pushed the shadow outside its bounds (scale ${shadowBlob.scale.x.toFixed(3)})`
+);
+for (const m of sweepMeshes) {
+    assert.ok(Math.abs(m.scale.x - DIST_SCALE_MAX) < EPS, `sweep must widen exactly by distScale (${m.scale.x})`);
+    assert.ok(m.position.x >= SWEEP_MIN_X - EPS && m.position.x <= SWEEP_MAX_X + EPS, `scaled sweep left the board (x ${m.position.x})`);
+}
+for (const v of [boardGroup.position.x, boardGroup.position.y, boardGroup.position.z, boardGroup.rotation.x, boardGroup.rotation.y, boardGroup.rotation.z]) {
+    assert.ok(isFiniteNum(v), `NaN in scaled float pose (${v})`);
+}
+// Reset the pose the phase-C raycast poses were designed around (the float
+// froze mid-swing at the max amplitude):
+boardGroup.position.set(0, 0, 0);
+boardGroup.rotation.set(0, 0, 0);
+for (const m of sweepMeshes) m.scale.set(1, 1, 1);
+
+// ── 5c. Phase A3 — hero panel alignment (per-viewport) ───────
+// The datasheet sidebar is pinned top:84px / bottom:24px, so its center sits
+// at h/2+30 — while the hero camera centers the board on the full canvas. A
+// fixed offset can't fix the gap (it flips sign with aspect), so
+// getCameraConfigForStop applies a per-viewport shift until the board's
+// projected center lands on the panel's center line. Assert the returned
+// pose does that at the shim viewport (742.4×800 canvas).
+const heroCfg = getCameraConfigForStop('sec-hero');
+const alignCam = new THREE.PerspectiveCamera(45, 742.4 / 800, 0.1, 1000);
+alignCam.position.copy(heroCfg.pos);
+alignCam.lookAt(heroCfg.look);
+alignCam.updateMatrixWorld(true);
+const heroBoardCenter = new THREE.Vector3(0, 0, 0.085).project(alignCam);
+const heroBoardCenterPx = ((1 - heroBoardCenter.y) / 2) * 800;
+const panelCenterPx = 800 / 2 + 30; // 84 + (800 - 108) / 2
+assert.ok(
+    Math.abs(heroBoardCenterPx - panelCenterPx) < 4,
+    `hero alignment: board center ${heroBoardCenterPx.toFixed(1)}px vs panel center ${panelCenterPx}px (drift ${(heroBoardCenterPx - panelCenterPx).toFixed(1)}px)`
+);
 
 // ── 6. Phase C — the raycast layer (hover alignment) ─────────
 // A real PerspectiveCamera plus the app's own initHover/checkHover, driven

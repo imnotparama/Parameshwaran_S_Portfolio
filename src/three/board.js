@@ -468,9 +468,13 @@ export function updateHoverShadow() {
         hoverShadow.scale.setScalar(1);
         return;
     }
-    const h = (boardGroup.position.y + FLOAT_AMP_Y) / (2 * FLOAT_AMP_Y); // 0..1, 1 = highest
+    // Clamp the ratio inputs: main.js scales the float amplitudes with camera
+    // distance (distScale), so position/amplitude can exceed ±1 at the hero
+    // framing — without the clamp the shadow would over-fade / over-breathe
+    // there. Saturated is correct behavior for a far board.
+    const h = THREE.MathUtils.clamp((boardGroup.position.y + FLOAT_AMP_Y) / (2 * FLOAT_AMP_Y), 0, 1); // 0..1, 1 = highest
     mat.opacity = SHADOW_MAX_OPACITY - h * (SHADOW_MAX_OPACITY - SHADOW_MIN_OPACITY);
-    const breathe = boardGroup.position.z / FLOAT_AMP_Z; // -1..1
+    const breathe = THREE.MathUtils.clamp(boardGroup.position.z / FLOAT_AMP_Z, -1, 1); // -1..1
     hoverShadow.scale.set(1 + breathe * 0.06, 1 + breathe * 0.06, 1);
 }
 
@@ -488,7 +492,8 @@ let sweepLead = null;
 let sweepTrail = null;
 
 /** @param {number} elapsed */
-export function updateBenchSweep(elapsed) {
+/** @param {number} elapsed @param {number} [distScale] */
+export function updateBenchSweep(elapsed, distScale = 1) {
     if (!sweepLead || !sweepTrail) return;
     if (motionPrefs.reduced) {
         sweepLead.visible = false;
@@ -501,6 +506,11 @@ export function updateBenchSweep(elapsed) {
     const env = Math.sin(p * Math.PI); // fade in/out at the edges
     sweepLead.position.x = SWEEP_MIN_X + SWEEP_SPAN * p;
     sweepTrail.position.x = SWEEP_MIN_X + SWEEP_SPAN * p - 0.3; // lags the lead
+    // distScale widens the scan line at hero distance — a 0.05-wide plane at
+    // z≈33 is a 1px hairline; scaling the MESH (not the geometry) keeps the
+    // smoke test's geometry-based width classification intact.
+    sweepLead.scale.x = distScale;
+    sweepTrail.scale.x = distScale;
     /** @type {THREE.MeshBasicMaterial} */ (sweepLead.material).opacity = env * 0.14;
     /** @type {THREE.MeshBasicMaterial} */ (sweepTrail.material).opacity = env * 0.05;
 }
@@ -538,8 +548,8 @@ let floatWakeStart = -1; // elapsed snapshot of the first live tick
 /** @type {number} */
 let focusDamp = 1;
 
-/** @param {number} elapsed @param {THREE.Vector2} mouse @param {number} [delta] @param {string} [activeSecId] @param {boolean} [journeyLive] @param {boolean} [focusMode] */
-export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyLive, focusMode) {
+/** @param {number} elapsed @param {THREE.Vector2} mouse @param {number} [delta] @param {string} [activeSecId] @param {boolean} [journeyLive] @param {boolean} [focusMode] @param {number} [distScale] */
+export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyLive, focusMode, distScale = 1) {
     if (!boardGroup) return;
 
     // Check if we're in journey mode (camera controlled by scroll)
@@ -589,9 +599,15 @@ export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyL
             const wake = wakeT * wakeT * (3 - 2 * wakeT); // smoothstep
             const focusTarget = focusMode ? 0.2 : 1;
             focusDamp += (focusTarget - focusDamp) * lerpFactor(0.06, delta);
-            boardGroup.position.y = Math.sin(elapsed * 0.55) * FLOAT_AMP_Y * wake * focusDamp;
-            boardGroup.position.z = Math.cos(elapsed * 0.37) * FLOAT_AMP_Z * wake * focusDamp;
-            boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL * wake * focusDamp;
+            // distScale: the hero/contact cameras sit far back (z≈33) where a
+            // world-unit of motion projects to a few pixels — the float would
+            // read as static on the first screen. Scale the amplitudes up with
+            // camera distance (main.js passes it) so the hover stays visible at
+            // every framing; close stops already project large, so they're
+            // clamped to ~1 and never amplified.
+            boardGroup.position.y = Math.sin(elapsed * 0.55) * FLOAT_AMP_Y * wake * focusDamp * distScale;
+            boardGroup.position.z = Math.cos(elapsed * 0.37) * FLOAT_AMP_Z * wake * focusDamp * distScale;
+            boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL * wake * focusDamp * distScale;
         }
     }
 }
