@@ -4,6 +4,8 @@ An interactive 3D PCB portfolio showcasing ECE (Electronics & Communication Engi
 
 **Live demo:** `npm run dev` → http://localhost:5173
 
+![smoke test status](https://github.com/imnotparama/Parameshwaran_S_Portfolio/actions/workflows/smoke.yml/badge.svg)
+
 ![og-preview](public/og-preview.png)
 
 ## The Interaction Model
