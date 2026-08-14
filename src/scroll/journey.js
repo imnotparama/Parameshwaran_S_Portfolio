@@ -992,8 +992,18 @@ function getStopScrolls() {
 /** Nearest section stop strictly beyond the current scroll in `dir`.
  *  @param {number} dir */
 function directionalStop(dir) {
-  const stops = getStopScrolls();
-  const y = window.scrollY;
+  return computeDirectionalStop(getStopScrolls(), window.scrollY, dir);
+}
+
+/** Pure direction math for the snap layer: the nearest stop strictly beyond
+ *  the current scroll in `dir`, with a 2px tolerance so a glide that lands
+ *  exactly ON a stop doesn't re-target itself. Clamped to the journey's
+ *  ends. Exported for the headless smoke test (the DOM wheel path isn't
+ *  headless-testable).
+ *  @param {number[]} stops sorted section stop scroll-Ys
+ *  @param {number} y current scroll position
+ *  @param {number} dir +1 forward, −1 backward */
+export function computeDirectionalStop(stops, y, dir) {
   if (dir > 0) {
     for (const s of stops) if (s > y + 2) return s;
     return stops[stops.length - 1] ?? 0;
@@ -1002,6 +1012,21 @@ function directionalStop(dir) {
     if (stops[i] < y - 2) return stops[i];
   }
   return 0;
+}
+
+/** Pure wheel→queue math: how many section steps a delta contributes (with
+ *  the sub-threshold remainder carried in the accumulator), capped to ±max.
+ *  Exported for the headless smoke test.
+ *  @param {number} delta raw wheel delta (px, deltaMode-normalized)
+ *  @param {number} [accum] carried sub-threshold delta
+ *  @param {number} [stepPx] default WHEEL_STEP_PX
+ *  @param {number} [maxSteps] default MAX_QUEUED_STEPS */
+export function wheelStepQueue(delta, accum = 0, stepPx = WHEEL_STEP_PX, maxSteps = MAX_QUEUED_STEPS) {
+  let a = accum + delta;
+  let steps = 0;
+  while (a >= stepPx) { a -= stepPx; steps++; }
+  while (a <= -stepPx) { a += stepPx; steps--; }
+  return { queue: Math.max(-maxSteps, Math.min(maxSteps, steps)), accum: a };
 }
 
 /** Glide the page to a scroll Y with the site's unified transition, then
@@ -1053,15 +1078,9 @@ function onJourneyWheel(e) {
   let d = e.deltaY;
   if (e.deltaMode === 1) d *= 40;      // lines → px
   else if (e.deltaMode === 2) d *= 100; // pages → px
-  wheelAccum += d;
-  while (wheelAccum >= WHEEL_STEP_PX) {
-    wheelAccum -= WHEEL_STEP_PX;
-    glideQueued = Math.min(MAX_QUEUED_STEPS, glideQueued + 1);
-  }
-  while (wheelAccum <= -WHEEL_STEP_PX) {
-    wheelAccum += WHEEL_STEP_PX;
-    glideQueued = Math.max(-MAX_QUEUED_STEPS, glideQueued - 1);
-  }
+  const r = wheelStepQueue(d, wheelAccum);
+  wheelAccum = r.accum;
+  glideQueued = Math.max(-MAX_QUEUED_STEPS, Math.min(MAX_QUEUED_STEPS, glideQueued + r.queue));
   pumpGlide();
 }
 

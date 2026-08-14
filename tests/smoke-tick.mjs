@@ -23,6 +23,10 @@
 //     scale while staying on the board
 //   - the hero camera pose (getCameraConfigForStop) projects the board center
 //     onto the sidebar panel's center line (per-viewport alignment)
+//   - the snap layer's pure math: computeDirectionalStop (next/prev stop with
+//     the 2px no-re-target tolerance + end clamping) and wheelStepQueue
+//     (delta → capped section steps with the accumulator carry), including
+//     the burst invariant that N notches chain at most MAX_QUEUED_STEPS glides
 //   - with motionPrefs.reduced forced true, everything goes STATIC:
 //     float planted, ripple frozen, sweep + dust + pulses hidden
 //   - the RAYCAST LAYER: a real camera + the app's own initHover/checkHover,
@@ -106,10 +110,12 @@ const { mouse, initHover, checkHover, clearHover } = await import('../src/utils/
 const { motionPrefs } = await import('../src/utils/motion-prefs.js');
 // journey.js's getCameraConfigForStop exports the per-viewport hero pose —
 // the alignment assertion (phase A3) projects its board center and checks it
-// lands on the panel's center line. Safe headless: module top-level only
-// registers ScrollTrigger plugins + guarded load listeners (no ScrollTrigger
-// instances until initJourney, which the test never calls).
-const { getCameraConfigForStop } = await import('../src/scroll/journey.js');
+// lands on the panel's center line. computeDirectionalStop + wheelStepQueue
+// are the snap layer's PURE seams (phase A4) — the DOM wheel path isn't
+// headless-testable. Safe headless: module top-level only registers
+// ScrollTrigger plugins + guarded load listeners (no ScrollTrigger instances
+// until initJourney, which the test never calls).
+const { getCameraConfigForStop, computeDirectionalStop, wheelStepQueue } = await import('../src/scroll/journey.js');
 
 // NOTE: `board.boardGroup` is read via the module namespace GETTER after
 // createBoard runs — destructuring would snapshot the pre-create `undefined`.
@@ -372,6 +378,67 @@ assert.ok(
     Math.abs(heroBoardCenterPx - panelCenterPx) < 4,
     `hero alignment: board center ${heroBoardCenterPx.toFixed(1)}px vs panel center ${panelCenterPx}px (drift ${(heroBoardCenterPx - panelCenterPx).toFixed(1)}px)`
 );
+
+// ── 5d. Phase A4 — the snap layer's pure direction/queue math ─
+// The DOM wheel path (initJourney's wheel listener) isn't headless-testable,
+// so journey.js exports the two pure seams it's built on. These assert the
+// invariants the layer guarantees live: one notch = exactly one section; a
+// burst chains at most MAX_QUEUED_STEPS glides (the queue counts the
+// in-flight step, consumed on completion); the 2px tolerance stops a landed
+// glide from re-targeting itself.
+const STOPS = [0, 840, 1680, 2520, 3360, 4200];
+const snapChecks = [
+    // [stops, y, dir, expected, label]
+    [STOPS, 1000, 1, 1680, 'mid-leg forward → next stop'],
+    [STOPS, 1000, -1, 840, 'mid-leg backward → previous stop'],
+    [STOPS, 1680, 1, 2520, 'exactly ON a stop, forward → the stop after'],
+    [STOPS, 1680, -1, 840, 'exactly ON a stop, backward → the stop before'],
+    [STOPS, 1678, 1, 2520, 'within 2px of a stop counts as ON it (no re-target)'],
+    [STOPS, 0, 1, 840, 'at the hero, forward → about'],
+    [STOPS, 0, -1, 0, 'at the hero, backward → clamped to 0'],
+    [STOPS, 5000, 1, 4200, 'past the last stop, forward → clamped to last'],
+    [STOPS, 5000, -1, 4200, 'past the last stop, backward → last'],
+    [[], 0, 1, 0, 'empty stops, forward → 0'],
+    [[], 0, -1, 0, 'empty stops, backward → 0']
+];
+for (const [stops, y, dir, expected, label] of snapChecks) {
+    assert.strictEqual(computeDirectionalStop(stops, y, dir), expected, `computeDirectionalStop: ${label}`);
+}
+
+// wheelStepQueue — step extraction + accumulator carry (the sub-threshold
+// remainder rides along so a half-notch isn't lost):
+assert.deepStrictEqual(wheelStepQueue(120), { queue: 1, accum: 0 }, 'one notch = one step');
+assert.deepStrictEqual(wheelStepQueue(250), { queue: 2, accum: 10 }, 'two steps + remainder carried');
+assert.deepStrictEqual(wheelStepQueue(119), { queue: 0, accum: 119 }, 'sub-threshold delta accumulates');
+assert.deepStrictEqual(wheelStepQueue(60, 60), { queue: 1, accum: 0 }, 'accumulated deltas cross the threshold');
+assert.deepStrictEqual(wheelStepQueue(-120), { queue: -1, accum: 0 }, 'negative notch = backward step');
+assert.deepStrictEqual(wheelStepQueue(-60, -60), { queue: -1, accum: 0 }, 'accumulated backward deltas cross');
+assert.deepStrictEqual(wheelStepQueue(500, 0, 120, 3), { queue: 3, accum: 20 }, 'oversized delta capped at max steps, remainder kept');
+assert.deepStrictEqual(wheelStepQueue(-500, 0, 120, 3), { queue: -3, accum: -20 }, 'oversized backward delta capped, remainder kept');
+
+// Burst invariant: N notches arriving during a glide chain exactly
+// min(N, MAX_QUEUED_STEPS) glides — the queue counts the in-flight step
+// (consumed on completion), so the cap bounds a whole gesture, not just the
+// backlog. Simulates the real code path: per-notch wheelStepQueue + the
+// capped add, then one glide per queued step.
+const simulateBurst = (deltas, cap = 3) => {
+    let accum = 0, queue = 0;
+    for (const d of deltas) {
+        const r = wheelStepQueue(d, accum);
+        accum = r.accum;
+        queue = Math.max(-cap, Math.min(cap, queue + r.queue));
+    }
+    return Math.abs(queue);
+};
+assert.strictEqual(simulateBurst([120]), 1, '1-notch burst → 1 glide');
+assert.strictEqual(simulateBurst([120, 120]), 2, '2-notch burst → 2 glides');
+assert.strictEqual(simulateBurst([120, 120, 120]), 3, '3-notch burst → 3 glides');
+assert.strictEqual(simulateBurst([120, 120, 120, 120, 120]), 3, '5-notch burst → capped at 3 glides');
+assert.strictEqual(simulateBurst(Array(9).fill(120)), 3, '9-notch burst → still capped at 3');
+assert.strictEqual(simulateBurst(Array(4).fill(-120)), 3, 'backward burst → capped at 3');
+assert.strictEqual(simulateBurst([120, 120, -120]), 1, 'mixed burst → net direction');
+assert.strictEqual(simulateBurst([40, 40, 40, 40]), 1, 'trackpad-style small deltas accumulate to 1 step');
+assert.strictEqual(simulateBurst(Array(9).fill(40)), 3, 'trackpad-style small deltas accumulate to 3 steps (capped)');
 
 // ── 6. Phase C — the raycast layer (hover alignment) ─────────
 // A real PerspectiveCamera plus the app's own initHover/checkHover, driven
