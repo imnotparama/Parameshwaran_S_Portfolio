@@ -4,7 +4,7 @@ An interactive 3D PCB portfolio showcasing ECE (Electronics & Communication Engi
 
 **Live demo:** `npm run dev` → http://localhost:5173
 
-![smoke test status](https://github.com/imnotparama/Parameshwaran_S_Portfolio/actions/workflows/smoke.yml/badge.svg)
+![CI status](https://github.com/imnotparama/Parameshwaran_S_Portfolio/actions/workflows/smoke.yml/badge.svg)
 
 ![og-preview](public/og-preview.png)
 
@@ -56,7 +56,7 @@ npm run typecheck
 npm run smoke
 ```
 
-The smoke test also runs automatically on every push to `master` and every pull request via GitHub Actions (see the status badge above; workflow: `.github/workflows/smoke.yml`).
+The full validation trio — typecheck, build, and the 12,000-frame smoke test — runs automatically on every push to `master` and every pull request via GitHub Actions (see the status badge above; workflow: `.github/workflows/smoke.yml`).
 
 Profile links come from Vite env vars (`VITE_LINKEDIN_URL`, `VITE_GITHUB_URL`) with public fallbacks in `src/config.js`.
 
@@ -77,7 +77,7 @@ main.js                    # Entry point: scene init, tick loop, boot, nav, hash
 index.html                 # HUD, boot overlay, section datasheet templates, meta/OG tags
 style.css                  # Design tokens, scanlines, HUD, hero, CTA styles
 scroll.css                 # Journey panel system: daughterboard cards, connector SVG
-.github/workflows/smoke.yml # CI: 12,000-frame motion smoke test on push/PR
+.github/workflows/smoke.yml # CI: typecheck + build + 12,000-frame smoke on push/PR
 docs/claude.md             # Architecture blueprint + developer session log (read before refactoring)
 tests/smoke-tick.mjs       # Headless deterministic motion smoke test (npm run smoke)
 src/

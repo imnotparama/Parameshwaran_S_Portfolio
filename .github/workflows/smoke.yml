@@ -1,15 +1,19 @@
-# Motion-invariant smoke test — CI gate for the animation pipeline.
+# Motion-invariant smoke test + static validation — the CI gate.
 #
-# Runs `npm run smoke` (tests/smoke-tick.mjs: 12,000 headless frames of the
-# real tick pipeline, asserting float/ripple/sweep/dust/LED/pulse bounds,
-# zero NaN, reduced-motion staticity, and the raycast layer) on every push
-# to master and on every pull request.
+# Runs the full validation trio on every push to master and on every pull
+# request, as two parallel jobs:
+#   1. build-typecheck — `tsc --noEmit` (the // @ts-check JS modules) +
+#      `vite build` (catches bundling and runtime-import errors)
+#   2. smoke — tests/smoke-tick.mjs: 12,000 headless frames of the real tick
+#      pipeline, asserting float/ripple/sweep/dust/LED/pulse bounds, zero
+#      NaN, reduced-motion staticity, and the raycast layer
 #
-# Timing decision: the full run takes ~2s locally (measured 2026-08), so it
-# is practical on EVERY push — no nightly schedule needed. If the suite ever
-# grows beyond ~60s, move this to a nightly cron (`schedule: - cron: '0 3 * * *'`)
-# and drop the push/pr triggers, noting that tradeoff here.
-name: smoke
+# Timing decision: the trio takes ~10s locally (typecheck ~2s, build <1s,
+# smoke ~2s, measured 2026-08), so it stays practical on EVERY push — no
+# nightly schedule needed. If the suite ever grows beyond ~60s, move this
+# to a nightly cron (`schedule: - cron: '0 3 * * *'`) and drop the push/pr
+# triggers, noting that tradeoff here.
+name: ci
 
 on:
   push:
@@ -17,12 +21,31 @@ on:
   pull_request:
 
 jobs:
-  smoke:
+  build-typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       # Vite 8 requires Node 20.19+ / 22.12+ — pin 22 for the LTS floor.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
