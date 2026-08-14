@@ -6,7 +6,7 @@
 // ============================================================
 import * as THREE from 'three';
 import gsap from 'gsap';
-import { interactiveObjects } from '../three/components.js';
+import { interactiveObjects, pressTactile } from '../three/components.js';
 import { highlightTrace } from '../three/traces.js';
 import { hoverBlip, clickBlip } from './sound.js';
 
@@ -44,6 +44,8 @@ let hoverLight = null;
 let clickHandler = null;
 /** @type {(() => void) | null} */
 let buzzerHandler = null;
+/** @type {((switchName: string) => void) | null} */
+let switchHandler = null;
 // Hover is a fine-pointer concept — touch has no hover state, so the per-frame
 // raycast would burn cost for nothing and leave a glow stuck at the last tap
 // point. The flag is live (same listener pattern as motionPrefs): a device
@@ -67,7 +69,9 @@ let suppressHoverUntil = 0;
 const PCB_GLOW_MAP = {
     'U1': 0x3ee6a0, 'U2': 0x00bfff, 'Y1': 0xaa44ff,
     'ANT1': 0x00ffff, 'J1': 0xff8800, 'VR1': 0xff4444,
-    'RN1': 0x14b8a6, 'TP1': 0xffcc00, 'TP2': 0xffcc00
+    'RN1': 0x14b8a6, 'TP1': 0xffcc00, 'TP2': 0xffcc00,
+    'C5': 0x10b981, 'RF1': 0x00ffff, 'HDR1': 0xffcc00,
+    'L1': 0x14b8a6, 'RV1': 0xff8800, 'SW1': 0x3ee6a0, 'SW2': 0x3ee6a0, 'SW3': 0x3ee6a0
 };
 
 // ─── Live scope readout data ─────────────────────────────────
@@ -91,7 +95,15 @@ const SCOPE_MAP = {
     'RN1':    { v: '4.7kΩ',     f: '—',         state: 'PULL-UP' },
     'TP1':    { v: '5V',        f: '—',         state: 'REF' },
     'TP2':    { v: 'GND',       f: '—',         state: 'REF' },
-    'BZ1':    { v: '3.3V',      f: '2.7kHz',    state: 'SILENT' }
+    'BZ1':    { v: '3.3V',      f: '2.7kHz',    state: 'SILENT' },
+    'C5':     { v: '16V',       f: '100µF',     state: 'BULK' },
+    'RF1':    { v: '3.3V',      f: '2.4GHz',    state: 'RF SHIELD' },
+    'HDR1':   { v: '5V',        f: '—',         state: 'BREAKOUT' },
+    'L1':     { v: '—',         f: '10µH',      state: 'BUCK' },
+    'RV1':    { v: '10kΩ',      f: '—',         state: 'ADJ' },
+    'SW1':    { v: '3.3V',      f: '—',         state: 'MOMENTARY' },
+    'SW2':    { v: '3.3V',      f: '—',         state: 'MOMENTARY' },
+    'SW3':    { v: '3.3V',      f: '—',         state: 'MOMENTARY' }
 };
 
 /** @type {HTMLElement | null} */
@@ -253,6 +265,14 @@ export function initHover(camera, scene) {
                     clickHandler(obj.name);
                 } else if (obj.userData && obj.userData.type === 'BUZZER' && buzzerHandler) {
                     buzzerHandler();
+                } else if (obj.userData && obj.userData.type === 'SWITCH' && obj.name) {
+                    // Tactile switch — the cap dips and springs back, with a
+                    // blip: a mechanical button press. The registered
+                    // switchHandler then fires the switch's behavior (night
+                    // bench / horn / nearest-chip focus — wired in main.js).
+                    pressTactile(obj.name);
+                    clickBlip();
+                    if (switchHandler) switchHandler(obj.name);
                 }
             }
         });
@@ -269,6 +289,13 @@ export function setBoardClickHandler(fn) {
  * @param {() => void} fn */
 export function setBuzzerHandler(fn) {
     buzzerHandler = fn;
+}
+
+/** Register the callback fired when a tactile switch (SW1-3) is clicked.
+ *  Receives the switch name so one handler can route all three.
+ * @param {(switchName: string) => void} fn */
+export function setSwitchHandler(fn) {
+    switchHandler = fn;
 }
 
 // ─── Per-frame Raycast Check ────────────────────────────

@@ -151,6 +151,45 @@ export function createBoard(scene) {
             ctx.strokeRect(1024 - 160, 3000 - 30, 320, 60);
             ctx.fillText('RN1 - LANGS', 1024 - 120, 3000 + 80);
 
+            // C2. Silkscreen designators for the parts added in components.js
+            // (the dead-zone fillers SW1-3/RF1/C5/HDR1/L1/RV1 + the remaining
+            // unmarked interactive parts BZ1/TP1/TP2/ANT1) — outline boxes +
+            // 40px labels. Board-local → canvas: cx = 1024 + x·186,
+            // cy = 2048 − y·273 (same mapping as the mounting holes above).
+            // Label offsets chosen to clear existing marks: SW labels sit
+            // left of the buttons (right edge), C5's above the can (bottom
+            // text band), BZ1's below the disc clear of the QR block, TP
+            // labels clear of U1/RN1, ANT1's box encloses the full meander
+            // (it pokes 0.5u above its bounds mesh) with the label below U1's.
+            ctx.font = '40px monospace';
+            ctx.lineWidth = 6;
+            /** @type {Array<[number, number, number, number, string, number, number]>} */
+            const fillerParts = [
+                // [cx, cy, boxW, boxH, label, labelX, labelY]
+                [1899, 1257, 60, 60, 'SW1', 1789, 1264],
+                [1899, 1803, 60, 60, 'SW2', 1789, 1810],
+                [1899, 2566, 60, 60, 'SW3', 1789, 2573],
+                [1787, 411, 300, 430, 'RF1', 1747, 641],
+                [1508, 3821, 180, 240, 'C5', 1488, 3690],
+                [121, 684, 60, 390, 'HDR1', 201, 690],
+                [670, 247, 190, 270, 'L1', 780, 255],
+                [121, 2375, 140, 190, 'RV1', 201, 2380],
+                // BZ1 — piezo disc at (-1, -5.5); label below, clear of the
+                // QR block (x ≥ 954) and the J1/DESIGNED-BY bottom band.
+                [838, 3550, 120, 120, 'BZ1', 798, 3680],
+                // TP1/TP2 — the tiny gold test-point pads; small boxes, labels
+                // clear of U1's outline (x 784) and RN1's outline (y 2970).
+                [745, 1174, 50, 50, 'TP1', 700, 1124],
+                [1433, 2867, 50, 50, 'TP2', 1388, 2922],
+                // ANT1 — meander antenna at (3.5, 0.5); box encloses the full
+                // zigzag (cy 1639-1985), label below clear of U1's label.
+                [1675, 1812, 186, 346, 'ANT1', 1615, 2035]
+            ];
+            fillerParts.forEach(([fx, fy, bw, bh, label, lx, ly]) => {
+                ctx.strokeRect(fx - bw / 2, fy - bh / 2, bw, bh);
+                ctx.fillText(label, lx, ly);
+            });
+
             // D. Border Outline Tracing with Rounded Corners
             ctx.strokeStyle = 'rgba(236, 231, 216, 0.8)';
             ctx.lineWidth = 10;

@@ -1,13 +1,13 @@
 import { detectWebGL, showFallbackUI, setupCleanup } from './src/ui/fallback.js';
 import { initScene, scene, camera, renderer, tickCallbacks, enableBloom, syncCanvasSize } from './src/three/scene.js';
 import { createBoard, boardGroup, updateBoardParallax, updateBenchSweep, updateHoverShadow } from './src/three/board.js';
-import { createComponents, updateLedArray } from './src/three/components.js';
+import { createComponents, updateLedArray, SWITCH_POS } from './src/three/components.js';
 import { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses } from './src/three/traces.js';
 import { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } from './src/three/particles.js';
-import { createProjectChips, updateProjectChips } from './src/three/project-chips.js';
+import { createProjectChips, updateProjectChips, projectChips } from './src/three/project-chips.js';
 import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
-import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler } from './src/utils/hover.js';
+import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler } from './src/utils/hover.js';
 import { isSoundEnabled, toggleSound } from './src/utils/sound.js';
 import { noteInteraction, updateIdleDrift } from './src/three/idle.js';
 import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeTarget, isProbeModeActive, deactivateProbe } from './src/three/probe.js';
@@ -192,6 +192,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // BZ1 — the horn: clicking the piezo on the board pulses it, fires an
     // expanding sound ring, and beeps via WebAudio (user gesture required).
     setBuzzerHandler(pulseBuzzer);
+    // SW1-3 — the board's front-panel switches. Each press dips the cap and
+    // blips (hover.js), then fires a behavior: SW1 toggles the night bench,
+    // SW2 sounds the horn, SW3 glides to the project chip nearest to it.
+    // All three reuse existing entry points (togglePower / pulseBuzzer /
+    // focusProject) — no new state, scroll stays the primary path.
+    setSwitchHandler((switchName) => {
+        if (switchName === 'SW1') {
+            togglePower();
+        } else if (switchName === 'SW2') {
+            pulseBuzzer();
+        } else if (switchName === 'SW3') {
+            // Nearest chip by board-local distance — projectChips stores each
+            // chip's position in the same space as SWITCH_POS, so plain 2D
+            // distance is exact (no world-matrix math needed).
+            const [sx, sy] = SWITCH_POS[2];
+            let nearest = null;
+            let bestD = Infinity;
+            for (const ref of Object.keys(projectChips)) {
+                const p = projectChips[ref].pos;
+                const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
+                if (d < bestD) {
+                    bestD = d;
+                    nearest = ref;
+                }
+            }
+            if (nearest) focusProject(nearest);
+        }
+    });
     const projectCloseBtn = document.getElementById('btn-project-close');
     if (projectCloseBtn) {
         projectCloseBtn.addEventListener('click', () => exitFocusMode());

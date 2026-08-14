@@ -47,6 +47,12 @@ export function updateRadarRing(elapsed) {
 const LED_PULSE_BASE = 0.1;
 const LED_PULSE_AMP = 0.6;      // peaks at 0.7, well under the arrival flash
 
+// The three tactile switches, in board-local coordinates (SW1 = top).
+// Hoisted so main.js can wire switch behaviors without re-declaring the
+// geometry — hover.js's SWITCH clicks arrive with the object's name, and
+// main.js routes them; SW3's "nearest chip" math reads these positions.
+export const SWITCH_POS = [[4.7, 2.9], [4.7, 0.9], [4.7, -1.9]];
+
 /** @typedef {{ mesh: THREE.Mesh, mat: THREE.MeshStandardMaterial, phase: number, freq: number }} LedPulse */
 /** @type {LedPulse[]} */
 const ledPulseDrivers = [];
@@ -556,6 +562,186 @@ export function createComponents(boardGroup) {
     boardGroup.add(tp2);
     interactiveObjects.push(tp2);
 
+    // -------------------------------------------------------------
+    // COMPONENTS 11+ — dead-zone fillers. The board was ~60% empty
+    // substrate; these recognizable parts (SW1-3, RF1, C5, HDR1, L1,
+    // RV1) make it read as a fully populated assembly. All hoverable
+    // (glow + scope readout) like the rest; the tactile switches are
+    // clickable — a press dip + instrument blip (hover.js routes
+    // SWITCH clicks here). All passive (no emissive, no per-frame
+    // writes) so they never fight the ambient layers.
+    // -------------------------------------------------------------
+
+    // Tactile push buttons — a row of three along the right edge.
+    // The CAP is the interactive part (it's what you'd press).
+    const btnBaseMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1f, roughness: 0.7, metalness: 0.25 });
+    const btnCapMat = new THREE.MeshStandardMaterial({ color: 0xd7dbe0, roughness: 0.35, metalness: 0.5 });
+    const btnBaseGeo = new THREE.BoxGeometry(0.42, 0.42, 0.12);
+    const btnCapGeo = new THREE.BoxGeometry(0.26, 0.26, 0.045);
+    disposableResources.geometries.add(btnBaseGeo);
+    disposableResources.geometries.add(btnCapGeo);
+    disposableResources.materials.add(btnBaseMat);
+    disposableResources.materials.add(btnCapMat);
+
+    // RF shield can — RF1 top-right (WiFi/BLE module can with embossed
+    // top frame + vent slots).
+    const rfBodyMat = new THREE.MeshStandardMaterial({ color: 0x8f99a3, roughness: 0.35, metalness: 0.9 });
+    const rfVentMat = new THREE.MeshStandardMaterial({ color: 0x39424d, roughness: 0.5, metalness: 0.7 });
+    const rfFrameMat = new THREE.LineBasicMaterial({ color: 0x2b3440, transparent: true, opacity: 0.85 });
+    const rfBodyGeo = new THREE.BoxGeometry(1.5, 1.5, 0.2);
+    const rfVentGeo = new THREE.BoxGeometry(0.05, 0.5, 0.012);
+    disposableResources.geometries.add(rfBodyGeo);
+    disposableResources.geometries.add(rfVentGeo);
+    disposableResources.materials.add(rfBodyMat);
+    disposableResources.materials.add(rfVentMat);
+    disposableResources.materials.add(rfFrameMat);
+
+    // Electrolytic through-hole capacitor — C5 bottom-center-right: black
+    // can with a gold top and the classic + polarity cross.
+    const ecBodyMat = new THREE.MeshStandardMaterial({ color: 0x16171a, roughness: 0.6, metalness: 0.3 });
+    const ecTopMat = new THREE.MeshStandardMaterial({ color: 0xc9a24b, roughness: 0.25, metalness: 0.9 });
+    const ecCrossMat = new THREE.MeshStandardMaterial({ color: 0x141519, roughness: 0.8, metalness: 0.1 });
+    const ecBodyGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.8, 20);
+    const ecTopGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.02, 20);
+    const ecCrossGeo = new THREE.BoxGeometry(0.4, 0.06, 0.014);
+    ecBodyGeo.rotateX(Math.PI / 2); // stand upright (axis along Z)
+    ecTopGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(ecBodyGeo);
+    disposableResources.geometries.add(ecTopGeo);
+    disposableResources.geometries.add(ecCrossGeo);
+    disposableResources.materials.add(ecBodyMat);
+    disposableResources.materials.add(ecTopMat);
+    disposableResources.materials.add(ecCrossMat);
+
+    // Pin header — HDR1 top-left: black housing, 6 gold pins standing up.
+    const hdrHousingMat = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.8, metalness: 0.1 });
+    const hdrHousingGeo = new THREE.BoxGeometry(0.18, 1.35, 0.12);
+    const hdrPinGeo = new THREE.BoxGeometry(0.05, 0.05, 0.18);
+    disposableResources.geometries.add(hdrHousingGeo);
+    disposableResources.geometries.add(hdrPinGeo);
+    disposableResources.materials.add(hdrHousingMat);
+
+    // Shielded power inductor — L1 top-center: squat dark block with a
+    // silver band and gold end-pads (buck-stage choke).
+    const indBodyMat = new THREE.MeshStandardMaterial({ color: 0x23252a, roughness: 0.55, metalness: 0.4 });
+    const indBandMat = new THREE.MeshStandardMaterial({ color: 0xb9c0c7, roughness: 0.3, metalness: 0.85 });
+    const indBodyGeo = new THREE.BoxGeometry(0.9, 0.9, 0.34);
+    const indBandGeo = new THREE.BoxGeometry(0.9, 0.2, 0.01);
+    const indPadGeo = new THREE.BoxGeometry(0.18, 0.3, 0.02);
+    disposableResources.geometries.add(indBodyGeo);
+    disposableResources.geometries.add(indBandGeo);
+    disposableResources.geometries.add(indPadGeo);
+    disposableResources.materials.add(indBodyMat);
+    disposableResources.materials.add(indBandMat);
+
+    // Trim pot — RV1 left-mid: classic blue trimpot with a gold screw head.
+    const rvBodyMat = new THREE.MeshStandardMaterial({ color: 0x1e4d8f, roughness: 0.5, metalness: 0.2 });
+    const rvBodyGeo = new THREE.BoxGeometry(0.62, 0.62, 0.2);
+    const rvScrewGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.045, 14);
+    rvScrewGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(rvBodyGeo);
+    disposableResources.geometries.add(rvScrewGeo);
+    disposableResources.materials.add(rvBodyMat);
+
+    SWITCH_POS.forEach(([sx, sy], i) => {
+        const base = new THREE.Mesh(btnBaseGeo, btnBaseMat);
+        base.position.set(sx, sy, surfaceZ + 0.06);
+        base.castShadow = true;
+        boardGroup.add(base);
+        const cap = new THREE.Mesh(btnCapGeo, btnCapMat);
+        cap.position.set(sx, sy, surfaceZ + 0.1425);
+        cap.castShadow = true;
+        cap.name = `SW${i + 1}`;
+        cap.userData = { componentName: `Tactile Switch SW${i + 1} (Front Panel)`, type: 'SWITCH' };
+        boardGroup.add(cap);
+        tactileButtons.push({ cap });
+        interactiveObjects.push(cap);
+    });
+
+    // RF1 — metal can + embossed top frame + three vent slots.
+    const rfMesh = new THREE.Mesh(rfBodyGeo, rfBodyMat);
+    rfMesh.position.set(4.1, 6.0, surfaceZ + 0.1);
+    rfMesh.castShadow = true;
+    rfMesh.name = 'RF1';
+    rfMesh.userData = { componentName: 'RF Shield RF1 (WiFi/BLE Can)', type: 'RF' };
+    boardGroup.add(rfMesh);
+    interactiveObjects.push(rfMesh);
+    const rfFrame = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-0.62, -0.62, 0.101),
+        new THREE.Vector3(0.62, -0.62, 0.101),
+        new THREE.Vector3(0.62, 0.62, 0.101),
+        new THREE.Vector3(-0.62, 0.62, 0.101)
+    ]), rfFrameMat);
+    rfFrame.position.set(4.1, 6.0, surfaceZ + 0.1);
+    boardGroup.add(rfFrame);
+    for (let v = 0; v < 3; v++) {
+        const vent = new THREE.Mesh(rfVentGeo, rfVentMat);
+        vent.position.set(4.1 - 0.25 + v * 0.25, 6.0, surfaceZ + 0.201);
+        boardGroup.add(vent);
+    }
+
+    // C5 — upright electrolytic: dark can, gold top, + cross, cast shadow.
+    const c5 = new THREE.Mesh(ecBodyGeo, ecBodyMat);
+    c5.position.set(2.6, -6.5, surfaceZ + 0.4);
+    c5.castShadow = true;
+    c5.name = 'C5';
+    c5.userData = { componentName: 'Electrolytic C5 (Bulk Rail)', type: 'CAP' };
+    boardGroup.add(c5);
+    interactiveObjects.push(c5);
+    const c5Top = new THREE.Mesh(ecTopGeo, ecTopMat);
+    c5Top.position.set(2.6, -6.5, surfaceZ + 0.8);
+    boardGroup.add(c5Top);
+    for (const [cx] of [[0], [Math.PI / 2]]) {
+        const cross = new THREE.Mesh(ecCrossGeo, ecCrossMat);
+        cross.rotation.z = cx;
+        cross.position.set(2.6, -6.5, surfaceZ + 0.811);
+        boardGroup.add(cross);
+    }
+
+    // HDR1 — housing + 6 gold pins as children (the housing is the hit
+    // target; children ride along for raycast-free decoration).
+    const hdrMesh = new THREE.Mesh(hdrHousingGeo, hdrHousingMat);
+    hdrMesh.position.set(-4.85, 5.0, surfaceZ + 0.06);
+    hdrMesh.castShadow = true;
+    hdrMesh.name = 'HDR1';
+    hdrMesh.userData = { componentName: 'Pin Header HDR1 (Breakout)', type: 'HDR' };
+    boardGroup.add(hdrMesh);
+    interactiveObjects.push(hdrMesh);
+    for (let p = 0; p < 6; p++) {
+        const pin = new THREE.Mesh(hdrPinGeo, goldMaterial);
+        pin.position.set(0, 5.0 - 0.55 + p * 0.22, surfaceZ + 0.06 + 0.06 + 0.09);
+        hdrMesh.add(pin);
+    }
+
+    // L1 — inductor body + silver band + gold end-pads.
+    const l1 = new THREE.Mesh(indBodyGeo, indBodyMat);
+    l1.position.set(-1.9, 6.6, surfaceZ + 0.17);
+    l1.castShadow = true;
+    l1.name = 'L1';
+    l1.userData = { componentName: 'Shielded Inductor L1 (Buck Stage)', type: 'IND' };
+    boardGroup.add(l1);
+    interactiveObjects.push(l1);
+    const l1Band = new THREE.Mesh(indBandGeo, indBandMat);
+    l1Band.position.set(-1.9, 6.6, surfaceZ + 0.341);
+    boardGroup.add(l1Band);
+    for (const px of [-0.48, 0.48]) {
+        const pad = new THREE.Mesh(indPadGeo, goldMaterial);
+        pad.position.set(-1.9 + px, 6.6, surfaceZ);
+        boardGroup.add(pad);
+    }
+
+    // RV1 — blue trimpot with a gold adjustment screw.
+    const rvMesh = new THREE.Mesh(rvBodyGeo, rvBodyMat);
+    rvMesh.position.set(-4.85, -1.2, surfaceZ + 0.1);
+    rvMesh.castShadow = true;
+    rvMesh.name = 'RV1';
+    rvMesh.userData = { componentName: 'Trimmer RV1 (Tune)', type: 'TRIMPOT' };
+    boardGroup.add(rvMesh);
+    interactiveObjects.push(rvMesh);
+    const rvScrew = new THREE.Mesh(rvScrewGeo, goldMaterial);
+    rvScrew.position.set(-4.85, -1.2, surfaceZ + 0.21);
+    boardGroup.add(rvScrew);
+
     // Dynamic tagging of isInteractive = true
     interactiveObjects.forEach(obj => {
         if (!obj.userData) obj.userData = {};
@@ -625,4 +811,26 @@ export function pulseBuzzer() {
     }
 
     beepBuzzer();
+}
+
+// ─── Tactile switch press ─────────────────────────────────────
+// Clicking SW1-3 dips the cap and springs it back (hover.js routes SWITCH
+// clicks here, alongside the instrument blip). Purely visual — the buttons
+// are front-panel dressing that feels mechanical.
+/** @type {Array<{ cap: THREE.Mesh }>} */
+const tactileButtons = [];
+
+/** @param {string} name */
+export function pressTactile(name) {
+    const btn = tactileButtons.find((b) => b.cap.name === name);
+    if (!btn) return;
+    gsap.killTweensOf(btn.cap.position);
+    gsap.to(btn.cap.position, {
+        z: btn.cap.position.z - 0.055,
+        duration: 0.09,
+        ease: 'power2.in',
+        yoyo: true,
+        repeat: 1,
+        overwrite: 'auto'
+    });
 }
