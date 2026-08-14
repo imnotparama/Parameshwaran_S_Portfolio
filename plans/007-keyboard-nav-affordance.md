@@ -48,8 +48,8 @@ Wiring: the HUD legend fades in as a whole via `#hud-bar.hud-ready` (scroll.css:
 
 1. In `index.html`, inside `<div class="hud-legend" aria-hidden="true">` (line 153), add the `<span class="hud-keyhint" aria-hidden="true">KEYS&nbsp;1–6&nbsp;·&nbsp;JUMP</span>` after the `hud-probe-hint` span (line 166). Use `&nbsp;` and `–` exactly as shown so it renders as `KEYS 1–6 · JUMP` on one line.
 2. In `scroll.css`, add the `.hud-keyhint` rule near the probe-hint block (~line 273).
-3. Add `body.lite-mode .hud-keyhint { display: none; }` near the other lite-mode rules (scroll.css:1321+).
-4. In the `@media (max-width: 900px)` block that hides `.hud-probe-hint` (scroll.css:336-341), add `.hud-keyhint` to the same rule.
+3. Add `body.lite-mode .hud-keyhint { display: none; }` near the other lite-mode rules (scroll.css:1338).
+4. In the `@media (max-width: 900px)` block that hides `.hud-probe-hint` (scroll.css:351-353), add `.hud-keyhint` to the same rule.
 
 ## Boundaries
 

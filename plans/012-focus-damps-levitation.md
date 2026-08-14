@@ -55,7 +55,7 @@ boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL * wake * focus
 
 ## Steps
 
-1. In `src/scroll/journey.js`, after `getActiveSectionId()` (~line 796), add:
+1. In `src/scroll/journey.js`, after `getActiveSectionId()` (now ~line 807 — drifted from 796 by later edits; `isFocusMode` exported at 807), add:
    ```js
    /** True while a chip focus view is active (clicked chip / Esc releases). */
    export function isFocusMode() {
