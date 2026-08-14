@@ -860,6 +860,11 @@ export function initJourney(camera) {
     ScrollTrigger.refresh();
   });
 
+  // Smooth scroll-snap layer: wheel = one section per notch with the unified
+  // power2.inOut glide, settle-snap aligns trackpad/touch/keyboard rests to
+  // the nearest section stop (see the layer block at the bottom of the file).
+  wireSmoothScroll();
+
   // Esc releases chip focus (close button lives in the panel; scroll does
   // it implicitly via setCameraAtT). Ignored while typing in a field.
   window.addEventListener('keydown', (e) => {
@@ -929,10 +934,156 @@ export function scrollToSection(sectionId) {
   const y = sectionId === 'sec-hero'
     ? 0
     : el.offsetTop;
+  // A wheel/snap glide in flight is superseded by direct navigation. Killed
+  // tweens never fire onComplete, so reset the snap layer explicitly here —
+  // otherwise a nav click mid-glide would leave glideActive stuck and the
+  // wheel snapping dead.
+  glideActive = false;
+  glideQueued = 0;
+  wheelAccum = 0;
   gsap.to(window, {
     scrollTo: { y },
     duration: 1.6,
     ease: 'power2.inOut',
     overwrite: 'auto'
   });
+}
+
+// ─── Smooth scroll-snap layer ─────────────────────────────────
+// The journey used to be a pure pulley: the camera followed the scrollbar
+// 1:1 (scrub 0.6) and a wheel notch was a hard yank. This layer replaces
+// that feel with page-to-page motion:
+//   - Wheel (journey mode): deltas accumulate into section steps — one
+//     notch = one section, glided with the site's unified power2.inOut.
+//     Rapid input chains up to MAX_QUEUED_STEPS glides.
+//   - Settle-snap: any other scroll input (trackpad momentum, touch,
+//     keyboard, scrollbar) that rests between stops glides to the nearest
+//     section — the page always lands ON a stop.
+// Skipped under reduced motion (native scroll, no hijack) and while wheeling
+// inside a nested scrollable (the fixed datasheet panel scrolls itself).
+const WHEEL_STEP_PX = 120;   // accumulated wheel px per section step
+// Bounds a whole burst (the in-flight glide counts too): a trackpad flick or
+// a fast wheel roll can chain at most 2 glides per gesture, then drops input
+// until the queue drains.
+const MAX_QUEUED_STEPS = 2;
+const SNAP_SETTLE_MS = 280;  // scroll-idle before the settle-snap fires
+let wheelAccum = 0;
+let glideQueued = 0;
+let glideActive = false;
+let settleTimer = 0;
+let smoothScrollWired = false;
+
+/** Document-scroll Y of every section stop, read live so resize/reflow is
+ *  always current. */
+function getStopScrolls() {
+  return stopOrder.map((id) => {
+    if (id === 'sec-hero') return 0;
+    const el = document.getElementById(id);
+    return el ? el.offsetTop : 0;
+  });
+}
+
+/** Nearest section stop strictly beyond the current scroll in `dir`.
+ *  @param {number} dir */
+function directionalStop(dir) {
+  const stops = getStopScrolls();
+  const y = window.scrollY;
+  if (dir > 0) {
+    for (const s of stops) if (s > y + 2) return s;
+    return stops[stops.length - 1] ?? 0;
+  }
+  for (let i = stops.length - 1; i >= 0; i--) {
+    if (stops[i] < y - 2) return stops[i];
+  }
+  return 0;
+}
+
+/** Glide the page to a scroll Y with the site's unified transition, then
+ *  chain any queued step.
+ *  @param {number} y */
+function glideToY(y) {
+  if (Math.abs(window.scrollY - y) < 2) {
+    glideActive = false;
+    glideQueued -= Math.sign(glideQueued);
+    pumpGlide();
+    return;
+  }
+  gsap.to(window, {
+    scrollTo: { y },
+    duration: 1.6,
+    ease: 'power2.inOut',
+    overwrite: 'auto',
+    onComplete: () => {
+      glideActive = false;
+      // Consume the step on COMPLETION, not at start: the queue counts the
+      // in-flight step too, so MAX_QUEUED_STEPS bounds a whole burst — a
+      // 5-event trackpad flick can't chain 3+ glides.
+      glideQueued -= Math.sign(glideQueued);
+      pumpGlide();
+    }
+  });
+}
+
+/** Consume queued steps one glide at a time so rapid input chains instead
+ *  of stacking tweens. */
+function pumpGlide() {
+  if (glideActive || glideQueued === 0 || !journeyReady) return;
+  glideActive = true;
+  glideToY(directionalStop(Math.sign(glideQueued)));
+}
+
+/** Wheel = one section per accumulated notch. Never fights the datasheet
+ *  panel's own scroll, ctrl+wheel browser zoom, or chip-focus scroll release
+ *  (focused → native scroll scrubs the camera and clears focus, exactly as
+ *  before).
+ *  @param {WheelEvent} e */
+function onJourneyWheel(e) {
+  if (!journeyReady || motionPrefs.reduced || isFocusMode() || e.ctrlKey || e.metaKey) return;
+  let el = /** @type {HTMLElement | null} */ (e.target);
+  while (el && el !== document.body) {
+    if (el.scrollHeight > el.clientHeight + 4) return; // nested scrollable
+    el = el.parentElement;
+  }
+  e.preventDefault();
+  let d = e.deltaY;
+  if (e.deltaMode === 1) d *= 40;      // lines → px
+  else if (e.deltaMode === 2) d *= 100; // pages → px
+  wheelAccum += d;
+  while (wheelAccum >= WHEEL_STEP_PX) {
+    wheelAccum -= WHEEL_STEP_PX;
+    glideQueued = Math.min(MAX_QUEUED_STEPS, glideQueued + 1);
+  }
+  while (wheelAccum <= -WHEEL_STEP_PX) {
+    wheelAccum += WHEEL_STEP_PX;
+    glideQueued = Math.max(-MAX_QUEUED_STEPS, glideQueued - 1);
+  }
+  pumpGlide();
+}
+
+/** Any scroll that isn't one of our glides (trackpad momentum, touch,
+ *  keyboard, scrollbar) gets aligned to the nearest stop after it rests. */
+function onJourneyScroll() {
+  if (!journeyReady || motionPrefs.reduced || glideActive) return;
+  clearTimeout(settleTimer);
+  settleTimer = setTimeout(() => {
+    if (!journeyReady || motionPrefs.reduced || glideActive || isFocusMode()) return;
+    const stops = getStopScrolls();
+    const y = window.scrollY;
+    let best = stops[0];
+    let bestD = Infinity;
+    for (const s of stops) {
+      const d = Math.abs(s - y);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    if (bestD > 4) glideToY(best);
+  }, SNAP_SETTLE_MS);
+}
+
+/** Register the smooth-scroll listeners once (initJourney re-runs on HMR;
+ *  the handlers read live module state, so re-wiring would double-fire). */
+function wireSmoothScroll() {
+  if (smoothScrollWired) return;
+  smoothScrollWired = true;
+  window.addEventListener('wheel', onJourneyWheel, { passive: false });
+  window.addEventListener('scroll', onJourneyScroll, { passive: true });
 }
