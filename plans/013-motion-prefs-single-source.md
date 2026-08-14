@@ -1,7 +1,11 @@
 # 013 — One reduced-motion policy source (motionPrefs)
 
-- **Status**: TODO
+- **Status**: DONE (executed 2026-08, commit `aaf61de`)
 - **Commit**: `eaff1f2`
+
+> Reconcile note: the seven const locations cited below are historical — the
+> fix deleted them (the plan's own outcome). Current state: `src/utils/motion-prefs.js`
+> owns the query + live listener; `grep -rn "REDUCED_MOTION" src/` returns nothing.
 - **Severity**: LOW
 - **Category**: Cohesion & tokens / Accessibility
 - **Estimated scope**: 7 files, ~40 lines

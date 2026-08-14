@@ -1,6 +1,6 @@
 # 006 — Animate the nav-active ref glyph (no more instant snap)
 
-- **Status**: TODO
+- **Status**: DONE (executed 2026-08, shipped in commit `239fb1c`)
 - **Commit**: `eaff1f2`
 - **Severity**: MEDIUM
 - **Category**: Cohesion & tokens / Purpose
@@ -13,15 +13,23 @@ The HUD nav buttons show a tiny gold silkscreen reference glyph (`.nav-ref`: `U1
 Current rules:
 
 ```css
-/* scroll.css:128-135 — current */
-.hud-nav .nav-btn:hover .nav-ref,
-.hud-nav .nav-btn.nav-active .nav-ref {
+/* scroll.css:141-152 — as executed (transition landed at :152) */
+.nav-ref {
+    font-size: 9px;
+    letter-spacing: 0.5px;
     color: var(--enig-gold);
-    opacity: 1;
+    opacity: 0.8;
+    margin-right: 6px;
+    font-weight: 500;
+    /* Plan 006: the ref glyph must not snap on section change — the active
+       state flips opacity 0.8→1, and it wasn't in any transition list. Same
+       fast curve as the button's own color transition, so the section change
+       reads as one beat (button label + ref + panel cascade). */
+    transition: opacity var(--duration-fast) var(--ease-out);
 }
 ```
 
-The ref glyph is also missing a transition of its own entirely (no `transition` property on `.nav-ref` at `scroll.css:122-127`).
+The ref glyph is also missing a transition of its own entirely (no `transition` property on `.nav-ref` — the block was at `scroll.css:122-127`, now `141-147`).
 
 ## Target
 
@@ -46,12 +54,12 @@ The hover/active rule above it stays exactly as-is — it now animates instead o
 
 ## Repo conventions to follow
 
-- The HUD button already uses `transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);` (`scroll.css:116`) — mirror that token pairing.
+- The HUD button already uses `transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);` (`.hud-nav .nav-btn` at `scroll.css:122`) — mirror that token pairing.
 - Reduced motion: `scroll.css` has a `@media (prefers-reduced-motion: reduce)` block that already kills transitions on `.proj-ds`, `.skill-pill`, `.cta-linkedin`, etc. `opacity` transitions are feedback, not movement — per the audit rule ("keep opacity/color, drop movement"), the nav-ref transition may stay ungated. No reduced-motion change needed.
 
 ## Steps
 
-1. In `scroll.css`, locate the `.nav-ref` block (around line 122) and add the `transition: opacity var(--duration-fast) var(--ease-out);` line after `font-weight: 500;`.
+1. In `scroll.css`, the `.nav-ref` block (now `141-152`) gained the `transition: opacity var(--duration-fast) var(--ease-out);` line after `font-weight: 500;`.
 2. Leave the `.hud-nav .nav-btn:hover .nav-ref, .hud-nav .nav-btn.nav-active .nav-ref` rule unchanged.
 3. Do not touch the `.hud-nav .nav-btn` block or any other rule.
 
@@ -67,5 +75,4 @@ The hover/active rule above it stays exactly as-is — it now animates instead o
 - **Feel check**: in the running site, press keys 1–6 or click the nav buttons:
   - The active button's ref glyph brightens over ~0.18s — no instant snap.
   - Hover in/out of a button also fades the glyph at the same speed (consistent with the button's color fade).
-  - In DevTools Animations panel at 10% playback: the opacity ramp is visible; no other property animates.
-- **Done when**: `.nav-ref` reports `transition: opacity 0.18s cubic-bezier(0.22, 1, 0.36, 1)` in the computed styles, and switching sections shows a visible fade on the ref glyph rather than a teleport.
+- **Done when**: `.nav-ref` reports `transition: opacity 0.18s cubic-bezier(0.22, 1, 0.36, 1)` in the computed styles, and switching sections shows a visible fade on the ref glyph rather than a teleport. (✅ verified at execution: `scroll.css:152`, commit `239fb1c`.)

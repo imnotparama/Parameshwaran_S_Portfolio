@@ -1,6 +1,6 @@
 # 012 — Damp the levitation while a chip is focused (probe touchdown)
 
-- **Status**: TODO
+- **Status**: DONE (executed 2026-08, commit `aaf61de`)
 - **Commit**: `eaff1f2`
 - **Severity**: MEDIUM
 - **Category**: Cohesion / Physicality & origin
@@ -19,7 +19,7 @@ glideCameraTo(pos, look, 1.2);
 ```
 
 `chip.pos` was baked at build time. Meanwhile the levitation
-(`src/three/board.js:458-461`) keeps running unmodulated — the focused chip
+(`src/three/board.js:480-488`) keeps running unmodulated — the focused chip
 drifts ±0.16 world units (up to ~20px at focus distance) under a camera that
 arrived at a fixed coordinate. The signal connector tracks the live pose
 (per-frame `localToWorld` in `updateJourneyEffects`), but the camera does not,
@@ -48,7 +48,7 @@ boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL * wake * focus
 
 ## Repo conventions to follow
 
-- The delta-scaled lerp pattern already exists in `src/three/board.js:406-410`
+- The delta-scaled lerp pattern already exists in `src/three/board.js:405-409`
   (`lerpFactor(k, delta)` = `1 - Math.pow(1 - k, (delta || 1/60) * 60)`); reuse it for `focusDamp` — the hover.js convention, same frame-rate independence.
 - Cross-module state is threaded through `main.js` tick arguments, never imported module-to-module (e.g. `journeyLive` at `main.js:246`). Mirror that: journey.js exports the getter, main.js passes the value in.
 - `focusedChip` is already module-private state in journey.js — the getter reads it, no refactor of the focus machinery.
@@ -69,7 +69,7 @@ boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL * wake * focus
 3. In `src/three/board.js`:
    - Add module state `/** @type {number} */ let focusDamp = 1;`
    - Extend the signature: `@param {boolean} [focusMode]` on the JSDoc and parameter list (after `journeyLive`).
-   - Inside the `if (journeyLive && !BOARD_REDUCED_MOTION)` block, before the writes, add the focusTarget lerp (above) and multiply all three amplitudes by `focusDamp`. Compose with plan 011's `wake` if both are applied: `... * FLOAT_AMP_Y * wake * focusDamp`.
+   - Inside the `if (journeyLive && !motionPrefs.reduced)` block, before the writes, add the focusTarget lerp (above) and multiply all three amplitudes by `focusDamp`. Compose with plan 011's `wake` if both are applied: `... * FLOAT_AMP_Y * wake * focusDamp`.
 4. Do not change the sine frequencies, amplitudes, or the camera glide in `focusProject`.
 
 ## Boundaries

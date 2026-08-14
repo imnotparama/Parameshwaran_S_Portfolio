@@ -1,6 +1,6 @@
 # 011 — Ramp the board levitation in after journey start (no settle-pop)
 
-- **Status**: TODO
+- **Status**: DONE (executed 2026-08, commit `aaf61de`)
 - **Commit**: `eaff1f2`
 - **Severity**: MEDIUM
 - **Category**: Physicality & origin / Interruptibility
@@ -8,8 +8,8 @@
 
 ## Problem
 
-The board levitation (`src/three/board.js:458-461`) writes absolute values the
-first frame the journey goes live. `journeyLive` flips true in `main.js:281`
+The board levitation (`src/three/board.js:480-488`) writes absolute values the
+first frame the journey goes live. `journeyLive` flips true in `main.js:246-248`
 inside the boot `onComplete` callback — on a full boot that is ~6.85s in, at
 the exact moment the boot overlay finishes fading. The boot arrival tween has
 just settled the board at `y:0, z:0`, so the float's first write is
@@ -18,8 +18,9 @@ units, roughly 8–12px at hero framing. The board visibly **jumps** at the
 settle, the most-watched moment of the page.
 
 ```js
-// src/three/board.js:458-461 — current
-if (journeyLive && !BOARD_REDUCED_MOTION) {
+// src/three/board.js:480-488 — as executed (plan 013 landed first, so the
+// gate reads motionPrefs.reduced rather than the old BOARD_REDUCED_MOTION)
+if (journeyLive && !motionPrefs.reduced) {
     boardGroup.position.y = Math.sin(elapsed * 0.55) * FLOAT_AMP_Y;
     boardGroup.position.z = Math.cos(elapsed * 0.37) * FLOAT_AMP_Z;
     boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL;
@@ -58,8 +59,8 @@ boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL * wake;
 
 ## Repo conventions to follow
 
-- Ambient board motion lives in `updateBoardParallax` (`src/three/board.js:423`), deterministic from `elapsed` — keep it that way; no new state beyond the single `floatWakeStart` snapshot.
-- Reduced-motion gating is the established `BOARD_REDUCED_MOTION` const already at `src/three/board.js:415` — unchanged.
+- Ambient board motion lives in `updateBoardParallax` (`src/three/board.js:436`), deterministic from `elapsed` — keep it that way; no new state beyond the single `floatWakeStart` snapshot.
+- Reduced-motion gating is the single `motionPrefs.reduced` source (plan 013; the old `BOARD_REDUCED_MOTION` const at `board.js:415` was deleted).
 - `elapsed` is monotonic (THREE.Timer from `src/three/scene.js`), so a snapshot-then-`(elapsed - start)` ramp is safe; no wall-clock.
 
 ## Steps
@@ -70,13 +71,13 @@ boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL * wake;
    /** @type {number} */
    let floatWakeStart = -1;
    ```
-2. In the `if (journeyLive && !BOARD_REDUCED_MOTION)` block (`board.js:458-461`), replace the three writes with the wake-ramped versions above (capture `floatWakeStart` on the first live tick, compute `wake` via smoothstep, multiply all three amplitudes).
+2. In the `if (journeyLive && !motionPrefs.reduced)` block (`board.js:480-488`), replace the three writes with the wake-ramped versions above (capture `floatWakeStart` on the first live tick, compute `wake` via smoothstep, multiply all three amplitudes).
 3. Do not change the sine frequencies, amplitudes, or the tilt lerps above the block.
 
 ## Boundaries
 
 - Do NOT touch `main.js` (the `journeyLive` flag and its timing are correct as-is).
-- Do NOT touch the legacy (non-journey) branch of `updateBoardParallax` (`board.js:430-437`).
+- Do NOT touch the legacy (non-journey) branch of `updateBoardParallax` (`board.js:442-446`).
 - Do NOT change any values other than wrapping the amplitude in `wake`.
 - If `floatWakeStart`/the block no longer matches (drift since `eaff1f2`), STOP and report.
 
