@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { interactiveObjects } from '../three/components.js';
 import { highlightTrace } from '../three/traces.js';
+import { hoverBlip, clickBlip } from './sound.js';
 
 // ─── Exports ────────────────────────────────────────────────
 export const mouse = new THREE.Vector2();
@@ -17,6 +18,9 @@ const targetMouse = new THREE.Vector2();
 
 // Clamping helper for pointer bounds
 const clamp = (/** @type {number} */ val, /** @type {number} */ min, /** @type {number} */ max) => Math.min(Math.max(val, min), max);
+
+/** Wall-clock for the input-suppression window only (never scene state). */
+const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
 
 // ─── Internal State ─────────────────────────────────────────
 /** @type {THREE.Raycaster | null} */
@@ -44,8 +48,19 @@ let buzzerHandler = null;
 // raycast would burn cost for nothing and leave a glow stuck at the last tap
 // point. The flag is live (same listener pattern as motionPrefs): a device
 // gaining/losing a fine pointer mid-session applies without a reload. The
-// parallax lerp is NOT gated — touch users keep the board tilt.
-let finePointer = false;
+// parallax lerp is NOT gated — touch users keep the board tilt. Exported so
+// probe.js can gate its tip raycast on the same single source (the probe is a
+// fine-pointer/keyboard interaction).
+export let finePointer = false;
+// Hybrid-touch guard: on touchscreen laptops (pointer: fine) a tap fires
+// touchstart → raycast glow, then touchend, then ~300ms later a SYNTHETIC
+// mousemove at the tap point that would re-light the glow and stick it. The
+// window gates BOTH the synthetic mousemove feed AND the per-frame raycast —
+// the latter is essential: without it, the next checkHover tick re-lights the
+// glow from the stale aim point even with the feed suppressed. Wall-clock is
+// appropriate here — this is input debouncing, not scene state.
+const HYBRID_TOUCH_WINDOW_MS = 600;
+let suppressHoverUntil = 0;
 
 // ─── PCB Hover Glow Color Map ───────────────────────────────
 /** @type {Record<string, number>} */
@@ -176,16 +191,36 @@ export function initHover(camera, scene) {
         targetMouse.y = clamp(rawY, -1.0, 1.0);
     };
 
-    window.addEventListener('mousemove', (e) => updateMouseCoords(e.clientX, e.clientY));
+    // Hybrid-touch guard: mousemove events inside the suppression window after
+    // the last touch are the browser's synthetic tap events — skip them or the
+    // just-cleared glow re-lights and sticks. Real mouse movement after the
+    // window expires works normally.
+    window.addEventListener('mousemove', (e) => {
+        if (nowMs() < suppressHoverUntil) return;
+        updateMouseCoords(e.clientX, e.clientY);
+    });
 
-    // Touch support
+    // Touch support — touchstart/touchmove keep feeding parallax (and, on
+    // hybrids, the raycast while a finger is down), but ending the touch
+    // clears the hover so no glow survives the lift, and starts the
+    // synthetic-mousemove suppression window.
     window.addEventListener('touchstart', (e) => {
         if (e.touches.length > 0) updateMouseCoords(e.touches[0].clientX, e.touches[0].clientY);
+        suppressHoverUntil = nowMs() + HYBRID_TOUCH_WINDOW_MS;
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
         if (e.touches.length > 0) updateMouseCoords(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: true });
+
+    // A lifted/cancelled touch must not leave a hover glow behind — and the
+    // synthetic mousemove + stale-aim raycast that follow must not re-light it.
+    const endTouch = () => {
+        suppressHoverUntil = nowMs() + HYBRID_TOUCH_WINDOW_MS;
+        clearHover();
+    };
+    window.addEventListener('touchend', endTouch, { passive: true });
+    window.addEventListener('touchcancel', endTouch, { passive: true });
 
     // Click-to-component: raycast the click against interactive objects and
     // forward PROJECT hits (the project chips) to the registered handler.
@@ -212,6 +247,9 @@ export function initHover(camera, scene) {
             if (hits.length > 0) {
                 const obj = hits[0].object;
                 if (obj.userData && obj.userData.type === 'PROJECT' && obj.name && clickHandler) {
+                    // Picked — the instrument tick. (The buzzer branch plays
+                    // its own horn via pulseBuzzer, so no double blip.)
+                    clickBlip();
                     clickHandler(obj.name);
                 } else if (obj.userData && obj.userData.type === 'BUZZER' && buzzerHandler) {
                     buzzerHandler();
@@ -247,8 +285,10 @@ export function checkHover(delta = 1 / 60) {
     mouse.y += (targetMouse.y - mouse.y) * lerpFactor;
 
     // No hover state on touch — skip the raycast entirely (cost + sticky
-    // glows). The click handler stays ungated so taps still MEASURE/focus.
-    if (!finePointer) return;
+    // glows). Also skip while the hybrid-touch suppression window is open:
+    // the raycast would re-light the just-cleared glow from the stale aim
+    // point. The click handler stays ungated so taps still MEASURE/focus.
+    if (!finePointer || nowMs() < suppressHoverUntil) return;
 
     frameCounter++;
 
@@ -294,9 +334,13 @@ function handleHoverEnter(mesh) {
         gsap.to(mat, { emissiveIntensity: 0.5, duration: 0.2, overwrite: 'auto' });
     }
 
-    // Subtle scale pulse — lighter than arrival
+    // Subtle scale pulse — lighter than arrival (~105% per the hover brief;
+    // the same reaction the probe uses, so both probes feel identical).
     gsap.killTweensOf(mesh.scale);
-    gsap.to(mesh.scale, { x: 1.04, y: 1.04, z: 1.04, duration: 0.2, ease: 'power1.out', overwrite: 'auto' });
+    gsap.to(mesh.scale, { x: 1.05, y: 1.05, z: 1.05, duration: 0.2, ease: 'power1.out', overwrite: 'auto' });
+
+    // The component's own voice: a quiet instrument tick on hover-in.
+    hoverBlip();
 
     // Mini hover light — subtle preview glow only
     if (hoverLight) {

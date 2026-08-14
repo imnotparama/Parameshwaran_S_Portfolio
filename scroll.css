@@ -338,10 +338,54 @@ body.probe-used #hud-bar.hud-ready .hud-probe-hint {
     }
 }
 
+/* Keyboard section nav hint — permanent affordance for the 1–6 keys.
+   Static (no pulse — unlike the probe hint) and muted silkscreen: it rides
+   the #hud-bar.hud-ready fade with the rest of the legend, no state of its
+   own. Reduced motion is irrelevant (static text). */
+.hud-keyhint {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: rgba(157, 180, 163, 0.55);
+}
+
 @media (max-width: 900px) {
-    .hud-probe-hint {
+    .hud-probe-hint,
+    .hud-keyhint {
         display: none;
     }
+}
+
+/* Master sound toggle — the SND switch. Muted by default (sound.js); when
+   on, body.sound-on lights it signal-green so it behaves like the rest of
+   the "live" language (scope chip, PWR LED). Functional control, not a
+   hint — deliberately NOT in the small-viewport hide list. */
+.hud-sound {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    color: rgba(157, 180, 163, 0.55);
+    background: rgba(9, 20, 15, 0.6);
+    border: 1px solid rgba(236, 231, 216, 0.12);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.hud-sound:hover {
+    color: var(--silkscreen);
+    border-color: rgba(62, 230, 160, 0.4);
+}
+
+.hud-sound:focus-visible {
+    outline: 2px solid var(--silkscreen);
+    outline-offset: 2px;
+}
+
+body.sound-on .hud-sound {
+    color: var(--signal);
+    border-color: rgba(62, 230, 160, 0.45);
+    text-shadow: 0 0 6px rgba(62, 230, 160, 0.5);
 }
 
 /* Signal-path scroll progress — a live trace that fills with journey progress.
@@ -797,6 +841,13 @@ body.full-journey .ds-panel.panel-active {
     margin: 14px 0 18px;
     opacity: 0;
     transition: opacity 0.3s var(--ease-in-out);
+}
+
+/* Typewriter reveal (journey.js) — each character is its own span, so
+   whitespace must not collapse (every space is a lone span; pre-wrap keeps
+   the exact original text). No motion — just layout preservation. */
+.ds-body.typer-active {
+    white-space: pre-wrap;
 }
 
 .ds-panel.panel-active .ds-body {
@@ -1320,6 +1371,12 @@ body.full-journey .projects-grid {
    ============================================================ */
 body.lite-mode #canvas-container {
     opacity: 1;
+}
+
+/* Plan 007: the 1–6 key nav is a full-journey feature — no journey in lite
+   mode, so the keyhint must not advertise it. */
+body.lite-mode .hud-keyhint {
+    display: none;
 }
 
 body.lite-mode .journey-sec,

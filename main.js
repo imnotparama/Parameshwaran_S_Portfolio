@@ -1,13 +1,15 @@
 import { detectWebGL, showFallbackUI, setupCleanup } from './src/ui/fallback.js';
 import { initScene, scene, camera, renderer, tickCallbacks, enableBloom, syncCanvasSize } from './src/three/scene.js';
-import { createBoard, boardGroup, updateBoardParallax, updateBenchSweep } from './src/three/board.js';
-import { createComponents } from './src/three/components.js';
-import { createTraces, updateTraceCurrent, updateTraceRipple } from './src/three/traces.js';
-import { createParticles, updateParticles, updateAmbientDust } from './src/three/particles.js';
+import { createBoard, boardGroup, updateBoardParallax, updateBenchSweep, updateHoverShadow } from './src/three/board.js';
+import { createComponents, updateLedArray } from './src/three/components.js';
+import { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses } from './src/three/traces.js';
+import { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips } from './src/three/project-chips.js';
 import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler } from './src/utils/hover.js';
+import { isSoundEnabled, toggleSound } from './src/utils/sound.js';
+import { noteInteraction, updateIdleDrift } from './src/three/idle.js';
 import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeTarget, isProbeModeActive, deactivateProbe } from './src/three/probe.js';
 import { initPower, togglePower } from './src/three/power.js';
 import { initCursor } from './src/ui/cursor.js';
@@ -226,6 +228,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // U1 CPU radar sweep (procedural, elapsed-driven)
         updateRadarRing(elapsed);
 
+        // D1-D7 status LEDs — staggered seeded pulse at rest (idle-life
+        // layer; the array breathes instead of sitting flat).
+        updateLedArray(elapsed);
+
         // Update project chip LEDs (flicker breadboard LEDs)
         updateProjectChips(elapsed);
 
@@ -247,14 +253,28 @@ document.addEventListener('DOMContentLoaded', () => {
         // to 20% so the focused composition steadies (probe touchdown).
         updateBoardParallax(elapsed, mouse, delta, activeSectionId, journeyLive, isFocusMode());
 
+        // Hover shadow — the contact grounding that makes the levitation
+        // legible (opacity tracks the float height; runs after the float
+        // writes the pose).
+        updateHoverShadow();
+
         // Ambient dust — the mote cloud around the board (deterministic,
         // reduced-motion gated inside particles.js)
         updateAmbientDust(elapsed);
+
+        // Gold flecks — sparse ENIG-gold specks drifting above the board
+        // (slower than the dust; reads as suspended solder debris).
+        updateAmbientGoldFlecks(elapsed);
 
         // Traveling current dot: power visibly flows along the active
         // section's trace (the arrival pulse is the flash; this is the
         // sustained current).
         updateTraceCurrent(elapsed, activeSectionId);
+
+        // Ambient signal pulses: one gold current dot traveling EVERY main
+        // trace route, continuously — the board reads as powered on, not
+        // just lit. Independent of scroll.
+        updateAmbientPulses(elapsed);
 
         // Copper ripple: a power blob floods every trace from the CPU (the
         // whole board carries current, not just the active section) + the
@@ -267,6 +287,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update screen-space panel positioning, connector line, and vignette
         if (typeof updateJourneyEffects === 'function' && !isLiteMode()) {
             updateJourneyEffects(camera, boardGroup);
+        }
+
+        // Idle ambient micro-drift — last writer while the page is still
+        // (delta-applied, so a scroll scrub simply takes over the base).
+        // Runs only after boot (journeyLive) so the boot's arrival camera
+        // stays untouched.
+        if (journeyLive) {
+            updateIdleDrift(elapsed, delta);
         }
     });
 
@@ -335,6 +363,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 18. Keyboard section navigation (1–6)
     window.addEventListener('keydown', handleSectionKey);
+
+    // 19b. Idle-ambient tracking: any scroll/pointer/key/touch interaction
+    // resets the idle clock (idle.js gates the camera micro-drift after ~3s
+    // of stillness). All passive — noteInteraction is a timestamp write.
+    ['scroll', 'wheel', 'pointermove', 'touchstart', 'keydown'].forEach((t) => {
+        window.addEventListener(t, noteInteraction, { passive: true });
+    });
+
+    // 19c. Master sound toggle — the SND switch in the HUD legend. Muted by
+    // default; the toggle click is the user gesture that may build the
+    // AudioContext (sound.js), so autoplay policy is never fought. One flag
+    // gates the hover/click blips AND the buzzer horn.
+    const soundBtn = document.getElementById('sound-toggle');
+    if (soundBtn) {
+        const syncSoundBtn = () => {
+            soundBtn.textContent = isSoundEnabled() ? 'SND\u00A0ON' : 'SND\u00A0OFF';
+            soundBtn.setAttribute('aria-pressed', String(isSoundEnabled()));
+            document.body.classList.toggle('sound-on', isSoundEnabled());
+        };
+        soundBtn.addEventListener('click', () => {
+            toggleSound();
+            syncSoundBtn();
+        });
+        syncSoundBtn();
+    }
 
     // 19. Flying scope probe keyboard (full-journey only): WASD activates +
     // flies (arrows fly only once the probe is already active — they stay

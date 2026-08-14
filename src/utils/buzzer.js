@@ -6,6 +6,7 @@
 // reads as a buzzer, not a synth. The AudioContext is created
 // lazily on the first click — browsers require a user gesture.
 // ============================================================
+import { isSoundEnabled } from './sound.js';
 
 /** @type {AudioContext | null} */
 let audioCtx = null;
@@ -21,8 +22,12 @@ function getCtx() {
 
 /** Fire the buzzer — two short 90ms beeps, 60ms apart (horn cadence).
  *  No-op on failure (no WebAudio, autoplay policy) — the visual pulse
- *  in components.js still plays, so the moment never silently dies. */
+ *  in components.js still plays, so the moment never silently dies.
+ *  Gated on the master sound toggle (sound.js): the horn is optional
+ *  audio, so "SND OFF" (the default) silences it too — the visual
+ *  pulse still plays. */
 export function beepBuzzer() {
+    if (!isSoundEnabled()) return;
     try {
         const ctx = getCtx();
         if (!ctx) return;

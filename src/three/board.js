@@ -364,8 +364,75 @@ export function createBoard(scene) {
     disposableResources.materials.add(sweepMat);
     disposableResources.materials.add(sweepTrailMat);
 
+    // Hover shadow — the "it's actually floating" amplifier: a soft radial
+    // blob on the bench plane whose opacity tightens as the board descends
+    // (closest approach = darkest) and relaxes as it rises. The directional
+    // ShadowMaterial on the bench handles the crisp cast; this is the contact
+    // grounding that makes the levitation legible. NOT parented to boardGroup
+    // — a shadow doesn't roll with the object. The radial gradient is baked
+    // once; the per-frame write is only opacity + scale.
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.width = 256;
+    shadowCanvas.height = 256;
+    const sctx = shadowCanvas.getContext('2d');
+    if (sctx) {
+        const grad = sctx.createRadialGradient(128, 128, 10, 128, 128, 128);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0.85)');
+        grad.addColorStop(0.55, 'rgba(0, 0, 0, 0.35)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        sctx.fillStyle = grad;
+        sctx.fillRect(0, 0, 256, 256);
+    }
+    const shadowTex = new THREE.CanvasTexture(shadowCanvas);
+    const shadowMat = new THREE.MeshBasicMaterial({
+        map: shadowTex,
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false
+    });
+    hoverShadow = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 4.4), shadowMat);
+    hoverShadow.name = 'hover-shadow';
+    hoverShadow.rotation.x = -Math.PI / 2; // flat on the bench (bench plane at scene.js:372)
+    hoverShadow.position.set(0, SHADOW_BASE_Y, 0);
+    scene.add(hoverShadow);
+    disposableResources.geometries.add(hoverShadow.geometry);
+    disposableResources.materials.add(shadowMat);
+    disposableResources.textures.add(shadowTex);
+
     boardGroup.scale.set(0.85, 0.85, 0.85);
     scene.add(boardGroup);
+}
+
+// ─── Hover shadow ────────────────────────────────────────────
+// Bench plane lives at y = -8.6 (scene.js) with the board resting at y = 0,
+// so the blob floats just above it to avoid z-fighting. Opacity maps the
+// board's actual height: y ∈ [-FLOAT_AMP_Y, +FLOAT_AMP_Y], higher = farther
+// from the bench = lighter. Reading boardGroup.position.y (not the raw sine)
+// means the wake-in ramp, the focus damp, and any future pose change all
+// compose through the real pose. Reduced motion: the board is planted, so the
+// blob holds a fixed mid opacity — stay-but-still, a grounded board still
+// grounds itself.
+const SHADOW_BASE_Y = -8.55;
+const SHADOW_MIN_OPACITY = 0.12;
+const SHADOW_MAX_OPACITY = 0.34;
+/** @type {THREE.Mesh | null} */
+let hoverShadow = null;
+
+/** Per-frame hover shadow — opacity tracks the float height, scale breathes
+ *  with the depth motion. No elapsed needed: it reads the live board pose, so
+ *  the wake-in ramp and focus damp compose through the real position. */
+export function updateHoverShadow() {
+    if (!hoverShadow || !boardGroup) return;
+    const mat = /** @type {THREE.MeshBasicMaterial} */ (hoverShadow.material);
+    if (motionPrefs.reduced) {
+        mat.opacity = (SHADOW_MIN_OPACITY + SHADOW_MAX_OPACITY) / 2;
+        hoverShadow.scale.setScalar(1);
+        return;
+    }
+    const h = (boardGroup.position.y + FLOAT_AMP_Y) / (2 * FLOAT_AMP_Y); // 0..1, 1 = highest
+    mat.opacity = SHADOW_MAX_OPACITY - h * (SHADOW_MAX_OPACITY - SHADOW_MIN_OPACITY);
+    const breathe = boardGroup.position.z / FLOAT_AMP_Z; // -1..1
+    hoverShadow.scale.set(1 + breathe * 0.06, 1 + breathe * 0.06, 1);
 }
 
 // ─── Bench sweep ─────────────────────────────────────────────

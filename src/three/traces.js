@@ -311,6 +311,60 @@ export function createTraces(boardGroup) {
     boardGroup.add(currentDot);
     disposableResources.geometries.add(dotGeo);
     disposableResources.materials.add(dotMat);
+
+    // Ambient signal pulses — one small gold dot continuously traveling each
+    // main trace route, independent of scroll: this is what makes the board
+    // read as "powered on" rather than just lit (the green current dot is the
+    // active section's focused pulse; these are the whole board's ambient
+    // current, in the copper's own gold). Deterministic: position is sampled
+    // from the cached CatmullRom curves at a staggered, seeded phase. Hidden
+    // entirely under reduced motion — a static dot on every trace would read
+    // as sensor noise (same posture as dust/sweep/flecks).
+    ambientPulses = [];
+    const pulseGeo = new THREE.SphereGeometry(0.05, 10, 10);
+    let pulseIdx = 0;
+    traceCurves.forEach((curve) => {
+        const pulseMat = new THREE.MeshStandardMaterial({
+            color: 0x3d2c07,
+            emissive: 0xc8960c,
+            emissiveIntensity: 1.4
+        });
+        const pulse = new THREE.Mesh(pulseGeo, pulseMat);
+        pulse.name = 'ambient-pulse'; // named for scene-graph queries / smoke test
+        pulse.visible = false;
+        boardGroup.add(pulse);
+        ambientPulses.push({ mesh: pulse, curve, phase: pulseIdx * 0.137 + 0.31 });
+        pulseIdx++;
+    });
+    disposableResources.geometries.add(pulseGeo);
+}
+
+// ─── Ambient signal pulses ────────────────────────────────────
+// One gold current dot per main trace route, continuously traveling — the
+// board's ambient current (the green trace-current-dot is the ACTIVE section's
+// focused pulse; these run on every route, independent of scroll). Slower
+// than the current dot so the two layers never move in lockstep.
+const AMBIENT_PULSE_SPEED = 0.2; // t units per second
+
+/** @typedef {{ mesh: THREE.Mesh, curve: THREE.CatmullRomCurve3, phase: number }} AmbientPulse */
+/** @type {AmbientPulse[]} */
+let ambientPulses = [];
+
+/** Per-frame continuous current along every main trace route. Called from the
+ *  tick loop — runs independent of scroll, alongside the active-section
+ *  current dot (traces.updateTraceCurrent).
+ *  @param {number} elapsed */
+export function updateAmbientPulses(elapsed) {
+    for (const p of ambientPulses) {
+        if (motionPrefs.reduced) {
+            p.mesh.visible = false;
+            continue;
+        }
+        p.mesh.visible = true;
+        const t = (elapsed * AMBIENT_PULSE_SPEED + p.phase) % 1;
+        p.curve.getPoint(t, p.mesh.position);
+        p.mesh.position.z += 0.02; // lift just above the trace surface
+    }
 }
 
 /** Energize (or release) the copper feeding a component when the probe

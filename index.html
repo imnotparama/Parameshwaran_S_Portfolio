@@ -167,6 +167,16 @@
                  forever once the probe is first used (body.probe-used). The
                  probe is additive: scroll stays the primary path. -->
             <span class="hud-probe-hint" id="hud-probe-hint" aria-hidden="true">WASD&nbsp;·&nbsp;FLY&nbsp;PROBE&nbsp;—&nbsp;ENTER&nbsp;·&nbsp;MEASURE</span>
+            <!-- Keyboard section nav — permanent affordance for the 1–6 keys
+                 (handleSectionKey). Static on purpose: it's a utility hint,
+                 not a discovery moment (unlike the probe hint's pulse). -->
+            <span class="hud-keyhint" aria-hidden="true">KEYS&nbsp;1–6&nbsp;·&nbsp;JUMP</span>
+            <!-- Master sound toggle — muted by default (sound.js); one flag
+                 gates the hover/click blips AND the buzzer horn. The toggle
+                 click is the user gesture that may build the AudioContext,
+                 so autoplay policy is never fought. Label mirrors state via
+                 body.sound-on. -->
+            <button type="button" class="hud-sound" id="sound-toggle" aria-pressed="false" aria-label="Toggle sound effects (muted by default)" title="Sound — muted by default">SND&nbsp;OFF</button>
         </div>
         <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
     </header>

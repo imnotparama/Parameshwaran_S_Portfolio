@@ -59,6 +59,7 @@ export function createParticles(boardGroup) {
     // The trace electrons are the "current" layer; the dust cloud is the
     // atmosphere around the board. Same call site — one create call.
     createAmbientDust(boardGroup);
+    createAmbientGoldFlecks(boardGroup);
 }
 
 // ─── Ambient dust ─────────────────────────────────────────────
@@ -88,6 +89,62 @@ const dustMotes = [];
 function dustHash(i, k) {
     const s = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
     return s - Math.floor(s);
+}
+
+// ─── Floating gold flecks ─────────────────────────────────────
+// A sparse layer of ENIG-gold specks drifting ABOVE the board — slower and
+// higher than the dust cloud, like flecks of solder debris suspended in the
+// air. Non-additive (normal blending, low opacity) so they read as material
+// rather than glow, and so they never collide with the additive dust/sweep
+// classifiers. Hidden entirely under reduced motion (same posture as dust).
+const FLECK_COUNT = 12;
+const FLECK_BOX_X = 5.5;   // board is ±5.5 local
+const FLECK_BOX_Y = 2.4;   // above the board top (dust spans ±8 — flecks sit high)
+const FLECK_BOX_Z = 2.3;
+/** @typedef {{ mesh: THREE.Mesh, seed: number, bx: number, by: number, bz: number }} GoldFleck */
+/** @type {GoldFleck[]} */
+const fleckMotes = [];
+
+/** @param {THREE.Group} boardGroup */
+function createAmbientGoldFlecks(boardGroup) {
+    const fleckGeo = new THREE.SphereGeometry(0.05, 6, 6);
+    const fleckMat = new THREE.MeshBasicMaterial({
+        color: 0xc9a24b, // ENIG gold
+        transparent: true,
+        opacity: 0.4,
+        depthWrite: false
+    });
+    for (let i = 0; i < FLECK_COUNT; i++) {
+        const mesh = new THREE.Mesh(fleckGeo, fleckMat);
+        mesh.name = 'gold-fleck';
+        mesh.visible = false;
+        boardGroup.add(mesh);
+        fleckMotes.push({
+            mesh,
+            seed: i * 2.9 + 0.77,
+            bx: (dustHash(i, 5) * 2 - 1) * FLECK_BOX_X,
+            by: 0.8 + dustHash(i, 6) * FLECK_BOX_Y,
+            bz: -0.3 + dustHash(i, 7) * FLECK_BOX_Z
+        });
+    }
+}
+
+/** Per-frame fleck drift — slower frequencies than the dust, so the two
+ *  layers never move in lockstep (the air reads layered, not one cloud).
+ *  @param {number} elapsed */
+export function updateAmbientGoldFlecks(elapsed) {
+    for (const m of fleckMotes) {
+        if (motionPrefs.reduced) {
+            m.mesh.visible = false;
+            continue;
+        }
+        m.mesh.visible = true;
+        m.mesh.position.set(
+            m.bx + Math.sin(elapsed * 0.13 + m.seed) * 0.6,
+            m.by + Math.sin(elapsed * 0.09 + m.seed * 1.3) * 0.45,
+            m.bz + Math.cos(elapsed * 0.07 + m.seed * 2.1) * 0.5
+        );
+    }
 }
 
 /** @param {THREE.Group} boardGroup */

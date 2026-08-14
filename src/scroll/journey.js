@@ -12,6 +12,7 @@ import { cpuRadarRing, siliconDieMesh } from '../three/components.js';
 import { traceData } from '../three/traces.js';
 import { projectChips } from '../three/project-chips.js';
 import { getCanvasViewportSize } from '../three/scene.js';
+import { motionPrefs } from '../utils/motion-prefs.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
@@ -418,6 +419,10 @@ export function focusProject(ref) {
 
   fillProjectDetailPanel(chip.data);
   setActivePanel('panel-project-detail');
+  // Switching chips while the detail panel is ALREADY active: setActivePanel
+  // early-returns (same id), so the fresh problem/state text types explicitly.
+  // Idempotent — reset-then-type — so the normal path is unaffected.
+  typewritePanel(document.getElementById('panel-project-detail'));
 
   // Flash the chip's status LED — same "if it glows, it's live" language
   // as pulseArrival, but the chip's own light.
@@ -489,10 +494,73 @@ function pulseArrival(secId) {
     });
 }
 
+// ─── Typewriter body reveal ──────────────────────────────────
+// When a panel activates, its narrative copy (.ds-body) reveals
+// character-by-character at ~16ms/char (TYPE_CHAR_MS) — the terminal
+// boot-sequence aesthetic extended to the datasheets — instead of arriving
+// only with the block cascade. Non-destructive: the char spans are collapsed
+// back to plain text on reset (textContent is lossless — the spans hold the
+// same characters), so data renderers (fillProjectDetailPanel) and repeated
+// activations both stay safe. Skipped entirely under reduced motion — the
+// block cascade (plain fade) owns the reveal there.
+const TYPE_CHAR_MS = 16;        // per-char stagger — the "~15-20ms/char" brief
+const TYPE_CHAR_DURATION = 0.05; // per-char fade, short so the cadence reads
+
+/** Collapse any in-flight typewriter back to plain text and kill its tweens.
+ *  @param {HTMLElement} panel */
+function resetTypewriter(panel) {
+  /** @type {HTMLElement[]} */
+  const actives = [...panel.querySelectorAll('.typer-active')].filter((el) => el instanceof HTMLElement);
+  actives.forEach((el) => {
+    gsap.killTweensOf(el.querySelectorAll('.typer-char'));
+    el.textContent = el.textContent; // spans hold the same chars — lossless collapse
+    el.classList.remove('typer-active');
+  });
+}
+
+/** Type the panel's .ds-body copy in, char by char. Idempotent: resets first.
+ *  @param {HTMLElement | null} panel */
+function typewritePanel(panel) {
+  if (!panel || !document.body.classList.contains('full-journey')) return;
+  if (motionPrefs.reduced) return;
+  resetTypewriter(panel);
+  /** @type {HTMLElement[]} */
+  const bodies = [...panel.querySelectorAll('.ds-body')].filter((el) => el instanceof HTMLElement);
+  bodies.forEach((el) => {
+    const text = el.textContent;
+    if (!text) return;
+    el.textContent = '';
+    const frag = document.createDocumentFragment();
+    /** @type {HTMLElement[]} */
+    const chars = [];
+    for (const ch of text) {
+      const span = document.createElement('span');
+      span.className = 'typer-char';
+      span.textContent = ch;
+      frag.appendChild(span);
+      chars.push(span);
+    }
+    el.appendChild(frag);
+    el.classList.add('typer-active');
+    gsap.fromTo(chars, { autoAlpha: 0 }, {
+      autoAlpha: 1,
+      duration: TYPE_CHAR_DURATION,
+      stagger: { each: TYPE_CHAR_MS / 1000, from: 'start' },
+      ease: 'none'
+    });
+  });
+}
+
 // ─── Panel + nav activation ─────────────────────────────────
 /** @param {string | null} panelId */
 function setActivePanel(panelId) {
   if (activePanelId === panelId) return;
+  // Leave the panel behind: kill any in-flight typewriter so its chars don't
+  // keep animating off-screen (they collapse instantly — the panel is hidden).
+  if (activePanelId) {
+    const prevPanel = document.getElementById(activePanelId);
+    if (prevPanel) resetTypewriter(prevPanel);
+  }
   activePanelId = panelId;
   document.querySelectorAll('.ds-panel').forEach((el) => {
     el.classList.toggle('panel-active', el.id === panelId);
@@ -538,25 +606,34 @@ function setActivePanel(panelId) {
   // Content cascade: the panel's inner blocks reveal in sequence (ref →
   // title → body rows) instead of appearing with the flat cross-fade — one
   // orchestrated arrival beat on the house power2.out curve. The hidden
-  // .headline-twin is excluded (the sweep above owns it); lite mode stays
-  // static (panels are in document flow, not toggled).
+  // .headline-twin is excluded (the sweep above owns it); the panel's own
+  // .cta-linkedin is excluded too (plan 005) so the CTA appears instantly
+  // with the panel — the cascade must never delay the conversion moment.
+  // Lite mode stays static (panels are in document flow, not toggled).
   if (panelId && activePanelEl && document.body.classList.contains('full-journey')) {
     const blocks = /** @type {HTMLElement[]} */ ([...activePanelEl.children].filter(
-      (el) => el instanceof HTMLElement && !el.classList.contains('headline-twin')
+      (el) => el instanceof HTMLElement
+        && !el.classList.contains('headline-twin')
+        && !el.classList.contains('cta-linkedin')
     ));
     if (blocks.length > 1) {
       gsap.killTweensOf(blocks);
       gsap.fromTo(blocks,
-        { autoAlpha: 0, y: 12 },
+        { autoAlpha: 0, y: 10 },
         {
-          autoAlpha: 1, y: 0, duration: 0.5,
-          stagger: { each: 0.06, from: 'start' },
+          autoAlpha: 1, y: 0, duration: 0.3,
+          stagger: { each: 0.04, from: 'start' },
           ease: 'power2.out',
           clearProps: 'transform'
         }
       );
     }
   }
+
+  // Typewriter body reveal — the narrative copy types in (~16ms/char, the
+  // terminal boot aesthetic) instead of arriving with the cascade alone.
+  // Skipped under reduced motion (the cascade fade above owns the reveal).
+  typewritePanel(activePanelEl);
 
   // Show/hide connector
   if (connectorLine) {

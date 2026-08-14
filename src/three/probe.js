@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { interactiveObjects, pulseBuzzer } from './components.js';
 import { focusProject } from '../scroll/journey.js';
-import { setScopeReadout, clearScopeReadout, clearHover } from '../utils/hover.js';
+import { setScopeReadout, clearScopeReadout, clearHover, finePointer } from '../utils/hover.js';
 
 // Board surface (board thickness 0.16 in board.js — keep in sync).
 const SURFACE_Z = 0.085;
@@ -150,7 +150,7 @@ function highlightTarget(/** @type {THREE.Object3D} */ obj) {
         gsap.to(mat, { emissiveIntensity: 0.5, duration: 0.2, overwrite: 'auto' });
     }
     gsap.killTweensOf(obj.scale);
-    gsap.to(obj.scale, { x: 1.04, y: 1.04, z: 1.04, duration: 0.2, ease: 'power1.out', overwrite: 'auto' });
+    gsap.to(obj.scale, { x: 1.05, y: 1.05, z: 1.05, duration: 0.2, ease: 'power1.out', overwrite: 'auto' });
 }
 
 /** Recompute what's under the tip. The ray is authored in BOARD-LOCAL
@@ -160,6 +160,12 @@ function highlightTarget(/** @type {THREE.Object3D} */ obj) {
  *  intersectObjects converts back per-object, netting the local ray. */
 function updateTarget() {
     if (!raycaster || !probeGroup || !boardRef) return;
+    // The probe is a fine-pointer (WASD keyboard) interaction — on coarse-
+    // pointer devices the per-frame tip raycast is pure cost with no user to
+    // serve (same single-source gate as the mouse hover in hover.js). The
+    // probe can still be flown with a hardware keyboard, it just won't
+    // raycast/measure; Enter no-ops while probeTarget stays null.
+    if (!finePointer) return;
     const localOrigin = new THREE.Vector3(probeGroup.position.x, probeGroup.position.y, 10);
     const localDir = new THREE.Vector3(0, 0, -1);
     const worldOrigin = boardRef.localToWorld(localOrigin);

@@ -37,6 +37,34 @@ export function updateRadarRing(elapsed) {
     }
 }
 
+// ─── D1-D7 LED array — the status LEDs pulse at rest ──────────
+// The seven diodes were a flat constant glow (0.1). Now they breathe on
+// staggered seeded intervals — brief bright peaks then a settle — so the
+// array reads as powered instrumentation instead of paint. Runs continuously
+// (like the sweep/ripple, it's ambient life, not idle-gated): the idle loop
+// gates the camera drift; the LEDs stay alive whenever the board is on.
+// Reduced motion: hold the calm built-in 0.1 — powered, never strobing.
+const LED_PULSE_BASE = 0.1;
+const LED_PULSE_AMP = 0.6;      // peaks at 0.7, well under the arrival flash
+
+/** @typedef {{ mesh: THREE.Mesh, mat: THREE.MeshStandardMaterial, phase: number, freq: number }} LedPulse */
+/** @type {LedPulse[]} */
+const ledPulseDrivers = [];
+
+/** @param {number} elapsed */
+export function updateLedArray(elapsed) {
+    for (const d of ledPulseDrivers) {
+        if (motionPrefs.reduced) {
+            d.mat.emissiveIntensity = LED_PULSE_BASE;
+            continue;
+        }
+        // Sharpened sine (n²·²): a slow rise with a brief bright peak reads as
+        // a status pulse, not a sinusoid. Per-LED freq/phase desync the array.
+        const n = 0.5 + 0.5 * Math.sin(elapsed * d.freq * Math.PI * 2 + d.phase);
+        d.mat.emissiveIntensity = LED_PULSE_BASE + Math.pow(n, 2.2) * LED_PULSE_AMP;
+    }
+}
+
 /** @param {THREE.Group} boardGroup */
 export function createComponents(boardGroup) {
     const thickness = 0.16;
@@ -371,6 +399,20 @@ export function createComponents(boardGroup) {
 
         const base = new THREE.Mesh(ledBaseGeo, chipMaterial.clone());
         ledGroup.add(base);
+    });
+
+    // D1-D7 at-rest pulse drivers — staggered seeded intervals (deterministic:
+    // the "slightly randomized" cadence of the idle brief comes from a fixed
+    // hash, never Math.random — the board breathes identically on every load).
+    ledPulseDrivers.length = 0;
+    ledMeshes.forEach((mesh, i) => {
+        const h = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
+        ledPulseDrivers.push({
+            mesh,
+            mat: /** @type {THREE.MeshStandardMaterial} */ (mesh.material),
+            phase: i * 1.31 + 0.41,
+            freq: 0.42 + (h - Math.floor(h)) * 0.5 // 0.42–0.92 Hz, per-LED
+        });
     });
 
     const ledBoundsMesh = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.4, 0.15), new THREE.MeshBasicMaterial({ visible: false }));
