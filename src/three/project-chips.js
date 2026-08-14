@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { disposableResources } from './scene.js';
 import { interactiveObjects } from './components.js';
+import { motionPrefs } from '../utils/motion-prefs.js';
 import { portfolioData } from '../data/portfolio.js';
 
 /** @typedef {{ mat: THREE.MeshStandardMaterial, seed: number }} FlickerLed */
@@ -34,9 +35,8 @@ const steadyLeds = [];
 
 // Decorative motion — respect prefers-reduced-motion: shipped LEDs hold a
 // flat emissive (powered, not pulsing). Same gate pattern as the radar ring
-// (components.js) and the current dot (traces.js).
-const STEADY_REDUCED_MOTION = typeof window !== 'undefined' &&
-    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// (components.js) and the current dot (traces.js); the flag comes from
+// motionPrefs (../utils/motion-prefs.js), the single policy source.
 
 /** @type {Record<string, ChipRecord>} */
 export const projectChips = {};
@@ -239,6 +239,15 @@ function buildBreadboardPatch(group) {
 // Per-frame: flicker the breadboard LEDs, keep soldered ones steady.
 /** @param {number} elapsed */
 export function updateProjectChips(elapsed) {
+    // Reduced motion: every LED holds a calm, powered value — the breadboard
+    // flicker is a per-frame strobe (caught by the tick smoke test running
+    // ungated) and the breathe is ambient; both are decorative and gated by
+    // the single policy flag (motionPrefs, plan 013).
+    if (motionPrefs.reduced) {
+        for (const f of flickerLeds) f.mat.emissiveIntensity = 0.7;
+        for (const s of steadyLeds) s.mat.emissiveIntensity = 1.4;
+        return;
+    }
     for (const f of flickerLeds) {
         const n = Math.sin(elapsed * 7 + f.seed) * Math.sin(elapsed * 13.7 + f.seed * 2);
         f.mat.emissiveIntensity = n > 0.55 ? 0.15 : 0.7 + n * 0.25;
@@ -249,16 +258,14 @@ export function updateProjectChips(elapsed) {
     // fault (a lower base would slam the LED from 1.4 on the first tick),
     // and the focus flash (journey.js gsap tween with overwrite) still
     // dominates during its short run.
-    if (!STEADY_REDUCED_MOTION) {
-        for (const s of steadyLeds) {
-            // Skip materials the focus flash (journey.js focusProject) is
-            // actively tweening — the breathe must not fight the flash's
-            // 0.15→1.9 dip/spike. The rAF ordering (app loop before GSAP's
-            // ticker) makes the flash win today, but that's registration
-            // luck, not a guarantee: a same-property write every frame can
-            // mask the tween if the loop ever registers later (HMR re-entry).
-            if (gsap.isTweening(s.mat)) continue;
-            s.mat.emissiveIntensity = 1.4 + Math.sin(elapsed * 0.9 + s.seed) * 0.08;
-        }
+    for (const s of steadyLeds) {
+        // Skip materials the focus flash (journey.js focusProject) is
+        // actively tweening — the breathe must not fight the flash's
+        // 0.15→1.9 dip/spike. The rAF ordering (app loop before GSAP's
+        // ticker) makes the flash win today, but that's registration
+        // luck, not a guarantee: a same-property write every frame can
+        // mask the tween if the loop ever registers later (HMR re-entry).
+        if (gsap.isTweening(s.mat)) continue;
+        s.mat.emissiveIntensity = 1.4 + Math.sin(elapsed * 0.9 + s.seed) * 0.08;
     }
 }

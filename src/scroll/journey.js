@@ -797,6 +797,13 @@ export function getActiveSectionId() {
   return currentSectionId;
 }
 
+/** True while a chip focus view is active (clicked chip / Esc releases) —
+ *  board.js damps the levitation to 20% while this is true so the focused
+ *  composition steadies under the fixed camera stop (probe touchdown). */
+export function isFocusMode() {
+  return !!focusedChip;
+}
+
 // ─── Direct navigation ──────────────────────────────────────
 /** @param {string} sectionId */
 export function scrollToSection(sectionId) {

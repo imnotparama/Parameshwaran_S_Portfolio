@@ -1,12 +1,15 @@
 // @ts-check
 // Central config — public profile links come from Vite env vars.
 // These are public URLs, not secrets: env keeps them in one place.
+// import.meta.env is always defined under Vite — the guard exists so the
+// module graph also loads in bare Node (tests/smoke-tick.mjs drives the real
+// motion modules headlessly; portfolio.js → project-chips.js pull this file).
 export const LINKEDIN_URL =
-    import.meta.env.VITE_LINKEDIN_URL ||
+    (import.meta.env && import.meta.env.VITE_LINKEDIN_URL) ||
     'https://www.linkedin.com/in/parameshwaran-s-datascientist';
 
 export const GITHUB_URL =
-    import.meta.env.VITE_GITHUB_URL || 'https://github.com/imnotparama';
+    (import.meta.env && import.meta.env.VITE_GITHUB_URL) || 'https://github.com/imnotparama';
 
 // Lite mode: reduced motion preference OR small viewport → skip
 // scroll-jacked camera flight and serve a simpler experience.

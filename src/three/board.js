@@ -4,6 +4,7 @@
 // @ts-check
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
+import { motionPrefs } from '../utils/motion-prefs.js';
 
 /** @type {THREE.Group | undefined} */
 export let boardGroup;
@@ -372,8 +373,6 @@ export function createBoard(scene) {
 // with a sine envelope so it fades in/out at the edges (never pops). Hidden
 // entirely for reduced-motion users — a static scan line would read as a
 // glitch, unlike the radar/current-dot which stay visible-but-still.
-const SWEEP_REDUCED_MOTION = typeof window !== 'undefined' &&
-    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const SWEEP_PERIOD = 6;   // seconds per crossing
 const SWEEP_MIN_X = -5.2; // board is ±5.5 local; inset slightly
 const SWEEP_SPAN = 10.4;
@@ -385,7 +384,7 @@ let sweepTrail = null;
 /** @param {number} elapsed */
 export function updateBenchSweep(elapsed) {
     if (!sweepLead || !sweepTrail) return;
-    if (SWEEP_REDUCED_MOTION) {
+    if (motionPrefs.reduced) {
         sweepLead.visible = false;
         sweepTrail.visible = false;
         return;
@@ -411,16 +410,30 @@ function lerpFactor(k, delta) {
 // float, a depth breathe, and a gentle roll. Applied only once the journey is
 // live (journeyLive — set after boot's arrival tween finishes; the boot tween
 // owns position until then, so an early write would yank the board mid-arrival)
-// and skipped for reduced-motion users (the board stays planted).
-const BOARD_REDUCED_MOTION = typeof window !== 'undefined' &&
-    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// and skipped for reduced-motion users (the board stays planted) — the flag
+// comes from motionPrefs (../utils/motion-prefs.js), the single policy source.
 // Slow periods (8–20s) so the motion reads as hover, never vibration.
 const FLOAT_AMP_Y = 0.16;      // vertical rise/fall
 const FLOAT_AMP_Z = 0.07;      // depth breathe toward/away from the camera
 const FLOAT_AMP_ROLL = 0.012;  // gentle roll (radians)
+// Wake-in: the float starts from stillness and ramps to full over 2s after
+// journeyLive first flips — the boot arrival tween settles the board at y:0
+// right before that, so an un-ramped first write (sin of elapsed ≈ 6.85) would
+// jump up to ±0.16 at the settle, the most-watched moment of the page. The
+// smoothstep envelope makes the hover emerge imperceptibly from stillness.
+const FLOAT_WAKE_SECONDS = 2;
+/** @type {number} */
+let floatWakeStart = -1; // elapsed snapshot of the first live tick
+// Focus touchdown: when a chip is focused the probe is "on" the board — the
+// hover damps toward 20% so the focused composition steadies under the fixed
+// camera stop (focusProject glides to a captured position; the board must not
+// drift out of that frame while the datasheet is read). Release resumes it.
+// Lerped delta-scaled (lerpFactor) so the damp is identical at any frame rate.
+/** @type {number} */
+let focusDamp = 1;
 
-/** @param {number} elapsed @param {THREE.Vector2} mouse @param {number} [delta] @param {string} [activeSecId] @param {boolean} [journeyLive] */
-export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyLive) {
+/** @param {number} elapsed @param {THREE.Vector2} mouse @param {number} [delta] @param {string} [activeSecId] @param {boolean} [journeyLive] @param {boolean} [focusMode] */
+export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyLive, focusMode) {
     if (!boardGroup) return;
 
     // Check if we're in journey mode (camera controlled by scroll)
@@ -442,7 +455,14 @@ export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyL
         // camera. On About the tilt is boosted — still a small range (±1.7°)
         // — so the "move cursor to tilt board" affordance is actually felt.
         const boosted = activeSecId === 'sec-about';
-        const tiltScale = boosted ? 0.05 : 0.003;
+        // About boost: ±1.7° (maxTilt 0.03) spread across the WHOLE canvas.
+        // The scale sets the saturation point: 0.03 / 0.034 ≈ 0.88 — the tilt
+        // responds proportionally from the canvas center out to ~88% and only
+        // then pins at max, so the "move cursor to tilt board" affordance is
+        // felt across the full left region. (mouse is canvas-relative since the
+        // raycast-space fix; the old 0.05 saturated at |mouse| = 0.6, leaving
+        // the outer ~40% of the canvas a dead zone pinned at max tilt.)
+        const tiltScale = boosted ? 0.034 : 0.003;
         const maxTilt = boosted ? 0.03 : 0.004;
         const targetRotX = THREE.MathUtils.clamp(-mouse.y * tiltScale, -maxTilt, maxTilt);
         const targetRotY = THREE.MathUtils.clamp(mouse.x * tiltScale, -maxTilt, maxTilt);
@@ -454,11 +474,18 @@ export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyL
         // tilt (rotation.x/y) composes with the roll (rotation.z) — different
         // axes, so the hover and the cursor response never fight. Everything
         // parented to the group (traces, sweep, surge light) rides along, so
-        // the whole board lives as one object.
-        if (journeyLive && !BOARD_REDUCED_MOTION) {
-            boardGroup.position.y = Math.sin(elapsed * 0.55) * FLOAT_AMP_Y;
-            boardGroup.position.z = Math.cos(elapsed * 0.37) * FLOAT_AMP_Z;
-            boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL;
+        // the whole board lives as one object. The wake-in envelope (011) and
+        // the focus damp (012) compose on the amplitude; the sine phases stay
+        // untouched.
+        if (journeyLive && !motionPrefs.reduced) {
+            if (floatWakeStart < 0) floatWakeStart = elapsed;
+            const wakeT = Math.min(1, Math.max(0, (elapsed - floatWakeStart) / FLOAT_WAKE_SECONDS));
+            const wake = wakeT * wakeT * (3 - 2 * wakeT); // smoothstep
+            const focusTarget = focusMode ? 0.2 : 1;
+            focusDamp += (focusTarget - focusDamp) * lerpFactor(0.06, delta);
+            boardGroup.position.y = Math.sin(elapsed * 0.55) * FLOAT_AMP_Y * wake * focusDamp;
+            boardGroup.position.z = Math.cos(elapsed * 0.37) * FLOAT_AMP_Z * wake * focusDamp;
+            boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL * wake * focusDamp;
         }
     }
 }

@@ -13,7 +13,7 @@ import { initPower, togglePower } from './src/three/power.js';
 import { initCursor } from './src/ui/cursor.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { renderSections } from './src/ui/sections.js';
-import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney } from './src/scroll/journey.js';
+import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode } from './src/scroll/journey.js';
 
 // ─── Hash-based deep links ─────────────────────────────────
 // Each section gets a shareable URL (#/about, #/projects, ...). Nav clicks
@@ -243,7 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // The active section gates the tilt strength — boosted on About so the
         // "move cursor to tilt board" affordance is felt, capped everywhere.
         const activeSectionId = getActiveSectionId();
-        updateBoardParallax(elapsed, mouse, delta, activeSectionId, journeyLive);
+        // isFocusMode(): while a chip is focused, board.js damps the levitation
+        // to 20% so the focused composition steadies (probe touchdown).
+        updateBoardParallax(elapsed, mouse, delta, activeSectionId, journeyLive, isFocusMode());
 
         // Ambient dust — the mote cloud around the board (deterministic,
         // reduced-motion gated inside particles.js)

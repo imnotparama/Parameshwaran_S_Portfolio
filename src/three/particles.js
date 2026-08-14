@@ -1,6 +1,7 @@
 // @ts-check
 import * as THREE from 'three';
 import { traceData } from './traces.js';
+import { motionPrefs } from '../utils/motion-prefs.js';
 
 /** @typedef {{ mesh: THREE.Mesh, points: THREE.Vector3[], progress: number, baseSpeed: number }} Particle */
 
@@ -68,8 +69,6 @@ export function createParticles(boardGroup) {
 // Math.random), so the cloud is identical on every run and costs zero
 // allocation per frame. Hidden entirely for reduced-motion users — a static
 // speck field would read as sensor noise (same posture as the bench sweep).
-const DUST_REDUCED_MOTION = typeof window !== 'undefined' &&
-    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const DUST_COUNT = 32;
 // Board-local box around the board (group scale 0.85 applies to children):
 // x ±7, y ±8 surrounds the ±5.5×±7.5 substrate; z ranges from behind the
@@ -119,7 +118,7 @@ function createAmbientDust(boardGroup) {
  *  @param {number} elapsed */
 export function updateAmbientDust(elapsed) {
     for (const m of dustMotes) {
-        if (DUST_REDUCED_MOTION) {
+        if (motionPrefs.reduced) {
             m.mesh.visible = false;
             continue;
         }

@@ -40,6 +40,12 @@ let hoverLight = null;
 let clickHandler = null;
 /** @type {(() => void) | null} */
 let buzzerHandler = null;
+// Hover is a fine-pointer concept — touch has no hover state, so the per-frame
+// raycast would burn cost for nothing and leave a glow stuck at the last tap
+// point. The flag is live (same listener pattern as motionPrefs): a device
+// gaining/losing a fine pointer mid-session applies without a reload. The
+// parallax lerp is NOT gated — touch users keep the board tilt.
+let finePointer = false;
 
 // ─── PCB Hover Glow Color Map ───────────────────────────────
 /** @type {Record<string, number>} */
@@ -145,6 +151,21 @@ export function initHover(camera, scene) {
     // positions outside the canvas clamp to the frustum edge — correct, the
     // ray just stays at the edge of the board.
     hoverCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('threejs-canvas'));
+
+    // Pointer capability: only run the hover raycast when the primary pointer
+    // is fine (mouse/trackpad). On touch the raycast would fire every 3rd
+    // frame for no hover state and leave sticky glows — gate it, keep parallax.
+    const pointerQuery = window.matchMedia('(pointer: fine)');
+    finePointer = pointerQuery.matches;
+    const syncFinePointer = (/** @type {MediaQueryListEvent | MediaQueryList} */ e) => {
+        finePointer = e.matches;
+    };
+    if (typeof pointerQuery.addEventListener === 'function') {
+        pointerQuery.addEventListener('change', syncFinePointer);
+    } else if (typeof pointerQuery.addListener === 'function') {
+        pointerQuery.addListener(syncFinePointer);
+    }
+
     const updateMouseCoords = (/** @type {number} */ clientX, /** @type {number} */ clientY) => {
         if (!hoverCanvas) return;
         const rect = hoverCanvas.getBoundingClientRect();
@@ -224,6 +245,10 @@ export function checkHover(delta = 1 / 60) {
     const lerpFactor = 1 - Math.pow(0.92, delta * 60);
     mouse.x += (targetMouse.x - mouse.x) * lerpFactor;
     mouse.y += (targetMouse.y - mouse.y) * lerpFactor;
+
+    // No hover state on touch — skip the raycast entirely (cost + sticky
+    // glows). The click handler stays ungated so taps still MEASURE/focus.
+    if (!finePointer) return;
 
     frameCounter++;
 

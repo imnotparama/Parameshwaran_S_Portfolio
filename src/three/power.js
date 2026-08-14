@@ -20,6 +20,7 @@ import { benchLights, setBenchBackdrop, setBloomBoost } from './scene.js';
 import { boardGroup } from './board.js';
 import { traceData } from './traces.js';
 import { beepBuzzer } from '../utils/buzzer.js';
+import { motionPrefs } from '../utils/motion-prefs.js';
 
 /** @type {boolean} */
 let powerOn = false;
@@ -33,9 +34,8 @@ let surgeCurve = null;
 const scratch = new THREE.Vector3();
 
 // Decorative one-shot — reduced-motion users get the state fade without the
-// traveling surge (same gate pattern as the radar ring / current dot).
-const POWER_REDUCED_MOTION = typeof window !== 'undefined' &&
-    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// traveling surge (same gate pattern as the radar ring / current dot; the
+// flag comes from motionPrefs, the single policy source).
 
 /** Build the surge light + its flight path. Called once after the scene,
  *  traces, and bloom exist (main.js wires it after enableBloom). */
@@ -95,7 +95,7 @@ export function setPower(on) {
 
     // 4. Power-ON surge: a signal-green point light floods the main bus from
     //    U1 to U2, peaking mid-route, then settles dark.
-    if (powerOn && !POWER_REDUCED_MOTION && surgeCurve && surgeLight) {
+    if (powerOn && !motionPrefs.reduced && surgeCurve && surgeLight) {
         // Local captures — module-level lets can't be narrowed across the
         // tween's closures (they could be reassigned between check and call).
         const curve = surgeCurve;

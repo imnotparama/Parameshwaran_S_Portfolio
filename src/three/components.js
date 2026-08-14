@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { disposableResources } from './scene.js';
 import { beepBuzzer } from '../utils/buzzer.js';
+import { motionPrefs } from '../utils/motion-prefs.js';
 
 /** @type {THREE.Mesh[]} */
 export const interactiveObjects = [];
@@ -20,13 +21,12 @@ export let cpuRadarRing;
 // elapsed time (procedural, deterministic).
 
 // Decorative motion — respect prefers-reduced-motion: keep the arc static
-const RADAR_REDUCED_MOTION = typeof window !== 'undefined' &&
-    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// (motionPrefs from ../utils/motion-prefs.js — the single policy source).
 
 /** @param {number} elapsed */
 export function updateRadarRing(elapsed) {
     if (!cpuRadarRing) return;
-    if (RADAR_REDUCED_MOTION) return; // static arc for reduced-motion users
+    if (motionPrefs.reduced) return; // static arc for reduced-motion users
     cpuRadarRing.rotation.z = elapsed * 0.8; // full revolution ≈ 7.8s
     // The ring is created with MeshBasicMaterial above — keep in sync if that
     // ever changes (instanceof narrows Material | Material[]; the old property

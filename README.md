@@ -85,9 +85,12 @@ After any change:
 ```bash
 npm run build        # must exit 0
 npx tsc --noEmit     # must exit 0
+npm run smoke        # must exit 0 — headless motion-invariant smoke test
 ```
 
 `npm run typecheck` (`tsc --noEmit`) genuinely checks the modules opted into `// @ts-check` (`tsconfig.json` sets `allowJs: true`, `checkJs: false`): `src/scroll/journey.js`, `src/ui/boot.js`, `src/utils/hover.js`, `src/three/scene.js`, `src/three/traces.js`. Keep their JSDoc types accurate when refactoring.
+
+`npm run smoke` (`tests/smoke-tick.mjs`) builds the real board modules into a bare THREE scene with a minimal DOM shim, registers the same tick pipeline main.js does, and drives 12000 frames asserting the motion invariants — levitation/ripple/sweep/dust bounds, zero NaN across the graph, wake-in starts at y:0, and `motionPrefs.reduced` forces everything static. Run it after touching any motion module.
 
 ## Customization
 

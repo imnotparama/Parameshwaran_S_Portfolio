@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { disposableResources } from './scene.js';
+import { motionPrefs } from '../utils/motion-prefs.js';
 
 /**
  * A routed copper trace between two components, materialized as solid 3D
@@ -32,9 +33,6 @@ const SECTION_TRACE = { 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experienc
 let traceCurves = new Map();
 /** @type {THREE.Mesh | null} */
 let currentDot = null;
-
-const TRACE_REDUCED_MOTION = typeof window !== 'undefined' &&
-    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ─── Trace power ripple ───────────────────────────────────────
 // The copper is alive: a power blob continuously floods EVERY trace from the
@@ -351,13 +349,13 @@ export function updateTraceRipple(elapsed) {
             // "the probe is touching this copper", distinct from the slow
             // traveling blob. Held flat under reduced motion (a user-triggered
             // response, not ambient motion — but no strobe).
-            m.emissiveIntensity = TRACE_REDUCED_MOTION ? 1.5 : 1.5 + 0.3 * Math.sin(elapsed * 4);
+            m.emissiveIntensity = motionPrefs.reduced ? 1.5 : 1.5 + 0.3 * Math.sin(elapsed * 4);
             continue;
         }
         // Reduced motion: copper holds its static base glow (powered, calm).
         // isTweening guard: never fight the hover-release tween on the same
         // property — same pattern as the LED breathe vs the focus flash.
-        if (TRACE_REDUCED_MOTION || gsap.isTweening(m)) continue;
+        if (motionPrefs.reduced || gsap.isTweening(m)) continue;
         const phase = (elapsed * RIPPLE_SPEED - seg.distFromStart / RIPPLE_WAVELENGTH) % 1;
         const blob = Math.pow(Math.max(0, Math.sin(phase * Math.PI)), 3);
         m.emissiveIntensity = TRACE_BASE_INTENSITY + RIPPLE_AMP * blob;
@@ -379,7 +377,7 @@ export function updateTraceCurrent(elapsed, activeSectionId) {
     currentDot.visible = true;
     // Reduced motion: pin the dot at the trace source (the CPU end) — the
     // component still reads as powered without ambient travel.
-    const t = TRACE_REDUCED_MOTION ? 0 : (elapsed * TRACE_CURRENT_SPEED) % 1;
+    const t = motionPrefs.reduced ? 0 : (elapsed * TRACE_CURRENT_SPEED) % 1;
     curve.getPoint(t, currentDot.position);
     // Lift just above the trace surface (trace height 0.012, centered on
     // surfaceZ — the polyline's own z is the board surface).
