@@ -943,7 +943,7 @@ export function scrollToSection(sectionId) {
   wheelAccum = 0;
   gsap.to(window, {
     scrollTo: { y },
-    duration: 1.6,
+    duration: SECTION_TRANSITION_DURATION,
     ease: 'power2.inOut',
     overwrite: 'auto'
   });
@@ -963,9 +963,15 @@ export function scrollToSection(sectionId) {
 // inside a nested scrollable (the fixed datasheet panel scrolls itself).
 const WHEEL_STEP_PX = 120;   // accumulated wheel px per section step
 // Bounds a whole burst (the in-flight glide counts too): a trackpad flick or
-// a fast wheel roll can chain at most 2 glides per gesture, then drops input
-// until the queue drains.
-const MAX_QUEUED_STEPS = 2;
+// a fast wheel roll can chain at most 3 glides per gesture, then drops input
+// until the queue drains — 3 covers half the 6-section journey in one flick.
+const MAX_QUEUED_STEPS = 3;
+// Section-transition duration — the site's ONE page-to-page glide, shared by
+// the wheel/snap glides AND direct nav (scrollToSection) so every section
+// change moves at the same pace. Tuned 1.6s → 1.2s: still a slow-start/slow-
+// end power2.inOut (never a yank), but the chained page-to-page flow no
+// longer drags; revert is this single number.
+const SECTION_TRANSITION_DURATION = 1.2;
 const SNAP_SETTLE_MS = 280;  // scroll-idle before the settle-snap fires
 let wheelAccum = 0;
 let glideQueued = 0;
@@ -1010,14 +1016,13 @@ function glideToY(y) {
   }
   gsap.to(window, {
     scrollTo: { y },
-    duration: 1.6,
+    duration: SECTION_TRANSITION_DURATION,
     ease: 'power2.inOut',
     overwrite: 'auto',
     onComplete: () => {
       glideActive = false;
       // Consume the step on COMPLETION, not at start: the queue counts the
-      // in-flight step too, so MAX_QUEUED_STEPS bounds a whole burst — a
-      // 5-event trackpad flick can't chain 3+ glides.
+      // in-flight step too, so MAX_QUEUED_STEPS bounds a whole burst.
       glideQueued -= Math.sign(glideQueued);
       pumpGlide();
     }
