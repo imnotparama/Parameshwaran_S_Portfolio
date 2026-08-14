@@ -46,6 +46,8 @@ npm run typecheck
 
 Profile links come from Vite env vars (`VITE_LINKEDIN_URL`, `VITE_GITHUB_URL`) with public fallbacks in `src/config.js`.
 
+LinkedIn click tracking is **off by default** (nothing loads, nothing is sent). To answer "how many visitors click Connect on LinkedIn" without conflating it with pageviews: set `VITE_PLAUSIBLE_DOMAIN` (loads Plausible, fires a named `LinkedIn CTA Click` goal — create that goal in the Plausible dashboard) or `VITE_CTA_TRACKING_ENDPOINT` (beacons a tiny POST to your own counter endpoint). See `src/utils/analytics.js`.
+
 ## Technology Stack
 
 - **Build**: Vite (ES modules, fast HMR)

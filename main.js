@@ -14,6 +14,7 @@ import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeT
 import { initPower, togglePower } from './src/three/power.js';
 import { initCursor } from './src/ui/cursor.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
+import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
 import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode } from './src/scroll/journey.js';
 
@@ -169,6 +170,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 7b. Wire LinkedIn and GitHub links from config
     document.querySelectorAll('.js-linkedin, #cta-linkedin-hud').forEach(a => { a.href = LINKEDIN_URL; });
     document.querySelectorAll('.js-github').forEach(a => { a.href = GITHUB_URL; });
+
+    // 7c. LinkedIn CTA click tracking — one named goal, separate from
+    // pageviews; no-op (no script, no beacon) unless configured via
+    // VITE_PLAUSIBLE_DOMAIN / VITE_CTA_TRACKING_ENDPOINT (analytics.js).
+    initLinkedInTracking();
 
     // 8. Bind hover raycast checking
     initHover(camera, scene);
