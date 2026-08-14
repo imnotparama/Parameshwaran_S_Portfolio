@@ -348,9 +348,19 @@ body.probe-used #hud-bar.hud-ready .hud-probe-hint {
     color: rgba(157, 180, 163, 0.55);
 }
 
+/* Optional-extras confirmation — WASD probe + night bench (P) are optional,
+   not part of the main scroll path. Same static muted silkscreen treatment
+   as the keyhint (rides the hud-ready fade; no state of its own). */
+.hud-extras-hint {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: rgba(157, 180, 163, 0.55);
+}
+
 @media (max-width: 900px) {
     .hud-probe-hint,
-    .hud-keyhint {
+    .hud-keyhint,
+    .hud-extras-hint {
         display: none;
     }
 }
@@ -1375,7 +1385,8 @@ body.lite-mode #canvas-container {
 
 /* Plan 007: the 1–6 key nav is a full-journey feature — no journey in lite
    mode, so the keyhint must not advertise it. */
-body.lite-mode .hud-keyhint {
+body.lite-mode .hud-keyhint,
+body.lite-mode .hud-extras-hint {
     display: none;
 }
 
