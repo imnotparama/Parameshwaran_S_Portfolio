@@ -61,7 +61,7 @@ main.js                    # Entry point: scene init, tick loop, boot, nav, hash
 index.html                 # HUD, boot overlay, section datasheet templates, meta/OG tags
 style.css                  # Design tokens, scanlines, HUD, hero, CTA styles
 scroll.css                 # Journey panel system: daughterboard cards, connector SVG
-claude.md                  # Architecture blueprint + developer session log (read before refactoring)
+docs/claude.md             # Architecture blueprint + developer session log (read before refactoring)
 src/
   config.js                # Profile URLs, lite-mode detection
   data/portfolio.js        # Data source of truth (projects, skills, timeline)
