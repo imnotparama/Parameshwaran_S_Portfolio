@@ -25,8 +25,15 @@ There is exactly **one** interaction model — a scroll-journey. The camera is o
 - **Board-first hero** — the hero datasheet docks right (like the component sections) so the fully-framed board shows around it; it recenters below 900px where a wide panel would cover the board.
 - **Deterministic boot sequence** — one GSAP timeline with all-absolute positions (no `setTimeout`, no wall-clock): laser scanline, terminal typewriter, trace/pin/LED power-on flashes, hero reveal. Return visitors skip it via `sessionStorage`; `?og=1` is an instant-capture mode for headless screenshots.
 - **Shareable deep links** — every section has a URL (`#/about`, `#/projects`, …) with back/forward support; number keys 1–6 jump sections.
-- **Signal-path progress** — a HUD legend fill tracks scroll progress as a pure function of position (transform-only, rAF-coalesced).
+- **Signal-path progress** — a HUD legend fill + a top-edge signal-strength meter track scroll progress as pure functions of position (transform-only, rAF-coalesced).
 - **Exactly one LinkedIn CTA per section** — the HUD button hides whenever the active panel carries its own CTA.
+- **Click-to-component** — click a project chip on the board and the camera glides to it (arrival-glide language), its LED flashes, and a focused datasheet anchors near it; Esc or the close button returns. Scroll always releases focus.
+- **Flying scope probe (optional)** — press WASD to fly a test probe over the board (Enter MEASUREs, Esc exits); its tip highlights components and drives the live HUD scope readout (voltage · frequency · state). Scroll stays the primary path — the HUD legend explicitly labels the probe and the night bench as optional.
+- **Night bench (optional)** — click the PWR LED (or press P) to cut the bench lights so the board's emissive traces and LEDs become the only light source; reversible.
+- **Alive-at-rest ambient layer** — after ~3s of stillness the camera eases into a micro-drift; the D1-D7 LEDs breathe on staggered intervals; a gold current pulse continuously travels every trace route; floating gold flecks and a hover shadow that tracks the board's levitation sell the "powered bench" feel. All deterministic, all reduced-motion-gated.
+- **Terminal typewriter reveal** — narrative copy types in at 16ms/char when a panel activates, matching the boot sequence; reduced-motion users get the plain fade.
+- **Optional sound** — hover/click blips and the piezo buzzer horn sit behind one SND toggle in the HUD, muted by default (the toggle click is the user gesture that may build the AudioContext).
+- **LinkedIn click tracking (optional)** — a named `LinkedIn CTA Click` goal (Plausible) or a raw beacon POST, kept separate from pageviews; off unless configured (see Setup).
 - **Social card** — `public/og-preview.png` (1200×630) renders a proper LinkedIn/Discord card.
 - **Accessibility & performance** — reduced-motion mode, keyboard nav, skip-to-content link, ARIA labels; FPS guardrail scales bloom below 45/30fps, raycasts throttle to every 3rd frame, backdrop is painted once.
 
@@ -44,7 +51,12 @@ npm run build          # outputs to /dist
 
 # 4. Type check (validates the // @ts-check JS modules — no .ts files in src)
 npm run typecheck
+
+# 5. Headless motion smoke test (12,000 deterministic frames of the real tick pipeline)
+npm run smoke
 ```
+
+The smoke test also runs automatically on every push to `master` and every pull request via GitHub Actions (see the status badge above; workflow: `.github/workflows/smoke.yml`).
 
 Profile links come from Vite env vars (`VITE_LINKEDIN_URL`, `VITE_GITHUB_URL`) with public fallbacks in `src/config.js`.
 
@@ -65,21 +77,31 @@ main.js                    # Entry point: scene init, tick loop, boot, nav, hash
 index.html                 # HUD, boot overlay, section datasheet templates, meta/OG tags
 style.css                  # Design tokens, scanlines, HUD, hero, CTA styles
 scroll.css                 # Journey panel system: daughterboard cards, connector SVG
+.github/workflows/smoke.yml # CI: 12,000-frame motion smoke test on push/PR
 docs/claude.md             # Architecture blueprint + developer session log (read before refactoring)
+tests/smoke-tick.mjs       # Headless deterministic motion smoke test (npm run smoke)
 src/
-  config.js                # Profile URLs, lite-mode detection
+  config.js                # Profile URLs, lite-mode detection, analytics config
   data/portfolio.js        # Data source of truth (projects, skills, timeline)
   three/scene.js           # Renderer, lights, bloom, fab-bench backdrop, shadow catcher, tick loop
-  three/board.js           # Board substrate, silkscreen canvas texture, mounting holes
+  three/board.js           # Board substrate, silkscreen canvas texture, mounting holes, hover shadow
   three/components.js      # SMD components (U1, U2, caps, crystal, antenna, USB, LEDs…)
-  three/traces.js          # Copper trace routes (TraceRoute typedef)
-  three/particles.js       # Electron flow along traces
+  three/traces.js          # Copper trace routes, ripple + ambient signal pulses
+  three/particles.js       # Electron flow along traces, ambient dust, gold flecks
   three/project-chips.js   # Project chips (soldered vs breadboard by status)
+  three/probe.js           # Optional WASD flying scope probe
+  three/power.js           # Night bench (PWR LED / P key)
+  three/idle.js            # Idle camera micro-drift (input-gated)
   scroll/journey.js        # Camera path, leg-derived panel activation, screen-space anchoring
   ui/boot.js               # Deterministic boot choreography
   ui/sections.js           # Datasheet HTML from portfolio data, link wiring
+  ui/cursor.js             # Scope-probe custom cursor (pointer: fine)
   ui/fallback.js           # WebGL detection + no-WebGL fallback
-  utils/hover.js           # Raycast hover glow + pointer parallax
+  utils/hover.js           # Raycast hover glow + pointer parallax + scope readout
+  utils/analytics.js       # LinkedIn CTA click tracking (Plausible / beacon)
+  utils/sound.js           # Master sound gate (SND toggle, muted by default)
+  utils/buzzer.js          # Piezo horn WebAudio
+  utils/motion-prefs.js    # Single reduced-motion policy source (live listener)
 ```
 
 ## Verification Protocol
