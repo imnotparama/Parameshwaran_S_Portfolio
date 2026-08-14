@@ -1029,6 +1029,25 @@ export function wheelStepQueue(delta, accum = 0, stepPx = WHEEL_STEP_PX, maxStep
   return { queue: Math.max(-maxSteps, Math.min(maxSteps, steps)), accum: a };
 }
 
+/** Pure queue-state math shared by wheel and keyboard stepping: the queue
+ *  after adding `dir` steps, clamped to the burst bound. Exported for the
+ *  headless smoke test.
+ *  @param {number} queue current queued steps (signed)
+ *  @param {number} dir +1 forward, −1 backward (or ±N from a wheel delta)
+ *  @param {number} [cap] default MAX_QUEUED_STEPS */
+export function stepQueue(queue, dir, cap = MAX_QUEUED_STEPS) {
+  return Math.max(-cap, Math.min(cap, queue + dir));
+}
+
+/** Queue one section step in a direction — shared by wheel and keyboard so
+ *  both chain through the same burst-capped queue; if a glide is in flight
+ *  the step runs when it completes.
+ *  @param {number} dir */
+function queueStep(dir) {
+  glideQueued = stepQueue(glideQueued, dir);
+  pumpGlide();
+}
+
 /** Glide the page to a scroll Y with the site's unified transition, then
  *  chain any queued step.
  *  @param {number} y */
@@ -1080,8 +1099,7 @@ function onJourneyWheel(e) {
   else if (e.deltaMode === 2) d *= 100; // pages → px
   const r = wheelStepQueue(d, wheelAccum);
   wheelAccum = r.accum;
-  glideQueued = Math.max(-MAX_QUEUED_STEPS, Math.min(MAX_QUEUED_STEPS, glideQueued + r.queue));
-  pumpGlide();
+  queueStep(r.queue);
 }
 
 /** Any scroll that isn't one of our glides (trackpad momentum, touch,
@@ -1103,6 +1121,32 @@ function onJourneyScroll() {
   }, SNAP_SETTLE_MS);
 }
 
+/** Keyboard section-stepping — ArrowDown/PageDown advance one section,
+ *  ArrowUp/PageUp go back, glided with the same SECTION_TRANSITION_DURATION
+ *  as the wheel (both share the snap queue, so a fast keypress chain behaves
+ *  exactly like a wheel burst and holding the key keeps advancing). Never
+ *  fires while the flying scope probe is active (arrows belong to the probe
+ *  then — it flags itself with the `probe-flying` body class), while typing
+ *  in a field, or under reduced motion (native scroll instead). Focus
+ *  release matches the wheel: a step key while a chip is focused drops the
+ *  focus view first.
+ *  @param {KeyboardEvent} e */
+function onJourneyKeydown(e) {
+  if (!journeyReady || motionPrefs.reduced) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (document.body.classList.contains('probe-flying')) return;
+  const ae = /** @type {HTMLElement | null} */ (document.activeElement);
+  const tag = (ae && ae.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || (ae && ae.isContentEditable)) return;
+  let dir = 0;
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') dir = 1;
+  else if (e.key === 'ArrowUp' || e.key === 'PageUp') dir = -1;
+  else return;
+  e.preventDefault();
+  if (isFocusMode()) clearFocus(false);
+  queueStep(dir);
+}
+
 /** Register the smooth-scroll listeners once (initJourney re-runs on HMR;
  *  the handlers read live module state, so re-wiring would double-fire). */
 function wireSmoothScroll() {
@@ -1110,4 +1154,5 @@ function wireSmoothScroll() {
   smoothScrollWired = true;
   window.addEventListener('wheel', onJourneyWheel, { passive: false });
   window.addEventListener('scroll', onJourneyScroll, { passive: true });
+  window.addEventListener('keydown', onJourneyKeydown);
 }

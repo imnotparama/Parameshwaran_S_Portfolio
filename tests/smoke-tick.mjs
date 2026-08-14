@@ -25,8 +25,9 @@
 //     onto the sidebar panel's center line (per-viewport alignment)
 //   - the snap layer's pure math: computeDirectionalStop (next/prev stop with
 //     the 2px no-re-target tolerance + end clamping) and wheelStepQueue
-//     (delta → capped section steps with the accumulator carry), including
-//     the burst invariant that N notches chain at most MAX_QUEUED_STEPS glides
+//     (delta → capped section steps with the accumulator carry) and stepQueue
+//     (the shared wheel/keyboard queue clamp), including the burst invariant
+//     that N notches or N keypresses chain at most MAX_QUEUED_STEPS glides
 //   - with motionPrefs.reduced forced true, everything goes STATIC:
 //     float planted, ripple frozen, sweep + dust + pulses hidden
 //   - the RAYCAST LAYER: a real camera + the app's own initHover/checkHover,
@@ -115,7 +116,7 @@ const { motionPrefs } = await import('../src/utils/motion-prefs.js');
 // headless-testable. Safe headless: module top-level only registers
 // ScrollTrigger plugins + guarded load listeners (no ScrollTrigger instances
 // until initJourney, which the test never calls).
-const { getCameraConfigForStop, computeDirectionalStop, wheelStepQueue } = await import('../src/scroll/journey.js');
+const { getCameraConfigForStop, computeDirectionalStop, wheelStepQueue, stepQueue } = await import('../src/scroll/journey.js');
 
 // NOTE: `board.boardGroup` is read via the module namespace GETTER after
 // createBoard runs — destructuring would snapshot the pre-create `undefined`.
@@ -439,6 +440,38 @@ assert.strictEqual(simulateBurst(Array(4).fill(-120)), 3, 'backward burst → ca
 assert.strictEqual(simulateBurst([120, 120, -120]), 1, 'mixed burst → net direction');
 assert.strictEqual(simulateBurst([40, 40, 40, 40]), 1, 'trackpad-style small deltas accumulate to 1 step');
 assert.strictEqual(simulateBurst(Array(9).fill(40)), 3, 'trackpad-style small deltas accumulate to 3 steps (capped)');
+
+// stepQueue — the pure queue-state math shared by wheel and keyboard
+// stepping (clamped add; the keyboard path is queueStep(dir) = this + pump):
+assert.strictEqual(stepQueue(0, 1), 1, 'step forward from empty');
+assert.strictEqual(stepQueue(3, 1), 3, 'already at the cap, forward → capped');
+assert.strictEqual(stepQueue(3, -1), 2, 'back off the cap');
+assert.strictEqual(stepQueue(0, -1), -1, 'step backward from empty');
+assert.strictEqual(stepQueue(-3, -1), -3, 'already at the negative cap, backward → capped');
+assert.strictEqual(stepQueue(2, 2), 3, 'multi-step delta capped at the burst bound');
+assert.strictEqual(stepQueue(-2, -2), -3, 'negative multi-step delta capped');
+assert.strictEqual(stepQueue(0, 0), 0, 'zero delta leaves the queue unchanged');
+assert.strictEqual(stepQueue(1, -1, 2), 0, 'custom cap respected');
+
+// Keyboard burst invariant: rapid ArrowDown presses chain exactly
+// min(presses, cap) glides — same cap semantics as the wheel, per press.
+const simulateKeyBurst = (presses, cap = 3) => {
+    let queue = 0;
+    for (let i = 0; i < presses; i++) queue = stepQueue(queue, 1, cap);
+    return Math.abs(queue);
+};
+assert.strictEqual(simulateKeyBurst(0), 0, 'no presses → no steps');
+assert.strictEqual(simulateKeyBurst(1), 1, 'one ArrowDown → 1 glide');
+assert.strictEqual(simulateKeyBurst(2), 2, 'two rapid ArrowDowns → 2 glides');
+assert.strictEqual(simulateKeyBurst(5), 3, 'five rapid ArrowDowns → capped at 3 glides');
+assert.strictEqual(simulateKeyBurst(8), 3, 'holding ArrowDown (auto-repeat) → still capped per burst');
+assert.strictEqual(simulateKeyBurst(4, 2), 2, 'cap of 2 respected');
+// Mixed direction: ArrowDown ×2 then ArrowUp → net one step.
+let mixedQ = 0;
+mixedQ = stepQueue(mixedQ, 1);
+mixedQ = stepQueue(mixedQ, 1);
+mixedQ = stepQueue(mixedQ, -1);
+assert.strictEqual(mixedQ, 1, 'ArrowDown ×2 + ArrowUp → net 1 step');
 
 // ── 6. Phase C — the raycast layer (hover alignment) ─────────
 // A real PerspectiveCamera plus the app's own initHover/checkHover, driven
