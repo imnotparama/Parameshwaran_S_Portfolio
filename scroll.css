@@ -145,6 +145,11 @@ body.hud-cta-hidden #cta-linkedin-hud {
     opacity: 0.8;
     margin-right: 6px;
     font-weight: 500;
+    /* Plan 006: the ref glyph must not snap on section change — the active
+       state flips opacity 0.8→1, and it wasn't in any transition list. Same
+       fast curve as the button's own color transition, so the section change
+       reads as one beat (button label + ref + panel cascade). */
+    transition: opacity var(--duration-fast) var(--ease-out);
 }
 
 .hud-nav .nav-btn:hover .nav-ref,
@@ -209,17 +214,41 @@ body.hud-cta-hidden #cta-linkedin-hud {
     white-space: nowrap;
 }
 
+/* Night bench power switch — the PWR LED is a button now (power.js cuts the
+   bench lights on click/P). The 8px dot is the content box (background-clip),
+   the transparent padding extends the hit target to ~20px so it clears the
+   WCAG 2.5.5 minimum target size without growing the visual dot. */
 .pwr-led {
     width: 8px;
     height: 8px;
+    padding: 6px;
+    border: none;
     border-radius: 50%;
-    background: rgba(158, 180, 163, 0.3);
-    transition: background var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out);
+    background-clip: content-box;
+    background-color: rgba(158, 180, 163, 0.3);
+    cursor: pointer;
+    transition: background-color var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out);
+}
+
+.pwr-led:hover {
+    box-shadow: 0 0 10px rgba(62, 230, 160, 0.55);
+}
+
+.pwr-led:focus-visible {
+    outline: 2px solid var(--silkscreen);
+    outline-offset: 2px;
 }
 
 #hud-bar.hud-ready .pwr-led {
-    background: var(--signal);
+    background-color: var(--signal);
     box-shadow: 0 0 8px var(--signal);
+}
+
+/* Night bench — the room lights are out on the 3D side (power.js); the DOM
+   page follows suit so the sidebar chrome never glows brighter than the
+   board's emissive traces. */
+body.night-bench {
+    background: #020403;
 }
 
 .rev-mark {
@@ -615,6 +644,10 @@ body.full-journey .ds-panel {
     margin-left: auto;
     margin-right: auto;
     overflow-y: auto;
+    /* Slim scrollbar matching the board legend (the page body already styles
+       its own 6px scrollbar; the fixed sidebar is a separate scroll port). */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(30, 77, 51, 0.8) rgba(3, 9, 3, 0.4);
     opacity: 0;
     visibility: hidden;
     transform: none;
@@ -874,93 +907,106 @@ body.full-journey .projects-grid {
     gap: 12px;
 }
 
-/* Project cards = mini-PCBs: gold trace header along the top, a corner
-   mounting hole, a small edge-pad strip at the bottom, FR-4 weave. */
+/* Project cards = BOM line items, not mini-PCBs. Each project is one row in
+   the board's bill of materials: a silk-stencil reference block (the ref as a
+   filled stencil square, like the silkscreen on the board), a status LED, two
+   labeled fabrication rows (PROBLEM / STATE), and a test-point link. The
+   earlier mini-PCB treatment (corner mounting hole, gold trace header,
+   edge-pad strip, dashed building borders) read as decorated cards and made
+   the single-column stack feel heavy — this is the same board language,
+   information-dense and calm. */
 .proj-ds {
     position: relative;
-    border: 1px solid rgba(236, 231, 216, 0.15);
-    border-top: 2px solid rgba(201, 162, 75, 0.5);
-    padding: 16px 18px 20px;
+    border: 1px solid rgba(236, 231, 216, 0.12);
+    border-left: 2px solid rgba(201, 162, 75, 0.4);
+    padding: 12px 14px 14px 16px;
     background:
-        radial-gradient(circle at calc(100% - 11px) 11px, rgba(4, 12, 7, 0.98) 0 3px, rgba(201, 162, 75, 0.6) 3.5px 4.5px, transparent 5px),
-        repeating-linear-gradient(45deg, rgba(236, 231, 216, 0.012) 0 2px, transparent 2px 4px),
-        rgba(3, 14, 8, 0.78);
+        repeating-linear-gradient(45deg, rgba(236, 231, 216, 0.011) 0 2px, transparent 2px 4px),
+        rgba(3, 14, 8, 0.72);
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.04), 0 8px 18px rgba(0, 0, 0, 0.35);
-    /* Plan 003 scope note: proj-ds was left off-token; tokenize it now so the
-       highest-frequency interactive cards share the house curve. */
-    transition: box-shadow var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
-    backdrop-filter: blur(4px);
-}
-
-/* Mini edge-pad strip on the card's bottom edge */
-.proj-ds::after {
-    content: '';
-    position: absolute;
-    left: 14px;
-    bottom: 4px;
-    width: 22px;
-    height: 3px;
-    background: repeating-linear-gradient(90deg, rgba(201, 162, 75, 0.75) 0 3px, transparent 3px 5px);
+    gap: 8px;
+    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.03);
+    transition: box-shadow var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), background var(--duration-base) var(--ease-out);
 }
 
 .proj-ds:hover {
-    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.04), 0 0 26px rgba(201, 162, 75, 0.16), 0 10px 22px rgba(0, 0, 0, 0.4);
-    border-color: rgba(201, 162, 75, 0.5);
-    border-top-color: var(--enig-gold);
+    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.05), 0 0 22px rgba(201, 162, 75, 0.12);
+    border-left-color: var(--enig-gold);
+    background:
+        repeating-linear-gradient(45deg, rgba(236, 231, 216, 0.011) 0 2px, transparent 2px 4px),
+        rgba(6, 24, 13, 0.8);
 }
 
+/* In-build line items: the ref block turns gold (a pad that's still being
+   soldered), the LED flickers — no dashed borders, which read as "broken". */
 .proj-ds.is-building {
-    border-style: dashed;
-    border-color: rgba(200, 150, 12, 0.4);
+    border-left-color: rgba(200, 150, 12, 0.55);
 }
 
 .proj-ds.is-building:hover {
-    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.04), 0 0 26px rgba(200, 150, 12, 0.22), 0 10px 22px rgba(0, 0, 0, 0.4);
-    border-color: rgba(200, 150, 12, 0.7);
-}
-
-/* Plan 004: card lift gated — shadow/border feedback stays on touch */
-@media (hover: hover) and (pointer: fine) {
-    .proj-ds:hover,
-    .proj-ds.is-building:hover {
-        transform: translateY(-3px);
-    }
+    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.05), 0 0 22px rgba(200, 150, 12, 0.14);
+    border-left-color: #e8b339;
 }
 
 .proj-ds-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
 }
 
 .proj-ds-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
+    line-height: 1.35;
     color: var(--silkscreen);
 }
 
-.proj-ds-status {
+/* The ref block — the component's reference designator as a filled silk
+   stencil square, exactly like the silkscreen boxes printed on the board.
+   Gold-filled with dark text (soldered), gold-outlined with gold text
+   (in-build): the same language as the legend below the title. */
+.proj-ds-ref {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 18px;
+    padding: 0 5px;
     font-size: 10px;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    padding: 3px 8px;
-    border: 1px solid currentColor;
-    border-radius: 2px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    border-radius: 1px;
+    background: rgba(201, 162, 75, 0.9);
+    color: #06200f;
+    box-shadow: 0 0 10px rgba(201, 162, 75, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
-.proj-ds-status.shipped {
+.proj-ds.is-building .proj-ds-ref {
+    background: transparent;
+    color: #e8b339;
+    box-shadow: inset 0 0 0 1px rgba(200, 150, 12, 0.55);
+}
+
+/* Status = a single LED. Steady signal-green for shipped, gold flicker for
+   in-build — the legend under the section title decodes the colors, so the
+   card itself stays quiet. */
+.proj-ds-status {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
     color: var(--glow-green, #00ff88);
-    text-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
-    box-shadow: 0 0 10px rgba(62, 230, 160, 0.18);
+    background: currentColor;
+    box-shadow: 0 0 8px rgba(62, 230, 160, 0.75);
 }
 
 .proj-ds-status.building {
     color: var(--pcb-gold, #c8960c);
+    box-shadow: 0 0 8px rgba(200, 150, 12, 0.7);
     animation: flicker 3.2s linear infinite;
 }
 
@@ -973,34 +1019,55 @@ body.full-journey .projects-grid {
     97% { opacity: 1; }
 }
 
+/* Fabrication rows — label: value, the label silk-stenciled like a net name. */
 .proj-field {
-    font-size: 12.5px;
-    line-height: 1.6;
-    color: rgba(215, 255, 230, 0.8);
+    font-size: 12px;
+    line-height: 1.55;
+    color: rgba(215, 255, 230, 0.78);
 }
 
 .proj-field b {
-    color: var(--pcb-gold, #c8960c);
+    display: inline-block;
+    min-width: 42px;
+    color: rgba(201, 162, 75, 0.75);
     font-weight: 400;
-    letter-spacing: 1px;
-    margin-right: 6px;
+    font-size: 10px;
+    letter-spacing: 1.4px;
 }
 
+/* Test-point link: a square probe pad marker before the label. */
 .proj-ds-link {
     align-self: flex-start;
-    margin-top: 4px;
-    font-size: 12px;
+    margin-top: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11.5px;
     letter-spacing: 1px;
     color: var(--glow-green, #00ff88);
     text-decoration: none;
-    border-bottom: 1px solid rgba(0, 255, 136, 0.3);
+    border-bottom: 1px solid rgba(0, 255, 136, 0.25);
     padding-bottom: 2px;
     transition: border-color var(--duration-fast) var(--ease-out), text-shadow var(--duration-fast) var(--ease-out);
+}
+
+.proj-ds-link::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border: 1px solid rgba(0, 255, 136, 0.6);
+    border-radius: 1px;
+    background: rgba(0, 255, 136, 0.08);
+    transition: background var(--duration-fast) var(--ease-out);
 }
 
 .proj-ds-link:hover {
     text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
     border-color: rgba(0, 255, 136, 0.8);
+}
+
+.proj-ds-link:hover::before {
+    background: rgba(0, 255, 136, 0.35);
 }
 
 /* ─── Skills groups ─────────────────────────────────────── */
@@ -1028,8 +1095,8 @@ body.full-journey .projects-grid {
    end-caps (like a chip's terminations) — the caps are the pseudo-elements. */
 .skill-pill {
     position: relative;
-    font-size: 12px;
-    padding: 5px 15px;
+    font-size: 11.5px;
+    padding: 4px 12px;
     border: 1px solid rgba(236, 231, 216, 0.16);
     border-radius: 2px;
     color: rgba(215, 255, 230, 0.9);
@@ -1045,7 +1112,7 @@ body.full-journey .projects-grid {
     top: 50%;
     transform: translateY(-50%);
     width: 4px;
-    height: 13px;
+    height: 12px;
     border-radius: 1px;
     background: linear-gradient(180deg, #e9ecef 0%, #aeb4b9 45%, #7d8489 100%);
 }
@@ -1224,6 +1291,12 @@ body.full-journey .projects-grid {
     .scroll-hint {
         animation: none !important;
         opacity: 0.6 !important;
+    }
+    /* The connector dashes march infinitely (signal-flow 0.9s) — the only
+       infinite animation the reduced-motion block missed. Freeze them like
+       the scroll-hint: the line stays dashed, just stops marching. */
+    .connector-path {
+        animation: none !important;
     }
     .proj-ds-status.building {
         animation: none !important;

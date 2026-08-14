@@ -534,6 +534,30 @@ function setActivePanel(panelId) {
 
   // Power-on micro-moment for the section's component
   pulseArrival(secId);
+
+  // Content cascade: the panel's inner blocks reveal in sequence (ref →
+  // title → body rows) instead of appearing with the flat cross-fade — one
+  // orchestrated arrival beat on the house power2.out curve. The hidden
+  // .headline-twin is excluded (the sweep above owns it); lite mode stays
+  // static (panels are in document flow, not toggled).
+  if (panelId && activePanelEl && document.body.classList.contains('full-journey')) {
+    const blocks = /** @type {HTMLElement[]} */ ([...activePanelEl.children].filter(
+      (el) => el instanceof HTMLElement && !el.classList.contains('headline-twin')
+    ));
+    if (blocks.length > 1) {
+      gsap.killTweensOf(blocks);
+      gsap.fromTo(blocks,
+        { autoAlpha: 0, y: 12 },
+        {
+          autoAlpha: 1, y: 0, duration: 0.5,
+          stagger: { each: 0.06, from: 'start' },
+          ease: 'power2.out',
+          clearProps: 'transform'
+        }
+      );
+    }
+  }
+
   // Show/hide connector
   if (connectorLine) {
     const showConnector = panelId && panelId !== 'panel-hero' && panelId !== 'panel-contact';
@@ -735,17 +759,35 @@ export function initJourney(camera) {
 
   // Rebuild curves on resize: the hero/contact framing z is aspect-dependent
   // (the board must fit the left-58% canvas in BOTH FOV axes), so a resize
-  // that changes the canvas aspect needs fresh camera stops.
+  // that changes the canvas aspect needs fresh camera stops. main.js drives
+  // this through resizeJourney() in a DEFINED order (scene sync → curves →
+  // ScrollTrigger.refresh) — this debounced listener is a resilience net for
+  // HMR/re-entry cases, not the primary path.
   let curveResizeTimer = 0;
   window.addEventListener('resize', () => {
     clearTimeout(curveResizeTimer);
     curveResizeTimer = setTimeout(() => {
-      if (journeyReady) buildCurves();
+      resizeJourney();
     }, 200);
   }, { passive: true });
 
   // Panels are now safe to drive (boot sequence is done)
   journeyReady = true;
+}
+
+/** Coordinated resize: rebuild the camera curves (framing z is
+ *  aspect-dependent) AND refresh ScrollTrigger so the leg windows re-measure
+ *  against the new layout. main.js calls this AFTER scene.syncCanvasSize() so
+ *  the curves read the fresh canvas size — ordering between the two was
+ *  previously luck (two independent debounced listeners could race, leaving
+ *  the hero/contact framing z stale until the next resize). No-op until
+ *  initJourney has run (journeyReady gate, same as the legacy listener). */
+export function resizeJourney() {
+  if (!journeyReady) return;
+  buildCurves();
+  requestAnimationFrame(() => {
+    ScrollTrigger.refresh();
+  });
 }
 
 /** The section the current scroll leg has activated — exported so

@@ -331,8 +331,73 @@ export function createBoard(scene) {
         board.add(ring);
     });
 
+    // 4. Bench sweep — a signal-green scan line that sweeps across the board
+    // surface like a CRT trace, so the copper visibly "scans" under the probe
+    // instead of the board reading as a solid stamped part. Additive + faint;
+    // sits just above the silkscreen/traces (z 0.09) and below the components,
+    // so it passes UNDER the chips — the correct layer for a surface sweep.
+    const sweepMat = new THREE.MeshBasicMaterial({
+        color: 0x3ee6a0,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    const sweepTrailMat = new THREE.MeshBasicMaterial({
+        color: 0x3ee6a0,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    const sweepGeo = new THREE.PlaneGeometry(0.05, height - 0.6);
+    const sweepTrailGeo = new THREE.PlaneGeometry(0.4, height - 0.6);
+    sweepLead = new THREE.Mesh(sweepGeo, sweepMat);
+    sweepLead.position.z = thickness / 2 + 0.012;
+    sweepTrail = new THREE.Mesh(sweepTrailGeo, sweepTrailMat);
+    sweepTrail.position.z = thickness / 2 + 0.011;
+    boardGroup.add(sweepLead);
+    boardGroup.add(sweepTrail);
+    disposableResources.geometries.add(sweepGeo);
+    disposableResources.geometries.add(sweepTrailGeo);
+    disposableResources.materials.add(sweepMat);
+    disposableResources.materials.add(sweepTrailMat);
+
     boardGroup.scale.set(0.85, 0.85, 0.85);
     scene.add(boardGroup);
+}
+
+// ─── Bench sweep ─────────────────────────────────────────────
+// Deterministic from elapsed: the sweep crosses the board once per period,
+// with a sine envelope so it fades in/out at the edges (never pops). Hidden
+// entirely for reduced-motion users — a static scan line would read as a
+// glitch, unlike the radar/current-dot which stay visible-but-still.
+const SWEEP_REDUCED_MOTION = typeof window !== 'undefined' &&
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SWEEP_PERIOD = 6;   // seconds per crossing
+const SWEEP_MIN_X = -5.2; // board is ±5.5 local; inset slightly
+const SWEEP_SPAN = 10.4;
+/** @type {THREE.Mesh | null} */
+let sweepLead = null;
+/** @type {THREE.Mesh | null} */
+let sweepTrail = null;
+
+/** @param {number} elapsed */
+export function updateBenchSweep(elapsed) {
+    if (!sweepLead || !sweepTrail) return;
+    if (SWEEP_REDUCED_MOTION) {
+        sweepLead.visible = false;
+        sweepTrail.visible = false;
+        return;
+    }
+    sweepLead.visible = true;
+    sweepTrail.visible = true;
+    const p = (elapsed / SWEEP_PERIOD) % 1;
+    const env = Math.sin(p * Math.PI); // fade in/out at the edges
+    sweepLead.position.x = SWEEP_MIN_X + SWEEP_SPAN * p;
+    sweepTrail.position.x = SWEEP_MIN_X + SWEEP_SPAN * p - 0.3; // lags the lead
+    /** @type {THREE.MeshBasicMaterial} */ (sweepLead.material).opacity = env * 0.14;
+    /** @type {THREE.MeshBasicMaterial} */ (sweepTrail.material).opacity = env * 0.05;
 }
 // Delta-scaled lerp factor — same convention as hover.js (1 - pow(1-k, d*60))
 // so the parallax response is IDENTICAL at any frame rate: at 60fps it equals
@@ -342,8 +407,20 @@ function lerpFactor(k, delta) {
     return 1 - Math.pow(1 - k, (delta || 1 / 60) * 60);
 }
 
-/** @param {number} elapsed @param {THREE.Vector2} mouse @param {number} [delta] @param {string} [activeSecId] */
-export function updateBoardParallax(elapsed, mouse, delta, activeSecId) {
+// Levitation — the board hovers on the bench like it's alive: a slow vertical
+// float, a depth breathe, and a gentle roll. Applied only once the journey is
+// live (journeyLive — set after boot's arrival tween finishes; the boot tween
+// owns position until then, so an early write would yank the board mid-arrival)
+// and skipped for reduced-motion users (the board stays planted).
+const BOARD_REDUCED_MOTION = typeof window !== 'undefined' &&
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Slow periods (8–20s) so the motion reads as hover, never vibration.
+const FLOAT_AMP_Y = 0.16;      // vertical rise/fall
+const FLOAT_AMP_Z = 0.07;      // depth breathe toward/away from the camera
+const FLOAT_AMP_ROLL = 0.012;  // gentle roll (radians)
+
+/** @param {number} elapsed @param {THREE.Vector2} mouse @param {number} [delta] @param {string} [activeSecId] @param {boolean} [journeyLive] */
+export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyLive) {
     if (!boardGroup) return;
 
     // Check if we're in journey mode (camera controlled by scroll)
@@ -372,5 +449,16 @@ export function updateBoardParallax(elapsed, mouse, delta, activeSecId) {
         const k = boosted ? 0.05 : 0.035;
         boardGroup.rotation.x += (targetRotX - boardGroup.rotation.x) * lerpFactor(k, delta);
         boardGroup.rotation.y += (targetRotY - boardGroup.rotation.y) * lerpFactor(k, delta);
+
+        // Levitation: the board hangs in the air, drifting slowly. The parallax
+        // tilt (rotation.x/y) composes with the roll (rotation.z) — different
+        // axes, so the hover and the cursor response never fight. Everything
+        // parented to the group (traces, sweep, surge light) rides along, so
+        // the whole board lives as one object.
+        if (journeyLive && !BOARD_REDUCED_MOTION) {
+            boardGroup.position.y = Math.sin(elapsed * 0.55) * FLOAT_AMP_Y;
+            boardGroup.position.z = Math.cos(elapsed * 0.37) * FLOAT_AMP_Z;
+            boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL;
+        }
     }
 }

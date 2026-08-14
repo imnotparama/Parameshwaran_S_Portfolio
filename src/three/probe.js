@@ -33,6 +33,12 @@ let probeTarget = null;      // the component currently under the tip
 let raycaster = null;
 const pressedKeys = new Set();
 let probeActive = false;
+// Throttle the tip raycast to every 2nd frame during flight — each pass hits
+// the full interactive set (mouse hover is suspended while the probe is
+// active, so a dedup is safe; threejs-interaction perf discipline: limit
+// raycasts). The probe moves at 2.6 u/s, so a 30Hz check is imperceptible;
+// the first frame still runs (0 % 2 === 0) so the tip highlights immediately.
+let probeFrame = 0;
 
 /** @param {THREE.Group} boardGroup */
 export function createProbe(boardGroup) {
@@ -201,5 +207,6 @@ export function updateProbe(delta) {
         probeGroup.position.x = Math.min(BOARD_HALF, Math.max(-BOARD_HALF, probeGroup.position.x + (dx / len) * PROBE_SPEED * delta));
         probeGroup.position.y = Math.min(BOARD_HALF, Math.max(-BOARD_HALF, probeGroup.position.y + (dy / len) * PROBE_SPEED * delta));
     }
-    updateTarget();
+    probeFrame++;
+    if (probeFrame % 2 === 0) updateTarget();
 }

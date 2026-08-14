@@ -7,6 +7,7 @@
 // ============================================================
 // @ts-check
 import * as THREE from 'three';
+import gsap from 'gsap';
 import { disposableResources } from './scene.js';
 import { interactiveObjects } from './components.js';
 import { portfolioData } from '../data/portfolio.js';
@@ -22,8 +23,20 @@ import { portfolioData } from '../data/portfolio.js';
 
 /** @type {FlickerLed[]} */
 const flickerLeds = [];
-/** @type {THREE.MeshStandardMaterial[]} */
+
+/** A shipped chip's status LED: steady base glow with a slow deterministic
+ *  breathe (seeded phase, like the flicker) so the whole board reads as
+ *  powered — the shipped LEDs shouldn't sit perfectly flat while the radar
+ *  sweeps, the current dot travels, and the breadboard LEDs flicker. */
+/** @typedef {{ mat: THREE.MeshStandardMaterial, seed: number }} SteadyLed */
+/** @type {SteadyLed[]} */
 const steadyLeds = [];
+
+// Decorative motion — respect prefers-reduced-motion: shipped LEDs hold a
+// flat emissive (powered, not pulsing). Same gate pattern as the radar ring
+// (components.js) and the current dot (traces.js).
+const STEADY_REDUCED_MOTION = typeof window !== 'undefined' &&
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** @type {Record<string, ChipRecord>} */
 export const projectChips = {};
@@ -153,7 +166,9 @@ function buildSolderedChip(group, chipMat, goldMat, traceMat, busOffsetY) {
     const led = new THREE.Mesh(ledGeo, ledMat);
     led.position.set(0.14, 0.14, 0.14);
     group.add(led);
-    steadyLeds.push(ledMat);
+    // Seed per LED (deterministic at build time — same seeded-phase pattern
+    // as the breadboard flicker) so the array breathes slightly out of sync.
+    steadyLeds.push({ mat: ledMat, seed: Math.sin(group.position.x * 12.9898 + group.position.y * 78.233) * 43758.5453 });
     return ledMat;
 }
 
@@ -227,5 +242,23 @@ export function updateProjectChips(elapsed) {
     for (const f of flickerLeds) {
         const n = Math.sin(elapsed * 7 + f.seed) * Math.sin(elapsed * 13.7 + f.seed * 2);
         f.mat.emissiveIntensity = n > 0.55 ? 0.15 : 0.7 + n * 0.25;
+    }
+    // Shipped LEDs: slow, subtle breathe around their 1.4 build-time base
+    // (±0.08, ~7s period) — "powered but calm". The amplitude is small
+    // relative to the base so it never reads as a light show or a dimming
+    // fault (a lower base would slam the LED from 1.4 on the first tick),
+    // and the focus flash (journey.js gsap tween with overwrite) still
+    // dominates during its short run.
+    if (!STEADY_REDUCED_MOTION) {
+        for (const s of steadyLeds) {
+            // Skip materials the focus flash (journey.js focusProject) is
+            // actively tweening — the breathe must not fight the flash's
+            // 0.15→1.9 dip/spike. The rAF ordering (app loop before GSAP's
+            // ticker) makes the flash win today, but that's registration
+            // luck, not a guarantee: a same-property write every frame can
+            // mask the tween if the loop ever registers later (HMR re-entry).
+            if (gsap.isTweening(s.mat)) continue;
+            s.mat.emissiveIntensity = 1.4 + Math.sin(elapsed * 0.9 + s.seed) * 0.08;
+        }
     }
 }

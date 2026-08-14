@@ -1,18 +1,19 @@
 import { detectWebGL, showFallbackUI, setupCleanup } from './src/ui/fallback.js';
 import { initScene, scene, camera, renderer, tickCallbacks, enableBloom, syncCanvasSize } from './src/three/scene.js';
-import { createBoard, boardGroup, updateBoardParallax } from './src/three/board.js';
+import { createBoard, boardGroup, updateBoardParallax, updateBenchSweep } from './src/three/board.js';
 import { createComponents } from './src/three/components.js';
-import { createTraces, updateTraceCurrent } from './src/three/traces.js';
-import { createParticles, updateParticles } from './src/three/particles.js';
+import { createTraces, updateTraceCurrent, updateTraceRipple } from './src/three/traces.js';
+import { createParticles, updateParticles, updateAmbientDust } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips } from './src/three/project-chips.js';
 import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler } from './src/utils/hover.js';
 import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeTarget, isProbeModeActive, deactivateProbe } from './src/three/probe.js';
+import { initPower, togglePower } from './src/three/power.js';
 import { initCursor } from './src/ui/cursor.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { renderSections } from './src/ui/sections.js';
-import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId } from './src/scroll/journey.js';
+import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney } from './src/scroll/journey.js';
 
 // ─── Hash-based deep links ─────────────────────────────────
 // Each section gets a shareable URL (#/about, #/projects, ...). Nav clicks
@@ -33,6 +34,12 @@ function sectionFromHash() {
     const secId = `sec-${raw}`;
     return document.getElementById(secId) ? secId : null;
 }
+
+// True once the boot sequence completes and the scroll journey is live — the
+// board's arrival tween owns its position until then, so levitation must not
+// start earlier (an early write would yank the board mid-float-up). Set in
+// the boot onComplete callback, passed to updateBoardParallax each tick.
+let journeyLive = false;
 
 let lastAppliedHash = null;
 function applyHashNavigation() {
@@ -181,6 +188,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (projectCloseBtn) {
         projectCloseBtn.addEventListener('click', () => exitFocusMode());
     }
+    // 8c. Night bench — the PWR LED is the board's power switch: clicking it
+    // (or pressing P) cuts the bench lights so the board's emissive traces
+    // and LEDs become the only light source. Reversible; gated by
+    // prefers-reduced-motion inside power.js.
+    const pwrBtn = document.getElementById('pwr-led');
+    if (pwrBtn) {
+        pwrBtn.addEventListener('click', () => togglePower());
+    }
 
     // 9. Set up body class for mode detection
     if (isLiteMode()) {
@@ -199,6 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 10. Enable bloom post-processing (unless lite mode)
     if (!isLiteMode()) {
         enableBloom();
+        // Night bench needs the bloom pass + trace routes in place.
+        initPower();
     }
 
     // 11. Add animation loops to ticks callback registry
@@ -226,12 +243,24 @@ document.addEventListener('DOMContentLoaded', () => {
         // The active section gates the tilt strength — boosted on About so the
         // "move cursor to tilt board" affordance is felt, capped everywhere.
         const activeSectionId = getActiveSectionId();
-        updateBoardParallax(elapsed, mouse, delta, activeSectionId);
+        updateBoardParallax(elapsed, mouse, delta, activeSectionId, journeyLive);
+
+        // Ambient dust — the mote cloud around the board (deterministic,
+        // reduced-motion gated inside particles.js)
+        updateAmbientDust(elapsed);
 
         // Traveling current dot: power visibly flows along the active
         // section's trace (the arrival pulse is the flash; this is the
         // sustained current).
         updateTraceCurrent(elapsed, activeSectionId);
+
+        // Copper ripple: a power blob floods every trace from the CPU (the
+        // whole board carries current, not just the active section) + the
+        // probe-energized shimmer on hovered copper.
+        updateTraceRipple(elapsed);
+
+        // Bench sweep: the CRT scan line crossing the board surface.
+        updateBenchSweep(elapsed);
 
         // Update screen-space panel positioning, connector line, and vignette
         if (typeof updateJourneyEffects === 'function' && !isLiteMode()) {
@@ -247,6 +276,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (shouldInitJourney) {
             initJourney(camera);
         }
+        // Journey is live: the board's boot arrival tween has finished, so the
+        // levitation float may take over position (gated on this flag).
+        journeyLive = true;
         // Honor a deep link (#/about, #/projects) on first load
         if (window.location.hash) applyHashNavigation();
         // Note: hud-ready class is already set inside runBootSequence step 3
@@ -281,7 +313,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 17. Signal-path scroll progress: passive scroll listener + rAF coalescing
     window.addEventListener('scroll', scheduleSigPath, { passive: true });
-    window.addEventListener('resize', scheduleSigPath);
+    // Coordinated resize: ONE debounced handler with a defined order — scene
+    // sync first (camera aspect / renderer buffer / composer follow the 58%
+    // canvas), then journey (curves read the fresh canvas size, then
+    // ScrollTrigger re-measures the leg windows), then the progress readout.
+    // Previously three independent listeners (scene 100ms, journey 200ms,
+    // sig-path immediate) raced — ordering between them was luck, and a stale
+    // read could leave the hero/contact framing z off until the next resize.
+    let resizeTimer = 0;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            syncCanvasSize();
+            resizeJourney();
+            scheduleSigPath();
+        }, 120);
+    }, { passive: true });
     scheduleSigPath();
 
     // 18. Keyboard section navigation (1–6)
@@ -310,6 +357,10 @@ document.addEventListener('DOMContentLoaded', () => {
             measureProbeTarget();
         } else if (e.key === 'Escape' && isProbeModeActive()) {
             deactivateProbe();
+        } else if (key === 'p') {
+            // Night bench — cut/restore the bench lights (the PWR switch).
+            e.preventDefault();
+            togglePower();
         }
     });
     window.addEventListener('keyup', (e) => releaseProbeKey(normalizeProbeKey(e.key)));

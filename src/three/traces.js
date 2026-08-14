@@ -1,5 +1,6 @@
 // @ts-check
 import * as THREE from 'three';
+import gsap from 'gsap';
 import { disposableResources } from './scene.js';
 
 /**
@@ -34,6 +35,27 @@ let currentDot = null;
 
 const TRACE_REDUCED_MOTION = typeof window !== 'undefined' &&
     window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ─── Trace power ripple ───────────────────────────────────────
+// The copper is alive: a power blob continuously floods EVERY trace from the
+// CPU outward — the current dot is the active section's focused pulse, this
+// is the whole board's ambient current (the electrons ride on top of it).
+// Deterministic from elapsed; the blob is a sharpened sine travelling along
+// each route's cumulative length, so the wave visibly flows through the
+// copper instead of the board reading as a solid stamped part.
+const TRACE_BASE_INTENSITY = 0.4;   // the built-in static glow (unchanged)
+const RIPPLE_AMP = 0.75;             // blob adds up to +0.75 on top
+const RIPPLE_SPEED = 0.45;           // waves per second
+const RIPPLE_WAVELENGTH = 3.2;       // world units per wave — blob spans ~3u
+
+/** @type {Array<{ mat: THREE.MeshStandardMaterial, distFromStart: number }>} */
+const rippleSegments = [];
+/** @type {Map<string, THREE.MeshStandardMaterial[]>} */
+const traceMatByRef = new Map();
+/** Materials the probe is currently energizing (hover highlight) — the
+ *  ripple skips these and they get their own fast shimmer instead. */
+/** @type {Set<THREE.MeshStandardMaterial>} */
+const highlightedTraceMats = new Set();
 
 /** @param {THREE.Group} boardGroup */
 export function createTraces(boardGroup) {
@@ -235,10 +257,20 @@ export function createTraces(boardGroup) {
     // Construct traces and vias
     rawPaths.forEach(path => {
         const meshes = [];
+        let dist = 0;
         for (let i = 0; i < path.points.length - 1; i++) {
             const pA = path.points[i];
             const pB = path.points[i + 1];
-            meshes.push(addTraceMesh(pA, pB, path.width));
+            const seg = addTraceMesh(pA, pB, path.width);
+            meshes.push(seg);
+            // Record the segment + its cumulative distance from the CPU so the
+            // ripple wave can travel along the route (per-segment cloned
+            // materials — independent writes, no shared-material fights).
+            const segMat = /** @type {THREE.MeshStandardMaterial} */ (seg.material);
+            rippleSegments.push({ mat: segMat, distFromStart: dist });
+            if (!traceMatByRef.has(path.component)) traceMatByRef.set(path.component, []);
+            /** @type {THREE.MeshStandardMaterial[]} */ (traceMatByRef.get(path.component)).push(segMat);
+            dist += pA.distanceTo(pB);
 
             // Place vias at corners (intermediate points)
             if (i > 0) {
@@ -281,6 +313,55 @@ export function createTraces(boardGroup) {
     boardGroup.add(currentDot);
     disposableResources.geometries.add(dotGeo);
     disposableResources.materials.add(dotMat);
+}
+
+/** Energize (or release) the copper feeding a component when the probe
+ *  hovers it — the board answers the pointer through its traces, not just
+ *  the component body. 'U1' is the power source: hovering it lights every
+ *  route. No-ops for refs with no route (RN1, TP1/2, BZ1, project chips).
+ *  @param {string} ref @param {boolean} on */
+export function highlightTrace(ref, on) {
+    const mats = ref === 'U1'
+        ? rippleSegments.map(s => s.mat)
+        : (traceMatByRef.get(ref) || []);
+    if (on) {
+        for (const m of mats) {
+            highlightedTraceMats.add(m);
+            gsap.killTweensOf(m);
+        }
+    } else {
+        for (const m of mats) {
+            if (!highlightedTraceMats.has(m)) continue;
+            highlightedTraceMats.delete(m);
+            gsap.killTweensOf(m);
+            // Decay back to the ripple's base; the ripple resumes writing once
+            // the tween completes (the isTweening guard below holds it off).
+            gsap.to(m, { emissiveIntensity: TRACE_BASE_INTENSITY, duration: 0.35, ease: 'power2.out', overwrite: 'auto' });
+        }
+    }
+}
+
+/** Per-frame copper current. Called from the tick loop.
+ *  @param {number} elapsed */
+export function updateTraceRipple(elapsed) {
+    for (const seg of rippleSegments) {
+        const m = seg.mat;
+        if (highlightedTraceMats.has(m)) {
+            // Probe-energized: steady bright with a fast shimmer — reads as
+            // "the probe is touching this copper", distinct from the slow
+            // traveling blob. Held flat under reduced motion (a user-triggered
+            // response, not ambient motion — but no strobe).
+            m.emissiveIntensity = TRACE_REDUCED_MOTION ? 1.5 : 1.5 + 0.3 * Math.sin(elapsed * 4);
+            continue;
+        }
+        // Reduced motion: copper holds its static base glow (powered, calm).
+        // isTweening guard: never fight the hover-release tween on the same
+        // property — same pattern as the LED breathe vs the focus flash.
+        if (TRACE_REDUCED_MOTION || gsap.isTweening(m)) continue;
+        const phase = (elapsed * RIPPLE_SPEED - seg.distFromStart / RIPPLE_WAVELENGTH) % 1;
+        const blob = Math.pow(Math.max(0, Math.sin(phase * Math.PI)), 3);
+        m.emissiveIntensity = TRACE_BASE_INTENSITY + RIPPLE_AMP * blob;
+    }
 }
 
 /** Drive the current dot along the active section's trace. Called per frame

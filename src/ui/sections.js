@@ -51,9 +51,10 @@ function renderProjects() {
             const building = p.status === 'building';
             return `
         <article class="proj-ds ${building ? 'is-building' : ''}">
+            <span class="proj-ds-ref" aria-hidden="true">${esc(p.ref)}</span>
             <div class="proj-ds-head">
-                <span class="proj-ds-title">${esc(p.ref)} · ${esc(p.title)}</span>
-                <span class="proj-ds-status ${building ? 'building' : 'shipped'}">${building ? '□ BREADBOARD' : '■ SOLDERED'}</span>
+                <span class="proj-ds-title">${esc(p.title)}</span>
+                <span class="proj-ds-status ${building ? 'building' : 'shipped'}" role="img" aria-label="${building ? 'In build' : 'Shipped'}"></span>
             </div>
             <div class="proj-field"><b>PROBLEM</b> ${esc(p.problem)}</div>
             <div class="proj-field"><b>STATE</b> ${esc(p.state)}</div>

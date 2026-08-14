@@ -41,6 +41,18 @@ let qualityLevel = 0;
 /** @type {THREE.DirectionalLight | null} */
 let keyLight = null;
 
+// Night-bench bloom multiplier — power.js scales UnrealBloomPass strength so
+// the emissive traces/LEDs bloom harder against the darkened bench. Applied
+// ON TOP of the quality budget (a perf downgrade still scales the base).
+let bloomBoost = 1;
+
+/** The bench lighting rig — the room lights power.js dims for night mode.
+ *  base is the intensity each light was created with; night mode multiplies
+ *  it by ~0.04 so only emissive materials keep the board lit. Reset at the
+ *  top of initScene so HMR re-entry never accumulates duplicate entries.
+ *  @type {Array<{ light: THREE.Light, base: number }>} */
+export const benchLights = [];
+
 /** @param {number} level @param {THREE.DirectionalLight} keyLight @param {number | null} avgFps */
 function applyQualityLevel(level, keyLight, avgFps) {
     qualityLevel = level;
@@ -53,7 +65,7 @@ function applyQualityLevel(level, keyLight, avgFps) {
         composer.setSize(w, h);
         const bloomPass = composer.passes.find(p => p instanceof UnrealBloomPass);
         if (bloomPass) {
-            bloomPass.strength = q.strength;
+            bloomPass.strength = q.strength * bloomBoost;
             bloomPass.radius = q.radius;
         }
     }
@@ -74,7 +86,7 @@ export function enableBloom() {
         const { w, h } = getCanvasViewportSize();
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(w, h),
-            0.45, // strength — subtle glow, not a light show
+            0.45 * bloomBoost, // strength — subtle glow, not a light show
             0.3,  // radius
             0.7   // threshold — only emissive traces/LEDs bloom
         );
@@ -106,7 +118,11 @@ export const disposableResources = {
 // and ENIG-gold ambient glows, a faint fabrication grid, and plated vias at
 // grid intersections — the same fab-shop language as the board itself.
 // Painted once at init (no per-frame cost); deterministic, no wall-clock.
-function createBackdropTexture() {
+// `dark` paints the NIGHT-BENCH variant — the same room with the lights out:
+// near-black substrate, glows at ~20%, a stronger vignette. power.js swaps
+// scene.background between the two when the bench is cut.
+/** @param {boolean} [dark] */
+function createBackdropTexture(dark = false) {
     const size = 1024;
     const canvas = document.createElement('canvas');
     canvas.width = size;
@@ -116,33 +132,40 @@ function createBackdropTexture() {
 
     // 1. FR-4 substrate gradient
     const base = ctx.createLinearGradient(0, 0, 0, size);
-    base.addColorStop(0, '#060f0b');
-    base.addColorStop(0.5, '#0a1812');
-    base.addColorStop(1, '#040c08');
+    if (dark) {
+        base.addColorStop(0, '#030806');
+        base.addColorStop(0.5, '#06120c');
+        base.addColorStop(1, '#020604');
+    } else {
+        base.addColorStop(0, '#060f0b');
+        base.addColorStop(0.5, '#0a1812');
+        base.addColorStop(1, '#040c08');
+    }
     ctx.fillStyle = base;
     ctx.fillRect(0, 0, size, size);
 
     // 2. Ambient glows — soldermask green wash top-center, gold wash bottom-right
+    const DIM = dark ? 0.22 : 1;
     const greenGlow = ctx.createRadialGradient(size * 0.5, size * 0.08, 0, size * 0.5, size * 0.08, size * 0.46);
-    greenGlow.addColorStop(0, 'rgba(46, 110, 76, 0.32)');
+    greenGlow.addColorStop(0, `rgba(46, 110, 76, ${0.32 * DIM})`);
     greenGlow.addColorStop(1, 'rgba(46, 110, 76, 0)');
     ctx.fillStyle = greenGlow;
     ctx.fillRect(0, 0, size, size);
 
     const goldGlow = ctx.createRadialGradient(size * 0.88, size * 0.9, 0, size * 0.88, size * 0.9, size * 0.38);
-    goldGlow.addColorStop(0, 'rgba(201, 162, 75, 0.10)');
+    goldGlow.addColorStop(0, `rgba(201, 162, 75, ${0.10 * DIM})`);
     goldGlow.addColorStop(1, 'rgba(201, 162, 75, 0)');
     ctx.fillStyle = goldGlow;
     ctx.fillRect(0, 0, size, size);
 
     const signalGlow = ctx.createRadialGradient(size * 0.1, size * 0.78, 0, size * 0.1, size * 0.78, size * 0.3);
-    signalGlow.addColorStop(0, 'rgba(62, 230, 160, 0.05)');
+    signalGlow.addColorStop(0, `rgba(62, 230, 160, ${0.05 * DIM})`);
     signalGlow.addColorStop(1, 'rgba(62, 230, 160, 0)');
     ctx.fillStyle = signalGlow;
     ctx.fillRect(0, 0, size, size);
 
     // 3. Faint fabrication grid + plated vias at intersections
-    ctx.strokeStyle = 'rgba(236, 231, 216, 0.03)';
+    ctx.strokeStyle = `rgba(236, 231, 216, ${0.03 * DIM})`;
     ctx.lineWidth = 1;
     const cell = 64;
     for (let i = 0; i <= size; i += cell) {
@@ -159,7 +182,7 @@ function createBackdropTexture() {
         for (let gy = 0; gy <= size; gy += cell * 2) {
             ctx.beginPath();
             ctx.arc(gx + 0.5, gy + 0.5, 3, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(201, 162, 75, 0.16)';
+            ctx.strokeStyle = `rgba(201, 162, 75, ${0.16 * DIM})`;
             ctx.lineWidth = 1;
             ctx.stroke();
             ctx.beginPath();
@@ -171,10 +194,10 @@ function createBackdropTexture() {
 
     // 4. Edge vignette baked into the backdrop — kept light (0.25) so it
     //    never stacks with the page .vignette-overlay (which can reach 0.6)
-    //    into a dark ring around the board.
+    //    into a dark ring around the board. The night variant deepens it.
     const edge = ctx.createRadialGradient(size / 2, size / 2, size * 0.45, size / 2, size / 2, size * 0.72);
     edge.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    edge.addColorStop(1, 'rgba(0, 0, 0, 0.25)');
+    edge.addColorStop(1, `rgba(0, 0, 0, ${dark ? 0.5 : 0.25})`);
     ctx.fillStyle = edge;
     ctx.fillRect(0, 0, size, size);
 
@@ -182,6 +205,30 @@ function createBackdropTexture() {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
     return tex;
+}
+
+/** @type {THREE.Texture | null} */
+let lightBackdrop = null;
+/** @type {THREE.Texture | null} */
+let darkBackdrop = null;
+
+/** Swap the scene backdrop between the lit bench and the night-bench (lights
+ *  out) variant. Called by power.js as part of the power toggle timeline.
+ *  @param {boolean} dark */
+export function setBenchBackdrop(dark) {
+    if (!scene || !lightBackdrop || !darkBackdrop) return;
+    scene.background = dark ? darkBackdrop : lightBackdrop;
+}
+
+/** Scale UnrealBloomPass strength for night-bench mode (power.js). Applied on
+ *  top of the quality budget, so a perf downgrade still scales the base.
+ *  @param {number} v */
+export function setBloomBoost(v) {
+    bloomBoost = v;
+    if (composer) {
+        const bloomPass = composer.passes.find(p => p instanceof UnrealBloomPass);
+        if (bloomPass) bloomPass.strength = QUALITY_LEVELS[qualityLevel].strength * bloomBoost;
+    }
 }
 
 /** The canvas's CSS viewport size — the split layout pins #canvas-container to
@@ -229,9 +276,14 @@ export function initScene(canvasElement) {
     scene = new THREE.Scene();
     // The fab-bench backdrop fills the whole view — nothing around the board
     // is ever empty black. Painted once; the board renders on top of it.
-    const backdrop = createBackdropTexture();
-    scene.background = backdrop;
-    disposableResources.textures.add(backdrop);
+    // The night-bench variant (same room, lights out) is painted alongside
+    // so power.js can swap scene.background without a runtime repaint.
+    benchLights.length = 0; // HMR re-entry: never accumulate duplicate entries
+    lightBackdrop = createBackdropTexture(false);
+    scene.background = lightBackdrop;
+    darkBackdrop = createBackdropTexture(true);
+    disposableResources.textures.add(lightBackdrop);
+    disposableResources.textures.add(darkBackdrop);
 
     // 2. Initialize Camera (Perspective, positioned to view board at an angle)
     // Aspect comes from the canvas container (left-58% split / mobile strip),
@@ -261,14 +313,17 @@ export function initScene(canvasElement) {
     // Ambient light - soft tint of green matching solder mask glow
     const ambientLight = new THREE.AmbientLight(0xdcfce7, 0.45);
     scene.add(ambientLight);
+    benchLights.push({ light: ambientLight, base: 0.45 });
 
     // Hemisphere light — sky/soldermask color gradient gives materials depth
     // (chips stop reading as flat black boxes under the single ambient)
     const hemiLight = new THREE.HemisphereLight(0xe9f5ee, 0x1e4d33, 0.7);
     scene.add(hemiLight);
+    benchLights.push({ light: hemiLight, base: 0.7 });
 
     // Key directional light creating specular metallic reflections
     const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.0);
+    benchLights.push({ light: dirLight1, base: 1.0 });
     keyLight = dirLight1;
     dirLight1.position.set(6, 4, 15);
     dirLight1.castShadow = true;
@@ -295,12 +350,14 @@ export function initScene(canvasElement) {
     const fillLight = new THREE.DirectionalLight(0xffeedd, 0.4);
     fillLight.position.set(-6, -4, 5);
     scene.add(fillLight);
+    benchLights.push({ light: fillLight, base: 0.4 });
 
     // Soft soldermask-green backlight behind PCB — a matte fabrication wash,
     // not the neon arcade glow. Matches --mask-green in the fab-shop palette.
     const pcbBacklight = new THREE.PointLight(0x2a6b4c, 1.4, 18);
     pcbBacklight.position.set(0, 0, -1);
     scene.add(pcbBacklight);
+    benchLights.push({ light: pcbBacklight, base: 1.4 });
 
     // Shadow catcher — a transparent "bench" plane below the board that
     // receives the already-cast shadows (board + components all cast).

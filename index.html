@@ -150,12 +150,15 @@
             <button class="nav-btn" data-section="sec-experience" aria-label="Go to Experience section"><span class="nav-ref" aria-hidden="true">J1</span>[EXPERIENCE]</button>
             <button class="nav-btn" data-section="sec-contact" aria-label="Go to Contact section"><span class="nav-ref" aria-hidden="true">ANT1</span>[CONTACT]</button>
         </nav>
-        <div class="hud-legend" aria-hidden="true">
-            <span class="pwr-led"></span>
-            <span class="pwr-lbl">PWR</span>
-            <span class="sig-path"><span class="sig-path-fill"></span></span>
-            <span class="sig-path-pct">0%</span>
-            <span class="rev-mark">REV&nbsp;1.0&nbsp;·&nbsp;2026</span>
+        <div class="hud-legend">
+            <!-- Night bench — the PWR LED is the board's power switch: click
+                 it (or press P) to cut the bench lights so the board's
+                 emissive traces and LEDs become the only light source. -->
+            <button type="button" class="pwr-led" id="pwr-led" aria-label="Toggle night bench power (P)" title="Night bench — press P"></button>
+            <span class="pwr-lbl" aria-hidden="true">PWR</span>
+            <span class="sig-path" aria-hidden="true"><span class="sig-path-fill"></span></span>
+            <span class="sig-path-pct" aria-hidden="true">0%</span>
+            <span class="rev-mark" aria-hidden="true">REV&nbsp;1.0&nbsp;·&nbsp;2026</span>
             <!-- Live scope readout — filled by hover.js when the probe is over
                  a component: REF + voltage/frequency/state per part. Idle it
                  reads SCOPE · AWAIT PROBE; the gold→signal border marks live. -->

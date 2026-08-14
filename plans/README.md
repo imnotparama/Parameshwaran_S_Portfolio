@@ -1,13 +1,32 @@
 # Animation Audit — PCB Portfolio
 
-- **Commit stamped**: `cd8b451`
+- **Commit stamped**: `eaff1f2` (session 3 re-audit of the living-board layer — night bench, ripple, sweep, breathe, levitation, dust; sessions 1–2 stamped `cd8b451`/`eaff1f2`)
 - **Date**: 2026-08
-- **Stack**: Vite + vanilla JS; GSAP 3 (timeline boot, ScrollTrigger journey, hover tweens); pure CSS transitions/keyframes. No animation library for CSS-layer motion.
-- **Motion tokens (repo convention)**: `--ease-out: cubic-bezier(0.22, 1, 0.36, 1)`, `--ease-in-out: cubic-bezier(0.65, 0, 0.35, 1)`, `--duration-fast: 0.18s`, `--duration-base: 0.3s`, `--duration-slow: 0.6s` in `style.css:44-49`.
+- **Stack**: Vite + vanilla JS; GSAP 3 (timeline boot, ScrollTrigger journey, hover/cascade/buzzer/probe tweens); pure CSS transitions/keyframes. No animation library for CSS-layer motion.
+- **Motion tokens (repo convention)**: `--ease-out: cubic-bezier(0.22, 1, 0.36, 1)`, `--ease-in-out: cubic-bezier(0.42, 0, 0.58, 1)`, `--duration-fast: 0.18s`, `--duration-base: 0.3s`, `--duration-slow: 0.6s` in `style.css:44-49`.
 - **Personality**: "fab-shop" — matte soldermask, silkscreen, ENIG gold; signal green reserved for LIVE elements. Crisp, deliberate, hardware-vernacular. Bouncy/springy would be off-brand.
-- **Frequency map**: nav buttons + CTAs (tens/day) → hover must be fast and cheap; panels (occasional) → 200-500ms OK; boot (rare/first-time) → can carry the delight budget.
+- **Frequency map**: nav buttons + CTAs (tens/day) → hover must be fast and cheap; panels + section changes (occasional) → 200-500ms OK; boot (rare/first-time) → can carry the delight budget.
 
 ## Findings (vetted, ordered by leverage)
+
+### Session 2 — instrument-stack re-audit (new surface since session 1)
+
+| # | Severity | Category | Location | Finding | Fix summary |
+| --- | --- | --- | --- | --- | --- |
+| 7 | HIGH | Purpose/Interruptibility | `src/scroll/journey.js:540-556` | The panel content cascade staggers **every** panel child including the LinkedIn CTA — the CTA finishes appearing ~0.8s after activation (last of 6 blocks on hero), and the hero gets a double reveal (boot staggers badges, then `initJourney` re-staggers them). 0.5s + 0.06s stagger is over the panel budget. | Exclude `.cta-linkedin` from the cascade (appears instantly); `duration 0.5→0.3`, `stagger 0.06→0.04`, `y 12→10`. |
+| 8 | MEDIUM | Cohesion | `scroll.css:128-135` (`.nav-ref`) | The active nav button's ref glyph (U1/U2/…) **snaps** opacity 0.8→1 on every section change — `opacity` is not in the button's transition list and `.nav-ref` has no transition. | `transition: opacity var(--duration-fast) var(--ease-out)` on `.nav-ref` — matches the button's own token pairing (scroll.css:116). |
+| 9 | MEDIUM | Missed opportunity | `main.js:98-108`, HUD legend `index.html:153-166` | Keyboard nav (keys 1–6) exists with **zero discoverability** — no hint anywhere; flagged in session 1, never shipped. | `KEYS 1–6 · JUMP` hint span in the HUD legend (static, muted, hidden under 900px + lite mode) — rides the existing `hud-ready` fade. |
+| 10 | LOW | Perf | `src/three/probe.js:154-171` (`updateTarget`) | During probe flight the tip raycast runs **every frame** against the full interactive set; hover.js is suspended while the probe is active, so a dedup is safe. Flight-only (probe is occasional), hence LOW. | Throttle `updateTarget` to every 2nd frame (frame counter, same pattern as hover.js:205). |
+
+### Session 3 — living-board layer re-audit (night bench, ripple, sweep, breathe, levitation, dust)
+
+| # | Severity | Category | Location | Finding | Fix summary |
+| --- | --- | --- | --- | --- | --- |
+| 11 | MEDIUM | Physicality | `src/three/board.js:458-461`, `main.js:281` | The levitation's **first write is an un-ramped sine**: `journeyLive` flips true in boot `onComplete` (~6.85s, exactly when the overlay finishes fading), right after the arrival tween settles the board at y:0 — the float then writes up to ±0.16 (~8–12px at hero framing), a visible settle-**pop** at the most-watched moment. Fast-path (skipBoot) is fine (elapsed≈0). | Ramp the float amplitude 0→1 over 2s after `journeyLive` first flips (smoothstep of a 2s window, `floatWakeStart` snapshot) — the hover emerges from stillness. |
+| 12 | MEDIUM | Cohesion | `src/scroll/journey.js:408-430`, `src/three/board.js:458-461` | The float runs **unmodulated while a chip is focused**: `focusProject` glides the camera to a *captured* static `chip.pos` + look point, but the board keeps drifting ±0.16 under it — the focused composition slowly un-frames while the user reads the datasheet (the connector tracks live, the camera does not). | Damp the float to 20% amplitude while focused (`isFocusMode()` getter in journey.js, threaded through main.js tick like `journeyLive`, delta-scaled `lerpFactor(0.06)` in board.js) — the probe touches down, the composition steadies; resume on release. |
+| 13 | LOW | Cohesion/A11y | `traces.js:36`, `components.js:23`, `board.js:375+415`, `particles.js:71`, `power.js:37`, `project-chips.js:38` | The same `prefers-reduced-motion` check is evaluated at module load **seven times**, each with its own const — fragmented policy (hide vs stay-but-still vs gate), frozen at load (OS changes mid-session ignored), and the exact drift class session 2 already caught once (connector dashes). | One `src/utils/motion-prefs.js` module with a live `matchMedia` listener; all seven modules read `motionPrefs.reduced` at call time. Policy decisions moved verbatim. |
+
+Vetted-and-rejected (session 3): the night-bench backdrop swap + bloom boost land as instant state changes (`power.js` `tl.add(() => setBenchBackdrop(powerOn), 0.25)` / `setBloomBoost` at 0.1) while the room lights fade over 0.9s — **by design** (the "throw of the switch": power cuts instantly, the light dies in a curve). Not a finding.
 
 | # | Severity | Category | Location | Finding | Fix summary |
 | --- | --- | --- | --- | --- | --- |
@@ -20,6 +39,9 @@
 
 ## Missed opportunities (additive, not corrective)
 
+- **The bench sweep passes components and nothing responds** (`src/three/board.js` `updateBenchSweep`): every 6s the scan line crosses the board — a passing "beam" could momentarily brighten the component it crosses (same probe-energized language as `traces.js` `highlightTrace`). Cheap delight; the instrument visibly scans.
+- **The board floats but its cast shadow never reacts** (`src/three/scene.js` bench-plane `ShadowMaterial`): the directional shadow can't scale with height, but a soft radial "hover shadow" blob on the bench plane whose opacity follows the float height (closest approach = darkest) would be the single biggest "it's actually floating" amplifier.
+- **Night-bench drift**: with power cut, the board could drift calmer/slower (a powered-down float — one constant modulating the float frequency/amplitude when `body.night-bench` is set), tying the power state into the living board.
 - **Keyboard nav has no affordance**: `main.js` `handleSectionKey` (1–6) ships with zero discoverability — nothing tells the user keys exist. A subtle key-hint (e.g. `[1]`-style mini-labels in the HUD or a one-time boot-terminal line "KEYS 1–6: JUMP SECTION") would complete the feature.
 - **`.nav-active` gold underline pops in instantly** (`scroll.css:127-135`): a 30-80ms `scaleX`/opacity transition on activation would polish the HUD's section-change feedback — cheap, tiny, high-visibility.
 - **PWR LED lights instantly** on `hud-ready`: a 0.3s glow-in (opacity/box-shadow) would read as the board "powering on" — rare moment, allowed delight budget.
@@ -32,6 +54,28 @@
 | `plans/002-boot-underline-scaleX.md` | MEDIUM | perf | **DONE (2026-08)** — hyperframes-animation session (see execution log) |
 | `plans/003-motion-token-consolidation.md` | MEDIUM | cohesion | **DONE (2026-08)** — curves tokenized, Minimalist block deleted (see execution log) |
 | `plans/004-hover-gated-pointer-fine.md` | MEDIUM | a11y | **DONE (2026-08)** — hover lifts gated (see execution log) |
+| `plans/005-cascade-cta-not-blocked.md` | HIGH | purpose/interruptibility | **TODO** |
+| `plans/006-nav-active-ref-transition.md` | MEDIUM | cohesion | **TODO** |
+| `plans/007-keyboard-nav-affordance.md` | MEDIUM | missed opportunity | **TODO** |
+| `plans/011-float-wake-ramp.md` | MEDIUM | physicality | **TODO** |
+| `plans/012-focus-damps-levitation.md` | MEDIUM | cohesion | **TODO** |
+| `plans/013-motion-prefs-single-source.md` | LOW | cohesion/a11y | **TODO** |
+
+## Recommended execution order (session 3)
+
+1. **011** (MEDIUM, 1 file, ~10 lines) — float wake-in; kills the settle-pop at the opening moment. Independent.
+2. **012** (MEDIUM, 3 files, ~25 lines) — focus touchdown; composes with 011's `wake` multiplier in the same block (`amplitude * wake * focusDamp`). Run right after 011 so both land in one pass over `board.js:458-461`.
+3. **013** (LOW, 7 files) — motionPrefs consolidation; pure refactor, run last so the executor's excerpts for 011/012 aren't invalidated by the const removal.
+
+Session 3 vetted-and-rejected notes: PWR LED glow-in (session 1's missed opportunity) **already handled** — `.pwr-led` has a 0.3s token transition. Night-bench's instant backdrop/bloom swap is **by design** ("the throw of the switch").
+
+## Recommended execution order (session 2)
+
+1. **005** (HIGH, 1 file, ~10 lines) — cascade CTA fix; shortest path to the biggest feel win. No dependencies.
+2. **006** (MEDIUM, 1 file, 1 line) — nav-ref opacity transition. Independent; do alongside 005 in the same pass.
+3. **007** (MEDIUM, 2 files) — HUD key hint. Independent; needs a visual check after the other two.
+
+Session 2 vetted-and-rejected notes: the PWR LED glow-in (session 1's missed opportunity) is **already handled** — `.pwr-led` has `transition: background/box-shadow var(--duration-base) var(--ease-out)` (scroll.css:212-217). Not a finding.
 
 ## Execution log
 

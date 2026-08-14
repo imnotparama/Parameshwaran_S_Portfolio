@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
 import { interactiveObjects } from '../three/components.js';
+import { highlightTrace } from '../three/traces.js';
 
 // ─── Exports ────────────────────────────────────────────────
 export const mouse = new THREE.Vector2();
@@ -22,6 +23,14 @@ const clamp = (/** @type {number} */ val, /** @type {number} */ min, /** @type {
 let raycaster = null;
 /** @type {THREE.Camera | null} */
 let activeCamera = null;
+// The canvas element — cached so pointer→NDC conversion measures the actual
+// canvas region (NOT the window). On desktop the split pins the canvas to the
+// left 58% of the viewport and the camera frustum matches the canvas, so a
+// window-relative conversion misaims every raycast horizontally; on mobile
+// the canvas is a 48vh strip, misaiming vertically. The canvas rect is the
+// only correct space (threejs-interaction: "For specific canvas element").
+/** @type {HTMLCanvasElement | null} */
+let hoverCanvas = null;
 /** @type {THREE.Object3D | null} */
 let currentHovered = null;
 let frameCounter = 0;
@@ -128,11 +137,20 @@ export function initHover(camera, scene) {
     scene.add(hoverLight);
 
     // Setup mouse/touch coordinate tracking with bounded clamp & smooth target
+    // Pointer→NDC is measured against the CANVAS rect, not the window: the
+    // camera frustum spans the canvas region (58% split on desktop, 48vh
+    // strip on mobile), so NDC must be canvas-relative or the raycast aims
+    // ~21%-of-window left of the cursor on desktop (the cursor would have to
+    // sit near the sidebar edge to hover the center of the board). Pointer
+    // positions outside the canvas clamp to the frustum edge — correct, the
+    // ray just stays at the edge of the board.
+    hoverCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('threejs-canvas'));
     const updateMouseCoords = (/** @type {number} */ clientX, /** @type {number} */ clientY) => {
-        const hw = window.innerWidth / 2;
-        const hh = window.innerHeight / 2;
-        const rawX = (clientX - hw) / hw;
-        const rawY = -(clientY - hh) / hh;
+        if (!hoverCanvas) return;
+        const rect = hoverCanvas.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        const rawX = ((clientX - rect.left) / rect.width) * 2 - 1;
+        const rawY = -((clientY - rect.top) / rect.height) * 2 + 1;
         targetMouse.x = clamp(rawX, -1.0, 1.0);
         targetMouse.y = clamp(rawY, -1.0, 1.0);
     };
@@ -152,13 +170,21 @@ export function initHover(camera, scene) {
     // forward PROJECT hits (the project chips) to the registered handler.
     // Listener is on the canvas element only — clicks on HUD/panels (higher
     // z-index) never reach it, so nav and panel interactions stay untouched.
-    const canvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('threejs-canvas'));
-    if (canvas) {
+    // Same canvas-rect NDC conversion as the hover path — a window-relative
+    // click on the 58% split would hit the component ~21%-of-window left of
+    // the cursor (or nothing, for chips near the right board edge).
+    if (hoverCanvas) {
+        // Local capture — checkJs can't narrow a module-level let across the
+        // closure even though it was assigned above (same pattern as board.js).
+        const canvas = hoverCanvas;
         canvas.addEventListener('click', (e) => {
             if (!clickHandler || !raycaster || !activeCamera) return;
-            const hw = window.innerWidth / 2;
-            const hh = window.innerHeight / 2;
-            const ndc = new THREE.Vector2((e.clientX - hw) / hw, -(e.clientY - hh) / hh);
+            const rect = canvas.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+            const ndc = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
             raycaster.setFromCamera(ndc, activeCamera);
             const targets = interactiveObjects.filter((obj) => obj.userData && obj.userData.isInteractive);
             const hits = raycaster.intersectObjects(targets, false);
@@ -265,6 +291,10 @@ function handleHoverEnter(mesh) {
     document.body.dataset.hoverType = String(mesh.userData && mesh.userData.type || '');
     document.body.dataset.hoverRef = name;
     setScopeReadout(name, mesh.userData);
+
+    // Energize the copper feeding this component — the board answers the
+    // probe through its traces (traces.js). 'U1' lights every route.
+    highlightTrace(name, true);
 }
 
 // ─── Hover Exit Logic ────────────────────────────────────
@@ -272,6 +302,10 @@ function handleHoverEnter(mesh) {
 /** @param {THREE.Object3D | null} obj */
 function resetHoverMesh(obj) {
     if (!obj || !(obj instanceof THREE.Mesh)) return;
+
+    // Release the copper feeding this component (no-op for refs without a
+    // route — chips, buzzer, test points).
+    if (obj.name) highlightTrace(obj.name, false);
 
     const mat = /** @type {any} */ (obj.material);
 
