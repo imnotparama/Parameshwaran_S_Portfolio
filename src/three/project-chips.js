@@ -145,7 +145,14 @@ export function createProjectChips(boardGroup) {
         bounds.userData = {
             componentName: `${proj.title} — ${isBuilding ? 'BREADBOARD (IN BUILD)' : 'SOLDERED (SHIPPED)'}`,
             type: 'PROJECT',
-            isInteractive: true
+            isInteractive: true,
+            // Subsystem identity for the hover tooltip (hover.js): ref, module
+            // theme, title, and the module's signal color — the same hex the
+            // datasheet card + chip LED use, so the tooltip matches the board.
+            chipRef: proj.ref,
+            chipTheme: proj.theme || '',
+            chipTitle: proj.title,
+            chipSignal: proj.signal || '#3ee6a0'
         };
         group.add(bounds);
         interactiveObjects.push(bounds);

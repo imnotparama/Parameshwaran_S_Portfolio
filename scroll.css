@@ -605,13 +605,90 @@ body.sound-on .hud-sound {
     }
 }
 
+/* ─── Per-module chip tooltip ────────────────────────────
+   A BOM-line readout that follows the pointer over a project chip on the
+   board (hover.js): ref, subsystem theme with its signal-color dot, title.
+   Fixed + transform-only (measured once per show), pointer-events:none, and
+   z-index below the HUD so it never covers the chrome. The dot's color is
+   the module's own signal (--tip-signal, set from the chip's userData). */
+.chip-tip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 45;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    background: rgba(3, 14, 8, 0.94);
+    border: 1px solid rgba(236, 231, 216, 0.18);
+    border-left: 2px solid var(--enig-gold);
+    border-radius: 2px;
+    padding: 7px 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(2, 8, 4, 0.8);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.12s var(--ease-out);
+}
+
+.chip-tip:not([hidden]) {
+    opacity: 1;
+}
+
+.chip-tip[hidden] {
+    display: none;
+}
+
+.chip-tip-ref {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: rgba(200, 150, 12, 0.9);
+}
+
+.chip-tip-theme {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 1.6px;
+    color: var(--silkscreen);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.chip-tip-dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--tip-signal, #3ee6a0);
+    box-shadow: 0 0 6px var(--tip-signal, #3ee6a0);
+}
+
+.chip-tip-title {
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    color: rgba(157, 180, 163, 0.8);
+}
+
+/* Reduced motion: snap the tooltip in — no fade (same posture as the rest
+   of the board's hover feedback). */
+@media (prefers-reduced-motion: reduce) {
+    .chip-tip {
+        transition: none;
+    }
+}
+
 /* ─── Hidden engineering readouts (easter eggs) ──────────
-   The board's live telemetry chip + debug overlay, revealed only by the
-   BIOS palette's SYSTEM TELEMETRY / DEBUG OVERLAY commands. Same phosphor
-   green language as the terminal; updated per-frame only while visible
-   (telemetry.js). pointer-events:none so the readouts never block clicks. */
+   The board's live telemetry chip + debug overlay + operator-notes chip,
+   revealed by the BIOS palette's SYSTEM TELEMETRY / DEBUG OVERLAY commands
+   and the hidden 'parama' keyboard sequence. Same phosphor green language as
+   the terminal; updated per-frame only while visible (telemetry.js).
+   pointer-events:none so the readouts never block clicks. */
 .sys-telemetry,
-.debug-overlay {
+.debug-overlay,
+.dev-notes {
     position: fixed;
     z-index: 80;
     font-family: var(--font-mono);
@@ -639,8 +716,19 @@ body.sound-on .hud-sound {
     left: 16px;
 }
 
+/* Operator notes — the secret channel answers in GOLD silkscreen (the
+   engineering-scrawl register), opposite corner from the telemetry. */
+.dev-notes {
+    bottom: 16px;
+    right: 16px;
+    color: var(--enig-gold);
+    border-color: rgba(201, 162, 75, 0.45);
+    text-shadow: 0 0 6px rgba(201, 162, 75, 0.4);
+}
+
 .sys-telemetry[hidden],
-.debug-overlay[hidden] {
+.debug-overlay[hidden],
+.dev-notes[hidden] {
     display: none;
 }
 
@@ -1818,6 +1906,150 @@ body.lite-mode .journey-sec:not(#sec-hero) {
     #cta-linkedin-hud { font-size: 11px; padding: 7px 12px; }
     .hud-nav .nav-btn { font-size: 11px; padding: 4px 6px; }
     .hud-name { font-size: 12px; }
+}
+
+/* ─── Probe-contact hover layer (game-feel) ──────────────────
+   The board reads as a live instrument: every hover is a CONTACT EVENT,
+   not a state change. Layered feedback per element — a route line draws in
+   under the nav target, project cards power up with a gold signal sweep,
+   skill-pill terminations glow, the CTA fires an uplink beam, and the HUD
+   scope chip pings when it locks a reading. All keyframe bursts are gated
+   behind (hover: hover) and (pointer: fine) AND reduced-motion-safe; the
+   transform/opacity transitions follow the site's existing hover posture. */
+
+/* HUD nav — the route line: a gold trace draws in under the target button
+   (transform-only, origin-left) + the ref glyph gains a silkscreen glow.
+   The ::before slot is free (::after carries the sheen, nav-active the pad). */
+.hud-nav .nav-btn::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 1px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--enig-gold), transparent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    opacity: 0;
+    transition: transform var(--duration-base) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
+    pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .hud-nav .nav-btn:hover::before {
+        transform: scaleX(1);
+        opacity: 1;
+    }
+    .hud-nav .nav-btn:hover .nav-ref {
+        text-shadow: 0 0 8px rgba(201, 162, 75, 0.7);
+    }
+}
+
+/* Project cards — module power-up on contact: a gold signal beam sweeps the
+   card once, the status LED answers with a bright pulse, the module's own
+   signal dot flares, and the probe-pad link glows. ::after is free on
+   .proj-ds. The beam is a one-shot keyframe (restarts per hover). */
+@keyframes module-sweep {
+    0%   { transform: translateX(-130%); opacity: 0; }
+    10%  { opacity: 1; }
+    100% { transform: translateX(130%); opacity: 0; }
+}
+
+@keyframes led-respond {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.7); }
+    100% { transform: scale(1); }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    /* The gold signal beam — the one keyframe burst on the card (motion). */
+    .proj-ds:hover::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 40%;
+        background: linear-gradient(100deg, transparent, rgba(201, 162, 75, 0.16), transparent);
+        pointer-events: none;
+        animation: module-sweep 0.9s var(--ease-out);
+    }
+    /* Shipped LED answers with a power-up pulse (in-build keeps its flicker,
+       which the higher-specificity hover rule briefly overrides — the card
+       "powers up" the same way). */
+    .proj-ds:hover .proj-ds-status {
+        animation: led-respond 0.5s var(--ease-out);
+    }
+}
+
+/* Static color/shadow feedback stays ungated by reduced-motion (the site's
+   plan-004 posture: color/bg/border/shadow feedback is the only "hovered" cue
+   a reduced-motion user keeps — motion gating never strips color state). */
+@media (hover: hover) and (pointer: fine) {
+    .proj-ds:hover .proj-signal {
+        box-shadow: 0 0 10px var(--sig, #3ee6a0);
+    }
+    .proj-ds:hover .proj-ds-link {
+        text-shadow: 0 0 10px rgba(0, 255, 136, 0.6);
+    }
+    /* Skill pills — SMD component power-up: the silver end-cap terminations
+       glow gold and the part-role tag (MCU, COMM BUS...) lights signal-green,
+       so the library reads as parts coming alive under the probe. */
+    .skill-pill:hover::before,
+    .skill-pill:hover::after {
+        background: linear-gradient(180deg, #e9ecef 0%, var(--enig-gold) 45%, #b8860b 100%);
+        box-shadow: 0 0 6px rgba(201, 162, 75, 0.55);
+    }
+    .skill-pill:hover em {
+        color: var(--signal);
+        text-shadow: 0 0 6px rgba(62, 230, 160, 0.45);
+    }
+}
+
+/* Click dips stay ungated (the site's established convention). */
+.skill-pill:active {
+    transform: translateY(1px);
+}
+
+/* CTA — uplink beam: a light streak shoots across the gold pad on hover
+   (the transmission handshake). ::after is free on the gold CTA (the
+   legacy ::before radial in style.css stays). One-shot per hover. */
+@keyframes uplink-beam {
+    0%   { transform: translateX(-150%); opacity: 0; }
+    15%  { opacity: 1; }
+    100% { transform: translateX(150%); opacity: 0; }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .cta-linkedin:hover::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 45%;
+        background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+        pointer-events: none;
+        animation: uplink-beam 0.8s var(--ease-out);
+    }
+}
+
+/* HUD scope chip — lock ping: the moment a reading locks (body.hud-scope-live
+   added by hover.js), the chip fires a one-shot ring pulse. The animation
+   restarts whenever the class re-enters, so every new probe contact pings. */
+@keyframes scope-lock {
+    0%   { box-shadow: 0 0 0 0 rgba(62, 230, 160, 0.55); }
+    100% { box-shadow: 0 0 0 8px rgba(62, 230, 160, 0); }
+}
+
+body.hud-scope-live .hud-scope {
+    animation: scope-lock 0.45s var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.hud-scope-live .hud-scope {
+        animation: none;
+    }
 }
 
 @media (max-width: 640px) {

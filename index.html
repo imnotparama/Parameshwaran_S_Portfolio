@@ -107,6 +107,9 @@
             <i class="arm arm-w"></i><i class="arm arm-e"></i>
         </div>
         <div class="probe-tip"></div>
+        <!-- One-shot gold contact ring — cursor.js restarts .lock-ping when
+             the probe locks onto a board component ("measuring"). -->
+        <i class="probe-lock" aria-hidden="true"></i>
         <div class="probe-readout"><span id="probe-readout-text">CH1</span></div>
     </div>
     <!-- Trail halo is a SIBLING of the transformed probe (a transformed
@@ -226,10 +229,10 @@
             </div>
         </section>
 
-        <!-- ABOUT — PARAM-CORE IC datasheet -->
+        <!-- ABOUT — PARAMA-CORE IC datasheet -->
         <section class="journey-sec" id="sec-about" data-panel="panel-about">
             <div class="ds-panel" id="panel-about">
-                <div class="ds-ref">U1 &mdash; "PARAM-CORE" &middot; CORE PROCESSOR</div>
+                <div class="ds-ref">U1 &mdash; "PARAMA-CORE" &middot; CORE PROCESSOR</div>
                 <!-- ds-title-stack: the gradient-text-sweep twin mechanism (same
                      as the hero name) — a pixel-identical background-clip:text
                      twin raised only during the one-shot sweep on panel
@@ -246,7 +249,7 @@
                         <tr><th scope="row">VREF</th><td>GPA 9.51 / 10 &middot; 3.30V nominal</td></tr>
                     </tbody>
                 </table>
-                <p class="ds-body text-pretty">PARAM-CORE is a single-substrate system built for one purpose: shipping real products at the intersection of software, AI, and hardware.<br><br>The core cluster runs on a data-science specialization &mdash; machine learning pipelines, computer vision, and full-stack applications are the three main buses, and every one has reached production: deployed APIs, live tracking, a working startup. When the problem touches silicon, the stack extends down &mdash; embedded systems, VLSI fundamentals, and low-level architecture are part of the same design flow, not a separate board.<br><br>Tutorials are reference manuals, not products. The parts on this board are the ones that survived real builds &mdash; debugging, integration, deployment. Continuous learning is a hardware feature here: it ships in every revision.<br><br>Auxiliary system: the operator keeps a training schedule. Heavy compound lifts, three times a week &mdash; same discipline as the code. Consistent, logged, load-incremented.</p>
+                <p class="ds-body text-pretty">PARAMA-CORE is a single-substrate system built for one purpose: shipping real products at the intersection of software, AI, and hardware.<br><br>The core cluster runs on a data-science specialization &mdash; machine learning pipelines, computer vision, and full-stack applications are the three main buses, and every one has reached production: deployed APIs, live tracking, a working startup. When the problem touches silicon, the stack extends down &mdash; embedded systems, VLSI fundamentals, and low-level architecture are part of the same design flow, not a separate board.<br><br>Tutorials are reference manuals, not products. The parts on this board are the ones that survived real builds &mdash; debugging, integration, deployment. Continuous learning is a hardware feature here: it ships in every revision.<br><br>Auxiliary system: the operator keeps a training schedule. Heavy compound lifts, three times a week &mdash; same discipline as the code. Consistent, logged, load-incremented.</p>
                 <a class="cta-linkedin js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
             </div>
         </section>
@@ -344,6 +347,26 @@
     <!-- Debug overlay — FPS + frame counter + session uptime. Revealed by the
          palette's DEBUG OVERLAY command (same module, same deterministic clocks). -->
     <div id="debug-overlay" class="debug-overlay" aria-hidden="true" hidden></div>
+    <!-- Per-module hover tooltip — follows the pointer over a project chip
+         on the board (hover.js fills it from the chip's userData). A tiny
+         BOM line: ref, subsystem theme with its signal-color dot, title.
+         pointer-events:none, transform-only positioning, z-index below the
+         HUD so it never covers the chrome. -->
+    <div id="chip-tip" class="chip-tip" aria-hidden="true" hidden>
+        <span class="chip-tip-ref" id="chip-tip-ref"></span>
+        <span class="chip-tip-theme"><i class="chip-tip-dot" id="chip-tip-dot"></i><span class="chip-tip-theme-text" id="chip-tip-theme-text"></span></span>
+        <span class="chip-tip-title" id="chip-tip-title"></span>
+    </div>
+
+    <!-- Secret developer notes — a one-shot reward for typing the hidden
+         'parama' sequence (a keyboard shortcut no hint tells you about). Shows
+         for a beat, then fades back into the board (telemetry.js). -->
+    <div id="dev-notes" class="dev-notes" aria-hidden="true" hidden>
+        // OPERATOR NOTES — PARAMA-DEV-BOARD<br>
+        // "If it&apos;s not on the board, it doesn&apos;t count."<br>
+        // T = telemetry · D = debug · you found the hidden channel.<br>
+        // 73 — P.
+    </div>
 
     <!-- BIOS Terminal Command Palette — triggered by Ctrl+K / Cmd+K or the [CMD]
          button in the HUD. Retro phosphor-green terminal with fuzzy search over

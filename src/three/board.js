@@ -227,8 +227,8 @@ export function createBoard(scene) {
 
             // Lot code for U1 and U2
             ctx.font = '40px monospace';
-            ctx.fillText('PARAM-MCU-2026-REV1', 1024 - 100, 2048 - 272 - 100); // near U1
-            ctx.fillText('PARAM-MCU-2026-REV1', 428 - 100, 1092 - 100); // near U2
+            ctx.fillText('PARAMA-MCU-2026-REV1', 1024 - 100, 2048 - 272 - 100); // near U1
+            ctx.fillText('PARAMA-MCU-2026-REV1', 428 - 100, 1092 - 100); // near U2
 
             // F. SRM Institute marking near Y1 Crystal
             ctx.save();

@@ -950,18 +950,33 @@ export function scrollToSection(sectionId) {
   const y = sectionId === 'sec-hero'
     ? 0
     : el.offsetTop;
-  // A wheel/snap glide in flight is superseded by direct navigation. Killed
-  // tweens never fire onComplete, so reset the snap layer explicitly here —
-  // otherwise a nav click mid-glide would leave glideActive stuck and the
-  // wheel snapping dead.
-  glideActive = false;
+  // A wheel/snap glide in flight is superseded by direct navigation (the
+  // overwrite kills it; a killed tween never fires onComplete, so the snap
+  // layer is reset explicitly here — otherwise a nav click mid-glide would
+  // leave glideActive stuck and the wheel snapping dead). The nav tween then
+  // CLAIMS glideActive for its own flight: with the flag set, competing
+  // wheel/key/settle input QUEUES through pumpGlide (or is dropped by the
+  // navGlideActive guard) instead of starting a second tween that kills the
+  // nav mid-flight. Before this, a single wheel tick during the 1.2s nav
+  // glide redirected the page to a neighbor section — clicking [MODULES]
+  // and landing on About or Skills, never staying on the clicked section.
+  glideActive = true;
+  navGlideActive = true;
   glideQueued = 0;
   wheelAccum = 0;
   gsap.to(window, {
     scrollTo: { y },
     duration: SECTION_TRANSITION_DURATION,
     ease: 'power2.inOut',
-    overwrite: 'auto'
+    overwrite: 'auto',
+    onComplete: () => {
+      glideActive = false;
+      navGlideActive = false;
+      // A step queued by keyboard input during the nav glide chains after
+      // the nav lands (wheel steps are dropped, so this is arrows only) —
+      // same queue semantics as the wheel burst.
+      pumpGlide();
+    }
   });
 }
 
@@ -992,6 +1007,13 @@ const SNAP_SETTLE_MS = 280;  // scroll-idle before the settle-snap fires
 let wheelAccum = 0;
 let glideQueued = 0;
 let glideActive = false;
+// True only while a DIRECT-navigation glide (scrollToSection: nav buttons,
+// number keys, hash routing) is in flight. Wheel input is dropped outright
+// during that window — a nav glide is a destination command, so a stray
+// trackpad-momentum tick must not queue a step and push the page past the
+// section the user asked for. Wheel glides keep their burst-chaining (queue
+// + pump), which is the designed rapid-notch flow.
+let navGlideActive = false;
 let settleTimer = 0;
 let smoothScrollWired = false;
 
@@ -1104,6 +1126,13 @@ function pumpGlide() {
  *  @param {WheelEvent} e */
 function onJourneyWheel(e) {
   if (!journeyReady || motionPrefs.reduced || isFocusMode() || e.ctrlKey || e.metaKey) return;
+  // Drop wheel input while a direct-navigation glide is in flight: the click
+  // already named the destination, so residual trackpad momentum must not
+  // queue a step and carry the page past it — and it must not fall through
+  // to native scroll either, or the browser would fight the nav tween.
+  // (Wheel-during-wheel keeps its burst chaining via the queue — only nav
+  // glides drop.)
+  if (navGlideActive) { e.preventDefault(); return; }
   let el = /** @type {HTMLElement | null} */ (e.target);
   while (el && el !== document.body) {
     if (el.scrollHeight > el.clientHeight + 4) return; // nested scrollable

@@ -39,6 +39,8 @@ let probe = null;
 let readoutText = null;
 /** @type {HTMLElement | null} */
 let halo = null;
+/** @type {HTMLElement | null} */
+let lockEl = null;
 /** @type {EventTarget | null} */
 let hoverEl = null;
 let tx = 0;
@@ -81,6 +83,16 @@ function tick(/** @type {number} */ now) {
         lastState = state;
         document.body.classList.toggle('cursor-probe', state === 'probe');
         document.body.classList.toggle('cursor-link', state === 'link');
+        // Lock pulse: entering the probe state (a component under the pointer)
+        // fires a one-shot gold contact ring at the tip — the instrument's
+        // "locked on" tick. Restart by re-triggering the class (a reflow read
+        // only on state CHANGE, never in the hot path). Reduced-motion users
+        // never get here (lite mode skips initCursor entirely; belt below).
+        if (state === 'probe' && lockEl) {
+            lockEl.classList.remove('lock-ping');
+            void lockEl.offsetWidth;
+            lockEl.classList.add('lock-ping');
+        }
     }
 
     // Readout: the probe's identity while over a component — BEEP over the
@@ -118,6 +130,7 @@ export function initCursor() {
     probe = document.getElementById('cursor-probe');
     readoutText = document.getElementById('probe-readout-text');
     halo = document.querySelector('.probe-halo');
+    lockEl = probe ? probe.querySelector('.probe-lock') : null;
     if (!probe || !readoutText) return;
 
     document.body.classList.add('custom-cursor');

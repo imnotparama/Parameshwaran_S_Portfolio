@@ -18,7 +18,10 @@ import { portfolioData } from '../data/portfolio.js';
 let sysinfoEl = null;
 /** @type {HTMLElement | null} */
 let debugEl = null;
+/** @type {HTMLElement | null} */
+let devNotesEl = null;
 let frameCount = 0;
+let devNotesTimer = 0;
 
 /** Cache the overlay elements. Call once after DOM ready. */
 export function initTelemetry() {
@@ -34,6 +37,20 @@ export function toggleSysinfo() {
     sysinfoEl.hidden = !on;
     document.body.classList.toggle('sysinfo-on', on);
     return on;
+}
+
+/** Reveal the operator-notes chip (secret developer notes easter egg) — a
+ *  one-shot reward for typing the hidden 'parama' sequence. Shows the chip,
+ *  then auto-hides after a beat so it reads as a fleeting signal (a hidden
+ *  channel answering), not a permanent panel. */
+export function showDevNotes() {
+    if (!devNotesEl) devNotesEl = document.getElementById('dev-notes');
+    if (!devNotesEl) return;
+    devNotesEl.hidden = false;
+    clearTimeout(devNotesTimer);
+    devNotesTimer = setTimeout(() => {
+        if (devNotesEl) devNotesEl.hidden = true;
+    }, 9000);
 }
 
 /** Toggle the debug overlay. @returns {boolean} true when now visible */

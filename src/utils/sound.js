@@ -150,6 +150,16 @@ export function switchClack() {
     click(2800, 0.01, 0.025, 0.014);
 }
 
+/** Power-up beep — the board's POST chime: two quick ascending notes (the
+ *  rail comes up, then the system chirps ready). Fired when sound is first
+ *  enabled — the SND toggle click is the user gesture that legally builds
+ *  the AudioContext, so this is where the board powers on audibly. Subtle
+ *  by design: short notes, low peaks, same master gate as every blip. */
+export function powerUpBeep() {
+    blip(523, 0.08, 0.03);             // C5 — power rail up
+    blip(784, 0.1, 0.035, 'triangle'); // G5 — ready, a touch brighter
+}
+
 // ─── Electrical hum — scroll-velocity drone ───────────────────
 // A low mains-frequency drone that swells with scroll speed (the board's
 // power rail audibly energizes as you fly along the traces). Starts and

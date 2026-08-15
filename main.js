@@ -8,14 +8,14 @@ import { createProjectChips, updateProjectChips, projectChips } from './src/thre
 import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler } from './src/utils/hover.js';
-import { isSoundEnabled, toggleSound, switchClack, electricalHum, stopElectricalHum } from './src/utils/sound.js';
+import { isSoundEnabled, toggleSound, switchClack, electricalHum, stopElectricalHum, powerUpBeep } from './src/utils/sound.js';
 import { noteInteraction, updateIdleDrift } from './src/three/idle.js';
 import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeTarget, isProbeModeActive, activateProbe, deactivateProbe } from './src/three/probe.js';
 import { initPower, togglePower } from './src/three/power.js';
 import { initCursor } from './src/ui/cursor.js';
 import { initOscilloscope, updateOscilloscope } from './src/ui/oscilloscope.js';
 import { initCommandPalette, openCommandPalette } from './src/ui/command-palette.js';
-import { initTelemetry, toggleSysinfo, toggleDebug, updateTelemetry } from './src/ui/telemetry.js';
+import { initTelemetry, toggleSysinfo, toggleDebug, showDevNotes, updateTelemetry } from './src/ui/telemetry.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
@@ -469,8 +469,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
         soundBtn.addEventListener('click', () => {
+            const wasOn = isSoundEnabled();
             toggleSound();
             syncSoundBtn();
+            // Power-up beep — the board chirps when the audio subsystem comes
+            // online (the toggle click is the gesture that builds the context,
+            // so the chime is legal AND the moment it belongs to).
+            if (!wasOn && isSoundEnabled()) powerUpBeep();
         });
         syncSoundBtn();
     }
@@ -539,7 +544,41 @@ document.addEventListener('DOMContentLoaded', () => {
             // Night bench — cut/restore the bench lights (the PWR switch).
             e.preventDefault();
             togglePower();
+        } else if (!isProbeModeActive() && key === 't') {
+            // Hidden shortcut: T = system telemetry (same chip the BIOS
+            // palette reveals). Free while the probe isn't flying.
+            e.preventDefault();
+            toggleSysinfo();
+        } else if (!isProbeModeActive() && key === 'd') {
+            // Hidden shortcut: D = debug overlay (FPS/frame).
+            e.preventDefault();
+            toggleDebug();
         }
     });
     window.addEventListener('keyup', (e) => releaseProbeKey(normalizeProbeKey(e.key)));
+
+    // 20. Hidden cheat-code: typing 'parama' (the board's name) fires the
+    // operator-notes easter egg — a one-shot gold chip that thanks the
+    // curious (and tips the T/D shortcuts). Silent unless typed: the buffer
+    // rolls a fixed window and resets on any non-letter or modifier key, so
+    // normal typing never trips it. Ignored inside form fields.
+    const CHEAT = 'parama';
+    let cheatBuf = '';
+    window.addEventListener('keydown', (e) => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.key.length !== 1 || !/[a-z]/i.test(e.key)) {
+            cheatBuf = '';
+            return;
+        }
+        const tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) {
+            cheatBuf = '';
+            return;
+        }
+        cheatBuf = (cheatBuf + e.key.toLowerCase()).slice(-CHEAT.length);
+        if (cheatBuf === CHEAT) {
+            cheatBuf = '';
+            showDevNotes();
+        }
+    });
 });
