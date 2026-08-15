@@ -11,8 +11,10 @@ export const portfolioData = {
         phone: "+91 9176020504",
         // Board identity — easter-egg telemetry (command palette → SYSTEM
         // TELEMETRY) and the contact footer. Same silicon, same serial.
-        boardSerial: "PARAMA-2026-0042",
-        firmwareVersion: "FW 1.4.2-REV1",
+        // Both identifiers encode the operator's birth date (1 April 2007):
+        // serial = PARAMA-YYYY-MMDD, firmware = date-based build number.
+        boardSerial: "PARAMA-2007-0401",
+        firmwareVersion: "FW 2007.0401",
         socials: {
             github: GITHUB_URL,
             linkedin: LINKEDIN_URL

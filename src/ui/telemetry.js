@@ -59,8 +59,8 @@ function fmtUptime(s) {
  *  @param {number} elapsed @param {number} delta */
 export function updateTelemetry(elapsed, delta) {
     if (!sysinfoEl && !debugEl) return;
-    const serial = portfolioData.personalInfo.boardSerial || 'PARAMA-2026-0042';
-    const fw = portfolioData.personalInfo.firmwareVersion || 'FW 1.4.2';
+    const serial = portfolioData.personalInfo.boardSerial || 'PARAMA-2007-0401';
+    const fw = portfolioData.personalInfo.firmwareVersion || 'FW 2007.0401';
     const up = fmtUptime(elapsed);
     if (sysinfoEl && !sysinfoEl.hidden) {
         // Rail voltage + die temp wobble slowly around nominal — alive but stable.
