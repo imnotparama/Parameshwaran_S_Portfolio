@@ -4,29 +4,21 @@ Hi! This file is the primary reference prompt and technical transfer guide for a
 
 ---
 
-## 🚦 NEXT SESSION — RESUME HERE (2026-08: post-cleanup state)
+## 🚦 NEXT SESSION — RESUME HERE (2026-08: six-feature upgrades pass)
 
-**Status: `origin master` is current through `fa6e363` (pushed). UNCOMMITTED local work (a type-hygiene + docs batch, ready to commit+push when asked): full checkJs coverage (all 12 modules), the traces.js TraceRoute typing, all four motion plans (001–004) executed, the animejs/hyperframes discipline fixes, the README refresh, and this claude.md log update.**
+**Status: The six planned portfolio upgrades (oscilloscope HUD, gold vias + copper pour, active trace energize, BIOS command palette, tactile relay/switch audio, project filter pins) are all implemented and verified (typecheck + build + 12,000-frame smoke green). This pass also fixed two bugs in the pre-existing work: `serviceZ` was undefined in `traces.js` (crashed `createTraces` — the smoke test died on it) and the `#hud-osc::before` scanline overlay can't render on a replaced `<canvas>` element (scanlines now drawn in-canvas).**
 
 ### Shipped in recent sessions (commit order, newest first)
-- `fa6e363` — **daughterboard card redesign + full-board framing (z=23) + fab-bench backdrop + shadow grounding + board-first hero + dead-symbol sweep + checkJs on journey/boot** (one batch, pushed).
+- `2026-08` — **Six-feature upgrades pass (uncommitted)**: ① live oscilloscope CRT waveform HUD (`src/ui/oscilloscope.js`, `#hud-osc` canvas in `.hud-scope`, per-component waveforms — Y1 sine+jitter, ANT1 RF bursts, TP1/TP2 rails, U1/U2 square clocks, ECG default; scanlines drawn in-canvas since `::before` can't render on canvas). ② ENIG gold plated vias + copper pour (`board.js` `createViaArray`/`drawCopperPour`, ~40 via rings clustered at U1/U2/J1/C1–C4, lot-code silkscreen `PARAM-MCU-2026-REV1`). ③ active trace routing energize (`traces.js` `energizeTraceForSection` — surge pulse 2.5→base over 0.8s `power3.out`, ambient pulse 3× for 1.5s; wired into `journey.js` `setActivePanel`, de-energize on leave, hero no-ops). ④ BIOS terminal command palette (Ctrl+K / Cmd+K / `[CMD]` HUD button; `src/ui/command-palette.js`, phosphor-green terminal, fuzzy search over sections/utilities/links, ↑↓/Enter/Esc). ⑤ tactile relay click + switch clack + scroll-velocity electrical hum (`sound.js` — all gated behind SND toggle, AudioContext never built outside a user gesture; `power.js` `togglePower` throws the relay; `handleSectionKey` clacks; passive scroll handler drives the hum). ⑥ SMD DIP-switch project filter (`sections.js` `.proj-filter-bar` ALL/AI-ML/FULL-STACK/SYSTEMS — cards animate + `setProjectFilter` syncs the 3D chips: dimmed emissiveIntensity 0.05, LEDs pinned off).
+- `2026-08` — **Living-Board pass (plans 014 + 015)**: bench sweep laser proximity reaction on CPU U1 silicon die (`opacity 0.8 -> 0.95`), night-bench calmer float modulation (`0.65x speed, 0.75x amp`), `.nav-active` gold underline opacity transition, full `motionPrefs.reduced` gating.
+- `25ca4fe` — **keyboard section-stepping**: ArrowUp/Down and PageUp/Down glide one section each with shared 1.2s `power2.inOut` queue.
+- `ffd2369` — **CI validation trio**: typecheck + build + 12,000-frame smoke test on push/PR.
+- `fa6e363` — **daughterboard card redesign + full-board framing (z=23) + fab-bench backdrop + shadow grounding + board-first hero + dead-symbol sweep + checkJs on journey/boot**.
 - `d7b8f52` — `public/og-preview.png` (1200×630 social share card) via the `.freebuff/og-tools` headless pipeline + `?og=1` instant-boot capture mode.
-- `e43a9e4` — improve-animations motion audit: 4 self-contained plans in `plans/` (vetted findings; **not yet executed**).
-- `cd8b451` — frame-clock hygiene (clamped tick delta, delta-scaled parallax lerps).
-- `4da7a76` — boot→hero arrival glide (kills the boot→journey camera cut).
-- `5e64df4` — signal-path scroll progress HUD + keyboard section nav (1–6).
-- `9f9b852` — deterministic single-timeline boot (no setTimeout, no wall-clock).
-- `26efc8a` — dead layout CSS sweep (no DOM behind it).
-- `2e1f85b` — orphaned sub-core export pruning (post legacy-stack deletion).
-- `f3558b0` — hash deep links (`#/about`, `#/projects`) + skip-boot-on-return (`sessionStorage`).
-- `6f9d0d0` — legacy interaction stack deleted (single scroll-journey model).
-- `cdb44e2` — panel activation derived from scroll-leg t (deleted distance-threshold hysteresis).
-- `976b818`, `7cf9c70`, `05199ad`, `8726fef` — component quality pass, elevated camera framing, fab-shop panel chrome, fab-shop redesign.
 
 ### Open items (nice-to-haves, no urgency)
-- **~~Execute the `plans/` motion audit~~ DONE** — all four plans executed: 001 (nav sheen translateX, per user direction), 002 (boot underline scaleX), 003 (motion-token consolidation), 004 (hover lifts gated). See `plans/README.md` execution log. The audit's missed opportunities (key-hint affordance, gold-pad transition, PWR LED glow-in) remain optional.
-- **~~Delete stale `src/schema.ts`~~ DONE** — removed; the typecheck is `npm run typecheck` (`tsc --noEmit`) over the `// @ts-check` JS modules only.
-- **~~Finish checkJs coverage~~ DONE** — `// @ts-check` now covers **all 12 modules**: journey, boot, hover, scene, traces, board, components, particles, project-chips, config, sections, fallback. See session log for what surfaced (the last `@type {any}` interop cast is gone — hover.js now narrows the typed `interactiveObjects`).
+- **~~Execute all plans 001–007, 011–015~~ ALL DONE** — all 12 motion & living-board plans executed and verified.
+- **~~Full checkJs coverage~~ DONE** — `// @ts-check` covers all 12 modules.
 
 ---
 

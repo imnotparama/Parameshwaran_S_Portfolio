@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
+import { siliconDieMesh } from './components.js';
 
 /** @type {THREE.Group | undefined} */
 export let boardGroup;
@@ -71,6 +72,11 @@ export function createBoard(scene) {
     soldermask.position.z = thickness / 2 + 0.001; // Just above base
     soldermask.receiveShadow = true;
     boardGroup.add(soldermask);
+
+    // 1.5. Add plated vias
+    createViaArray(boardGroup);
+    // 1.6. Add copper pour
+    drawCopperPour(boardGroup);
 
     // 2. Generate Silkscreen, Markings, Logo, and Copper Pour on off-screen canvas
     const canvas = document.createElement('canvas');
@@ -218,6 +224,11 @@ export function createBoard(scene) {
             ctx.fillText('REV A', 1800, 160);
             ctx.fillText('DESIGNED BY: PARAMESHWARAN S', 1120, 3880);
             ctx.fillText('CHENNAI, INDIA 2025', 1320, 3960);
+
+            // Lot code for U1 and U2
+            ctx.font = '40px monospace';
+            ctx.fillText('PARAM-MCU-2026-REV1', 1024 - 100, 2048 - 272 - 100); // near U1
+            ctx.fillText('PARAM-MCU-2026-REV1', 428 - 100, 1092 - 100); // near U2
 
             // F. SRM Institute marking near Y1 Crystal
             ctx.save();
@@ -498,14 +509,18 @@ export function updateBenchSweep(elapsed, distScale = 1) {
     if (motionPrefs.reduced) {
         sweepLead.visible = false;
         sweepTrail.visible = false;
+        if (siliconDieMesh && siliconDieMesh.material instanceof THREE.MeshBasicMaterial) {
+            siliconDieMesh.material.opacity = 0.8;
+        }
         return;
     }
     sweepLead.visible = true;
     sweepTrail.visible = true;
     const p = (elapsed / SWEEP_PERIOD) % 1;
     const env = Math.sin(p * Math.PI); // fade in/out at the edges
-    sweepLead.position.x = SWEEP_MIN_X + SWEEP_SPAN * p;
-    sweepTrail.position.x = SWEEP_MIN_X + SWEEP_SPAN * p - 0.3; // lags the lead
+    const leadX = SWEEP_MIN_X + SWEEP_SPAN * p;
+    sweepLead.position.x = leadX;
+    sweepTrail.position.x = leadX - 0.3; // lags the lead
     // distScale widens the scan line at hero distance — a 0.05-wide plane at
     // z≈33 is a 1px hairline; scaling the MESH (not the geometry) keeps the
     // smoke test's geometry-based width classification intact.
@@ -513,6 +528,20 @@ export function updateBenchSweep(elapsed, distScale = 1) {
     sweepTrail.scale.x = distScale;
     /** @type {THREE.MeshBasicMaterial} */ (sweepLead.material).opacity = env * 0.14;
     /** @type {THREE.MeshBasicMaterial} */ (sweepTrail.material).opacity = env * 0.05;
+
+    // Component-energizing proximity reaction (Plan 014):
+    // As the laser beam sweeps across X=0 (CPU U1 silicon die), momentarily
+    // brighten the die grid by up to +0.15 (proportional to proximity and sweep envelope)
+    // giving the visible feedback of an instrument probe scanning the chip.
+    if (siliconDieMesh && siliconDieMesh.material instanceof THREE.MeshBasicMaterial) {
+        const distU1 = Math.abs(leadX - 0);
+        if (distU1 < 0.45) {
+            const proximityBoost = (1 - distU1 / 0.45) * env * 0.15;
+            siliconDieMesh.material.opacity = 0.8 + proximityBoost;
+        } else {
+            siliconDieMesh.material.opacity = 0.8;
+        }
+    }
 }
 // Delta-scaled lerp factor — same convention as hover.js (1 - pow(1-k, d*60))
 // so the parallax response is IDENTICAL at any frame rate: at 60fps it equals
@@ -599,15 +628,129 @@ export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyL
             const wake = wakeT * wakeT * (3 - 2 * wakeT); // smoothstep
             const focusTarget = focusMode ? 0.2 : 1;
             focusDamp += (focusTarget - focusDamp) * lerpFactor(0.06, delta);
+
+            // Night bench (Plan 015): when bench lights are cut (body.night-bench),
+            // the board drifts in a calmer, slower state (65% frequency, 75% amplitude)
+            // like a powered-down floating circuit artifact in the dark.
+            const isNight = typeof document !== 'undefined' && document.body?.classList?.contains('night-bench');
+            const speedMod = isNight ? 0.65 : 1.0;
+            const ampMod = isNight ? 0.75 : 1.0;
+
             // distScale: the hero/contact cameras sit far back (z≈33) where a
             // world-unit of motion projects to a few pixels — the float would
             // read as static on the first screen. Scale the amplitudes up with
             // camera distance (main.js passes it) so the hover stays visible at
             // every framing; close stops already project large, so they're
             // clamped to ~1 and never amplified.
-            boardGroup.position.y = Math.sin(elapsed * 0.55) * FLOAT_AMP_Y * wake * focusDamp * distScale;
-            boardGroup.position.z = Math.cos(elapsed * 0.37) * FLOAT_AMP_Z * wake * focusDamp * distScale;
-            boardGroup.rotation.z = Math.sin(elapsed * 0.31) * FLOAT_AMP_ROLL * wake * focusDamp * distScale;
+            boardGroup.position.y = Math.sin(elapsed * 0.55 * speedMod) * FLOAT_AMP_Y * wake * focusDamp * distScale * ampMod;
+            boardGroup.position.z = Math.cos(elapsed * 0.37 * speedMod) * FLOAT_AMP_Z * wake * focusDamp * distScale * ampMod;
+            boardGroup.rotation.z = Math.sin(elapsed * 0.31 * speedMod) * FLOAT_AMP_ROLL * wake * focusDamp * distScale * ampMod;
         }
     }
+}
+
+
+
+// ─── Exposed Gold Annular Rings & Plated Vias ────────────────────────
+/** Create plated vias (gold ENIG rings with dark drill holes)
+ *  @param {THREE.Group} boardGroup */
+export function createViaArray(boardGroup) {
+    const ringGeo = new THREE.RingGeometry(0.18, 0.22, 32);
+    const ringMat = new THREE.MeshStandardMaterial({
+        color: 0xc9a24b, // ENIG gold
+        roughness: 0.2,
+        metalness: 0.8,
+        emissive: 0xc9a24b,
+        emissiveIntensity: 0.5
+    });
+    const drillGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.16, 16);
+    const drillMat = new THREE.MeshStandardMaterial({
+        color: 0x0a2b0a, // dark green
+        roughness: 0.9,
+        metalness: 0.1
+    });
+
+    // Via positions clustered around component pads
+    const viaPositions = [
+        // U1 surroundings
+        [-3.5, 4.2], [-2.8, 4.2], [-2.1, 4.2], [-1.4, 4.2],
+        [-3.5, 3.5], [-2.8, 3.5], [-2.1, 3.5], [-1.4, 3.5],
+        [-3.5, 2.8], [-2.8, 2.8], [-2.1, 2.8], [-1.4, 2.8],
+        // U2 surroundings
+        [2.1, -2.8], [2.8, -2.8], [3.5, -2.8],
+        [2.1, -2.1], [2.8, -2.1], [3.5, -2.1],
+        [2.1, -1.4], [2.8, -1.4], [3.5, -1.4],
+        // J1 surroundings
+        [0, -6.2], [0.7, -6.2], [-0.7, -6.2],
+        [0, -5.5], [0.7, -5.5], [-0.7, -5.5],
+        // C1-C4 surroundings
+        [4.2, -2.8], [4.2, -2.1], [4.2, -1.4],
+        [4.9, -2.8], [4.9, -2.1], [4.9, -1.4],
+        // Additional scattered vias
+        [-4.2, 3.5], [-3.5, 3.5], [-2.8, 3.5],
+        [-4.2, 2.8], [-3.5, 2.8], [-2.8, 2.8],
+        [4.2, -3.5], [4.2, -4.2],
+        [-4.2, -3.5], [-4.2, -4.2]
+    ];
+
+    viaPositions.forEach(([x, y]) => {
+        // Ring
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.set(x, y, 0);
+        ring.rotation.x = -Math.PI / 2;
+        boardGroup.add(ring);
+
+        // Drill hole
+        const drill = new THREE.Mesh(drillGeo, drillMat);
+        drill.position.set(x, y, 0);
+        drill.rotation.x = -Math.PI / 2;
+        boardGroup.add(drill);
+    });
+}
+
+/** Draw asymmetric copper pour patches on board surface
+ *  @param {THREE.Group} boardGroup */
+export function drawCopperPour(boardGroup) {
+    const width = 11;
+    const height = 15;
+    // Create a canvas for the copper pour texture
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(201, 162, 75, 0.08)';
+
+    // Draw asymmetric patches in corners and empty areas
+    // Top-left patch
+    ctx.fillRect(0, 0, 150, 200);
+    // Top-right patch
+    ctx.fillRect(canvas.width - 150, 0, 150, 180);
+    // Bottom-left patch
+    ctx.fillRect(0, canvas.height - 200, 180, 200);
+    // Bottom-right patch
+    ctx.fillRect(canvas.width - 180, canvas.height - 180, 180, 180);
+    // Center-left patch
+    ctx.fillRect(50, canvas.height/2 - 100, 120, 200);
+    // Center-right patch
+    ctx.fillRect(canvas.width - 170, canvas.height/2 - 100, 120, 200);
+
+    const copperPourTexture = new THREE.CanvasTexture(canvas);
+    copperPourTexture.wrapS = THREE.RepeatWrapping;
+    copperPourTexture.wrapT = THREE.RepeatWrapping;
+    copperPourTexture.repeat.set(4, 4); // Repeat across board
+
+    const pourGeo = new THREE.PlaneGeometry(width - 0.2, height - 0.2);
+    const pourMat = new THREE.MeshStandardMaterial({
+        map: copperPourTexture,
+        transparent: true,
+        opacity: 0.6,
+        depthWrite: false
+    });
+
+    const copperPour = new THREE.Mesh(pourGeo, pourMat);
+    copperPour.position.z = 0.001; // Just above board base
+    boardGroup.add(copperPour);
 }

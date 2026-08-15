@@ -35,6 +35,7 @@ export const portfolioData = {
         {
             id: "flyrank",
             ref: "FR1",
+            category: "AI/ML",
             title: "flyrank.ai",
             status: "building",
             problem: "My own startup project — an AI-powered ranking and visibility engine, built solo from the ground up.",
@@ -46,6 +47,7 @@ export const portfolioData = {
         {
             id: "crowd-pulse",
             ref: "CP1",
+            category: "AI/ML",
             title: "CrowdPulse — AI Crowd Safety",
             status: "shipped",
             problem: "Real-time crowd density monitoring and safety alerts for public spaces.",
@@ -57,6 +59,7 @@ export const portfolioData = {
         {
             id: "dialora",
             ref: "DL1",
+            category: "AI/ML",
             title: "Dialora — AI Tele-Calling Agent",
             status: "shipped",
             problem: "A fully local AI calling agent — LLM-driven voice calls with zero cloud dependency.",
@@ -68,6 +71,7 @@ export const portfolioData = {
         {
             id: "eco-mentor",
             ref: "EM1",
+            category: "AI/ML",
             title: "EcoMentor AI",
             status: "shipped",
             problem: "Agentic AI sustainability advisor that turns habits into actionable eco plans.",
@@ -79,6 +83,7 @@ export const portfolioData = {
         {
             id: "prmxa",
             ref: "PX1",
+            category: "FULL-STACK",
             title: "PRMxA — Streaming Hub",
             status: "shipped",
             problem: "A personal streaming platform for movies, TV, anime, and sports with rich metadata.",
@@ -90,6 +95,7 @@ export const portfolioData = {
         {
             id: "smart-parking",
             ref: "SP1",
+            category: "FULL-STACK",
             title: "Smart Parking System",
             status: "shipped",
             problem: "Automated parking slot allocation with real-time booking availability.",
@@ -101,6 +107,7 @@ export const portfolioData = {
         {
             id: "bus-it",
             ref: "BT1",
+            category: "SYSTEMS",
             title: "BusIT — Live Bus Tracking",
             status: "shipped",
             problem: "Live campus bus tracking from GPS sensor streams with ETA calculation for students.",
@@ -112,6 +119,7 @@ export const portfolioData = {
         {
             id: "ml-dsa",
             ref: "ML1",
+            category: "AI/ML",
             title: "ML + DSA Daily Reps",
             status: "building",
             problem: "Daily practice: ML problem sets and DSA fundamentals — plus prep for the Azure Data Fundamentals certification.",

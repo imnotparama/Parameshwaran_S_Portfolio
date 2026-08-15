@@ -27,7 +27,7 @@ export const traceData = [];
 // trace's source (still reads as powered, never flickers).
 const TRACE_CURRENT_SPEED = 0.3; // t units per second (≈1.3–2 world u/s)
 /** @type {Record<string, string>} */
-const SECTION_TRACE = { 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experience': 'J1' };
+const SECTION_TRACE = { 'sec-hero': '', 'sec-about': 'U1', 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experience': 'J1', 'sec-contact': 'ANT1' };
 
 /** @type {Map<string, THREE.CatmullRomCurve3>} */
 let traceCurves = new Map();
@@ -219,10 +219,10 @@ export function createTraces(boardGroup) {
     const addTraceMesh = (/** @type {THREE.Vector3} */ pA, /** @type {THREE.Vector3} */ pB, /** @type {number} */ traceWidth) => {
         const distance = pA.distanceTo(pB);
         const midpoint = new THREE.Vector3().addVectors(pA, pB).multiplyScalar(0.5);
-        
+
         const segmentGeo = new THREE.BoxGeometry(traceWidth, distance, 0.012);
         const segment = new THREE.Mesh(segmentGeo, traceMaterial.clone());
-        
+
         segment.position.copy(midpoint);
         // Align segment angle
         const angle = Math.atan2(pB.y - pA.y, pB.x - pA.x);
@@ -345,6 +345,9 @@ export function createTraces(boardGroup) {
 // focused pulse; these run on every route, independent of scroll). Slower
 // than the current dot so the two layers never move in lockstep.
 const AMBIENT_PULSE_SPEED = 0.2; // t units per second
+let ambientPulseSpeedMultiplier = 1;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let traceEnergizeTimeoutId = null;
 
 /** @typedef {{ mesh: THREE.Mesh, curve: THREE.CatmullRomCurve3, phase: number }} AmbientPulse */
 /** @type {AmbientPulse[]} */
@@ -361,7 +364,7 @@ export function updateAmbientPulses(elapsed) {
             continue;
         }
         p.mesh.visible = true;
-        const t = (elapsed * AMBIENT_PULSE_SPEED + p.phase) % 1;
+        const t = (elapsed * AMBIENT_PULSE_SPEED * ambientPulseSpeedMultiplier + p.phase) % 1;
         p.curve.getPoint(t, p.mesh.position);
         p.mesh.position.z += 0.02; // lift just above the trace surface
     }
@@ -436,4 +439,47 @@ export function updateTraceCurrent(elapsed, activeSectionId) {
     // Lift just above the trace surface (trace height 0.012, centered on
     // surfaceZ — the polyline's own z is the board surface).
     currentDot.position.z += 0.025;
+}
+
+/** Energize or de-energize the trace for a given section.
+ *  @param {string} sectionId
+ *  @param {boolean} on */
+export function energizeTraceForSection(sectionId, on) {
+    const ref = SECTION_TRACE[sectionId];
+    if (!ref) return; // no trace for this section
+
+    const mats = ref === 'U1'
+        ? rippleSegments.map(s => s.mat)
+        : (traceMatByRef.get(ref) || []);
+
+    if (on) {
+        // Reduced motion: no surge flash — the trace simply holds its base
+        // glow (same posture as the ripple, which is frozen at base there).
+        if (motionPrefs.reduced) return;
+        // Energize: surge pulse then settle
+        for (const m of mats) {
+            gsap.killTweensOf(m);
+            gsap.to(m, { emissiveIntensity: 2.5, duration: 0.1 })
+                .then(() => gsap.to(m, { emissiveIntensity: TRACE_BASE_INTENSITY, duration: 0.8, ease: 'power3.out' }));
+        }
+        // Accelerate ambient pulse speed on that route for 1.5s
+        if (traceEnergizeTimeoutId !== null) clearTimeout(traceEnergizeTimeoutId);
+        ambientPulseSpeedMultiplier = 3;
+        traceEnergizeTimeoutId = setTimeout(() => {
+            ambientPulseSpeedMultiplier = 1;
+        }, 1500);
+    } else {
+        // De-energize: decay back to base intensity (should already be decaying from the surge)
+        // We'll do nothing because the surge pulse already decays to base.
+        // But to be safe, we'll ensure it decays to base.
+        for (const m of mats) {
+            gsap.killTweensOf(m);
+            // Reduced motion: snap to base instead of tweening (ripple frozen).
+            if (motionPrefs.reduced) {
+                m.emissiveIntensity = TRACE_BASE_INTENSITY;
+                continue;
+            }
+            gsap.to(m, { emissiveIntensity: TRACE_BASE_INTENSITY, duration: 0.8, ease: 'power3.out' });
+        }
+    }
 }

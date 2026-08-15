@@ -8,11 +8,13 @@ import { createProjectChips, updateProjectChips, projectChips } from './src/thre
 import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler } from './src/utils/hover.js';
-import { isSoundEnabled, toggleSound } from './src/utils/sound.js';
+import { isSoundEnabled, toggleSound, switchClack, electricalHum, stopElectricalHum } from './src/utils/sound.js';
 import { noteInteraction, updateIdleDrift } from './src/three/idle.js';
-import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeTarget, isProbeModeActive, deactivateProbe } from './src/three/probe.js';
+import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeTarget, isProbeModeActive, activateProbe, deactivateProbe } from './src/three/probe.js';
 import { initPower, togglePower } from './src/three/power.js';
 import { initCursor } from './src/ui/cursor.js';
+import { initOscilloscope, updateOscilloscope } from './src/ui/oscilloscope.js';
+import { initCommandPalette, openCommandPalette } from './src/ui/command-palette.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
@@ -72,6 +74,18 @@ function navigateToSection(sectionId) {
 // (one compositor write per frame max), reading the elements that exist.
 const SECTION_KEYS = ['sec-hero', 'sec-about', 'sec-projects', 'sec-skills', 'sec-experience', 'sec-contact'];
 let progressRaf = null;
+
+// ─── Scroll-velocity drone (electricalHum) ─────────────────
+// The board's power rail hums in proportion to scroll speed. Velocity is
+// derived from scroll position over wall-clock time — an INPUT-rate metric
+// (same hybrid-touch precedent as the hover-blip rate limiter), NOT scene
+// state: the scene itself stays fully deterministic. Tracked in the same
+// passive scroll handler as the signal-path readout (one listener, one
+// coalesced write). The hum decays back to silence when scrolling stops
+// (electricalHum ramps the gain — never cuts), gated on the SND toggle.
+let lastScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+let lastScrollAt = typeof performance !== 'undefined' ? performance.now() : 0;
+let humIdleTimer = 0;
 // Static elements — cache once so the per-frame hot path never queries the DOM.
 let sigFillEl = null;
 let sigPctEl = null;
@@ -99,6 +113,17 @@ function updateSigPath() {
     if (meterHeadEl) meterHeadEl.style.transform = `translateX(calc(${(p * 100).toFixed(2)}vw - 50%))`;
 }
 function scheduleSigPath() {
+    // Scroll velocity → electrical hum: px per second converted to the
+    // drone's px-per-frame-at-60fps scale (0..~40), smoothed through the
+    // WebAudio gain ramp. Scrolling fast swells the hum; idling hushes it.
+    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+    const dt = Math.max(1, now - lastScrollAt);
+    const velocityPxPerSec = Math.abs(window.scrollY - lastScrollY) / (dt / 1000);
+    lastScrollY = window.scrollY;
+    lastScrollAt = now;
+    electricalHum(velocityPxPerSec / 60); // px/frame @ 60fps
+    clearTimeout(humIdleTimer);
+    humIdleTimer = setTimeout(() => electricalHum(0), 250);
     if (progressRaf === null) progressRaf = requestAnimationFrame(updateSigPath);
 }
 
@@ -113,6 +138,10 @@ function handleSectionKey(e) {
     if (idx >= 0 && idx < SECTION_KEYS.length) {
         e.preventDefault();
         navigateToSection(SECTION_KEYS[idx]);
+        // Membrane-switch clack on a successful keyboard section jump — the
+        // same mechanical feedback language as the night-bench relay, gated
+        // on the master SND toggle inside sound.js.
+        switchClack();
     }
 }
 
@@ -147,6 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Build PCB Base Board Group
     createBoard(scene);
+    // Initialize oscilloscope HUD
+    initOscilloscope();
 
     // 4. Construct board SMD/IC components
     createComponents(boardGroup);
@@ -258,6 +289,8 @@ document.addEventListener('DOMContentLoaded', () => {
     tickCallbacks.push((elapsed, delta) => {
         // Run electron pathing animations
         updateParticles(delta);
+        // Update oscilloscope waveform
+        updateOscilloscope(elapsed, document.body.dataset.hoverRef);
 
         // U1 CPU radar sweep (procedural, elapsed-driven)
         updateRadarRing(elapsed);
@@ -418,13 +451,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // 19c. Master sound toggle — the SND switch in the HUD legend. Muted by
     // default; the toggle click is the user gesture that may build the
     // AudioContext (sound.js), so autoplay policy is never fought. One flag
-    // gates the hover/click blips AND the buzzer horn.
+    // gates the hover/click blips, the buzzer horn, and the electrical hum
+    // (which is hushed here rather than cut, so the toggle never pops).
     const soundBtn = document.getElementById('sound-toggle');
     if (soundBtn) {
         const syncSoundBtn = () => {
             soundBtn.textContent = isSoundEnabled() ? 'SND\u00A0ON' : 'SND\u00A0OFF';
             soundBtn.setAttribute('aria-pressed', String(isSoundEnabled()));
             document.body.classList.toggle('sound-on', isSoundEnabled());
+            if (!isSoundEnabled()) {
+                stopElectricalHum();
+                clearTimeout(humIdleTimer);
+            }
         };
         soundBtn.addEventListener('click', () => {
             toggleSound();
@@ -432,6 +470,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         syncSoundBtn();
     }
+
+    // 18b. BIOS terminal command palette (Ctrl+K / Cmd+K or the [CMD] HUD
+    // button). Wired once after DOM ready: the palette's commands reuse the
+    // app's real entry points (scrollToSection / togglePower / toggleSound /
+    // activateProbe) plus the profile links from config. The sound command
+    // routes through the HUD button's own click handler so the label stays
+    // in sync (the palette is just another way to flip the same switch).
+    const cmdSoundToggle = () => {
+        const btn = document.getElementById('sound-toggle');
+        if (btn) {
+            btn.click(); // toggle + label/aria-pressed/body-class sync
+        } else {
+            toggleSound();
+        }
+    };
+    initCommandPalette({
+        scrollToSection,
+        togglePower,
+        toggleSound: cmdSoundToggle,
+        activateProbe,
+        deactivateProbe,
+        linkedinUrl: LINKEDIN_URL,
+        githubUrl: GITHUB_URL
+    });
+    const cmdBtn = document.getElementById('cmd-palette-btn');
+    if (cmdBtn) cmdBtn.addEventListener('click', openCommandPalette);
+    // Ctrl+K / Cmd+K — the standard palette shortcut. Not gated on form
+    // focus: it's a deliberate global command, and the palette closes itself
+    // on Esc. Guarded so a modifier-less 'k' still scrolls normally.
+    window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+            e.preventDefault();
+            openCommandPalette();
+        }
+    });
 
     // 19. Flying scope probe keyboard (full-journey only): WASD activates +
     // flies (arrows fly only once the probe is already active — they stay

@@ -9,7 +9,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import { cpuRadarRing, siliconDieMesh } from '../three/components.js';
-import { traceData } from '../three/traces.js';
+import { traceData, energizeTraceForSection } from '../three/traces.js';
 import { projectChips } from '../three/project-chips.js';
 import { getCanvasViewportSize } from '../three/scene.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
@@ -590,10 +590,11 @@ function typewritePanel(panel) {
 /** @param {string | null} panelId */
 function setActivePanel(panelId) {
   if (activePanelId === panelId) return;
+  const prevPanelId = activePanelId;
   // Leave the panel behind: kill any in-flight typewriter so its chars don't
   // keep animating off-screen (they collapse instantly — the panel is hidden).
-  if (activePanelId) {
-    const prevPanel = document.getElementById(activePanelId);
+  if (prevPanelId) {
+    const prevPanel = document.getElementById(prevPanelId);
     if (prevPanel) resetTypewriter(prevPanel);
   }
   activePanelId = panelId;
@@ -637,6 +638,12 @@ function setActivePanel(panelId) {
 
   // Power-on micro-moment for the section's component
   pulseArrival(secId);
+
+  // Active trace routing: the section's copper energizes on arrival (surge
+  // pulse) and the previous section's trace releases back to its base glow.
+  // Hero has no trace ('' in SECTION_TRACE) so both calls no-op there.
+  if (prevPanelId) energizeTraceForSection(prevPanelId.replace('panel-', 'sec-'), false);
+  if (panelId) energizeTraceForSection(secId, true);
 
   // Content cascade: the panel's inner blocks reveal in sequence (ref →
   // title → body rows) instead of appearing with the flat cross-fade — one

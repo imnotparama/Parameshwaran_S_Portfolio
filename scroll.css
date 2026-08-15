@@ -191,10 +191,8 @@ body.hud-cta-hidden #cta-linkedin-hud {
     height: 2px;
     background: var(--enig-gold);
     transform: translateX(-50%);
-    /* Plan 001: the base .nav-btn::after transition is now transform-based;
-       pin none here so the gold pad appears instantly on section change
-       instead of inheriting a slide-in when nav-active toggles. */
-    transition: none;
+    opacity: 1;
+    transition: opacity var(--duration-fast) var(--ease-out);
 }
 
 .hud-nav .nav-btn:focus-visible {
@@ -288,6 +286,16 @@ body.hud-scope-live .hud-scope {
 body.hud-scope-live .hud-scope-ref {
     color: var(--signal);
     text-shadow: 0 0 6px rgba(62, 230, 160, 0.55);
+}
+
+/* Live oscilloscope CRT waveform HUD — the scanlines are drawn INSIDE the
+   canvas (pseudo-elements can't render on a replaced <canvas> element), so
+   the CSS only sizes the element and frames it like the scope chip. */
+#hud-osc {
+    width: 120px;
+    height: 40px;
+    border: 1px solid rgba(62,230,160,0.3);
+    display: block;
 }
 
 /* The legend is right-packed next to the LinkedIn CTA — the scope chip is
@@ -396,6 +404,205 @@ body.sound-on .hud-sound {
     color: var(--signal);
     border-color: rgba(62, 230, 160, 0.45);
     text-shadow: 0 0 6px rgba(62, 230, 160, 0.5);
+}
+
+/* BIOS command palette trigger — the [CMD] button. Same functional-control
+   treatment as the SND toggle (quiet silkscreen until hover, gold when
+   open). */
+.hud-cmd {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    color: rgba(157, 180, 163, 0.55);
+    background: rgba(9, 20, 15, 0.6);
+    border: 1px solid rgba(236, 231, 216, 0.12);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.hud-cmd:hover {
+    color: var(--silkscreen);
+    border-color: rgba(201, 162, 75, 0.5);
+}
+
+.hud-cmd:focus-visible {
+    outline: 2px solid var(--silkscreen);
+    outline-offset: 2px;
+}
+
+/* ─── BIOS Terminal Command Palette (Ctrl+K / Cmd+K) ───
+   Retro phosphor-green terminal modal: dimmed fullscreen overlay, centered
+   terminal chrome (scanlines, > prompt, ■ cursor), fuzzy search results.
+   The dialog is display:none via the [hidden] attribute by default and only
+   raised by .cmd-open (command-palette.js) — never animate visibility. */
+#cmd-palette[hidden] {
+    display: none;
+}
+
+#cmd-palette {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 14vh;
+}
+
+.cmd-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(1, 6, 3, 0.82);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+.cmd-modal {
+    position: relative;
+    width: min(560px, calc(100vw - 32px));
+    background:
+        repeating-linear-gradient(0deg, rgba(62, 230, 160, 0.035) 0 1px, transparent 1px 3px),
+        linear-gradient(180deg, rgba(3, 14, 8, 0.97), rgba(2, 10, 6, 0.97));
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px rgba(2, 8, 4, 0.9), 0 0 30px rgba(62, 230, 160, 0.18), 0 24px 60px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+    font-family: var(--font-mono);
+}
+
+.cmd-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.2);
+}
+
+.cmd-prompt {
+    color: var(--signal);
+    font-size: 12px;
+    letter-spacing: 1px;
+    flex: none;
+    text-shadow: 0 0 8px rgba(62, 230, 160, 0.6);
+}
+
+.cmd-input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--signal);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 1px;
+    caret-color: var(--signal);
+    padding: 2px 0;
+}
+
+.cmd-input::placeholder {
+    color: rgba(62, 230, 160, 0.35);
+}
+
+.cmd-cursor {
+    color: var(--signal);
+    font-size: 10px;
+    animation: cmd-blink 1s steps(1) infinite;
+    flex: none;
+}
+
+@keyframes cmd-blink {
+    0%, 55% { opacity: 1; }
+    56%, 100% { opacity: 0; }
+}
+
+.cmd-close {
+    flex: none;
+    background: none;
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    border-radius: 2px;
+    color: rgba(62, 230, 160, 0.7);
+    font-size: 10px;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.cmd-close:hover,
+.cmd-close:focus-visible {
+    color: var(--silkscreen);
+    border-color: rgba(62, 230, 160, 0.7);
+    outline: none;
+}
+
+.cmd-results {
+    list-style: none;
+    margin: 0;
+    padding: 6px;
+    max-height: 46vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(62, 230, 160, 0.4) transparent;
+}
+
+.cmd-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 2px;
+    color: rgba(157, 180, 163, 0.8);
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+}
+
+.cmd-item.cmd-active {
+    background: rgba(62, 230, 160, 0.1);
+    color: var(--signal);
+    box-shadow: inset 2px 0 0 var(--signal);
+}
+
+.cmd-item-icon {
+    flex: none;
+    width: 16px;
+    text-align: center;
+    color: rgba(201, 162, 75, 0.85);
+}
+
+.cmd-item-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cmd-item-hint {
+    flex: none;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: rgba(157, 180, 163, 0.4);
+}
+
+.cmd-footer {
+    display: flex;
+    gap: 16px;
+    padding: 7px 14px;
+    border-top: 1px solid rgba(62, 230, 160, 0.15);
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: rgba(157, 180, 163, 0.45);
+}
+
+/* Reduced motion: the cursor blink is the only infinite animation here —
+   freeze it (the terminal still reads as a terminal without the blink). */
+@media (prefers-reduced-motion: reduce) {
+    .cmd-cursor {
+        animation: none !important;
+    }
 }
 
 /* Signal-path scroll progress — a live trace that fills with journey progress.
@@ -966,6 +1173,66 @@ body.full-journey .ds-panel.panel-active {
 body.full-journey .projects-grid {
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 12px;
+}
+
+/* Project filter bar — SMD DIP-switch pins above the grid (F6). Eight-pin
+   switch housing read: dark substrate strip, monospace labels, gold active
+   pin (the switch is ON). Click feedback is a Y-flip in sections.js (gated
+   by reduced motion); the CSS owns the rest state. */
+.proj-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    margin: 0 0 14px;
+    background:
+        repeating-linear-gradient(45deg, rgba(236, 231, 216, 0.012) 0 2px, transparent 2px 4px),
+        rgba(3, 14, 8, 0.9);
+    border: 1px solid rgba(236, 231, 216, 0.14);
+    border-radius: 2px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.proj-filter {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    padding: 4px 8px;
+    color: rgba(157, 180, 163, 0.7);
+    background: rgba(30, 77, 51, 0.2);
+    border: 1px solid rgba(236, 231, 216, 0.12);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.proj-filter:hover {
+    color: var(--silkscreen);
+    border-color: rgba(201, 162, 75, 0.45);
+}
+
+.proj-filter:active {
+    transform: translateY(1px);
+}
+
+.proj-filter:focus-visible {
+    outline: 2px solid var(--silkscreen);
+    outline-offset: 2px;
+}
+
+/* Active pin — gold like the nav-active pad: the switch is thrown. */
+.proj-filter.active {
+    color: var(--enig-gold);
+    background: rgba(201, 162, 75, 0.14);
+    border-color: rgba(201, 162, 75, 0.55);
+    box-shadow: 0 0 10px rgba(201, 162, 75, 0.2), inset 0 0 0 1px rgba(201, 162, 75, 0.2);
+}
+
+/* Filtered-out cards — pointer-events off (unclickable while hidden); the
+   opacity/transform are animated by sections.js (gsap, or a CSS snap under
+   reduced motion). This class is the STATE; the animation owns the values. */
+.proj-ds.proj-filtered {
+    pointer-events: none;
 }
 
 /* Project cards = BOM line items, not mini-PCBs. Each project is one row in

@@ -20,6 +20,7 @@ import { benchLights, setBenchBackdrop, setBloomBoost } from './scene.js';
 import { boardGroup } from './board.js';
 import { traceData } from './traces.js';
 import { beepBuzzer } from '../utils/buzzer.js';
+import { relayClick } from '../utils/sound.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 
 /** @type {boolean} */
@@ -59,6 +60,9 @@ export function isPowerOn() {
 
 /** Toggle the bench lights. */
 export function togglePower() {
+    // The relay throw — the mechanical click of the night-bench switch.
+    // Gated on the master SND toggle inside sound.js (muted by default).
+    relayClick();
     setPower(!powerOn);
 }
 

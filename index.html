@@ -161,8 +161,13 @@
             <span class="rev-mark" aria-hidden="true">REV&nbsp;1.0&nbsp;·&nbsp;2026</span>
             <!-- Live scope readout — filled by hover.js when the probe is over
                  a component: REF + voltage/frequency/state per part. Idle it
-                 reads SCOPE · AWAIT PROBE; the gold→signal border marks live. -->
-            <span class="hud-scope" id="hud-scope" aria-hidden="true"><span class="hud-scope-ref" id="hud-scope-ref">SCOPE</span><span class="hud-scope-val" id="hud-scope-val">AWAIT PROBE</span></span>
+                 reads SCOPE · AWAIT PROBE; the gold→signal border marks live.
+                 The CRT oscilloscope canvas (#hud-osc) renders per-component
+                 waveforms (oscilloscope.js) in retro phosphor green. -->
+            <span class="hud-scope" id="hud-scope" aria-hidden="true">
+                <canvas id="hud-osc" aria-hidden="true" title="Live oscilloscope waveform"></canvas>
+                <span class="hud-scope-ref" id="hud-scope-ref">SCOPE</span><span class="hud-scope-val" id="hud-scope-val">AWAIT PROBE</span>
+            </span>
             <!-- Flying-probe hint — fades in after boot (hud-ready), fades out
                  forever once the probe is first used (body.probe-used). The
                  probe is additive: scroll stays the primary path. -->
@@ -183,6 +188,9 @@
                  so autoplay policy is never fought. Label mirrors state via
                  body.sound-on. -->
             <button type="button" class="hud-sound" id="sound-toggle" aria-pressed="false" aria-label="Toggle sound effects (muted by default)" title="Sound — muted by default">SND&nbsp;OFF</button>
+            <!-- BIOS command palette trigger — Ctrl+K or Cmd+K shortcut
+                 opens the retro terminal command palette for instant navigation. -->
+            <button type="button" class="hud-cmd" id="cmd-palette-btn" aria-label="Open command palette (Ctrl+K)" title="Command palette — Ctrl+K">[CMD]</button>
         </div>
         <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
     </header>
@@ -195,12 +203,12 @@
             <div class="ds-panel hero-panel" id="panel-hero">
                 <div class="ece-label">// ECE + DATA SCIENCE @ SRM RAMAPURAM — CHENNAI, INDIA</div>
                 <div class="headline-stack">
-                    <h1 id="user-name">PARAMESHWARAN S</h1>
+                    <h1 id="user-name">PARAMESHWARAN&nbsp;S</h1>
                     <!-- Gradient twin for the boot sweep (gradient-text-sweep):
                          same glyphs, stacked pixel-identically via grid; the
                          gradient is masked INTO the type and only raised during
                          the sweep, so the resting h1 stays solid silkscreen. -->
-                    <span class="headline-twin" aria-hidden="true">PARAMESHWARAN S</span>
+                    <span class="headline-twin" aria-hidden="true">PARAMESHWARAN&nbsp;S</span>
                 </div>
                 <div class="header-underline"></div>
                 <div class="subtitle-wrap">
@@ -325,6 +333,31 @@
             </div>
         </section>
     </main>
+
+    <!-- BIOS Terminal Command Palette — triggered by Ctrl+K / Cmd+K or the [CMD]
+         button in the HUD. Retro phosphor-green terminal with fuzzy search over
+         sections, projects, and utility toggles. Keyboard nav: ↑/↓ moves, Enter
+         executes, Esc closes. (command-palette.js). -->
+    <div id="cmd-palette" role="dialog" aria-modal="true" aria-label="Command palette" hidden>
+        <div class="cmd-overlay" id="cmd-overlay"></div>
+        <div class="cmd-modal">
+            <div class="cmd-header">
+                <span class="cmd-prompt">BIOS&gt;</span>
+                <input id="cmd-input" type="text" class="cmd-input"
+                    placeholder="type a command or section..."
+                    autocomplete="off" spellcheck="false"
+                    aria-label="Command palette search" />
+                <span class="cmd-cursor">■</span>
+                <button class="cmd-close" id="cmd-close" aria-label="Close command palette">✕</button>
+            </div>
+            <ul id="cmd-results" class="cmd-results" role="listbox" aria-label="Command results"></ul>
+            <div class="cmd-footer">
+                <span>↑↓ navigate</span>
+                <span>Enter execute</span>
+                <span>Esc close</span>
+            </div>
+        </div>
+    </div>
 
     <!-- Entry Point Module -->
     <script type="module" src="/main.js"></script>

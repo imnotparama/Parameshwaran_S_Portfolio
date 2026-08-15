@@ -5,6 +5,9 @@
 // ============================================================
 import { portfolioData } from '../data/portfolio.js';
 import { LINKEDIN_URL, GITHUB_URL } from '../config.js';
+import { setProjectFilter } from '../three/project-chips.js';
+import { motionPrefs } from '../utils/motion-prefs.js';
+import gsap from 'gsap';
 
 /** @param {string} str */
 function esc(str) {
@@ -42,15 +45,40 @@ function wireProfileLinks() {
 }
 
 // Projects — exactly three fields per datasheet: Problem / State / Link.
+// The grid is preceded by an SMD DIP-switch filter bar (F6): ALL / AI/ML /
+// FULL-STACK / SYSTEMS, wired to animate the cards AND sync the 3D chips
+// (project-chips.setProjectFilter) so the board and datasheet filter together.
+const PROJECT_FILTERS = ['ALL', 'AI/ML', 'FULL-STACK', 'SYSTEMS'];
+
 function renderProjects() {
     const grid = document.getElementById('projects-grid');
     if (!grid) return;
+    const panel = grid.closest('.ds-panel');
+    if (!panel) return;
+
+    // Idempotent: a re-render (HMR / re-entry) must never stack filter bars.
+    if (!panel.querySelector('.proj-filter-bar')) {
+        const bar = document.createElement('div');
+        bar.className = 'proj-filter-bar';
+        bar.setAttribute('aria-label', 'Filter projects by category');
+        PROJECT_FILTERS.forEach((f, i) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'proj-filter' + (i === 0 ? ' active' : '');
+            btn.setAttribute('data-filter', f);
+            btn.setAttribute('aria-pressed', String(i === 0));
+            btn.textContent = `[${f}]`;
+            btn.addEventListener('click', () => applyProjectFilter(f, btn));
+            bar.appendChild(btn);
+        });
+        panel.insertBefore(bar, grid);
+    }
 
     grid.innerHTML = portfolioData.projects
         .map((p) => {
             const building = p.status === 'building';
             return `
-        <article class="proj-ds ${building ? 'is-building' : ''}">
+        <article class="proj-ds ${building ? 'is-building' : ''}" data-category="${esc(p.category || '')}">
             <span class="proj-ds-ref" aria-hidden="true">${esc(p.ref)}</span>
             <div class="proj-ds-head">
                 <span class="proj-ds-title">${esc(p.title)}</span>
@@ -62,6 +90,55 @@ function renderProjects() {
         </article>`;
         })
         .join('');
+}
+
+/** Apply a filter to the DOM grid + the 3D chips. Animate on the house
+ *  power2 curve; under reduced motion the state snaps (no gsap — same
+ *  posture as the rest of the board).
+ *  @param {string} filter @param {HTMLButtonElement} clickedBtn */
+function applyProjectFilter(filter, clickedBtn) {
+    // Micro-flip the clicked DIP switch: rotate Y 180° and settle back.
+    if (!motionPrefs.reduced) {
+        gsap.killTweensOf(clickedBtn);
+        gsap.fromTo(clickedBtn,
+            { rotationY: 0 },
+            { rotationY: 180, duration: 0.18, ease: 'power2.in', yoyo: true, repeat: 1, clearProps: 'transform', overwrite: 'auto' }
+        );
+    }
+    const bar = clickedBtn.closest('.proj-filter-bar');
+    if (bar) {
+        bar.querySelectorAll('.proj-filter').forEach((b) => {
+            const on = b === clickedBtn;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', String(on));
+        });
+    }
+
+    const cards = /** @type {HTMLElement[]} */ ([
+        ...document.querySelectorAll('#projects-grid .proj-ds')
+    ]);
+    cards.forEach((card) => {
+        const match = filter === 'ALL' || card.dataset.category === filter;
+        card.classList.toggle('proj-filtered', !match);
+        if (motionPrefs.reduced) {
+            // Reduced: instant opacity flip — the CSS rule owns the value.
+            card.style.opacity = match ? '' : '0.2';
+            card.style.transform = match ? '' : 'scale(0.92)';
+            return;
+        }
+        gsap.killTweensOf(card);
+        gsap.to(card, {
+            opacity: match ? 1 : 0,
+            scale: match ? 1 : 0.9,
+            duration: 0.35,
+            ease: 'power2.out',
+            clearProps: match ? 'opacity,transform,visibility' : 'visibility',
+            overwrite: 'auto'
+        });
+    });
+
+    // Sync the 3D board chips (dim non-matching, restore matching).
+    setProjectFilter(filter);
 }
 
 // Skills — each skill is one small component in the cluster.

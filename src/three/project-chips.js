@@ -19,7 +19,9 @@ import { portfolioData } from '../data/portfolio.js';
  * Chip lookup for the click-to-component focus interaction (journey.js).
  * pos is the chip group's position in boardGroup LOCAL space — the same
  * space COMPONENT_WORLD uses, so focus reuses the CAMERA_OFFSET language.
- * @typedef {{ pos: THREE.Vector3, data: any, ledMat: THREE.MeshStandardMaterial }} ChipRecord
+ * mats is every per-chip material (excludes the shared goldMat so the
+ * filter's dim/brighten never bleeds across chips).
+ * @typedef {{ pos: THREE.Vector3, data: any, ledMat: THREE.MeshStandardMaterial, mats: THREE.MeshStandardMaterial[] }} ChipRecord
  */
 
 /** @type {FlickerLed[]} */
@@ -40,6 +42,17 @@ const steadyLeds = [];
 
 /** @type {Record<string, ChipRecord>} */
 export const projectChips = {};
+
+// ─── Project filter (SMD DIP-switch pins) ─────────────────────
+// section UI (sections.js) drives the DOM cards; this drives the 3D chips
+// in sync — non-matching chips dim (emissiveIntensity → 0.05, LED off) so
+// the board visibly filters like the datasheet grid. 'ALL' restores.
+// The LED materials keep their per-frame flicker/breathe ONLY for matching
+// chips — dimmed LEDs are pinned flat at 0.05 by updateProjectChips (same
+// hold-as-static posture as reduced motion).
+/** @type {Set<THREE.MeshStandardMaterial>} */
+const dimmedLedMats = new Set();
+let activeProjectFilter = 'ALL';
 
 /** @param {THREE.Group} boardGroup */
 export function createProjectChips(boardGroup) {
@@ -99,11 +112,24 @@ export function createProjectChips(boardGroup) {
             : buildSolderedChip(group, chipMat, goldMat, solderTraceMat, busY - rowY);
 
         // Local position + data for the focus camera glide and detail datasheet.
+        // mats = every per-chip material (shared goldMat excluded — dimming
+        // one chip must never dim its neighbor's pads).
+        /** @type {THREE.MeshStandardMaterial[]} */
+        const chipMats = [];
+        group.traverse((o) => {
+            if (o instanceof THREE.Mesh && o.material instanceof THREE.MeshStandardMaterial && o.material !== goldMat) {
+                chipMats.push(o.material);
+            }
+        });
         projectChips[proj.ref] = {
             pos: group.position.clone(),
             data: proj,
-            ledMat
+            ledMat,
+            mats: chipMats
         };
+        if (activeProjectFilter !== 'ALL') {
+            applyChipFilter(projectChips[proj.ref]);
+        }
 
         // Invisible hover bounds → tooltip shows the project name
         const boundsGeo = new THREE.BoxGeometry(0.6, 0.6, 0.3);
@@ -236,19 +262,61 @@ function buildBreadboardPatch(group) {
     return ledMat;
 }
 
+/** Dim (or restore) one chip's 3D body to match the active filter. The LED
+ *  itself is pinned by updateProjectChips via dimmedLedMats — this handles
+ *  the body materials (the emissive trace + gold pads) so a dimmed chip
+ *  reads as unpowered on the board, not just de-lit.
+ *  @param {ChipRecord} chip */
+function applyChipFilter(chip) {
+    const dimmed = activeProjectFilter !== 'ALL' && chip.data.category !== activeProjectFilter;
+    if (dimmed) {
+        dimmedLedMats.add(chip.ledMat);
+    } else {
+        dimmedLedMats.delete(chip.ledMat);
+    }
+    for (const m of chip.mats) {
+        gsap.killTweensOf(m);
+        if (dimmed) {
+            gsap.to(m, { emissiveIntensity: 0.05, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
+        } else {
+            gsap.to(m, { emissiveIntensity: m === chip.ledMat ? 1.4 : 0.5, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
+        }
+    }
+}
+
+/** Filter the board's project chips by category — dims non-matching chips
+ *  and switches their LEDs off (sync with the DOM grid via sections.js).
+ *  'ALL' restores every chip. Under reduced motion the chips snap to their
+ *  new state instead of animating (same posture as the rest of the board).
+ *  @param {string} filter */
+export function setProjectFilter(filter) {
+    activeProjectFilter = filter;
+    for (const ref of Object.keys(projectChips)) {
+        applyChipFilter(projectChips[ref]);
+    }
+}
+
 // Per-frame: flicker the breadboard LEDs, keep soldered ones steady.
 /** @param {number} elapsed */
 export function updateProjectChips(elapsed) {
     // Reduced motion: every LED holds a calm, powered value — the breadboard
     // flicker is a per-frame strobe (caught by the tick smoke test running
     // ungated) and the breathe is ambient; both are decorative and gated by
-    // the single policy flag (motionPrefs, plan 013).
+    // the single policy flag (motionPrefs, plan 013). Dimmed (filtered-out)
+    // LEDs stay flat off in BOTH modes — the filter is a user-driven state,
+    // not motion.
+    const ledValue = (/** @type {THREE.MeshStandardMaterial} */ mat, /** @type {number} */ base) =>
+        dimmedLedMats.has(mat) ? 0.05 : base;
     if (motionPrefs.reduced) {
-        for (const f of flickerLeds) f.mat.emissiveIntensity = 0.7;
-        for (const s of steadyLeds) s.mat.emissiveIntensity = 1.4;
+        for (const f of flickerLeds) f.mat.emissiveIntensity = ledValue(f.mat, 0.7);
+        for (const s of steadyLeds) s.mat.emissiveIntensity = ledValue(s.mat, 1.4);
         return;
     }
     for (const f of flickerLeds) {
+        if (dimmedLedMats.has(f.mat)) {
+            f.mat.emissiveIntensity = 0.05;
+            continue;
+        }
         const n = Math.sin(elapsed * 7 + f.seed) * Math.sin(elapsed * 13.7 + f.seed * 2);
         f.mat.emissiveIntensity = n > 0.55 ? 0.15 : 0.7 + n * 0.25;
     }
@@ -259,6 +327,10 @@ export function updateProjectChips(elapsed) {
     // and the focus flash (journey.js gsap tween with overwrite) still
     // dominates during its short run.
     for (const s of steadyLeds) {
+        if (dimmedLedMats.has(s.mat)) {
+            s.mat.emissiveIntensity = 0.05;
+            continue;
+        }
         // Skip materials the focus flash (journey.js focusProject) is
         // actively tweening — the breathe must not fight the flash's
         // 0.15→1.9 dip/spike. The rAF ordering (app loop before GSAP's
