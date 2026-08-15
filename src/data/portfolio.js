@@ -9,18 +9,20 @@ export const portfolioData = {
         location: "Chennai, Tamilnadu",
         email: "pw2491@srmist.edu.in",
         phone: "+91 9176020504",
+        // Board identity — easter-egg telemetry (command palette → SYSTEM
+        // TELEMETRY) and the contact footer. Same silicon, same serial.
+        boardSerial: "PARAMA-2026-0042",
+        firmwareVersion: "FW 1.4.2-REV1",
         socials: {
             github: GITHUB_URL,
             linkedin: LINKEDIN_URL
         },
         stats: [
             { label: "GPA", value: "9.51/10" },
-            { label: "PROJECTS", value: "6+" },
-            { label: "HACKATHONS", value: "3+" },
-            { label: "CERTS", value: "7+" }
+            { label: "MODULES", value: "9" }
         ],
-        heroLine: "I ship real, working projects — ML, DSA, flyrank.ai — and give full effort into everything I build. Still figuring the rest out.",
-        bio: "Hi, I'm Parameshwaran — a 3rd-year ECE student specializing in Data Science at SRM Ramapuram. I'm still learning, and I don't pretend to have it all figured out — but I show up daily: working through ML and DSA problems, prepping for my Azure Data Fundamentals certification, and building flyrank.ai, my own startup project, from the ground up. Outside of code, I'm teaching myself Blender because I like understanding how things work end to end, not just the parts I'm comfortable with. If you're looking for someone who's genuinely curious and puts in real effort, that's me.",
+        heroLine: "One board. Three domains — AI, full-stack, embedded. Everything here is built for real, shipped, and working. No tutorials. No filler.",
+        bio: "PARAM-CORE is a single-substrate system built for one purpose: shipping real products at the intersection of software, AI, and hardware.\n\nThe core cluster runs on a data-science specialization — machine learning pipelines, computer vision, and full-stack applications are the three main buses, and every one of them has reached production: deployed APIs, live tracking, a working startup. When the problem touches silicon, the stack extends down — embedded systems, VLSI fundamentals, and low-level architecture are part of the same design flow, not a separate board.\n\nTutorials are reference manuals, not products. The parts that make it onto this board are the ones that survived real builds — debugging, integration, deployment. Continuous learning is a hardware feature here: it ships in every revision.\n\nAuxiliary system: the operator keeps a training schedule. Heavy compound lifts, three times a week — same discipline as the code. Consistent, logged, load-incremented.",
         languages: [
             { name: "English", level: "Fluent" },
             { name: "Tamil", level: "Native" },
@@ -36,9 +38,12 @@ export const portfolioData = {
             id: "flyrank",
             ref: "FR1",
             category: "AI/ML",
+            theme: "RANKING CORE",
+            signal: "#f43f5e",
+            spec: ["AI RANKING PIPELINE", "SOLO-FOUNDED · NO RUNWAY", "ARCHITECTURE IN DEV"],
             title: "flyrank.ai",
             status: "building",
-            problem: "My own startup project — an AI-powered ranking and visibility engine, built solo from the ground up.",
+            problem: "My own startup — an AI-powered ranking and visibility engine, built solo from the ground up.",
             state: "Core build in active development; architecture and matching logic in progress — not publicly launched yet.",
             link: LINKEDIN_URL,
             linkLabel: "ASK ME ABOUT IT →",
@@ -48,6 +53,9 @@ export const portfolioData = {
             id: "crowd-pulse",
             ref: "CP1",
             category: "AI/ML",
+            theme: "SENSOR GRID",
+            signal: "#fb923c",
+            spec: ["YOLOv8 · 60FPS DETECTION", "BYTETRACK MULTI-OBJECT", "FASTAPI + REACT LIVE"],
             title: "CrowdPulse — AI Crowd Safety",
             status: "shipped",
             problem: "Real-time crowd density monitoring and safety alerts for public spaces.",
@@ -60,6 +68,9 @@ export const portfolioData = {
             id: "dialora",
             ref: "DL1",
             category: "AI/ML",
+            theme: "VOICE PROCESSING UNIT",
+            signal: "#a78bfa",
+            spec: ["LLM VOICE AGENT", "100% LOCAL · ZERO CLOUD", "24H BUILD · ORIGIN 26"],
             title: "Dialora — AI Tele-Calling Agent",
             status: "shipped",
             problem: "A fully local AI calling agent — LLM-driven voice calls with zero cloud dependency.",
@@ -72,6 +83,9 @@ export const portfolioData = {
             id: "eco-mentor",
             ref: "EM1",
             category: "AI/ML",
+            theme: "ECO ANALYTICS MODULE",
+            signal: "#4ade80",
+            spec: ["AGENTIC SUSTAINABILITY", "REACT 19 + FASTAPI", "LIVE · VERCEL + RENDER"],
             title: "EcoMentor AI",
             status: "shipped",
             problem: "Agentic AI sustainability advisor that turns habits into actionable eco plans.",
@@ -84,6 +98,9 @@ export const portfolioData = {
             id: "prmxa",
             ref: "PX1",
             category: "FULL-STACK",
+            theme: "MEDIA STREAMING CHIP",
+            signal: "#22d3ee",
+            spec: ["PWA · OFFLINE READY", "TRAKT + JIKAN + FANART", "PERSONAL MEDIA HUB"],
             title: "PRMxA — Streaming Hub",
             status: "shipped",
             problem: "A personal streaming platform for movies, TV, anime, and sports with rich metadata.",
@@ -96,6 +113,9 @@ export const portfolioData = {
             id: "smart-parking",
             ref: "SP1",
             category: "FULL-STACK",
+            theme: "NAVIGATION CONTROLLER",
+            signal: "#facc15",
+            spec: ["AUTO SLOT ALLOCATION", "LIVE BOOKING FLOW", "DJANGO + SQL"],
             title: "Smart Parking System",
             status: "shipped",
             problem: "Automated parking slot allocation with real-time booking availability.",
@@ -108,6 +128,9 @@ export const portfolioData = {
             id: "bus-it",
             ref: "BT1",
             category: "SYSTEMS",
+            theme: "GPS RECEIVER",
+            signal: "#3b82f6",
+            spec: ["LIVE GPS STREAM", "ETA PIPELINE", "DJANGO SERVICE"],
             title: "BusIT — Live Bus Tracking",
             status: "shipped",
             problem: "Live campus bus tracking from GPS sensor streams with ETA calculation for students.",
@@ -117,9 +140,27 @@ export const portfolioData = {
             tags: ["Django", "Python", "GPS APIs"]
         },
         {
+            id: "aqua-dot",
+            ref: "AQD1",
+            category: "SYSTEMS",
+            theme: "WATER MONITORING MODULE",
+            signal: "#2dd4bf",
+            spec: ["ESP32 SENSOR NODE", "LIVE QUALITY DASHBOARD", "THRESHOLD ALERTS"],
+            title: "AquaDot — Water Monitoring",
+            status: "shipped",
+            problem: "Real-time water quality and level monitoring for tanks and streams — sensor to dashboard.",
+            state: "ESP32 node streaming readings to a live dashboard with threshold breach alerts.",
+            link: GITHUB_URL,
+            linkLabel: "VIEW GITHUB →",
+            tags: ["ESP32", "IoT", "Sensors", "C"]
+        },
+        {
             id: "ml-dsa",
             ref: "ML1",
             category: "AI/ML",
+            theme: "TRAINING REGIMEN",
+            signal: "#a3e635",
+            spec: ["DAILY ML REPS", "DSA + DP-900 PREP", "STREAK LIVE"],
             title: "ML + DSA Daily Reps",
             status: "building",
             problem: "Daily practice: ML problem sets and DSA fundamentals — plus prep for the Azure Data Fundamentals certification.",
@@ -185,4 +226,41 @@ export const portfolioData = {
         "Digital Skills: AI – Accenture",
         "Getting Started with AI – IBM SkillsBuild"
     ]
+};
+
+// Component Library roles — every skill is a PCB component on the board, so
+// each one carries its component class (the part it plays in a system):
+// Python = MCU, Machine Learning = AI ACCEL, React = DISPLAY CTRL, etc.
+// sections.js renders these as tiny component tags under the pill label.
+/** @type {Record<string, string>} */
+export const skillRoles = {
+    // C1 — AI ACCELERATOR BANK
+    "Python": "MCU",
+    "Machine Learning": "AI ACCEL",
+    "OpenCV": "VISION DSP",
+    "YOLO": "DETECT NET",
+    "Pandas": "DATA LATCH",
+    "NumPy": "MATH FPU",
+    "Scikit-learn": "AI ACCEL",
+    // C2 — DISPLAY & I/O BANK
+    "Django": "WEB CORE",
+    "FastAPI": "COMM BUS",
+    "React": "DISPLAY CTRL",
+    "JavaScript": "SCRIPT ENG",
+    "HTML": "MARKUP LYR",
+    "CSS": "STYLE LYR",
+    "Vite": "BUILD BUS",
+    "Tailwind": "STYLE LYR",
+    // C3 — STORAGE CONTROLLER BANK
+    "SQL": "STORAGE CTRL",
+    "Power BI": "DISPLAY CTRL",
+    "Data Analysis": "DATA LATCH",
+    "Excel": "DATA LATCH",
+    "Git": "VERSION REG",
+    // C4 — FIRMWARE & RF MODULES
+    "Arduino": "MCU",
+    "IoT": "NET NODE",
+    "IR Sensors": "SENSOR IN",
+    "ESP32": "RF MODULE",
+    "C": "KERNEL"
 };

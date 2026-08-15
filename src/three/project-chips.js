@@ -20,8 +20,9 @@ import { portfolioData } from '../data/portfolio.js';
  * pos is the chip group's position in boardGroup LOCAL space — the same
  * space COMPONENT_WORLD uses, so focus reuses the CAMERA_OFFSET language.
  * mats is every per-chip material (excludes the shared goldMat so the
- * filter's dim/brighten never bleeds across chips).
- * @typedef {{ pos: THREE.Vector3, data: any, ledMat: THREE.MeshStandardMaterial, mats: THREE.MeshStandardMaterial[] }} ChipRecord
+ * filter's dim/brighten never bleeds across chips). ledBase is the chip's
+ * rest-state LED emissiveIntensity (its own signal light, per module).
+ * @typedef {{ pos: THREE.Vector3, data: any, ledMat: THREE.MeshStandardMaterial, ledBase: number, mats: THREE.MeshStandardMaterial[] }} ChipRecord
  */
 
 /** @type {FlickerLed[]} */
@@ -31,7 +32,7 @@ const flickerLeds = [];
  *  breathe (seeded phase, like the flicker) so the whole board reads as
  *  powered — the shipped LEDs shouldn't sit perfectly flat while the radar
  *  sweeps, the current dot travels, and the breadboard LEDs flicker. */
-/** @typedef {{ mat: THREE.MeshStandardMaterial, seed: number }} SteadyLed */
+/** @typedef {{ mat: THREE.MeshStandardMaterial, seed: number, base: number }} SteadyLed */
 /** @type {SteadyLed[]} */
 const steadyLeds = [];
 
@@ -106,10 +107,14 @@ export function createProjectChips(boardGroup) {
         boardGroup.add(group);
 
         const isBuilding = proj.status === 'building';
+        // Each expansion module has its own signal color (the same hex the
+        // datasheet card shows) — the chip's status LED + its trace emissive
+        // are tinted per module, so entering a subsystem reads on the board.
+        const signal = proj.signal || '#3ee6a0';
 
         const ledMat = isBuilding
-            ? buildBreadboardPatch(group)
-            : buildSolderedChip(group, chipMat, goldMat, solderTraceMat, busY - rowY);
+            ? buildBreadboardPatch(group, signal)
+            : buildSolderedChip(group, chipMat, goldMat, solderTraceMat, busY - rowY, signal);
 
         // Local position + data for the focus camera glide and detail datasheet.
         // mats = every per-chip material (shared goldMat excluded — dimming
@@ -125,6 +130,7 @@ export function createProjectChips(boardGroup) {
             pos: group.position.clone(),
             data: proj,
             ledMat,
+            ledBase: isBuilding ? 0.7 : 1.4,
             mats: chipMats
         };
         if (activeProjectFilter !== 'ALL') {
@@ -153,9 +159,10 @@ export function createProjectChips(boardGroup) {
  * @param {THREE.MeshStandardMaterial} goldMat
  * @param {THREE.MeshStandardMaterial} traceMat
  * @param {number} busOffsetY
+ * @param {string} signalHex the module's signal color (LED + trace emissive)
  * @returns {THREE.MeshStandardMaterial} the steady status LED material (for focus flash)
  */
-function buildSolderedChip(group, chipMat, goldMat, traceMat, busOffsetY) {
+function buildSolderedChip(group, chipMat, goldMat, traceMat, busOffsetY, signalHex) {
     const bodyGeo = new THREE.BoxGeometry(0.42, 0.42, 0.12);
     const body = new THREE.Mesh(bodyGeo, chipMat.clone());
     body.position.z = 0.06;
@@ -174,18 +181,22 @@ function buildSolderedChip(group, chipMat, goldMat, traceMat, busOffsetY) {
         group.add(padR);
     }
 
-    // Solid finished trace down to the shared bus — steady glow
+    // Solid finished trace down to the shared bus — steady glow in the
+    // module's own signal color (the bus itself stays the shared green).
     const traceLen = Math.abs(busOffsetY) - 0.21;
     const traceGeo = new THREE.BoxGeometry(0.05, traceLen, 0.012);
     const trace = new THREE.Mesh(traceGeo, traceMat.clone());
+    if (trace.material instanceof THREE.MeshStandardMaterial) {
+        trace.material.emissive = new THREE.Color(signalHex);
+    }
     trace.position.set(0, busOffsetY / 2, 0.002);
     group.add(trace);
 
-    // Steady status LED — shipped means it stays lit
+    // Steady status LED — shipped means it stays lit, in the module's color
     const ledGeo = new THREE.SphereGeometry(0.05, 10, 10);
     const ledMat = new THREE.MeshStandardMaterial({
-        color: 0x3ee6a0,
-        emissive: 0x3ee6a0,
+        color: new THREE.Color(signalHex),
+        emissive: new THREE.Color(signalHex),
         emissiveIntensity: 1.4,
         roughness: 0.3
     });
@@ -194,13 +205,14 @@ function buildSolderedChip(group, chipMat, goldMat, traceMat, busOffsetY) {
     group.add(led);
     // Seed per LED (deterministic at build time — same seeded-phase pattern
     // as the breadboard flicker) so the array breathes slightly out of sync.
-    steadyLeds.push({ mat: ledMat, seed: Math.sin(group.position.x * 12.9898 + group.position.y * 78.233) * 43758.5453 });
+    steadyLeds.push({ mat: ledMat, seed: Math.sin(group.position.x * 12.9898 + group.position.y * 78.233) * 43758.5453, base: 1.4 });
     return ledMat;
 }
 
 // Open breadboard patch — visible jumper wires, faint flicker.
-/** @param {THREE.Group} group @returns {THREE.MeshStandardMaterial} the flicker LED material (for focus flash) */
-function buildBreadboardPatch(group) {
+/** @param {THREE.Group} group @param {string} signalHex the module's signal color
+ *  @returns {THREE.MeshStandardMaterial} the flicker LED material (for focus flash) */
+function buildBreadboardPatch(group, signalHex) {
     const plateGeo = new THREE.BoxGeometry(0.56, 0.56, 0.05);
     const plateMat = new THREE.MeshStandardMaterial({ color: 0xd6c8a2, roughness: 0.95 });
     const plate = new THREE.Mesh(plateGeo, plateMat);
@@ -243,11 +255,11 @@ function buildBreadboardPatch(group) {
         group.add(new THREE.Mesh(tubeGeo, tubeMat));
     }
 
-    // Faintly flickering LED — still being figured out
+    // Faintly flickering LED — still being figured out, in the module's color
     const ledGeo = new THREE.SphereGeometry(0.045, 10, 10);
     const ledMat = new THREE.MeshStandardMaterial({
-        color: 0xc8960c,
-        emissive: 0xc8960c,
+        color: new THREE.Color(signalHex),
+        emissive: new THREE.Color(signalHex),
         emissiveIntensity: 0.7,
         roughness: 0.3
     });
@@ -279,7 +291,7 @@ function applyChipFilter(chip) {
         if (dimmed) {
             gsap.to(m, { emissiveIntensity: 0.05, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
         } else {
-            gsap.to(m, { emissiveIntensity: m === chip.ledMat ? 1.4 : 0.5, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
+            gsap.to(m, { emissiveIntensity: m === chip.ledMat ? chip.ledBase : 0.5, duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
         }
     }
 }
@@ -309,7 +321,7 @@ export function updateProjectChips(elapsed) {
         dimmedLedMats.has(mat) ? 0.05 : base;
     if (motionPrefs.reduced) {
         for (const f of flickerLeds) f.mat.emissiveIntensity = ledValue(f.mat, 0.7);
-        for (const s of steadyLeds) s.mat.emissiveIntensity = ledValue(s.mat, 1.4);
+        for (const s of steadyLeds) s.mat.emissiveIntensity = ledValue(s.mat, s.base);
         return;
     }
     for (const f of flickerLeds) {
@@ -338,6 +350,6 @@ export function updateProjectChips(elapsed) {
         // luck, not a guarantee: a same-property write every frame can
         // mask the tween if the loop ever registers later (HMR re-entry).
         if (gsap.isTweening(s.mat)) continue;
-        s.mat.emissiveIntensity = 1.4 + Math.sin(elapsed * 0.9 + s.seed) * 0.08;
+        s.mat.emissiveIntensity = s.base + Math.sin(elapsed * 0.9 + s.seed) * 0.08;
     }
 }

@@ -404,13 +404,22 @@ function fillProjectDetailPanel(proj) {
   const stateEl = q('pdetail-state');
   const tagsEl = q('pdetail-tags');
   const linkEl = /** @type {HTMLAnchorElement | null} */ (q('pdetail-link'));
-  if (refEl) refEl.textContent = `${proj.ref} — ${proj.status === 'building' ? 'BREADBOARD (IN BUILD)' : 'SOLDERED (SHIPPED)'}`;
+  if (refEl) refEl.textContent = `${proj.ref} — ${proj.theme || ''} · ${proj.status === 'building' ? 'BREADBOARD (IN BUILD)' : 'SOLDERED (SHIPPED)'}`;
   const title = `// PROJECT: ${proj.title}`;
   // The sweep twin mirrors the title glyphs — fill it with the same text.
   if (titleEl) titleEl.textContent = title;
   if (titleTwinEl) titleTwinEl.textContent = title;
   if (problemEl) problemEl.textContent = proj.problem;
   if (stateEl) stateEl.textContent = proj.state;
+  const specEl = q('pdetail-spec');
+  if (specEl) {
+    specEl.textContent = '';
+    (proj.spec || []).forEach((/** @type {string} */ s) => {
+      const li = document.createElement('li');
+      li.textContent = s;
+      specEl.appendChild(li);
+    });
+  }
   if (tagsEl) {
     tagsEl.textContent = '';
     (proj.tags || []).forEach((/** @type {string} */ t) => {

@@ -144,11 +144,11 @@
                  C1–C4, J1, ANT1) — the same silkscreen refs printed on the
                  panels — so the HUD reads as the board's pin map. The ref is
                  aria-hidden: the button's aria-label keeps the clean name. -->
-            <button class="nav-btn" data-section="sec-about" aria-label="Go to About section"><span class="nav-ref" aria-hidden="true">U1</span>[ABOUT]</button>
-            <button class="nav-btn" data-section="sec-projects" aria-label="Go to Projects section"><span class="nav-ref" aria-hidden="true">U2</span>[PROJECTS]</button>
-            <button class="nav-btn" data-section="sec-skills" aria-label="Go to Skills section"><span class="nav-ref" aria-hidden="true">C1–C4</span>[SKILLS]</button>
+            <button class="nav-btn" data-section="sec-about" aria-label="Go to Core Processor — About section"><span class="nav-ref" aria-hidden="true">U1</span>[CORE]</button>
+            <button class="nav-btn" data-section="sec-projects" aria-label="Go to Expansion Modules — Projects section"><span class="nav-ref" aria-hidden="true">U2</span>[MODULES]</button>
+            <button class="nav-btn" data-section="sec-skills" aria-label="Go to Component Library — Skills section"><span class="nav-ref" aria-hidden="true">C1–C4</span>[LIBRARY]</button>
             <button class="nav-btn" data-section="sec-experience" aria-label="Go to Experience section"><span class="nav-ref" aria-hidden="true">J1</span>[EXPERIENCE]</button>
-            <button class="nav-btn" data-section="sec-contact" aria-label="Go to Contact section"><span class="nav-ref" aria-hidden="true">ANT1</span>[CONTACT]</button>
+            <button class="nav-btn" data-section="sec-contact" aria-label="Go to Transmission Interface — Contact section"><span class="nav-ref" aria-hidden="true">ANT1</span>[TX/RX]</button>
         </nav>
         <div class="hud-legend">
             <!-- Night bench — the PWR LED is the board's power switch: click
@@ -214,12 +214,10 @@
                 <div class="subtitle-wrap">
                     <span id="typewriter-subtitle"></span><span class="terminal-cursor"></span>
                 </div>
-                <p class="hero-claim text-pretty">I ship real, working projects &mdash; ML, DSA, flyrank.ai &mdash; and give full effort into everything I build. Still figuring the rest out.</p>
+                <p class="hero-claim text-pretty">One board. Three domains &mdash; AI, full-stack, embedded. Everything here is built for real, shipped, and working. No tutorials. No filler.</p>
                 <div class="badge-row">
-                    <div class="stat-badge"><span class="badge-lbl">GPA:</span><span class="badge-val">9.51/10</span></div>
-                    <div class="stat-badge"><span class="badge-lbl">PROJECTS:</span><span class="badge-val">6+</span></div>
-                    <div class="stat-badge"><span class="badge-lbl">HACKATHONS:</span><span class="badge-val">3+</span></div>
-                    <div class="stat-badge"><span class="badge-lbl">CERTS:</span><span class="badge-val">7+</span></div>
+                    <div class="stat-badge"><span class="badge-lbl">VREF:</span><span class="badge-val">GPA 9.51/10</span></div>
+                    <div class="stat-badge"><span class="badge-lbl">MODULES:</span><span class="badge-val">9</span></div>
                 </div>
                 <div class="hero-cta-row">
                     <a class="cta-linkedin cta-primary js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
@@ -231,24 +229,24 @@
         <!-- ABOUT — PARAM-CORE IC datasheet -->
         <section class="journey-sec" id="sec-about" data-panel="panel-about">
             <div class="ds-panel" id="panel-about">
-                <div class="ds-ref">U1 &mdash; "PARAM-CORE"</div>
+                <div class="ds-ref">U1 &mdash; "PARAM-CORE" &middot; CORE PROCESSOR</div>
                 <!-- ds-title-stack: the gradient-text-sweep twin mechanism (same
                      as the hero name) — a pixel-identical background-clip:text
                      twin raised only during the one-shot sweep on panel
                      activation, then the solid silkscreen title owns the rest. -->
                 <div class="headline-stack ds-title-stack">
-                    <h2 class="ds-title">// DATASHEET: ABOUT</h2>
-                    <span class="headline-twin" aria-hidden="true">// DATASHEET: ABOUT</span>
+                    <h2 class="ds-title">// DATASHEET: CORE PROCESSOR</h2>
+                    <span class="headline-twin" aria-hidden="true">// DATASHEET: CORE PROCESSOR</span>
                 </div>
                 <table class="spec-table">
                     <tbody>
-                        <tr><th scope="row">ARCH</th><td>ECE + Data Science (3rd year)</td></tr>
-                        <tr><th scope="row">FAB</th><td>SRM Ramapuram, Chennai</td></tr>
-                        <tr><th scope="row">CLK</th><td>Daily &mdash; ML, DSA, flyrank.ai</td></tr>
-                        <tr><th scope="row">VREF</th><td>GPA 9.51 / 10</td></tr>
+                        <tr><th scope="row">CORE</th><td>B.Tech ECE &middot; Data Science specialization</td></tr>
+                        <tr><th scope="row">FAB</th><td>SRM IST &mdash; Ramapuram, Chennai</td></tr>
+                        <tr><th scope="row">CLK</th><td>Daily builds &mdash; ML &middot; DSA &middot; flyrank.ai</td></tr>
+                        <tr><th scope="row">VREF</th><td>GPA 9.51 / 10 &middot; 3.30V nominal</td></tr>
                     </tbody>
                 </table>
-                <p class="ds-body text-pretty">Hi, I&apos;m Parameshwaran &mdash; a 3rd-year ECE student specializing in Data Science at SRM Ramapuram. I&apos;m still learning, and I don&apos;t pretend to have it all figured out &mdash; but I show up daily: working through ML and DSA problems, prepping for my Azure Data Fundamentals certification, and building flyrank.ai, my own startup project, from the ground up. Outside of code, I&apos;m teaching myself Blender because I like understanding how things work end to end, not just the parts I&apos;m comfortable with. If you&apos;re looking for someone who&apos;s genuinely curious and puts in real effort, that&apos;s me.</p>
+                <p class="ds-body text-pretty">PARAM-CORE is a single-substrate system built for one purpose: shipping real products at the intersection of software, AI, and hardware.<br><br>The core cluster runs on a data-science specialization &mdash; machine learning pipelines, computer vision, and full-stack applications are the three main buses, and every one has reached production: deployed APIs, live tracking, a working startup. When the problem touches silicon, the stack extends down &mdash; embedded systems, VLSI fundamentals, and low-level architecture are part of the same design flow, not a separate board.<br><br>Tutorials are reference manuals, not products. The parts on this board are the ones that survived real builds &mdash; debugging, integration, deployment. Continuous learning is a hardware feature here: it ships in every revision.<br><br>Auxiliary system: the operator keeps a training schedule. Heavy compound lifts, three times a week &mdash; same discipline as the code. Consistent, logged, load-incremented.</p>
                 <a class="cta-linkedin js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
             </div>
         </section>
@@ -256,10 +254,10 @@
         <!-- PROJECTS — datasheets injected by JS from portfolio data -->
         <section class="journey-sec journey-sec-tall" id="sec-projects" data-panel="panel-projects">
             <div class="ds-panel ds-panel-wide" id="panel-projects">
-                <div class="ds-ref">U2 &mdash; PROJECT ARRAY</div>
+                <div class="ds-ref">U2 &mdash; EXPANSION MODULES</div>
                 <div class="headline-stack ds-title-stack">
-                    <h2 class="ds-title">// DATASHEET: PROJECTS</h2>
-                    <span class="headline-twin" aria-hidden="true">// DATASHEET: PROJECTS</span>
+                    <h2 class="ds-title">// DATASHEET: EXPANSION MODULES</h2>
+                    <span class="headline-twin" aria-hidden="true">// DATASHEET: EXPANSION MODULES</span>
                 </div>
                 <p class="ds-legend"><span class="legend-soldered">■ SOLDERED — SHIPPED & WORKING</span><span class="legend-breadboard">□ BREADBOARD — STILL BUILDING</span></p>
                 <div id="projects-grid" class="projects-grid"><!-- injected --></div>
@@ -269,10 +267,10 @@
         <!-- SKILLS — resistor/capacitor cluster -->
         <section class="journey-sec" id="sec-skills" data-panel="panel-skills">
             <div class="ds-panel" id="panel-skills">
-                <div class="ds-ref">C1&ndash;C4 &mdash; DECOUPLING BANK</div>
+                <div class="ds-ref">C1&ndash;C4 &mdash; COMPONENT LIBRARY</div>
                 <div class="headline-stack ds-title-stack">
-                    <h2 class="ds-title">// DATASHEET: SKILLS</h2>
-                    <span class="headline-twin" aria-hidden="true">// DATASHEET: SKILLS</span>
+                    <h2 class="ds-title">// DATASHEET: COMPONENT LIBRARY</h2>
+                    <span class="headline-twin" aria-hidden="true">// DATASHEET: COMPONENT LIBRARY</span>
                 </div>
                 <div id="skills-groups" class="skills-groups"><!-- injected --></div>
             </div>
@@ -295,19 +293,22 @@
             <div class="ds-panel contact-panel" id="panel-contact">
                 <div class="ds-ref">ANT1 &mdash; TX/RX</div>
                 <div class="headline-stack ds-title-stack">
-                    <h2 class="ds-title">// ALL PCB SYSTEMS OPERATIONAL</h2>
-                    <span class="headline-twin" aria-hidden="true">// ALL PCB SYSTEMS OPERATIONAL</span>
+                    <h2 class="ds-title">// TRANSMISSION INTERFACE</h2>
+                    <span class="headline-twin" aria-hidden="true">// TRANSMISSION INTERFACE</span>
                 </div>
-                <p class="ds-body text-pretty">If any of this looked useful, the fastest way to reach me is LinkedIn. I reply.</p>
-                <a class="cta-linkedin cta-primary cta-contact js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
+                <p class="ds-body text-pretty">TRANSMISSION INTERFACE ACTIVE. Primary uplink: LinkedIn &mdash; I respond to every signal. GitHub carries the source. Email is the secondary channel.</p>
+                <a class="cta-linkedin cta-primary cta-contact js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">OPEN PRIMARY UPLINK →</a>
                 <div class="contact-secondary">
                     <a class="secondary-link js-github" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my GitHub profile (opens in new tab)">github: imnotparama</a>
                     <span class="secondary-sep" aria-hidden="true">·</span>
                     <a class="secondary-link" href="mailto:pw2491@srmist.edu.in">pw2491@srmist.edu.in</a>
+                    <span class="secondary-sep" aria-hidden="true">·</span>
+                    <span class="secondary-link" aria-hidden="true">CHENNAI · INDIA</span>
                 </div>
                 <div class="contact-footer">
                     <span>PARAMESHWARAN S &mdash; CHENNAI, INDIA</span>
                     <span>Built with Three.js + GSAP + Vite</span>
+                    <span>SN PARAMA-2026-0042 &middot; FW 1.4.2</span>
                     <span>&copy; 2026 &mdash; ALL SYSTEMS SECURED</span>
                 </div>
             </div>
@@ -328,11 +329,21 @@
                 </div>
                 <p class="ds-body proj-field" id="pdetail-problem"></p>
                 <p class="ds-body proj-field" id="pdetail-state"></p>
+                <ul class="proj-spec" id="pdetail-spec"></ul>
                 <div class="skill-pills" id="pdetail-tags"></div>
                 <a class="cta-linkedin" id="pdetail-link" href="#" target="_blank" rel="noopener noreferrer"></a>
             </div>
         </section>
     </main>
+
+    <!-- Hidden engineering readout — the board's live telemetry (easter egg).
+         Revealed by the BIOS palette's SYSTEM TELEMETRY command: board serial,
+         rail voltage, die temperature, and uptime drift gently (elapsed-driven,
+         deterministic). Updated per-frame only while visible (telemetry.js). -->
+    <div id="sys-telemetry" class="sys-telemetry" aria-hidden="true" hidden></div>
+    <!-- Debug overlay — FPS + frame counter + session uptime. Revealed by the
+         palette's DEBUG OVERLAY command (same module, same deterministic clocks). -->
+    <div id="debug-overlay" class="debug-overlay" aria-hidden="true" hidden></div>
 
     <!-- BIOS Terminal Command Palette — triggered by Ctrl+K / Cmd+K or the [CMD]
          button in the HUD. Retro phosphor-green terminal with fuzzy search over

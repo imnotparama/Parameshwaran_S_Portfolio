@@ -605,6 +605,45 @@ body.sound-on .hud-sound {
     }
 }
 
+/* ─── Hidden engineering readouts (easter eggs) ──────────
+   The board's live telemetry chip + debug overlay, revealed only by the
+   BIOS palette's SYSTEM TELEMETRY / DEBUG OVERLAY commands. Same phosphor
+   green language as the terminal; updated per-frame only while visible
+   (telemetry.js). pointer-events:none so the readouts never block clicks. */
+.sys-telemetry,
+.debug-overlay {
+    position: fixed;
+    z-index: 80;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    line-height: 1.7;
+    white-space: pre-line;
+    color: var(--signal);
+    text-shadow: 0 0 6px rgba(62, 230, 160, 0.5);
+    background: rgba(2, 10, 6, 0.88);
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    border-radius: 2px;
+    padding: 6px 10px;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.sys-telemetry {
+    bottom: 16px;
+    left: 16px;
+}
+
+.debug-overlay {
+    top: 60px;
+    left: 16px;
+}
+
+.sys-telemetry[hidden],
+.debug-overlay[hidden] {
+    display: none;
+}
+
 /* Signal-path scroll progress — a live trace that fills with journey progress.
    The fill uses transform: scaleX only (transform-origin left) so updating it
    never triggers layout — one compositor-cheap write per scroll, driven by
@@ -1284,6 +1323,67 @@ body.full-journey .projects-grid {
     gap: 10px;
 }
 
+/* Expansion-module identity — each card is one subsystem on the board: a
+   theme row (module name + its own signal-color dot) above the title. The
+   dot's color is the module's signal (--sig, set inline from portfolio.js),
+   the same hex that tints its 3D chip LED on the board. */
+.proj-ds-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.proj-ds-theme {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+    letter-spacing: 1.6px;
+    color: rgba(157, 180, 163, 0.75);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.proj-signal {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--sig, #3ee6a0);
+    box-shadow: 0 0 6px var(--sig, #3ee6a0);
+}
+
+/* Technical specification — the module's datasheet lines, as tiny silk
+   stencil tags (one per spec). Reads like the pins on the chip's package. */
+.proj-spec {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.proj-spec li {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: rgba(157, 180, 163, 0.55);
+    border: 1px solid rgba(236, 231, 216, 0.1);
+    border-radius: 1px;
+    padding: 2px 6px;
+    white-space: nowrap;
+}
+
+/* Project detail (chip focus) — spec list keeps its own spacing in the
+   focused datasheet panel. */
+#panel-project-detail .proj-spec {
+    margin: 4px 0 12px;
+}
+
 .proj-ds-title {
     font-size: 13px;
     font-weight: 700;
@@ -1464,6 +1564,21 @@ body.full-journey .projects-grid {
     .skill-pill:hover {
         transform: translateY(-1px);
     }
+}
+
+/* Component-class tag on each skill pill — the part it plays on the board
+   (MCU, AI ACCEL, COMM BUS...). A tiny gold silkscreen label under the
+   skill name: the library reads as parts, not a list. */
+.skill-pill em {
+    display: block;
+    font-style: normal;
+    font-size: 8px;
+    letter-spacing: 1.2px;
+    color: rgba(201, 162, 75, 0.8);
+    margin-top: 2px;
+    text-transform: uppercase;
+    text-align: center;
+    white-space: nowrap;
 }
 
 /* ─── Experience timeline ───────────────────────────────── */

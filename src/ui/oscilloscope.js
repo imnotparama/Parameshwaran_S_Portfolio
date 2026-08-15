@@ -90,6 +90,49 @@ function waveform(ref, t, x) {
             const rc = (x + t * 0.3) % 1;
             return (1 - Math.exp(-rc * 5)) * 0.6 - 0.3 + noise(t * 4 + x, 0.05);
         }
+        // ── Expansion modules — each subsystem has its OWN waveform, the
+        // probe sees the module's actual signal. (Same phosphor green — the
+        // shape is the identity.)
+        case 'FR1': {
+            // Ranking core — the rank ladder climbing: stepped staircase
+            return Math.floor(x * 8) / 8 * 0.8 - 0.3 + noise(t * 5 + x * 2, 0.05);
+        }
+        case 'CP1': {
+            // Sensor grid — radar ping sweeping across the sweep line
+            const ping = (x * 2 + t * 0.9) % 1;
+            return Math.sin(ping * Math.PI) * 0.75 + noise(t * 30 + x * 6, 0.05);
+        }
+        case 'DL1': {
+            // Voice processing — dense audio waveform (speech band)
+            return Math.sin(x * 26 + t * 11) * 0.4 + Math.sin(x * 41 + t * 17) * 0.3 + noise(t * 22, 0.06);
+        }
+        case 'EM1': {
+            // Eco analytics — slow leaf-like breath
+            return Math.sin(x * 5 + t * 1.4) * 0.5 + Math.sin(x * 9 - t * 2) * 0.2 + noise(t * 2 + x, 0.05);
+        }
+        case 'PX1': {
+            // Media streaming — flowing packet square train
+            const flow = Math.sin(x * 18 - t * 9) >= 0 ? 0.62 : -0.62;
+            return flow * Math.min(1, Math.max(0, Math.sin(x * 3.2 - t * 1.6) * 2)) + noise(t * 9, 0.04);
+        }
+        case 'SP1': {
+            // Navigation controller — discrete occupancy levels (parking LEDs)
+            return Math.round(Math.sin(x * 6 + t * 2) * 2) / 2 * 0.5 + noise(t * 4, 0.04);
+        }
+        case 'BT1': {
+            // GPS receiver — moving signal packets (spike train)
+            const pkt = (x * 6 + t * 2.4) % 1;
+            return pkt < 0.14 ? Math.sin((pkt / 0.14) * Math.PI) * 0.7 : noise(t * 40 + x * 8, 0.04);
+        }
+        case 'AQD1': {
+            // Water monitoring — slow current with surface ripple
+            return Math.sin(x * 4 + t * 1.1) * 0.55 + Math.sin(x * 22 + t * 3.3) * 0.12 + noise(t + x * 4, 0.04);
+        }
+        case 'ML1': {
+            // Training regimen — progress steps (practice reps)
+            const step = Math.floor((x * 10 + t * 1.8) % 10);
+            return step % 3 === 0 ? 0.7 : step % 3 === 1 ? 0.35 : 0.0 + noise(t * 6, 0.05);
+        }
         default: {
             // Generic slow ECG-style sine
             return Math.sin(x * Math.PI * 4 + t * 2.0) * 0.6 + noise(t + x * 3, 0.06);

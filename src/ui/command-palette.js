@@ -11,7 +11,7 @@
 //        openCommandPalette() / closeCommandPalette() from keybind.
 // ============================================================
 
-/** @typedef {{ scrollToSection: (id: string) => void, togglePower: () => void, toggleSound: () => void, activateProbe: () => void, deactivateProbe: () => void, linkedinUrl: string, githubUrl: string }} CPDeps */
+/** @typedef {{ scrollToSection: (id: string) => void, togglePower: () => void, toggleSound: () => void, activateProbe: () => void, deactivateProbe: () => void, toggleSysinfo: () => void, toggleDebug: () => void, linkedinUrl: string, githubUrl: string }} CPDeps */
 
 /** @type {CPDeps | null} */
 let deps = null;
@@ -28,21 +28,28 @@ let allCommands = /** @type {Array<{label: string, hint: string, icon: string, e
 function buildCommands() {
     if (!deps) return;
     allCommands = [
-        // ── Navigation
-        { icon: '▶', label: 'Go to About',      hint: 'U1 · CPU',       exec: () => deps && deps.scrollToSection('sec-about') },
-        { icon: '▶', label: 'Go to Projects',    hint: 'U2 · GPU',       exec: () => deps && deps.scrollToSection('sec-projects') },
-        { icon: '▶', label: 'Go to Skills',      hint: 'C1–C4 · CAP',   exec: () => deps && deps.scrollToSection('sec-skills') },
-        { icon: '▶', label: 'Go to Experience',  hint: 'J1 · USB',       exec: () => deps && deps.scrollToSection('sec-experience') },
-        { icon: '▶', label: 'Go to Contact',     hint: 'ANT1 · RF',      exec: () => deps && deps.scrollToSection('sec-contact') },
-        { icon: '⌂',  label: 'Go to Home',        hint: 'HERO · BOARD',   exec: () => deps && deps.scrollToSection('sec-hero') },
+        // ── Navigation — subsystems, not pages. Each hint keeps the ref so
+        // the terminal reads as a bus map; the plain section names live in
+        // the labels' parentheses so typing 'about' still finds its module.
+        { icon: '▶', label: 'Core Processor (About)',        hint: 'U1 · CPU',      exec: () => deps && deps.scrollToSection('sec-about') },
+        { icon: '▶', label: 'Expansion Modules (Projects)',  hint: 'U2 · GPU',      exec: () => deps && deps.scrollToSection('sec-projects') },
+        { icon: '▶', label: 'Component Library (Skills)',    hint: 'C1–C4 · CAP',   exec: () => deps && deps.scrollToSection('sec-skills') },
+        { icon: '▶', label: 'Signal History (Experience)',   hint: 'J1 · USB',      exec: () => deps && deps.scrollToSection('sec-experience') },
+        { icon: '▶', label: 'Transmission Interface (Contact)', hint: 'ANT1 · RF',  exec: () => deps && deps.scrollToSection('sec-contact') },
+        { icon: '⌂',  label: 'Go to Home',                    hint: 'HERO · BOARD',  exec: () => deps && deps.scrollToSection('sec-hero') },
         // ── Utilities
-        { icon: '◉', label: 'Toggle Night Bench',hint: 'P · PWR LED',    exec: () => deps && deps.togglePower() },
-        { icon: '♪', label: 'Toggle Sound',      hint: 'SND toggle',     exec: () => deps && deps.toggleSound() },
-        { icon: '✜', label: 'Fly Probe',          hint: 'WASD · scope',   exec: () => deps && deps.activateProbe() },
-        { icon: '⟳', label: 'Reset to Top',       hint: 'HERO · BOARD',   exec: () => deps && deps.scrollToSection('sec-hero') },
+        { icon: '◉', label: 'Toggle Night Bench',             hint: 'P · PWR LED',   exec: () => deps && deps.togglePower() },
+        { icon: '♪', label: 'Toggle Sound',                   hint: 'SND toggle',    exec: () => deps && deps.toggleSound() },
+        { icon: '✜', label: 'Fly Probe',                      hint: 'WASD · scope',  exec: () => deps && deps.activateProbe() },
+        { icon: '⟳', label: 'Reset to Top',                   hint: 'HERO · BOARD',  exec: () => deps && deps.scrollToSection('sec-hero') },
+        // ── Secret engineering readouts (easter eggs) — a reward for typing
+        // beyond the obvious: serial, rail voltage, die temp, uptime, firmware,
+        // and a raw FPS/frame debug view.
+        { icon: '⚡', label: 'System Telemetry',               hint: 'SN · V · TEMP', exec: () => deps && deps.toggleSysinfo() },
+        { icon: '⌬', label: 'Debug Overlay',                  hint: 'FPS · FRAME',   exec: () => deps && deps.toggleDebug() },
         // ── Links
-        { icon: '⬡', label: 'Open LinkedIn',     hint: 'Connect →',      exec: () => window.open(deps?.linkedinUrl, '_blank', 'noopener') },
-        { icon: '⬡', label: 'Open GitHub',        hint: 'Repos →',        exec: () => window.open(deps?.githubUrl, '_blank', 'noopener') },
+        { icon: '⬡', label: 'Open LinkedIn',                  hint: 'Connect →',     exec: () => window.open(deps?.linkedinUrl, '_blank', 'noopener') },
+        { icon: '⬡', label: 'Open GitHub',                    hint: 'Repos →',       exec: () => window.open(deps?.githubUrl, '_blank', 'noopener') },
     ];
 }
 

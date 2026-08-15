@@ -15,6 +15,7 @@ import { initPower, togglePower } from './src/three/power.js';
 import { initCursor } from './src/ui/cursor.js';
 import { initOscilloscope, updateOscilloscope } from './src/ui/oscilloscope.js';
 import { initCommandPalette, openCommandPalette } from './src/ui/command-palette.js';
+import { initTelemetry, toggleSysinfo, toggleDebug, updateTelemetry } from './src/ui/telemetry.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
@@ -176,8 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Build PCB Base Board Group
     createBoard(scene);
-    // Initialize oscilloscope HUD
+    // Initialize oscilloscope HUD + hidden telemetry overlays
     initOscilloscope();
+    initTelemetry();
 
     // 4. Construct board SMD/IC components
     createComponents(boardGroup);
@@ -291,6 +293,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateParticles(delta);
         // Update oscilloscope waveform
         updateOscilloscope(elapsed, document.body.dataset.hoverRef);
+        // Hidden telemetry readouts (no-op unless the palette revealed them)
+        updateTelemetry(elapsed, delta);
 
         // U1 CPU radar sweep (procedural, elapsed-driven)
         updateRadarRing(elapsed);
@@ -491,6 +495,8 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleSound: cmdSoundToggle,
         activateProbe,
         deactivateProbe,
+        toggleSysinfo,
+        toggleDebug,
         linkedinUrl: LINKEDIN_URL,
         githubUrl: GITHUB_URL
     });

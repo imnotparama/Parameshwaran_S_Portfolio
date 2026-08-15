@@ -3,7 +3,7 @@
 // Section content renderer — injects datasheet content from
 // portfolio data, and wires every LinkedIn/GitHub link.
 // ============================================================
-import { portfolioData } from '../data/portfolio.js';
+import { portfolioData, skillRoles } from '../data/portfolio.js';
 import { LINKEDIN_URL, GITHUB_URL } from '../config.js';
 import { setProjectFilter } from '../three/project-chips.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
@@ -77,15 +77,24 @@ function renderProjects() {
     grid.innerHTML = portfolioData.projects
         .map((p) => {
             const building = p.status === 'building';
+            const spec = (p.spec || []).map((s) => `<li>${esc(s)}</li>`).join('');
+            // Each module gets its own identity: subsystem theme + its own
+            // signal color (the same hex tints the 3D chip's LED on the board)
+            // + its own technical specification block. The problem field stays
+            // the primary read — WHAT it solves, not which tech it used.
             return `
-        <article class="proj-ds ${building ? 'is-building' : ''}" data-category="${esc(p.category || '')}">
+        <article class="proj-ds ${building ? 'is-building' : ''}" data-category="${esc(p.category || '')}" data-ref="${esc(p.ref)}">
             <span class="proj-ds-ref" aria-hidden="true">${esc(p.ref)}</span>
             <div class="proj-ds-head">
-                <span class="proj-ds-title">${esc(p.title)}</span>
+                <div class="proj-ds-title-wrap">
+                    <span class="proj-ds-theme"><i class="proj-signal" style="--sig:${esc(p.signal || '')}" aria-hidden="true"></i>${esc(p.theme || '')}</span>
+                    <span class="proj-ds-title">${esc(p.title)}</span>
+                </div>
                 <span class="proj-ds-status ${building ? 'building' : 'shipped'}" role="img" aria-label="${building ? 'In build' : 'Shipped'}"></span>
             </div>
             <div class="proj-field"><b>PROBLEM</b> ${esc(p.problem)}</div>
             <div class="proj-field"><b>STATE</b> ${esc(p.state)}</div>
+            ${spec ? `<ul class="proj-spec">${spec}</ul>` : ''}
             <a class="proj-ds-link" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">${esc(p.linkLabel)}</a>
         </article>`;
         })
@@ -146,11 +155,14 @@ function renderSkills() {
     const wrap = document.getElementById('skills-groups');
     if (!wrap) return;
 
+    // The library is organized as component banks — each skill is one part on
+    // the board, labeled with its component class (skillRoles): Python is the
+    // MCU, FastAPI is the COMM BUS, React is the DISPLAY CTRL, and so on.
     const groups = [
-        { label: 'C1 — ML / DATA SCIENCE TOOLS', items: portfolioData.skills.ai_ml },
-        { label: 'C2 — WEB / BACKEND', items: portfolioData.skills.web },
-        { label: 'C3 — DATA / ANALYTICS', items: portfolioData.skills.data },
-        { label: 'C4 — HARDWARE / CS FUNDAMENTALS', items: portfolioData.skills.hardware }
+        { label: 'C1 — AI ACCELERATOR BANK', items: portfolioData.skills.ai_ml },
+        { label: 'C2 — DISPLAY & I/O BANK', items: portfolioData.skills.web },
+        { label: 'C3 — STORAGE CONTROLLER BANK', items: portfolioData.skills.data },
+        { label: 'C4 — FIRMWARE & RF MODULES', items: portfolioData.skills.hardware }
     ];
 
     wrap.innerHTML = groups
@@ -158,7 +170,7 @@ function renderSkills() {
             (g) => `
         <div class="skill-group">
             <div class="skill-group-label">${esc(g.label)}</div>
-            <div class="skill-pills">${g.items.map((s) => `<span class="skill-pill">${esc(s)}</span>`).join('')}</div>
+            <div class="skill-pills">${g.items.map((s) => `<span class="skill-pill">${esc(s)}<em>${esc(skillRoles[s] || 'PASSIVE')}</em></span>`).join('')}</div>
         </div>`
         )
         .join('');
