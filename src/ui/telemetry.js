@@ -13,6 +13,7 @@
 // ============================================================
 
 import { portfolioData } from '../data/portfolio.js';
+import { getBestScore } from '../three/lcd.js';
 
 /** @type {HTMLElement | null} */
 let sysinfoEl = null;
@@ -83,7 +84,12 @@ export function updateTelemetry(elapsed, delta) {
         // Rail voltage + die temp wobble slowly around nominal — alive but stable.
         const v = 3.30 + Math.sin(elapsed * 0.13) * 0.015 + Math.sin(elapsed * 0.031) * 0.01;
         const temp = 43.5 + Math.sin(elapsed * 0.05) * 2.2 + Math.sin(elapsed * 0.011) * 1.1;
-        sysinfoEl.textContent = `${serial} · ${fw}\nRAIL ${v.toFixed(2)}V · DIE ${temp.toFixed(1)}°C · UP ${up}`;
+        // The machine's record — mirrors the LCD's best (module value, read
+        // per frame only while the chip is visible; omitted until one exists,
+        // same no-sad-zero convention as the rest of the board).
+        const rec = getBestScore();
+        sysinfoEl.textContent = `${serial} · ${fw}\nRAIL ${v.toFixed(2)}V · DIE ${temp.toFixed(1)}°C · UP ${up}`
+            + (rec > 0 ? ` · REC ${String(rec).padStart(2, '0')}` : '');
     }
     if (debugEl && !debugEl.hidden) {
         frameCount++;
