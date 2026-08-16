@@ -128,6 +128,9 @@ const { motionPrefs } = await import('../src/utils/motion-prefs.js');
 // ScrollTrigger plugins + guarded load listeners (no ScrollTrigger instances
 // until initJourney, which the test never calls).
 const { getCameraConfigForStop, computeDirectionalStop, wheelStepQueue, stepQueue } = await import('../src/scroll/journey.js');
+// hash-nav.js is the pure shareable-URL mapping — main.js's hash routing
+// (applyHashNavigation / navigateToSection) resolves every '#/...' through it.
+const { SECTION_HASHES, hashToSectionId } = await import('../src/utils/hash-nav.js');
 
 // NOTE: `board.boardGroup` is read via the module namespace GETTER after
 // createBoard runs — destructuring would snapshot the pre-create `undefined`.
@@ -532,6 +535,39 @@ mixedQ = stepQueue(mixedQ, 1);
 mixedQ = stepQueue(mixedQ, 1);
 mixedQ = stepQueue(mixedQ, -1);
 assert.strictEqual(mixedQ, 1, 'ArrowDown ×2 + ArrowUp → net 1 step');
+
+// ── 4b. Hash deep links — the shareable-URL mapping ──────────
+// Every section must be reachable by a stable URL (#/about, #/projects, ...)
+// exactly like #/lcd — hashToSectionId is the pure resolver main.js routes
+// through, so this asserts the contract headlessly:
+//   • all five sections resolve from their slugs (and round-trip back)
+//   • the bare root (empty hash) lands on the hero
+//   • 'lcd' belongs to the game, not a section — resolves to null
+//   • unknown hashes resolve to null (never a wrong section)
+//   • hand-typed hashes work: optional '#/' prefix + case-insensitive
+const HASH_SECTIONS = [
+    ['about', 'sec-about'],
+    ['projects', 'sec-projects'],
+    ['skills', 'sec-skills'],
+    ['experience', 'sec-experience'],
+    ['contact', 'sec-contact']
+];
+for (const [slug, secId] of HASH_SECTIONS) {
+    assert.strictEqual(hashToSectionId(`#/${slug}`), secId, `hash #/${slug} → ${secId}`);
+    assert.strictEqual(hashToSectionId(slug), secId, `bare slug ${slug} → ${secId}`);
+    // The shareable registry round-trips: the section's own slug resolves
+    // back to it (no stale duplicate mapping).
+    assert.strictEqual(SECTION_HASHES[secId], slug, `SECTION_HASHES[${secId}] = '${slug}'`);
+}
+// Every registered section is covered by the list above (the hero is the
+// empty-slug entry, intentionally reachable only via the bare root).
+assert.strictEqual(Object.keys(SECTION_HASHES).length, 6, 'exactly six sections in the registry');
+assert.strictEqual(hashToSectionId(''), 'sec-hero', 'empty hash → hero');
+assert.strictEqual(hashToSectionId('#/'), 'sec-hero', "'#/' → hero");
+assert.strictEqual(hashToSectionId('#/lcd'), null, '#/lcd is the game branch, not a section');
+assert.strictEqual(hashToSectionId('#/nope'), null, 'unknown hash → null');
+assert.strictEqual(hashToSectionId('#/ABOUT'), 'sec-about', 'hash resolution is case-insensitive');
+assert.strictEqual(hashToSectionId('#about'), 'sec-about', "'#about' (no slash) resolves too");
 
 // ── 5e. Phase E — LCD1 SIGNAL REPAIR (state machine + movement + keys) ──
 // The 128×64 monochrome LCD game: boot POST → ready (idle) → Enter starts a
@@ -991,6 +1027,7 @@ console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
 console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
 console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, touch steering (tap-start / swipe-steer / tap-pause-resume), pause (P/Enter/tap, frozen timer, dimmed glow, inert movement), screen glow, #/lcd deep-link boot replay, timer loss + scripted MISSION COMPLETE, persistent best + NEW RECORD flash`);
+console.log(`  hash deep links: #/about #/projects #/skills #/experience #/contact resolve to their sections (round-trip), bare root → hero, #/lcd + unknown → null, case/slash-insensitive`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);

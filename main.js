@@ -21,26 +21,14 @@ import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
 import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode, focusLcdCamera } from './src/scroll/journey.js';
+import { SECTION_HASHES, hashToSectionId } from './src/utils/hash-nav.js';
 
 // ─── Hash-based deep links ─────────────────────────────────
 // Each section gets a shareable URL (#/about, #/projects, ...). Nav clicks
 // pushState + scroll; back/forward fire hashchange/popstate and we scroll
 // to match the hash — so every section is linkable and the back button works.
-const SECTION_HASHES = {
-    'sec-hero': '',
-    'sec-about': 'about',
-    'sec-projects': 'projects',
-    'sec-skills': 'skills',
-    'sec-experience': 'experience',
-    'sec-contact': 'contact'
-};
-
-function sectionFromHash() {
-    const raw = window.location.hash.replace(/^#\/?/, '').trim().toLowerCase();
-    if (!raw) return 'sec-hero';
-    const secId = `sec-${raw}`;
-    return document.getElementById(secId) ? secId : null;
-}
+// The hash → section mapping lives in src/utils/hash-nav.js (pure, so the
+// smoke suite can assert it); '#/lcd' is reserved for the LCD game below.
 
 // True once the boot sequence completes and the scroll journey is live — the
 // board's arrival tween owns its position until then, so levitation must not
@@ -62,7 +50,7 @@ function applyHashNavigation() {
         if (!document.body.classList.contains('lcd-active')) focusLcdCamera(true);
         return;
     }
-    const secId = sectionFromHash();
+    const secId = hashToSectionId(window.location.hash);
     if (secId) scrollToSection(secId);
 }
 
