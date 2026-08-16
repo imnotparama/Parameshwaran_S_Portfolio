@@ -107,7 +107,9 @@ const GLOW_STEADY = 0.22;       // reduced-motion playing value (no pulse)
 const GLOW_PAUSED = 0.08;       // dimmed steady value while paused
 const GLOW_FADE = 3.0;          // opacity fade rate toward the target (/s)
 const BOOT_SEC = 2.9;           // POST sequence duration
-const IDLE_BLINK_MS = 15000;    // prompt starts blinking after 15s idle
+const COUNT_SEC = 3.0;          // 3-2-1 auto-start countdown after boot (1s per digit)
+const COUNT_DIGIT = 1.0;        // seconds per countdown digit
+const IDLE_BLINK_MS = 15000;    // prompt starts blinking after 15s idle (reduced-motion ready screen)
 const BLINK_SEC = 0.8;          // blink period once armed
 
 // Monochrome phosphor — black + green only (shades for ghost/scanline).
@@ -188,10 +190,13 @@ let glowCurrent = 0;            // smoothed glow opacity (fades toward target)
 /** @type {CanvasRenderingContext2D | null} */ let ghostCtx = null;
 
 // ─── Game state ─────────────────────────────────────────────
-/** @typedef {'off' | 'boot' | 'ready' | 'playing' | 'paused' | 'over'} LcdState */
+/** @typedef {'off' | 'boot' | 'ready' | 'count' | 'playing' | 'paused' | 'over'} LcdState */
 let state = /** @type {LcdState} */ ('off');
 let bootAccum = 0;
 let idleAccum = 0;              // seconds on the title screen (blink arming)
+let countAccum = 0;             // seconds into the auto-start countdown
+let curSpeed = 0;               // current world speed px/s (HUD readout)
+let fpsSmooth = 0;              // smoothed FPS (display-only, never feeds determinism)
 let runElapsed = 0;             // seconds into the current run
 let dist = 0;                   // px scrolled (the "distance" stat)
 let score = 0;
@@ -380,7 +385,17 @@ function startRun() {
     spawnAccum = 0;
     elSpawnAccum = 0;
     achvNewThisRun = [];
+    curSpeed = 0;
+    fpsSmooth = 0;
     dirty = true;
+}
+
+/** Skip the countdown (Enter / tap on the count screen) — the run starts
+ *  this instant. Player runs re-seed the fixed LCG, so the same trace
+ *  layout plays whether the countdown ran or was skipped. */
+function skipCountdown() {
+    if (state !== 'count') return;
+    startRun();
 }
 
 /** Freeze the run — P, or a two-finger tap while playing. Everything stops;
@@ -617,6 +632,7 @@ function stepPlay(delta) {
     // World speed (the pulse auto-runs; the trace scrolls under it).
     const base = Math.min(MAX_SPEED, BASE_SPEED + dist * SPEED_RAMP);
     const speed = base * (turbo > 0 ? 1.5 : 1) * (dashing ? 1.7 : 1);
+    curSpeed = Math.round(speed); // HUD readout — display-only, never in the snapshot hash
     const obsSpeed = speed * (stabilizer > 0 ? 0.6 : 1);
     dist += speed * delta;
     scoreAccum += speed * delta / SCORE_PX;
@@ -743,10 +759,18 @@ function stepRunner(delta) {
     if (state === 'boot') {
         bootAccum += delta;
         if (bootAccum >= BOOT_SEC) {
-            state = 'ready';
-            idleAccum = 0;
+            state = 'count';
+            countAccum = 0;
             dirty = true;
         }
+        return;
+    }
+    if (state === 'count') {
+        // Auto-start: after the POST the run begins on its own — 3, 2, 1,
+        // then the pulse launches. Enter/tap skips the countdown (the same
+        // fixed LCG re-seed, so skipping never changes the layout).
+        countAccum += delta;
+        if (countAccum >= COUNT_SEC) startRun();
         return;
     }
     if (state === 'ready') {
@@ -775,8 +799,8 @@ function drawHud(c) {
     drawText(c, `SIG:${String(score).padStart(3, '0')}`, 2, 1, C_BRIGHT);
     const distStr = `DIST:${String(Math.floor(dist)).padStart(4, '0')}`;
     drawText(c, distStr, CANVAS_W - 2 - textWidth(distStr), 1, C_BRIGHT);
-    if (combo > 1) drawText(c, `x${combo}`, 58, 1, C_DIM);
-    if (electrons > 0) drawText(c, `E:${electrons}`, 44, 1, C_DIM);
+    if (combo > 1) drawText(c, `x${combo}`, 56, 1, C_DIM);
+    if (electrons > 0) drawText(c, `E:${electrons}`, 42, 1, C_DIM);
     // Active power-ups — a tiny status row under the HUD.
     let pwr = '';
     if (shield) pwr += 'SH ';
@@ -785,6 +809,10 @@ function drawHud(c) {
     if (stabilizer > 0) pwr += 'ST ';
     if (magnet > 0) pwr += 'MG ';
     if (pwr) drawText(c, pwr.trim(), 2, 9, C_DIM);
+    // Live telemetry — current trace speed and frame rate (display-only
+    // readouts; fpsSmooth never feeds the deterministic simulation).
+    drawText(c, `SPD:${String(curSpeed).padStart(3, '0')}`, 2, 58, C_DIM);
+    drawText(c, `FPS:${String(Math.min(999, Math.max(0, Math.round(fpsSmooth)))).padStart(3, '0')}`, CANVAS_W - 2 - textWidth('FPS:999'), 58, C_DIM);
 }
 
 /** @param {CanvasRenderingContext2D} c */
@@ -980,9 +1008,28 @@ function drawReady(c) {
     const armed = idleAccum >= IDLE_BLINK_MS / 1000;
     const visible = !armed || (Math.floor(idleAccum / BLINK_SEC) % 2 === 0);
     if (visible) {
-        drawTextCentered(c, 'PRESS ENTER TO RUN', 50, C_BRIGHT);
+        drawTextCentered(c, 'AUTO-START: RUN', 50, C_BRIGHT);
     }
     drawTextCentered(c, 'UP/W JUMP · DOWN/S SLIDE', 59, C_FAINT);
+}
+
+/** The auto-start countdown — 3, 2, 1 on the trace, then the pulse launches.
+ *  Enter/tap skips it (the run starts this instant — the LCG re-seed makes
+ *  a skipped countdown play the identical layout). @param {CanvasRenderingContext2D} c */
+function drawCount(c) {
+    const digit = Math.max(1, Math.ceil((COUNT_SEC - countAccum) / COUNT_DIGIT));
+    const frac = (countAccum % COUNT_DIGIT) / COUNT_DIGIT; // 0→1 within the digit
+    // A big centered digit with a faint echo — the number "wipes down" into
+    // the trace like a firmware boot tick.
+    const big = String(digit);
+    const bw = textWidth(big) * 2;
+    drawText(c, big, Math.floor((CANVAS_W - bw) / 2), 20, C_FAINT);
+    drawText(c, big, Math.floor((CANVAS_W - bw) / 2), 20 + Math.round(frac * 6), C_BRIGHT);
+    drawTextCentered(c, 'GET READY', 36, C_DIM);
+    drawTextCentered(c, 'ENTER / TAP SKIP', 50, C_FAINT);
+    // The copper trace with the pulse standing at the start line.
+    drawGround(c);
+    drawRunner(c);
 }
 
 /** @param {CanvasRenderingContext2D} c */
@@ -1068,6 +1115,7 @@ function drawFrame(delta) {
     if (state === 'off') drawOff(c);
     else if (state === 'boot') drawBoot(c);
     else if (state === 'ready') drawReady(c);
+    else if (state === 'count') drawCount(c);
     else if (state === 'playing') drawPlaying(c);
     else if (state === 'paused') drawPaused(c);
     else drawOver(c);
@@ -1102,7 +1150,9 @@ function drawStaticFrame() {
     if (state === 'ready') {
         drawTextCentered(c, 'SIGNAL RUNNER', 20, C_BRIGHT);
         drawTextCentered(c, '2.4IN LCD1', 32, C_DIM);
-        drawTextCentered(c, 'PRESS ENTER TO RUN', 44, C_BRIGHT);
+        // Reduced motion parks at the title — the auto-start countdown can't
+        // advance without interaction, so a key/tap launches the run instead.
+        drawTextCentered(c, 'ENTER TO RUN', 44, C_BRIGHT);
         if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(3, '0')}`, 54, C_DIM);
     }
 }
@@ -1147,7 +1197,7 @@ export function setBestListener(fn) {
  *  heartbeat while the game is focused (spikes on jump/dash, flatline when
  *  the run ends). @returns {{ active: boolean, state: string, jumping: boolean, sliding: boolean, dashing: boolean, shielded: boolean, over: boolean, paused: boolean, speed01: number }} */
 export function getRunnerScope() {
-    const speed = state === 'playing' ? Math.min(MAX_SPEED, BASE_SPEED + dist * SPEED_RAMP) : 0;
+    const speed = state === 'playing' || state === 'count' ? Math.min(MAX_SPEED, BASE_SPEED + dist * SPEED_RAMP) : 0;
     return {
         active: isLcdActive(),
         state,
@@ -1196,7 +1246,7 @@ export function exitLcd() {
  *  pattern as journey.js's stepQueue / idle.js's idleDriftOffset). The game
  *  must be deterministic: the same tick schedule + inputs from the same
  *  state yield the identical snapshot every run.
- *  @returns {{ state: string, score: number, best: number, dist: number, electrons: number, combo: number, maxCombo: number, perfects: number, player: { x: number, y: number, vy: number, onGround: boolean, sliding: boolean, dashing: boolean, invuln: number, jumpsUsed: number }, obstacles: Array<{ type: string, x: number, y: number }>, powerups: { shield: boolean, overclock: number, turbo: number, stabilizer: number, magnet: number }, over: boolean, paused: boolean, newRecord: boolean, achvCount: number, boardLen: number, glowOpacity: number, playerActive: boolean, idleAccum: number, debug: boolean, frameHash: string }} */
+ *  @returns {{ state: string, score: number, best: number, dist: number, electrons: number, combo: number, maxCombo: number, perfects: number, player: { x: number, y: number, vy: number, onGround: boolean, sliding: boolean, dashing: boolean, invuln: number, jumpsUsed: number }, obstacles: Array<{ type: string, x: number, y: number }>, powerups: { shield: boolean, overclock: number, turbo: number, stabilizer: number, magnet: number }, over: boolean, paused: boolean, count: boolean, newRecord: boolean, achvCount: number, boardLen: number, glowOpacity: number, playerActive: boolean, idleAccum: number, debug: boolean, speed: number, fps: number, frameHash: string }} */
 export function lcdStateSnapshot() {
     // FNV-1a over the observable state — a compact, deterministic fingerprint
     // of the current simulation (the runner + its world).
@@ -1222,6 +1272,7 @@ export function lcdStateSnapshot() {
         powerups: { shield, overclock: Math.round(overclock * 100) / 100, turbo: Math.round(turbo * 100) / 100, stabilizer: Math.round(stabilizer * 100) / 100, magnet: Math.round(magnet * 100) / 100 },
         over: state === 'over',
         paused: state === 'paused',
+        count: state === 'count',
         newRecord,
         achvCount: achvUnlocked.size,
         boardLen: leaderboard.length,
@@ -1229,6 +1280,11 @@ export function lcdStateSnapshot() {
         playerActive,
         idleAccum,
         debug,
+        // Display-only telemetry — mirrored for the headless suite to assert
+        // bounds; deliberately NOT in the hash above (FPS is frame-rate
+        // dependent, so it must never feed the determinism fingerprint).
+        speed: curSpeed,
+        fps: Math.round(fpsSmooth),
         frameHash: (h >>> 0).toString(16)
     };
 }
@@ -1242,10 +1298,17 @@ export function lcdStateSnapshot() {
  *  @param {number} delta */
 export function updateLcdScreen(elapsed, delta) {
     frameCount++;
+    // FPS smoothing for the HUD readout — a first-order low-pass over the
+    // per-frame rate. DISPLAY-ONLY: never feeds the simulation or the
+    // snapshot hash, so determinism is untouched.
+    if (delta > 0) {
+        const inst = 1 / delta;
+        fpsSmooth = fpsSmooth > 0 ? fpsSmooth + (inst - fpsSmooth) * Math.min(1, delta * 3) : inst;
+    }
     // Bezel power LED — the power indicator: bright while a run is live,
     // dimmer while the machine is on, near-off when powered down.
     if (bezelLedMat) {
-        bezelLedMat.emissiveIntensity = state === 'playing' ? 1.6
+        bezelLedMat.emissiveIntensity = state === 'playing' || state === 'count' ? 1.6
             : state === 'paused' ? 1.0
             : state === 'boot' || state === 'ready' ? 0.9
             : state === 'over' ? 0.6
@@ -1259,7 +1322,7 @@ export function updateLcdScreen(elapsed, delta) {
         if (motionPrefs.reduced) {
             glowCurrent = state === 'playing' ? GLOW_STEADY : state === 'paused' ? GLOW_PAUSED : 0;
         } else {
-            const target = state === 'playing'
+            const target = state === 'playing' || state === 'count'
                 ? GLOW_BASE + GLOW_AMP * (0.5 + 0.5 * Math.sin(elapsed * GLOW_FREQ * Math.PI * 2 + GLOW_PHASE))
                 : state === 'paused' ? GLOW_PAUSED : 0;
             glowCurrent += (target - glowCurrent) * Math.min(1, delta * GLOW_FADE);
@@ -1281,8 +1344,9 @@ export function updateLcdScreen(elapsed, delta) {
     }
     // The boot POST wipes in progressively — redraw every frame while booting.
     if (state === 'boot') dirty = true;
-    // The runner animates every frame while playing.
-    if (state === 'playing') dirty = true;
+    // The runner animates every frame while playing; the countdown digit
+    // slides down each second, so it redraws every frame too.
+    if (state === 'playing' || state === 'count') dirty = true;
     // The title prompt blinks once armed — redraw on the blink transition.
     if (state === 'ready') {
         const armed = idleAccum >= IDLE_BLINK_MS / 1000;
@@ -1499,12 +1563,16 @@ export function createLcd(boardGroup) {
                 resumeRun();
                 return;
             }
+            if (state === 'count') {
+                skipCountdown();
+                return;
+            }
             if (state === 'ready' || state === 'over') startRun();
             return;
         }
         if (key === 'p' || key === 'P') {
             e.preventDefault();
-            if (state === 'playing') pauseRun();
+            if (state === 'playing' || state === 'count') pauseRun();
             else if (state === 'paused') resumeRun();
             return;
         }
@@ -1581,7 +1649,7 @@ export function createLcd(boardGroup) {
         if (twoFinger) {
             // A second finger = pause (the touch P).
             if (e.cancelable) e.preventDefault();
-            if (state === 'playing') pauseRun();
+            if (state === 'playing' || state === 'count') pauseRun();
             else if (state === 'paused') resumeRun();
             twoFinger = false;
             touchSteered = false;
@@ -1599,7 +1667,11 @@ export function createLcd(boardGroup) {
             touchSteered = false;
             return;
         }
-        if (state === 'ready' || state === 'over') {
+        if (state === 'count') {
+            // Tap on the countdown = skip it — the run starts this instant.
+            if (e.cancelable) e.preventDefault();
+            skipCountdown();
+        } else if (state === 'ready' || state === 'over') {
             // Tap on the title/result screen = Enter (start / retry).
             if (e.cancelable) e.preventDefault();
             startRun();

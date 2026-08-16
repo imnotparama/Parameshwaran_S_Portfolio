@@ -571,15 +571,17 @@ assert.strictEqual(hashToSectionId('#about'), 'sec-about', "'#about' (no slash) 
 
 // ── 5e. Phase E — LCD1 SIGNAL RUNNER (power cycle + physics + keys) ──
 // The 128×64 monochrome LCD runner: the display is OFF at rest; focusing it
-// (click or #/lcd) powers it on — boot POST → title → Enter starts the run.
-// The pulse auto-runs; Up/W/Space jump (double jump), Down/S slide under
-// beams, D/Shift dash (invulnerable), P pause, ~ hidden debug, Esc powers
-// off. Every run re-seeds the fixed LCG, so the SAME trace plays each time:
-// an unsteered run dies at the same sim-time with the same score, and
-// records are comparable. lcdStateSnapshot is the pure seam (same pattern
-// as journey's stepQueue / idle's drift offset). Assertions:
-//   • the power cycle — createLcd leaves it 'off'; focusLcd boots → ready;
-//     exitLcd powers back down
+// (click or #/lcd) powers it on — boot POST → 3-2-1 countdown → the run
+// AUTO-STARTS (Enter/tap skips the countdown; the LCG re-seed makes a
+// skipped countdown play the identical layout). The pulse auto-runs;
+// Up/W/Space jump (double jump), Down/S slide under beams, D/Shift dash
+// (invulnerable), P pause, ~ hidden debug, Esc powers off. Every run
+// re-seeds the fixed LCG, so the SAME trace plays each time: an unsteered
+// run dies at the same sim-time with the same score, and records are
+// comparable. lcdStateSnapshot is the pure seam (same pattern as journey's
+// stepQueue / idle's drift offset). Assertions:
+//   • the power cycle — createLcd leaves it 'off'; focusLcd boots → count;
+//     the countdown auto-starts the run; exitLcd powers back down
 //   • the auto-runner — an unsteered run scrolls (dist grows) and scores
 //     from distance without any input
 //   • physics — a jump lifts the pulse (vy < 0, jumpsUsed 1) and gravity
@@ -596,7 +598,7 @@ assert.strictEqual(hashToSectionId('#about'), 'sec-about', "'#about' (no slash) 
 //     the record (localStorage) + a leaderboard entry + FIRST RUN; an
 //     identical second run scores the same and does NOT re-fire the listener
 motionPrefs.reduced = false; // the boot POST must auto-advance in this phase
-const LCD_BOOT_TICKS = Math.ceil(2.9 / DT) + 5;
+const LCD_BOOT_TICKS = Math.ceil(2.9 / DT) + 1; // cross the boot boundary (2.9s) into the countdown
 
 // The display starts powered down.
 exitLcd(); // re-arm from earlier phases (mid-state safety)
@@ -629,42 +631,54 @@ cancelledKeys = [];
 fakeKey('ArrowUp');
 assert.strictEqual(cancelledKeys.length, 0, 'LCD: keys must pass through while inactive');
 
-// Focus powers the machine on: boot POST → title. The title screen is pure —
-// 2s of idle changes nothing observable (only idle time accrues).
+// Focus powers the machine on: boot POST → auto-start countdown → the run
+// LAUNCHES ITSELF — no Enter needed. The countdown is pure (3-2-1 digits);
+// the same fixed LCG re-seed means skipping it (Enter/tap) plays the
+// identical layout.
 focusLcd();
 assert.ok(isLcdActive(), 'LCD: focusLcd() sets the exclusive-keys class');
 assert.strictEqual(lcdStateSnapshot().state, 'boot', 'LCD: focusing powers the machine on (boot POST)');
 for (let i = 0; i < LCD_BOOT_TICKS; i++) updateLcdScreen(0, DT);
 const booted = lcdStateSnapshot();
-assert.strictEqual(booted.state, 'ready', 'LCD: the boot POST ends at the title screen');
-assert.strictEqual(booted.score, 0, 'LCD: the title is scoreless');
+assert.strictEqual(booted.state, 'count', 'LCD: the boot POST ends in the auto-start countdown');
+assert.strictEqual(booted.count, true, 'LCD: the snapshot reports the countdown state');
+assert.strictEqual(booted.score, 0, 'LCD: the countdown is scoreless');
 assert.strictEqual(booted.best, 0, 'LCD: best starts at 0 with no record');
 assert.strictEqual(booted.achvCount, 0, 'LCD: no achievements before a first run');
 assert.strictEqual(booted.boardLen, 0, 'LCD: an empty leaderboard before a first run');
-const idleA = lcdStateSnapshot();
-for (let i = 0; i < 120; i++) updateLcdScreen(0, DT); // 2s idle
-const idleB = lcdStateSnapshot();
-assert.strictEqual(idleB.frameHash, idleA.frameHash, 'LCD: the title screen must be deterministic (no auto-play)');
-assert.strictEqual(idleB.state, idleA.state, 'LCD: title idle must not change state');
-assert.ok(idleB.idleAccum > idleA.idleAccum, `LCD: title idle time accumulates (${idleA.idleAccum} → ${idleB.idleAccum})`);
+// The countdown auto-advances: 3s → playing, with dist still 0 (nothing
+// has scrolled yet) and the pulse grounded at the start line. Step to the
+// boundary plus the transition tick (the run starts the instant countAccum
+// crosses 3s — that tick itself is still pre-gameplay).
+for (let i = 0; i < Math.ceil(3.0 / DT) + 1; i++) updateLcdScreen(0, DT);
+const autoStarted = lcdStateSnapshot();
+assert.strictEqual(autoStarted.state, 'playing', 'LCD: the countdown auto-starts the run (no input)');
+assert.strictEqual(autoStarted.dist, 0, 'LCD: the auto-start begins at distance 0');
+assert.strictEqual(autoStarted.player.onGround, true, 'LCD: the pulse starts grounded at the trace');
 
-// Active gate: action keys are captured from the moment of focus; Enter
-// starts the run from the title screen; the pulse auto-runs (dist + score
-// grow without input).
+// Active gate: action keys are captured from the moment of focus; a bound
+// action key is preventDefaulted but leaves the run running. The pulse
+// auto-runs (dist + score grow without input).
 cancelledKeys = [];
 fakeKey('ArrowUp');
 assert.deepStrictEqual(cancelledKeys, ['ArrowUp'], 'LCD: action keys are captured from the moment of focus');
-assert.strictEqual(lcdStateSnapshot().state, 'ready', 'LCD: a keypress before a run starts must not change state');
-fakeKey('Enter');
-const started = lcdStateSnapshot();
-assert.strictEqual(started.state, 'playing', 'LCD: Enter starts a run from the title screen');
-assert.strictEqual(started.dist, 0, 'LCD: a run starts at distance 0');
-assert.strictEqual(started.player.onGround, true, 'LCD: the pulse starts grounded');
+assert.strictEqual(lcdStateSnapshot().state, 'playing', 'LCD: a jump press during a run must not stop it');
 const runA = lcdStateSnapshot();
 for (let i = 0; i < 30; i++) updateLcdScreen(0.5 + i / 60, DT); // 0.5s
 const runB = lcdStateSnapshot();
 assert.ok(runB.dist > runA.dist, `LCD: the pulse auto-runs (dist ${runA.dist} → ${runB.dist})`);
 assert.ok(runB.score >= runA.score, 'LCD: distance accrues score without input');
+assert.ok(runB.player.x >= runA.player.x, 'LCD: the pulse moves along the trace');
+// Display telemetry — the HUD reads SPD + FPS; both hold real in-range
+// values while running (FPS is frame-rate dependent, so it lives OUTSIDE
+// the determinism hash — this is why the identical-runs assertions above
+// still hold while these vary by platform).
+assert.ok(runB.speed >= 85 && runB.speed <= 150, `LCD: the HUD speed stays in range (${runB.speed})`);
+assert.ok(runB.fps > 0 && runB.fps <= 240, `LCD: the HUD FPS reads a real rate (${runB.fps})`);
+// Let the gate-check jump arc complete so the physics block starts from a
+// grounded pulse (a mid-air press would read as the double jump).
+for (let i = 0; i < 40; i++) updateLcdScreen(1 + i / 60, DT); // ~0.66s — full jump arc
+assert.strictEqual(lcdStateSnapshot().player.onGround, true, 'LCD: the pulse is grounded before the physics block');
 
 // Physics — all within the first ~130 ticks (the first obstacle arrives
 // ~170 ticks in), so these inputs cannot dodge it and the unsteered death
@@ -742,7 +756,7 @@ assert.strictEqual(getBestScore(), 0, 'LCD: no record before the first death');
 const unsteeredRun = () => {
     focusLcd();
     for (let i = 0; i < LCD_BOOT_TICKS; i++) updateLcdScreen(0, DT);
-    fakeKey('Enter');
+    for (let i = 0; i < Math.ceil(3.0 / DT) + 1; i++) updateLcdScreen(0, DT); // auto-start countdown
     let guard = 0;
     let s = lcdStateSnapshot();
     while (!s.over && guard < 6000) {
@@ -787,7 +801,7 @@ assert.deepStrictEqual(bestEvents, [deathScore], 'LCD: an identical run must not
 const touchRun = () => {
     focusLcd();
     for (let i = 0; i < LCD_BOOT_TICKS; i++) updateLcdScreen(0, DT);
-    fakeKey('Enter');
+    for (let i = 0; i < Math.ceil(3.0 / DT) + 1; i++) updateLcdScreen(0, DT); // auto-start countdown
 };
 // Tap while running = the touch Up (jump).
 touchRun();
@@ -832,7 +846,7 @@ fakeKey('Escape');
 focusLcd(true);
 assert.strictEqual(lcdStateSnapshot().state, 'boot', 'LCD: a deep-link focus replays the boot POST');
 for (let i = 0; i < LCD_BOOT_TICKS; i++) updateLcdScreen(0, DT);
-assert.strictEqual(lcdStateSnapshot().state, 'ready', 'LCD: the replayed boot lands on the title screen');
+assert.strictEqual(lcdStateSnapshot().state, 'count', 'LCD: the replayed boot lands in the auto-start countdown');
 fakeKey('Escape');
 assert.ok(!isLcdActive(), 'LCD: clean exit after the deep-link replay test');
 assert.strictEqual(lcdStateSnapshot().state, 'off', 'LCD: powered down after the replay test');
@@ -1000,7 +1014,7 @@ console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
 console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
-console.log(`  phase E: LCD1 SIGNAL RUNNER — power cycle (off→boot→title→off), auto-run + distance scoring, jump/double-jump/slide/dash physics, exclusive keys + ~ debug, pause (frozen world, dimmed glow), touch (tap-jump / swipe-slide / two-finger-pause / scroll-lock), deterministic unsteered death → record + leaderboard + FIRST RUN, identical re-run holds the record, #/lcd boot replay`);
+console.log(`  phase E: LCD1 SIGNAL RUNNER — power cycle (off→boot→3-2-1 countdown→auto-start→off), SPD/FPS HUD telemetry, auto-run + distance scoring, jump/double-jump/slide/dash physics, exclusive keys + ~ debug, pause (frozen world, dimmed glow), touch (tap-jump / swipe-slide / two-finger-pause / scroll-lock), deterministic unsteered death → record + leaderboard + FIRST RUN, identical re-run holds the record, #/lcd boot replay`);
 console.log(`  hash deep links: #/about #/projects #/skills #/experience #/contact resolve to their sections (round-trip), bare root → hero, #/lcd + unknown → null, case/slash-insensitive`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
