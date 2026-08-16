@@ -117,7 +117,7 @@ const { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses
 const idle = await import('../src/three/idle.js');
 const { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } = await import('../src/three/particles.js');
 const { createProjectChips, updateProjectChips } = await import('../src/three/project-chips.js');
-const { createLcd, updateLcdScreen, focusLcd, exitLcd, isLcdActive, lcdStateSnapshot } = await import('../src/three/lcd.js');
+const { createLcd, updateLcdScreen, focusLcd, exitLcd, isLcdActive, lcdStateSnapshot, getBestScore, setBestListener } = await import('../src/three/lcd.js');
 const { mouse, initHover, checkHover, clearHover } = await import('../src/utils/hover.js');
 const { motionPrefs } = await import('../src/utils/motion-prefs.js');
 // journey.js's getCameraConfigForStop exports the per-viewport hero pose —
@@ -668,6 +668,13 @@ assert.strictEqual(lost.newRecord, false, 'LCD: a scoreless loss is not a new re
 // Win: a scripted walk collects all TARGET packets → MISSION COMPLETE, and
 // the finished run's score becomes the persisted best (localStorage).
 const bestKey = 'parama-signal-repair-best';
+// The record also surfaces OFF the LCD — the board-readout mirror: the
+// getter reads the same module value, and the listener fires on a new
+// record (main.js mirrors it into the About/Contact readouts in the
+// browser; here we assert the contract headlessly).
+const bestEvents = [];
+setBestListener((b) => bestEvents.push(b));
+assert.strictEqual(getBestScore(), 0, 'LCD: no record before the first win');
 const walkAll = () => {
     let guard = 0;
     let snap = lcdStateSnapshot();
@@ -699,6 +706,8 @@ assert.strictEqual(won.score, LCD_TARGET, `LCD: a winning run collects all ${LCD
 assert.strictEqual(won.best, LCD_TARGET, 'LCD: the winning run sets best equal to its score');
 assert.strictEqual(won.newRecord, true, 'LCD: beating the record flags a new record');
 assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(LCD_TARGET), 'LCD: the new best is persisted to localStorage');
+assert.strictEqual(getBestScore(), LCD_TARGET, 'LCD: getBestScore mirrors the new record');
+assert.deepStrictEqual(bestEvents, [LCD_TARGET], 'LCD: the best listener fires once with the new record');
 
 // A worse run (unsteered timeout, score 0) must not lower the record.
 fakeKey('Enter');
@@ -708,6 +717,7 @@ assert.ok(worse.over && !worse.win, 'LCD: the worse run loses');
 assert.strictEqual(worse.best, LCD_TARGET, 'LCD: a worse run must not lower the record');
 assert.strictEqual(worse.newRecord, false, 'LCD: a run below the record is not flagged');
 assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(LCD_TARGET), 'LCD: storage unchanged by a worse run');
+assert.deepStrictEqual(bestEvents, [LCD_TARGET], 'LCD: a run below the record must not re-fire the listener');
 
 // The record survives a re-arm (exitLcd) and is the value a fresh boot
 // would load.

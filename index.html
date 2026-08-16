@@ -247,6 +247,10 @@
                         <tr><th scope="row">FAB</th><td>SRM IST &mdash; Ramapuram, Chennai</td></tr>
                         <tr><th scope="row">CLK</th><td>Daily builds &mdash; ML &middot; DSA &middot; flyrank.ai</td></tr>
                         <tr><th scope="row">VREF</th><td id="about-vref">GPA 9.48 / 10 &middot; 3.30V nominal</td></tr>
+                        <!-- REC — the LCD game's record, mirrored here by main.js
+                             (hidden until the machine has one; same no-sad-zero
+                             convention as the LCD's own BEST line). -->
+                        <tr id="about-rec-row" hidden><th scope="row">REC</th><td>SIGNAL REPAIR &middot; BEST <span id="about-rec-val">—</span></td></tr>
                     </tbody>
                 </table>
                 <p class="ds-body text-pretty">Hi, I'm Parameshwaran &mdash; a 3rd-year ECE student specializing in Data Science at SRM Ramapuram. I'm still learning, and I don't pretend to have it all figured out &mdash; but I show up daily: working through ML and DSA problems, prepping for my Azure Data Fundamentals certification, and building flyrank.ai, my own startup project, from the ground up.<br><br>Outside of code, I'm teaching myself Blender because I like understanding how things work end to end, not just the parts I'm comfortable with. If you're looking for someone who's genuinely curious and puts in real effort, that's me.</p>
@@ -311,7 +315,7 @@
                 <div class="contact-footer">
                     <span>PARAMESHWARAN S &mdash; CHENNAI, INDIA</span>
                     <span>Built with Three.js + GSAP + Vite</span>
-                    <span>SN PARAMA-2007-0401 &middot; FW 2007.0401</span>
+                    <span>SN PARAMA-2007-0401 &middot; FW 2007.0401<span id="contact-best"></span></span>
                     <span>&copy; 2026 &mdash; ALL SYSTEMS SECURED</span>
                 </div>
             </div>

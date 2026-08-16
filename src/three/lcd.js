@@ -96,6 +96,8 @@ const C_FAINT = '#0a3d22';
 const BEST_KEY = 'parama-signal-repair-best';
 /** @type {number} */
 let bestScore = 0;
+/** @type {((best: number) => void) | null} */
+let bestListener = null;
 
 /** @returns {Storage | null} */
 function getBestStorage() {
@@ -308,6 +310,9 @@ function endRun(win) {
     if (newRecord) {
         bestScore = score;
         persistBestScore();
+        // The board readouts (About REC row, Contact footer) mirror the
+        // machine's record — notify them only when the value actually changes.
+        if (bestListener) bestListener(bestScore);
     }
     if (win) powerUpBeep();
     else loseBuzz();
@@ -600,6 +605,21 @@ export function isLcdActive() {
  *  @param {() => void} fn */
 export function setLcdExitHandler(fn) {
     exitHandler = fn;
+}
+
+/** The machine's record — the module value (loaded once from storage at
+ *  build, updated only when a player run beats it). Board readouts read
+ *  this; the tick's render path never touches storage.
+ *  @returns {number} */
+export function getBestScore() {
+    return bestScore;
+}
+
+/** Register a callback fired with the new value whenever a player run sets
+ *  a record (after it is persisted). main.js mirrors the value into the
+ *  About/Contact board readouts. @param {(best: number) => void} fn */
+export function setBestListener(fn) {
+    bestListener = fn;
 }
 
 /** Enter the game — called by journey.js when the camera glides to the

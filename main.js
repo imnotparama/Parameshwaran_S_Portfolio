@@ -5,7 +5,7 @@ import { createComponents, updateLedArray, SWITCH_POS } from './src/three/compon
 import { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses } from './src/three/traces.js';
 import { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips, projectChips } from './src/three/project-chips.js';
-import { createLcd, updateLcdScreen, isLcdActive } from './src/three/lcd.js';
+import { createLcd, updateLcdScreen, isLcdActive, getBestScore, setBestListener } from './src/three/lcd.js';
 import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler, setLcdHandler } from './src/utils/hover.js';
@@ -200,10 +200,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // the components. Scroll stays the primary path; this is additive.
     createProbe(boardGroup);
 
-    // 6d. LCD1 — the 2.4" display running SIGNAL SNAKE (attract demo at
+    // 6d. LCD1 — the 2.4" display running SIGNAL REPAIR (boot POST at
     // rest; player-controlled once focused). Optional content, capped at
     // the third "extra" after the fly-probe and the night bench.
     createLcd(boardGroup);
+
+    // 6e. Board record readout — the LCD's best score mirrors off the board
+    // into the About spec table (REC row) and the Contact footer (SN · FW ·
+    // BEST NN). The lcd module owns the value; main.js only mirrors it into
+    // the DOM. Null-safe for the headless build (elements absent there).
+    const aboutRecRow = () => document.getElementById('about-rec-row');
+    const aboutRecVal = () => document.getElementById('about-rec-val');
+    const contactBest = () => document.getElementById('contact-best');
+    const syncBoardBest = () => {
+        const best = getBestScore();
+        const row = aboutRecRow();
+        const val = aboutRecVal();
+        const cb = contactBest();
+        if (best > 0) {
+            const label = String(best).padStart(2, '0');
+            if (row) row.hidden = false;
+            if (val) val.textContent = label;
+            if (cb) cb.textContent = ` · BEST ${label}`;
+        } else {
+            if (row) row.hidden = true;
+            if (val) val.textContent = '—';
+            if (cb) cb.textContent = '';
+        }
+    };
+    setBestListener(() => syncBoardBest());
+    syncBoardBest(); // boot-time value (createLcd already loaded the record)
 
     // 7. Render section datasheet content from portfolio data
     renderSections();
