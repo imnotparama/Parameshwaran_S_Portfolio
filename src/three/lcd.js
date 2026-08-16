@@ -148,6 +148,12 @@ function spawnNoise() {
 
 /** @param {boolean} playAsPlayer */
 function resetGame(playAsPlayer) {
+    // Demo runs are FULLY deterministic: the LCG re-seeds on every demo
+    // reset, so every attract run (including post-death reboots) is
+    // identical on every load — the house discipline, asserted by the
+    // smoke test. Player runs don't re-seed: they continue from wherever
+    // the stream is, so repeated plays don't see the same packet layout.
+    if (!playAsPlayer) lcgSeed = 1234567;
     grid.fill(0);
     packets.length = 0;
     noise.length = 0;
@@ -401,54 +407,80 @@ export function exitLcd() {
     }
 }
 
-/** Per-frame tick — steps the demo (attract) or the player run,
- *  redraws the screen when the frame changed, and keeps the bezel
- *  power LED lit while the game is live. Runs from main.js's tick
- *  pipeline (same registry as the LED array / ripple).
- *  @param {number} elapsed
+/** Step the game clock — the demo (attract) or the player run. PURE game
+ *  logic with no rendering: runs even without a canvas context so the
+ *  headless smoke test drives the deterministic simulation through the
+ *  same seam the browser tick uses.
  *  @param {number} delta */
-export function updateLcdScreen(elapsed, delta) {
-    void elapsed;
-    if (!screenTexture || !gctx) return;
-
-    // Bezel power LED — bright while the game is live, calm at rest.
-    if (bezelLedMat) {
-        bezelLedMat.emissiveIntensity = playerActive ? 1.6 : 0.35;
-    }
-
-    // Reduced motion: no auto-play. Static title unless the player
-    // is actively playing (input-driven interaction is allowed).
-    if (motionPrefs.reduced) {
-        if (!playerActive) {
-            if (!reducedStaticDrawn) {
-                drawStaticTitle();
-                reducedStaticDrawn = true;
-                screenTexture.needsUpdate = true;
-            }
-            return;
-        }
-    }
-
+function stepLcdGame(delta) {
+    // Reduced motion: no auto-play. Static title unless the player is
+    // actively playing (input-driven interaction is allowed).
+    if (motionPrefs.reduced && !playerActive) return;
     if (dead) {
         // Freeze frame, then restart (demo auto-reboots after ~2.2s)
         deathRestartAccum += delta;
         if (demo && deathRestartAccum > 2.2) resetGame(false);
-        else if (playerActive && deathRestartAccum > 0.5) {
-            // Player sees the game-over screen; Enter restarts (keydown)
-        }
-        if (dirty) {
-            drawScreen();
-            screenTexture.needsUpdate = true;
-            dirty = false;
-        }
         return;
     }
-
     stepAccum += delta;
     if (stepAccum >= STEP_SEC) {
         stepAccum = 0;
         if (demo) attractStep();
         else stepSnake();
+    }
+}
+
+/** Serialized game state — the pure seam for the headless smoke test (same
+ *  pattern as journey.js's stepQueue / idle.js's idleDriftOffset). The demo
+ *  must be deterministic: the same tick schedule from a fresh reset yields
+ *  the identical snapshot every run. Player mode adds the input turns.
+ *  @returns {{ score: number, snakeLen: number, head: number[], dir: number[], packets: number, noise: number, dead: boolean, demo: boolean, playerActive: boolean, gridHash: string }} */
+export function lcdStateSnapshot() {
+    // FNV-1a over the grid — a compact, deterministic fingerprint.
+    let hash = 2166136261;
+    for (let i = 0; i < grid.length; i++) {
+        hash ^= grid[i];
+        hash = Math.imul(hash, 16777619);
+    }
+    return {
+        score,
+        snakeLen: snake.length,
+        head: [snake[0][0], snake[0][1]],
+        dir: [dir[0], dir[1]],
+        packets: packets.length,
+        noise: noise.length,
+        dead,
+        demo,
+        playerActive,
+        gridHash: (hash >>> 0).toString(16)
+    };
+}
+
+/** Per-frame tick — steps the demo (attract) or the player run, redraws
+ *  the screen when the frame changed, and keeps the bezel power LED lit
+ *  while the game is live. Runs from main.js's tick pipeline (same
+ *  registry as the LED array / ripple). The game LOGIC runs even without
+ *  a render context (headless smoke test); only the drawing is skipped.
+ *  @param {number} elapsed
+ *  @param {number} delta */
+export function updateLcdScreen(elapsed, delta) {
+    void elapsed;
+    // Bezel power LED — bright while the game is live, calm at rest.
+    if (bezelLedMat) {
+        bezelLedMat.emissiveIntensity = playerActive ? 1.6 : 0.35;
+    }
+    // Game logic first — stepped regardless of the render path.
+    stepLcdGame(delta);
+    // Rendering — skipped headlessly (no canvas context, no screen quad).
+    if (!screenTexture || !gctx) return;
+    // Reduced motion: the static title is drawn once (no auto-play).
+    if (motionPrefs.reduced && !playerActive) {
+        if (!reducedStaticDrawn) {
+            drawStaticTitle();
+            reducedStaticDrawn = true;
+            screenTexture.needsUpdate = true;
+        }
+        return;
     }
     if (dirty) {
         drawScreen();
@@ -459,9 +491,10 @@ export function updateLcdScreen(elapsed, delta) {
 
 /** Build the LCD1 assembly: bezel, screen quad (CanvasTexture),
  *  power LED, and the interactive hit bounds. Called from main.js
- *  after the other components (the smoke test's headless scene
- *  excludes this module — the game is interactive content, like
- *  the probe).
+ *  after the other components. The smoke test's headless scene also
+ *  builds it: the shim's null 2d context skips the screen quad, but
+ *  the meshes join the graph and the game state still initializes so
+ *  the deterministic simulation is exercisable.
  *  @param {THREE.Group} boardGroup */
 export function createLcd(boardGroup) {
     const surfaceZ = 0.085;
@@ -501,22 +534,26 @@ export function createLcd(boardGroup) {
     disposableResources.materials.add(bezelLedMat);
 
     // Screen quad — the game canvas. Plane faces +z (toward the camera).
+    // The quad is skipped when there's no 2d context (headless shim), but
+    // the game state below still initializes — the tick's render path
+    // no-ops without the texture, while the simulation stays exercisable.
     gameCanvas = document.createElement('canvas');
     gameCanvas.width = CANVAS_W;
     gameCanvas.height = CANVAS_H;
     gctx = /** @type {CanvasRenderingContext2D | null} */ (gameCanvas.getContext('2d'));
-    if (!gctx) return; // headless guard — blank screen quad
-    screenTexture = new THREE.CanvasTexture(gameCanvas);
-    screenTexture.colorSpace = THREE.SRGBColorSpace;
-    screenTexture.anisotropy = 4;
-    disposableResources.textures.add(screenTexture);
-    const screenGeo = new THREE.PlaneGeometry(SCREEN_W, SCREEN_H);
-    disposableResources.geometries.add(screenGeo);
-    const screenMat = new THREE.MeshBasicMaterial({ map: screenTexture });
-    const screen = new THREE.Mesh(screenGeo, screenMat);
-    screen.position.copy(LCD_LOCAL);
-    screen.position.z = zBezel + 0.05;
-    boardGroup.add(screen);
+    if (gctx) {
+        screenTexture = new THREE.CanvasTexture(gameCanvas);
+        screenTexture.colorSpace = THREE.SRGBColorSpace;
+        screenTexture.anisotropy = 4;
+        disposableResources.textures.add(screenTexture);
+        const screenGeo = new THREE.PlaneGeometry(SCREEN_W, SCREEN_H);
+        disposableResources.geometries.add(screenGeo);
+        const screenMat = new THREE.MeshBasicMaterial({ map: screenTexture });
+        const screen = new THREE.Mesh(screenGeo, screenMat);
+        screen.position.copy(LCD_LOCAL);
+        screen.position.z = zBezel + 0.05;
+        boardGroup.add(screen);
+    }
 
     // Interactive hit bounds — the whole assembly (same pattern as the
     // ANT1 / VR1 bounds: an invisible box the raycast aims at).

@@ -107,6 +107,7 @@ const { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses
 const idle = await import('../src/three/idle.js');
 const { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } = await import('../src/three/particles.js');
 const { createProjectChips, updateProjectChips } = await import('../src/three/project-chips.js');
+const { createLcd, updateLcdScreen, focusLcd, exitLcd, isLcdActive, lcdStateSnapshot } = await import('../src/three/lcd.js');
 const { mouse, initHover, checkHover, clearHover } = await import('../src/utils/hover.js');
 const { motionPrefs } = await import('../src/utils/motion-prefs.js');
 // journey.js's getCameraConfigForStop exports the per-viewport hero pose —
@@ -130,6 +131,10 @@ createComponents(boardGroup);
 createTraces(boardGroup);
 createParticles(boardGroup);
 createProjectChips(boardGroup);
+// LCD1 — the shim's null 2d context skips the screen quad, but the meshes
+// join the graph and the game state initializes so the deterministic
+// simulation (phase E) is exercisable through the same tick seam.
+createLcd(boardGroup);
 
 // Snapshot the scene graph once — all assertions reuse these sets.
 const allMeshes = [];
@@ -194,6 +199,8 @@ tickCallbacks.push((elapsed, delta) => {
     updateAmbientPulses(elapsed);
     updateTraceRipple(elapsed);
     board.updateBenchSweep(elapsed);
+    // LCD1's screen — attract demo / player run (mirrors main.js order).
+    updateLcdScreen(elapsed, delta);
     // Idle drift: camera is null headlessly, so this exercises the no-op
     // guard (the offset bounds themselves are asserted in phase D).
     idle.updateIdleDrift(elapsed, delta);
@@ -478,6 +485,105 @@ mixedQ = stepQueue(mixedQ, 1);
 mixedQ = stepQueue(mixedQ, -1);
 assert.strictEqual(mixedQ, 1, 'ArrowDown ×2 + ArrowUp → net 1 step');
 
+// ── 5e. Phase E — LCD1 SIGNAL SNAKE (determinism + cadence + keys) ──
+// The game state is module-private; lcdStateSnapshot is the pure seam (same
+// pattern as journey's stepQueue / idle's drift offset). Assertions:
+//   • determinism — the demo re-seeds its LCG on every reset, so a fresh
+//     demo + the same tick schedule yields the identical snapshot
+//   • step cadence — the snake advances only once STEP_SEC (0.15s) of
+//     accumulated delta passes (9 ticks @ 1/60)
+//   • the exclusive-keyboard gate — lcd.js's own keydown listener captures
+//     keys (preventDefault) ONLY while body.lcd-active is set, which is the
+//     exact class every other key listener (probe, section keys, arrows)
+//     gates on. The shim's dispatchEvent fires the real listeners; a
+//     plain-object event stands in for a KeyboardEvent, and preventDefault
+//     is the observable side effect.
+const LCD_STEP_TICKS = 9; // ceil(STEP_SEC 0.15s / (1/60)) = 9 ticks
+
+// Fresh demo sanity: exitLcd() arms the attract demo (re-seeded LCG).
+exitLcd();
+const freshDemo = lcdStateSnapshot();
+assert.ok(freshDemo.demo && !freshDemo.playerActive, 'LCD: exitLcd() arms the attract demo');
+assert.strictEqual(freshDemo.snakeLen, 4, 'LCD: demo starts at the base snake length');
+assert.strictEqual(freshDemo.packets, 1, `LCD: demo spawns 1 packet (got ${freshDemo.packets})`);
+assert.strictEqual(freshDemo.noise, 2, `LCD: demo spawns 2 noise blocks (got ${freshDemo.noise})`);
+
+// Step cadence: 8 ticks (0.133s) < STEP_SEC → the grid must not move; the
+// 9th tick crosses 0.15s → exactly one step, no growth.
+exitLcd();
+const cadence0 = lcdStateSnapshot();
+for (let i = 0; i < 8; i++) updateLcdScreen(0, DT);
+const cadence1 = lcdStateSnapshot();
+assert.deepStrictEqual(cadence1, cadence0, 'LCD: snake must not step before STEP_SEC elapses');
+updateLcdScreen(0, DT); // the 9th tick crosses 0.15s
+const cadence2 = lcdStateSnapshot();
+assert.notStrictEqual(cadence2.gridHash, cadence1.gridHash, 'LCD: snake must step once STEP_SEC passes');
+assert.strictEqual(cadence2.snakeLen, cadence1.snakeLen, 'LCD: a single step does not grow the snake');
+
+// Determinism: two fresh demo runs over the same 60-tick schedule (10 steps)
+// are byte-identical — same grid, same head, same score, same layout.
+const runDemo = () => {
+    exitLcd();
+    for (let i = 0; i < 60; i++) updateLcdScreen(0, DT);
+    return lcdStateSnapshot();
+};
+const detA = runDemo();
+const detB = runDemo();
+assert.deepStrictEqual(detB, detA, 'LCD: the attract demo must be deterministic from a fresh reset');
+
+// Passive gate: while INACTIVE the listener ignores keys — no preventDefault,
+// and a stray ArrowUp leaves the demo trajectory exactly as if unpressed.
+let cancelledKeys = [];
+const fakeKey = (key) => {
+    // The shim's dispatchEvent routes by e.type — a real KeyboardEvent has
+    // type 'keydown', so the fake must carry it too.
+    const e = { type: 'keydown', key, metaKey: false, ctrlKey: false, altKey: false, preventDefault: () => { cancelledKeys.push(key); } };
+    window.dispatchEvent(e);
+};
+exitLcd();
+cancelledKeys = [];
+fakeKey('ArrowUp');
+assert.strictEqual(cancelledKeys.length, 0, 'LCD: keys must pass through while inactive');
+const pass0 = lcdStateSnapshot();
+updateLcdScreen(0, DT * LCD_STEP_TICKS); // one step, with the stray press
+const pass1 = lcdStateSnapshot();
+exitLcd(); // fresh — identical seed
+const clean0 = lcdStateSnapshot();
+updateLcdScreen(0, DT * LCD_STEP_TICKS); // one step, no stray press
+const clean1 = lcdStateSnapshot();
+assert.deepStrictEqual(pass1, clean1, 'LCD: an inactive ArrowUp must not alter the demo trajectory');
+
+// Active gate: focusLcd() sets the exclusive class; ArrowUp is captured
+// (preventDefaulted) and queues an UP turn — consumed on the next step.
+focusLcd();
+assert.ok(isLcdActive(), 'LCD: focusLcd() sets the exclusive-keys class');
+cancelledKeys = [];
+fakeKey('ArrowUp');
+assert.deepStrictEqual(cancelledKeys, ['ArrowUp'], 'LCD: ArrowUp must be captured while focused');
+updateLcdScreen(0, DT * LCD_STEP_TICKS); // consume the queued turn
+const turned = lcdStateSnapshot();
+assert.deepStrictEqual(turned.dir, [0, -1], 'LCD: the queued ArrowUp turns the snake up');
+assert.strictEqual(turned.playerActive, true, 'LCD: focused run is player mode');
+
+// Esc releases: class cleared, player mode dropped, demo re-armed.
+fakeKey('Escape');
+assert.ok(!isLcdActive(), 'LCD: Escape releases the exclusive-keys class');
+const afterEsc = lcdStateSnapshot();
+assert.ok(afterEsc.demo && !afterEsc.playerActive, 'LCD: Escape returns to the attract demo');
+
+// Enter reboots a dead run: an unsteered player run drives straight right
+// and dies at the wall; Enter restarts it in player mode.
+focusLcd();
+for (let i = 0; i < 500; i++) updateLcdScreen(0, DT); // ~83 steps — past the wall
+const deadState = lcdStateSnapshot();
+assert.ok(deadState.dead, 'LCD: an unsteered player run must die at the wall');
+fakeKey('Enter');
+const rebooted = lcdStateSnapshot();
+assert.ok(!rebooted.dead && rebooted.playerActive, 'LCD: Enter reboots the run from game over');
+// Leave the game inactive and armed for the phases that follow.
+fakeKey('Escape');
+assert.ok(!isLcdActive(), 'LCD: clean exit after the gate tests');
+
 // ── 6. Phase C — the raycast layer (hover alignment) ─────────
 // A real PerspectiveCamera plus the app's own initHover/checkHover, driven
 // through the DOM mousemove path. The camera frustum matches the FAKE_CANVAS
@@ -555,9 +661,13 @@ motionPrefs.reduced = true; // the live flag — same switch the listener flips
 tickCallbacks.forEach((cb) => cb(200, DT));
 const floatPose = { y: boardGroup.position.y, z: boardGroup.position.z, rz: boardGroup.rotation.z };
 const materialSnap = [...allMaterials].map((m) => ({ ei: m.emissiveIntensity, op: m.opacity }));
+// The LCD game must hold still too (reduced motion: no auto-play).
+const lcdReduced0 = lcdStateSnapshot();
 for (let i = 1; i < 2000; i++) {
     tickCallbacks.forEach((cb) => cb(200 + i * DT, DT));
 }
+const lcdReduced1 = lcdStateSnapshot();
+assert.deepStrictEqual(lcdReduced1, lcdReduced0, 'reduced: the LCD game must hold still (no auto-play)');
 // Float stays planted:
 assert.ok(
     Math.abs(boardGroup.position.y - floatPose.y) < EPS &&
@@ -609,7 +719,8 @@ console.log(`  ripple segments: ${rippleMats.length} | sweep: 2 | dust: ${dustMe
 console.log(`  phase A: ${NORMAL_FRAMES} frames normal motion — float/ripple/sweep/dust/LED/pulse in bounds, zero NaN`);
 console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
-console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden`);
+console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
+console.log(`  phase E: LCD1 SIGNAL SNAKE — demo deterministic (${LCD_STEP_TICKS}-tick STEP cadence), exclusive-keyboard gate holds`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);
