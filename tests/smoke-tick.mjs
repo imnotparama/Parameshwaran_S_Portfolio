@@ -328,6 +328,44 @@ const normalProblems = audit();
 assert.ok(firstTickY === 0, `wake-in: first live tick must write y=0 (settle-pop guard), got ${firstTickY}`);
 assert.ok(normalProblems.length === 0, `normal-motion invariants violated:\n  - ${normalProblems.join('\n  - ')}`);
 
+// ── 5a2. Phase F — per-section ambient signatures ─────────────
+// SECTION_AMBIENT gives every journey stop its own circuit-neighborhood
+// tuning (LED pulse tempo/brightness, ripple wave shape, signal-pulse
+// speed, dust/fleck density, current-dot speed). The long-run phase above
+// exercised only the 'sec-about' baseline — drive EVERY section through the
+// real update fns and reuse audit() to pin the invariant bounds for each
+// signature: LED [base, peak], ripple [base, base+amp], dust/fleck drift
+// boxes, no NaN. Also assert the multipliers are sane and the amplitude
+// caps (ledAmp / rippleAmp / drift ≤ 1.0) are respected, so the bounds are
+// mathematically guaranteed for every future tuning too.
+const { SECTION_AMBIENT } = await import('../src/three/ambient-tunings.js');
+const SECTION_IDS = ['sec-hero', 'sec-about', 'sec-projects', 'sec-skills', 'sec-experience', 'sec-contact'];
+for (const id of SECTION_IDS) {
+    assert.ok(SECTION_AMBIENT[id], `missing ambient signature for ${id}`);
+}
+for (const [id, s] of Object.entries(SECTION_AMBIENT)) {
+    for (const [k, v] of Object.entries(s)) {
+        assert.ok(Number.isFinite(v) && v >= 0, `${id}.${k} must be a finite non-negative multiplier (got ${v})`);
+    }
+    assert.ok(s.ledAmp <= 1.0, `${id}.ledAmp > 1.0 would break the LED peak ≤ 0.7 bound`);
+    assert.ok(s.rippleAmp <= 1.0, `${id}.rippleAmp > 1.0 would break the ripple ≤ base+amp bound`);
+    assert.ok(s.dustDrift <= 1.0 && s.fleckDrift <= 1.0, `${id} drift multipliers > 1.0 would break the drift-box bounds`);
+}
+// Bounds sweep: 5s of sim per section through the real update fns.
+for (const id of SECTION_IDS) {
+    for (let i = 0; i < 300; i++) {
+        const t = i * DT;
+        updateLedArray(t, id);
+        updateAmbientDust(t, id);
+        updateAmbientGoldFlecks(t, id);
+        updateTraceRipple(t, id);
+        updateAmbientPulses(t, id);
+        updateTraceCurrent(t, id);
+    }
+    const problems = audit();
+    assert.deepStrictEqual(problems, [], `phase F: ambient invariants broke at ${id}:\n  - ${problems.join('\n  - ')}`);
+}
+
 // ── 5b. Phase A2 — hero-distance amplitudes (distScale = 3) ──
 // main.js scales the ambient amplitudes with camera distance so the hero
 // framing (z≈25-33) reads alive instead of sub-pixel static: 1.0 at the
@@ -720,6 +758,7 @@ console.log(`  phase A: ${NORMAL_FRAMES} frames normal motion — float/ripple/s
 console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
+console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
 console.log(`  phase E: LCD1 SIGNAL SNAKE — demo deterministic (${LCD_STEP_TICKS}-tick STEP cadence), exclusive-keyboard gate holds`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);

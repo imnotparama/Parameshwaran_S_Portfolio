@@ -4,6 +4,7 @@ import gsap from 'gsap';
 import { disposableResources } from './scene.js';
 import { beepBuzzer } from '../utils/buzzer.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
+import { getSectionAmbient } from './ambient-tunings.js';
 
 /** @type {THREE.Mesh[]} */
 export const interactiveObjects = [];
@@ -57,17 +58,24 @@ export const SWITCH_POS = [[4.7, 2.9], [4.7, 0.9], [4.7, -1.9]];
 /** @type {LedPulse[]} */
 const ledPulseDrivers = [];
 
-/** @param {number} elapsed */
-export function updateLedArray(elapsed) {
+/** Per-frame LED array pulse. The active section's ambient signature tunes
+ *  the tempo (ledFreq) and brightness (ledAmp) — the CPU core breathes fast
+ *  and bright, the RF section stays calm and steady. Section id is optional:
+ *  an unknown id falls back to the baseline tuning (original behavior).
+ *  @param {number} elapsed
+ *  @param {string} [sectionId] */
+export function updateLedArray(elapsed, sectionId) {
+    const t = getSectionAmbient(sectionId);
     for (const d of ledPulseDrivers) {
         if (motionPrefs.reduced) {
             d.mat.emissiveIntensity = LED_PULSE_BASE;
             continue;
         }
         // Sharpened sine (n²·²): a slow rise with a brief bright peak reads as
-        // a status pulse, not a sinusoid. Per-LED freq/phase desync the array.
-        const n = 0.5 + 0.5 * Math.sin(elapsed * d.freq * Math.PI * 2 + d.phase);
-        d.mat.emissiveIntensity = LED_PULSE_BASE + Math.pow(n, 2.2) * LED_PULSE_AMP;
+        // a status pulse, not a sinusoid. Per-LED freq/phase desync the array;
+        // the section's ledFreq/ledAmp multipliers shift the whole array's feel.
+        const n = 0.5 + 0.5 * Math.sin(elapsed * d.freq * t.ledFreq * Math.PI * 2 + d.phase);
+        d.mat.emissiveIntensity = LED_PULSE_BASE + Math.pow(n, 2.2) * (LED_PULSE_AMP * t.ledAmp);
     }
 }
 

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { disposableResources } from './scene.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
+import { getSectionAmbient } from './ambient-tunings.js';
 
 /**
  * A routed copper trace between two components, materialized as solid 3D
@@ -355,17 +356,21 @@ let ambientPulses = [];
 
 /** Per-frame continuous current along every main trace route. Called from the
  *  tick loop — runs independent of scroll, alongside the active-section
- *  current dot (traces.updateTraceCurrent).
- *  @param {number} elapsed */
-export function updateAmbientPulses(elapsed) {
+ *  current dot (traces.updateTraceCurrent). The section's pulseSpeed scales
+ *  the travel rate (the prototype zone races its pulses; the capacitor banks
+ *  let theirs cruise) — composed with the probe-energize surge multiplier.
+ *  @param {number} elapsed
+ *  @param {string} [sectionId] */
+export function updateAmbientPulses(elapsed, sectionId) {
+    const t = getSectionAmbient(sectionId);
     for (const p of ambientPulses) {
         if (motionPrefs.reduced) {
             p.mesh.visible = false;
             continue;
         }
         p.mesh.visible = true;
-        const t = (elapsed * AMBIENT_PULSE_SPEED * ambientPulseSpeedMultiplier + p.phase) % 1;
-        p.curve.getPoint(t, p.mesh.position);
+        const s = (elapsed * AMBIENT_PULSE_SPEED * t.pulseSpeed * ambientPulseSpeedMultiplier + p.phase) % 1;
+        p.curve.getPoint(s, p.mesh.position);
         p.mesh.position.z += 0.02; // lift just above the trace surface
     }
 }
@@ -396,9 +401,16 @@ export function highlightTrace(ref, on) {
     }
 }
 
-/** Per-frame copper current. Called from the tick loop.
- *  @param {number} elapsed */
-export function updateTraceRipple(elapsed) {
+/** Per-frame copper current. Called from the tick loop. The active section's
+ *  signature shapes the wave itself: rippleSpeed (tempo), rippleWavelength
+ *  (the spatial period — wide long waves for the I/O port, tight short ones
+ *  in the prototype zone), and rippleAmp (how much the power blob lifts off
+ *  the base glow). All are multipliers ≤ 1.0 on the amplitude so the smoke
+ *  test's [base, base+amp] bound holds for every section.
+ *  @param {number} elapsed
+ *  @param {string} [sectionId] */
+export function updateTraceRipple(elapsed, sectionId) {
+    const t = getSectionAmbient(sectionId);
     for (const seg of rippleSegments) {
         const m = seg.mat;
         if (highlightedTraceMats.has(m)) {
@@ -413,14 +425,16 @@ export function updateTraceRipple(elapsed) {
         // isTweening guard: never fight the hover-release tween on the same
         // property — same pattern as the LED breathe vs the focus flash.
         if (motionPrefs.reduced || gsap.isTweening(m)) continue;
-        const phase = (elapsed * RIPPLE_SPEED - seg.distFromStart / RIPPLE_WAVELENGTH) % 1;
+        const phase = (elapsed * RIPPLE_SPEED * t.rippleSpeed - seg.distFromStart / (RIPPLE_WAVELENGTH * t.rippleWavelength)) % 1;
         const blob = Math.pow(Math.max(0, Math.sin(phase * Math.PI)), 3);
-        m.emissiveIntensity = TRACE_BASE_INTENSITY + RIPPLE_AMP * blob;
+        m.emissiveIntensity = TRACE_BASE_INTENSITY + RIPPLE_AMP * t.rippleAmp * blob;
     }
 }
 
 /** Drive the current dot along the active section's trace. Called per frame
- *  from the tick loop with the live section id (getActiveSectionId).
+ *  from the tick loop with the live section id (getActiveSectionId). The
+ *  section's dotSpeed scales the travel rate — the focused signal flows fast
+ *  to the antenna, deliberate toward the capacitor banks.
  *  @param {number} elapsed
  *  @param {string} activeSectionId */
 export function updateTraceCurrent(elapsed, activeSectionId) {
@@ -432,9 +446,10 @@ export function updateTraceCurrent(elapsed, activeSectionId) {
         return;
     }
     currentDot.visible = true;
+    const tune = getSectionAmbient(activeSectionId);
     // Reduced motion: pin the dot at the trace source (the CPU end) — the
     // component still reads as powered without ambient travel.
-    const t = motionPrefs.reduced ? 0 : (elapsed * TRACE_CURRENT_SPEED) % 1;
+    const t = motionPrefs.reduced ? 0 : (elapsed * TRACE_CURRENT_SPEED * tune.dotSpeed) % 1;
     curve.getPoint(t, currentDot.position);
     // Lift just above the trace surface (trace height 0.012, centered on
     // surfaceZ — the polyline's own z is the board surface).

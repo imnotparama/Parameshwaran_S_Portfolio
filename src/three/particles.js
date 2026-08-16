@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { traceData } from './traces.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
+import { getSectionAmbient } from './ambient-tunings.js';
 
 /** @typedef {{ mesh: THREE.Mesh, points: THREE.Vector3[], progress: number, baseSpeed: number }} Particle */
 
@@ -104,14 +105,19 @@ const FLECK_BOX_Z = 2.3;
 /** @typedef {{ mesh: THREE.Mesh, seed: number, bx: number, by: number, bz: number }} GoldFleck */
 /** @type {GoldFleck[]} */
 const fleckMotes = [];
+// Shared fleck material — hoisted so the per-section opacity (density) can
+// be written per frame without touching the motes' shared reference.
+/** @type {THREE.MeshBasicMaterial | null} */
+let fleckMat = null;
+const FLECK_OPACITY_BASE = 0.4;
 
 /** @param {THREE.Group} boardGroup */
 function createAmbientGoldFlecks(boardGroup) {
     const fleckGeo = new THREE.SphereGeometry(0.05, 6, 6);
-    const fleckMat = new THREE.MeshBasicMaterial({
+    fleckMat = new THREE.MeshBasicMaterial({
         color: 0xc9a24b, // ENIG gold
         transparent: true,
-        opacity: 0.4,
+        opacity: FLECK_OPACITY_BASE,
         depthWrite: false
     });
     for (let i = 0; i < FLECK_COUNT; i++) {
@@ -131,8 +137,13 @@ function createAmbientGoldFlecks(boardGroup) {
 
 /** Per-frame fleck drift — slower frequencies than the dust, so the two
  *  layers never move in lockstep (the air reads layered, not one cloud).
- *  @param {number} elapsed */
-export function updateAmbientGoldFlecks(elapsed) {
+ *  The section's fleckOpacity (density) and fleckDrift (wander, ≤ 1.0 so the
+ *  drift-box bounds hold) tune this layer like the dust.
+ *  @param {number} elapsed
+ *  @param {string} [sectionId] */
+export function updateAmbientGoldFlecks(elapsed, sectionId) {
+    const t = getSectionAmbient(sectionId);
+    if (fleckMat) fleckMat.opacity = FLECK_OPACITY_BASE * t.fleckOpacity;
     for (const m of fleckMotes) {
         if (motionPrefs.reduced) {
             m.mesh.visible = false;
@@ -140,20 +151,24 @@ export function updateAmbientGoldFlecks(elapsed) {
         }
         m.mesh.visible = true;
         m.mesh.position.set(
-            m.bx + Math.sin(elapsed * 0.13 + m.seed) * 0.6,
-            m.by + Math.sin(elapsed * 0.09 + m.seed * 1.3) * 0.45,
-            m.bz + Math.cos(elapsed * 0.07 + m.seed * 2.1) * 0.5
+            m.bx + Math.sin(elapsed * 0.13 + m.seed) * 0.6 * t.fleckDrift,
+            m.by + Math.sin(elapsed * 0.09 + m.seed * 1.3) * 0.45 * t.fleckDrift,
+            m.bz + Math.cos(elapsed * 0.07 + m.seed * 2.1) * 0.5 * t.fleckDrift
         );
     }
 }
 
+/** @type {THREE.MeshBasicMaterial | null} */
+let dustMat = null;
+const DUST_OPACITY_BASE = 0.35;
+
 /** @param {THREE.Group} boardGroup */
 function createAmbientDust(boardGroup) {
     const dustGeo = new THREE.SphereGeometry(0.035, 6, 6);
-    const dustMat = new THREE.MeshBasicMaterial({
+    dustMat = new THREE.MeshBasicMaterial({
         color: 0xa8e6c8,
         transparent: true,
-        opacity: 0.35,
+        opacity: DUST_OPACITY_BASE,
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
@@ -171,9 +186,16 @@ function createAmbientDust(boardGroup) {
     }
 }
 
-/** Per-frame mote drift. Called from the tick loop.
- *  @param {number} elapsed */
-export function updateAmbientDust(elapsed) {
+/** Per-frame mote drift. Called from the tick loop. The section's dustOpacity
+ *  is the cloud's DENSITY (opaque = heavy, thin = clear air) and dustDrift is
+ *  the wander radius (≤ 1.0 so the motes stay inside the drift box the smoke
+ *  test bounds). The prototype zone works in dense active dust; the RF
+ *  section broadcasts into clear air.
+ *  @param {number} elapsed
+ *  @param {string} [sectionId] */
+export function updateAmbientDust(elapsed, sectionId) {
+    const t = getSectionAmbient(sectionId);
+    if (dustMat) dustMat.opacity = DUST_OPACITY_BASE * t.dustOpacity;
     for (const m of dustMotes) {
         if (motionPrefs.reduced) {
             m.mesh.visible = false;
@@ -184,9 +206,9 @@ export function updateAmbientDust(elapsed) {
         // base position; different frequencies per axis so nothing moves in
         // lockstep (the cloud reads organic, never mechanical).
         m.mesh.position.set(
-            m.bx + Math.sin(elapsed * 0.21 + m.seed) * 0.5,
-            m.by + Math.sin(elapsed * 0.14 + m.seed * 1.7) * 0.65,
-            m.bz + Math.cos(elapsed * 0.11 + m.seed * 2.3) * 0.4
+            m.bx + Math.sin(elapsed * 0.21 + m.seed) * 0.5 * t.dustDrift,
+            m.by + Math.sin(elapsed * 0.14 + m.seed * 1.7) * 0.65 * t.dustDrift,
+            m.bz + Math.cos(elapsed * 0.11 + m.seed * 2.3) * 0.4 * t.dustDrift
         );
     }
 }

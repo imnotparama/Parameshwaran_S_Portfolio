@@ -300,6 +300,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 11. Add animation loops to ticks callback registry
     tickCallbacks.push((elapsed, delta) => {
+        // The section the current scroll leg has activated — computed once per
+        // frame and threaded into every section-aware ambient layer (LED
+        // pulse, copper ripple, signal pulses, dust, flecks, current dot) so
+        // each journey stop feels like a different circuit neighborhood.
+        const activeSectionId = getActiveSectionId();
+
         // Run electron pathing animations
         updateParticles(delta);
         // Update oscilloscope waveform
@@ -311,8 +317,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateRadarRing(elapsed);
 
         // D1-D7 status LEDs — staggered seeded pulse at rest (idle-life
-        // layer; the array breathes instead of sitting flat).
-        updateLedArray(elapsed);
+        // layer; the array breathes instead of sitting flat). The active
+        // section tunes tempo/brightness (ambient-tunings.js).
+        updateLedArray(elapsed, activeSectionId);
 
         // Update project chip LEDs (flicker breadboard LEDs)
         updateProjectChips(elapsed);
@@ -330,7 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Apply mouse movement 3D board parallax tilts (delta-scaled lerp).
         // The active section gates the tilt strength — boosted on About so the
         // "move cursor to tilt board" affordance is felt, capped everywhere.
-        const activeSectionId = getActiveSectionId();
         // Distance-scaled ambient intensity: the hero/contact cameras sit far
         // back (z≈25-33) where a world-unit of motion projects to a few
         // pixels, so the float and sweep would read as static on the first
@@ -348,12 +354,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateHoverShadow();
 
         // Ambient dust — the mote cloud around the board (deterministic,
-        // reduced-motion gated inside particles.js)
-        updateAmbientDust(elapsed);
+        // reduced-motion gated inside particles.js). Section-tuned density.
+        updateAmbientDust(elapsed, activeSectionId);
 
         // Gold flecks — sparse ENIG-gold specks drifting above the board
         // (slower than the dust; reads as suspended solder debris).
-        updateAmbientGoldFlecks(elapsed);
+        updateAmbientGoldFlecks(elapsed, activeSectionId);
 
         // Traveling current dot: power visibly flows along the active
         // section's trace (the arrival pulse is the flash; this is the
@@ -362,13 +368,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Ambient signal pulses: one gold current dot traveling EVERY main
         // trace route, continuously — the board reads as powered on, not
-        // just lit. Independent of scroll.
-        updateAmbientPulses(elapsed);
+        // just lit. Independent of scroll. Section-tuned travel speed.
+        updateAmbientPulses(elapsed, activeSectionId);
 
         // Copper ripple: a power blob floods every trace from the CPU (the
         // whole board carries current, not just the active section) + the
-        // probe-energized shimmer on hovered copper.
-        updateTraceRipple(elapsed);
+        // probe-energized shimmer on hovered copper. The section shapes the
+        // wave (speed / wavelength / amplitude).
+        updateTraceRipple(elapsed, activeSectionId);
 
         // Bench sweep: the CRT scan line crossing the board surface (scaled
         // with camera distance too — at hero a 0.05-wide plane is a 1px
