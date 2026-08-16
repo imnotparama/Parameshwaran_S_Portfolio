@@ -77,6 +77,19 @@ const SPAWN_MIN = 1.2;          // difficulty floor (more packets at once)
 const MAX_ON_SCREEN = 6;        // spawn cap per wave
 const MOVE_REPEAT = 0.14;       // held-key auto-walk cadence (seconds)
 const SWIPE_PX = 24;            // drag distance before a touch counts as a swipe
+
+// ─── Screen glow — halo around the bezel ─────────────────────
+// A soft radial-gradient disc under the LCD that brightens and pulses
+// while a run is live, fading back to nothing at rest. Same deterministic
+// sine shape as the LED array (fixed phase, driven off the scene clock);
+// reduced motion trades the pulse for a steady glow.
+const GLOW_R = 1.2;             // halo radius (bezel is 1.6×1.0)
+const GLOW_FREQ = 0.55;         // pulse cycles per second while playing
+const GLOW_PHASE = 2.1;         // fixed phase — every pulse is identical
+const GLOW_BASE = 0.18;         // playing pulse floor (opacity)
+const GLOW_AMP = 0.14;          // playing pulse amplitude (peak 0.32)
+const GLOW_STEADY = 0.22;       // reduced-motion playing value (no pulse)
+const GLOW_FADE = 3.0;          // opacity fade rate toward the target (/s)
 const BOOT_SEC = 2.9;           // POST sequence duration
 const IDLE_BLINK_MS = 15000;    // prompt starts blinking after 15s idle
 const BLINK_SEC = 0.8;          // blink period once armed
@@ -131,6 +144,8 @@ function persistBestScore() {
 /** @type {CanvasRenderingContext2D | null} */ let gctx = null;
 /** @type {THREE.CanvasTexture | null} */ let screenTexture = null;
 /** @type {THREE.MeshStandardMaterial | null} */ let bezelLedMat = null;
+/** @type {THREE.MeshBasicMaterial | null} */ let glowMat = null;
+let glowCurrent = 0;            // smoothed glow opacity (fades toward target)
 /** @type {HTMLCanvasElement | null} */ let ghostCanvas = null;
 /** @type {CanvasRenderingContext2D | null} */ let ghostCtx = null;
 
@@ -647,7 +662,7 @@ export function exitLcd() {
  *  pattern as journey.js's stepQueue / idle.js's idleDriftOffset). The game
  *  must be deterministic: the same tick schedule + inputs from the same
  *  state yield the identical snapshot every run.
- *  @returns {{ state: string, score: number, best: number, timeLeft: number, cursor: number[], packets: number, packetPos: number[][], spawned: number, over: boolean, win: boolean, newRecord: boolean, playerActive: boolean, idleAccum: number, frameHash: string }} */
+ *  @returns {{ state: string, score: number, best: number, timeLeft: number, cursor: number[], packets: number, packetPos: number[][], spawned: number, over: boolean, win: boolean, newRecord: boolean, glowOpacity: number, playerActive: boolean, idleAccum: number, frameHash: string }} */
 export function lcdStateSnapshot() {
     // FNV-1a over the observable state — a compact, deterministic fingerprint
     // of the current screen contents.
@@ -669,6 +684,7 @@ export function lcdStateSnapshot() {
         over: state === 'over',
         win: state === 'over' && overWin,
         newRecord,
+        glowOpacity: Math.round(glowCurrent * 1000) / 1000,
         playerActive,
         idleAccum,
         frameHash: (h >>> 0).toString(16)
@@ -683,11 +699,25 @@ export function lcdStateSnapshot() {
  *  @param {number} elapsed
  *  @param {number} delta */
 export function updateLcdScreen(elapsed, delta) {
-    void elapsed;
     frameCount++;
     // Bezel power LED — bright while the game is live, calm at rest.
     if (bezelLedMat) {
         bezelLedMat.emissiveIntensity = state === 'playing' ? 1.6 : 0.35;
+    }
+    // Screen glow — the halo brightens and pulses while a run is live and
+    // fades back to nothing at rest (the same deterministic sine the LED
+    // array uses). Reduced motion snaps straight to the state's value — a
+    // steady glow while playing, none at rest — with no animated fade.
+    if (glowMat) {
+        if (motionPrefs.reduced) {
+            glowCurrent = state === 'playing' ? GLOW_STEADY : 0;
+        } else {
+            const target = state === 'playing'
+                ? GLOW_BASE + GLOW_AMP * (0.5 + 0.5 * Math.sin(elapsed * GLOW_FREQ * Math.PI * 2 + GLOW_PHASE))
+                : 0;
+            glowCurrent += (target - glowCurrent) * Math.min(1, delta * GLOW_FADE);
+        }
+        glowMat.opacity = glowCurrent;
     }
     // Game logic first — stepped regardless of the render path.
     stepLcdGame(delta);
@@ -801,6 +831,43 @@ export function createLcd(boardGroup) {
         ghostCanvas.width = CANVAS_W;
         ghostCanvas.height = CANVAS_H;
         ghostCtx = /** @type {CanvasRenderingContext2D | null} */ (ghostCanvas.getContext('2d'));
+    }
+
+    // Soft screen glow — a radial-gradient halo around the bezel (driven in
+    // updateLcdScreen from the same deterministic sine as the LED array).
+    // The mesh joins the graph even headlessly (no texture there — never
+    // rendered), so the smoke test can audit the opacity fade/bounds via the
+    // snapshot seam; the browser gets the gradient map.
+    const glowGeo = new THREE.CircleGeometry(GLOW_R, 32);
+    disposableResources.geometries.add(glowGeo);
+    glowMat = new THREE.MeshBasicMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        opacity: 0
+    });
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    glow.position.copy(LCD_LOCAL);
+    glow.position.z = surfaceZ + 0.02; // just above the substrate, under the bezel
+    glow.name = 'lcd-glow';
+    boardGroup.add(glow);
+    disposableResources.materials.add(glowMat);
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.width = 128;
+    glowCanvas.height = 128;
+    const glowCtx = /** @type {CanvasRenderingContext2D | null} */ (glowCanvas.getContext('2d'));
+    if (glowCtx) {
+        const grad = glowCtx.createRadialGradient(64, 64, 4, 64, 64, 64);
+        grad.addColorStop(0, 'rgba(62, 230, 160, 1)');
+        grad.addColorStop(0.45, 'rgba(62, 230, 160, 0.3)');
+        grad.addColorStop(1, 'rgba(62, 230, 160, 0)');
+        glowCtx.fillStyle = grad;
+        glowCtx.fillRect(0, 0, 128, 128);
+        const glowTexture = new THREE.CanvasTexture(glowCanvas);
+        glowTexture.colorSpace = THREE.SRGBColorSpace;
+        disposableResources.textures.add(glowTexture);
+        glowMat.map = glowTexture;
+        glowMat.needsUpdate = true;
     }
 
     // Interactive hit bounds — the whole assembly (same pattern as the

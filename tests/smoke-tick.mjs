@@ -562,6 +562,7 @@ assert.strictEqual(booted.state, 'ready', 'LCD: the boot POST ends at the ready 
 assert.strictEqual(booted.score, 0, 'LCD: ready starts scoreless');
 assert.strictEqual(booted.packets, 0, 'LCD: no packets until a run starts');
 assert.strictEqual(booted.best, 0, 'LCD: best starts at 0 with no record');
+assert.strictEqual(booted.glowOpacity, 0, 'LCD: the screen glow is off at rest');
 // Determinism: the ready screen is pure — 2s of idle changes nothing
 // observable (the frame hash + state hold; only idle time accrues).
 const idleA = lcdStateSnapshot();
@@ -685,6 +686,11 @@ assert.strictEqual(tapStart.state, 'playing', 'LCD: a tap on the ready screen st
 assert.strictEqual(tapStart.timeLeft, LCD_TIME_LIMIT, 'LCD: the touch run starts with the full timer');
 assert.deepStrictEqual(tapStart.cursor, [7, 3], 'LCD: the touch run resets the cursor center field');
 assert.ok(cancelledTouch.includes('touchend'), 'LCD: the start tap cancels its synthetic click');
+// Screen glow: while a run is live the halo brightens and pulses within its
+// bounds (GLOW_BASE 0.18 → base+amp 0.32); a second of fade-in lands inside.
+for (let i = 0; i < 60; i++) updateLcdScreen(0.5 + i / 60, DT);
+const glowOn = lcdStateSnapshot().glowOpacity;
+assert.ok(glowOn >= 0.15 && glowOn <= 0.35, `LCD: the screen glow pulses in bounds while playing (${glowOn})`);
 
 // Swipe: a drag past the threshold steers one cell and re-arms, so a
 // continuing drag keeps stepping; the held direction auto-walks at the
@@ -713,6 +719,9 @@ fakeTouch('touchend', 5, 5);
 assert.ok(!isLcdActive(), 'LCD: a tap while playing releases the exclusive-keys class');
 assert.strictEqual(lcdStateSnapshot().state, 'ready', 'LCD: a tap while playing returns to the ready screen');
 assert.ok(cancelledTouch.includes('touchend'), 'LCD: the quit tap cancels its synthetic click');
+// The glow fades back out at rest.
+for (let i = 0; i < 60; i++) updateLcdScreen(1.5 + i / 60, DT);
+assert.ok(lcdStateSnapshot().glowOpacity < 0.05, 'LCD: the screen glow fades back at rest');
 
 // Enter starts a run — but only while focused (the exclusive-keys gate):
 // after Escape the same key is inert until the LCD is re-focused.
@@ -935,7 +944,7 @@ console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
 console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
-console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, touch steering (tap-start / swipe-steer / tap-quit), timer loss + scripted MISSION COMPLETE, persistent best + NEW RECORD flash`);
+console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, touch steering (tap-start / swipe-steer / tap-quit), screen glow (off at rest, pulsing in bounds while playing, fades on quit), timer loss + scripted MISSION COMPLETE, persistent best + NEW RECORD flash`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);
