@@ -20,10 +20,10 @@ export const portfolioData = {
             linkedin: LINKEDIN_URL
         },
         stats: [
-            { label: "GPA", value: "9.51/10" },
+            { label: "GPA", value: "9.48/10" },
             { label: "MODULES", value: "9" }
         ],
-        heroLine: "One board. Three domains — AI, full-stack, embedded. Everything here is built for real, shipped, and working. No tutorials. No filler.",
+        heroLine: "I'm Parameshwaran S — an ECE + Data Science undergrad at SRM IST, Chennai, who builds for real. AI pipelines, full-stack apps, and embedded systems that actually ship: deployed ML APIs, live GPS tracking, a 24-hour fully-local AI calling agent, and flyrank.ai — my own startup, built solo from the ground up. No tutorials. No filler.",
         bio: "PARAMA-CORE is a single-substrate system built for one purpose: shipping real products at the intersection of software, AI, and hardware.\n\nThe core cluster runs on a data-science specialization — machine learning pipelines, computer vision, and full-stack applications are the three main buses, and every one of them has reached production: deployed APIs, live tracking, a working startup. When the problem touches silicon, the stack extends down — embedded systems, VLSI fundamentals, and low-level architecture are part of the same design flow, not a separate board.\n\nTutorials are reference manuals, not products. The parts that make it onto this board are the ones that survived real builds — debugging, integration, deployment. Continuous learning is a hardware feature here: it ships in every revision.\n\nAuxiliary system: the operator keeps a training schedule. Heavy compound lifts, three times a week — same discipline as the code. Consistent, logged, load-incremented.",
         languages: [
             { name: "English", level: "Fluent" },
@@ -183,7 +183,7 @@ export const portfolioData = {
             degree: "B.Tech ECE with Specialization in Data Science",
             institution: "SRM Institute of Science and Technology, Ramapuram, Chennai",
             duration: "2024 – 2028",
-            grade: "GPA: 9.51 / 10"
+            grade: "GPA: 9.48 / 10"
         }
     ],
     // Experience — timeline etched into copper. Time-stamped junctions.
@@ -191,7 +191,7 @@ export const portfolioData = {
         {
             date: "2024",
             title: "B.Tech ECE (Data Science) — SRM Ramapuram",
-            detail: "Enrolled; currently 3rd year. GPA 9.51/10."
+            detail: "Enrolled; currently 3rd year. GPA 9.48/10."
         },
         {
             date: "2025",

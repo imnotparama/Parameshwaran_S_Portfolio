@@ -876,9 +876,10 @@ export function initJourney(camera) {
     ScrollTrigger.refresh();
   });
 
-  // Smooth scroll-snap layer: wheel = one section per notch with the unified
-  // power2.inOut glide, settle-snap aligns trackpad/touch/keyboard rests to
-  // the nearest section stop (see the layer block at the bottom of the file).
+  // Smooth scroll layer: wheel input below the step threshold scrolls
+  // natively (follows the finger); deliberate input (two notches / a flick)
+  // glides section to section with the unified power2.inOut ease. Keyboard
+  // and nav share the same queue (see the layer block at the bottom).
   wireSmoothScroll();
 
   // Esc releases chip focus (close button lives in the panel; scroll does
@@ -980,19 +981,22 @@ export function scrollToSection(sectionId) {
   });
 }
 
-// ─── Smooth scroll-snap layer ─────────────────────────────────
+// ─── Smooth scroll layer ──────────────────────────────────────
 // The journey used to be a pure pulley: the camera followed the scrollbar
 // 1:1 (scrub 0.6) and a wheel notch was a hard yank. This layer replaces
-// that feel with page-to-page motion:
-//   - Wheel (journey mode): deltas accumulate into section steps — one
-//     notch = one section, glided with the site's unified power2.inOut.
-//     Rapid input chains up to MAX_QUEUED_STEPS glides.
-//   - Settle-snap: any other scroll input (trackpad momentum, touch,
-//     keyboard, scrollbar) that rests between stops glides to the nearest
-//     section — the page always lands ON a stop.
+// that feel with smooth, deliberate page-to-page motion:
+//   - Wheel (journey mode): deltas accumulate into section steps — a step
+//     needs WHEEL_STEP_PX of accumulated input (two standard mouse notches,
+//     or one trackpad flick), so a single notch does NOT jump a full page.
+//     Input below the threshold scrolls natively and follows the finger;
+//     once the threshold is crossed, the journey glides the rest of the way
+//     with the site's unified power2.inOut. Rapid input chains up to
+//     MAX_QUEUED_STEPS glides.
+//   - No settle-snap: native scrolls rest where they land — a small scroll
+//     never drags the page a full section on its own.
 // Skipped under reduced motion (native scroll, no hijack) and while wheeling
 // inside a nested scrollable (the fixed datasheet panel scrolls itself).
-const WHEEL_STEP_PX = 120;   // accumulated wheel px per section step
+const WHEEL_STEP_PX = 240;   // accumulated wheel px per section step
 // Bounds a whole burst (the in-flight glide counts too): a trackpad flick or
 // a fast wheel roll can chain at most 3 glides per gesture, then drops input
 // until the queue drains — 3 covers half the 6-section journey in one flick.
@@ -1003,7 +1007,6 @@ const MAX_QUEUED_STEPS = 3;
 // end power2.inOut (never a yank), but the chained page-to-page flow no
 // longer drags; revert is this single number.
 const SECTION_TRANSITION_DURATION = 1.2;
-const SNAP_SETTLE_MS = 280;  // scroll-idle before the settle-snap fires
 let wheelAccum = 0;
 let glideQueued = 0;
 let glideActive = false;
@@ -1014,7 +1017,6 @@ let glideActive = false;
 // section the user asked for. Wheel glides keep their burst-chaining (queue
 // + pump), which is the designed rapid-notch flow.
 let navGlideActive = false;
-let settleTimer = 0;
 let smoothScrollWired = false;
 
 /** Document-scroll Y of every section stop, read live so resize/reflow is
@@ -1138,32 +1140,24 @@ function onJourneyWheel(e) {
     if (el.scrollHeight > el.clientHeight + 4) return; // nested scrollable
     el = el.parentElement;
   }
-  e.preventDefault();
   let d = e.deltaY;
   if (e.deltaMode === 1) d *= 40;      // lines → px
   else if (e.deltaMode === 2) d *= 100; // pages → px
   const r = wheelStepQueue(d, wheelAccum);
   wheelAccum = r.accum;
-  queueStep(r.queue);
-}
-
-/** Any scroll that isn't one of our glides (trackpad momentum, touch,
- *  keyboard, scrollbar) gets aligned to the nearest stop after it rests. */
-function onJourneyScroll() {
-  if (!journeyReady || motionPrefs.reduced || glideActive) return;
-  clearTimeout(settleTimer);
-  settleTimer = setTimeout(() => {
-    if (!journeyReady || motionPrefs.reduced || glideActive || isFocusMode()) return;
-    const stops = getStopScrolls();
-    const y = window.scrollY;
-    let best = stops[0];
-    let bestD = Infinity;
-    for (const s of stops) {
-      const d = Math.abs(s - y);
-      if (d < bestD) { bestD = d; best = s; }
-    }
-    if (bestD > 4) glideToY(best);
-  }, SNAP_SETTLE_MS);
+  if (r.queue !== 0) {
+    // Deliberate input (two notches, or one flick): glide to the section.
+    e.preventDefault();
+    queueStep(r.queue);
+  } else if (glideActive) {
+    // Mid-glide sub-threshold input: swallow it so the browser can't fight
+    // the running tween; the delta rides in the accumulator for a possible
+    // follow-up glide.
+    e.preventDefault();
+  }
+  // Otherwise (sub-threshold, nothing gliding): leave the event alone — the
+  // browser scrolls natively, so a single notch or a light trackpad scroll
+  // follows the finger instead of jumping a full page.
 }
 
 /** Keyboard section-stepping — ArrowDown/PageDown advance one section,
@@ -1198,6 +1192,5 @@ function wireSmoothScroll() {
   if (smoothScrollWired) return;
   smoothScrollWired = true;
   window.addEventListener('wheel', onJourneyWheel, { passive: false });
-  window.addEventListener('scroll', onJourneyScroll, { passive: true });
   window.addEventListener('keydown', onJourneyKeydown);
 }

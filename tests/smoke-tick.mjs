@@ -383,10 +383,12 @@ assert.ok(
 // ── 5d. Phase A4 — the snap layer's pure direction/queue math ─
 // The DOM wheel path (initJourney's wheel listener) isn't headless-testable,
 // so journey.js exports the two pure seams it's built on. These assert the
-// invariants the layer guarantees live: one notch = exactly one section; a
-// burst chains at most MAX_QUEUED_STEPS glides (the queue counts the
-// in-flight step, consumed on completion); the 2px tolerance stops a landed
-// glide from re-targeting itself.
+// invariants the layer guarantees live: a section step needs WHEEL_STEP_PX
+// (240) of accumulated wheel input — two standard notches or one flick — so
+// a single 120px notch stays sub-threshold and scrolls natively instead of
+// jumping a full page; a burst chains at most MAX_QUEUED_STEPS glides (the
+// queue counts the in-flight step, consumed on completion); the 2px
+// tolerance stops a landed glide from re-targeting itself.
 const STOPS = [0, 840, 1680, 2520, 3360, 4200];
 const snapChecks = [
     // [stops, y, dir, expected, label]
@@ -408,20 +410,23 @@ for (const [stops, y, dir, expected, label] of snapChecks) {
 
 // wheelStepQueue — step extraction + accumulator carry (the sub-threshold
 // remainder rides along so a half-notch isn't lost):
-assert.deepStrictEqual(wheelStepQueue(120), { queue: 1, accum: 0 }, 'one notch = one step');
-assert.deepStrictEqual(wheelStepQueue(250), { queue: 2, accum: 10 }, 'two steps + remainder carried');
+assert.deepStrictEqual(wheelStepQueue(120), { queue: 0, accum: 120 }, 'one notch stays sub-threshold (native scroll, no page jump)');
+assert.deepStrictEqual(wheelStepQueue(120, 120), { queue: 1, accum: 0 }, 'two notches cross the threshold → one step');
+assert.deepStrictEqual(wheelStepQueue(250), { queue: 1, accum: 10 }, 'one step + remainder carried');
 assert.deepStrictEqual(wheelStepQueue(119), { queue: 0, accum: 119 }, 'sub-threshold delta accumulates');
-assert.deepStrictEqual(wheelStepQueue(60, 60), { queue: 1, accum: 0 }, 'accumulated deltas cross the threshold');
-assert.deepStrictEqual(wheelStepQueue(-120), { queue: -1, accum: 0 }, 'negative notch = backward step');
-assert.deepStrictEqual(wheelStepQueue(-60, -60), { queue: -1, accum: 0 }, 'accumulated backward deltas cross');
+assert.deepStrictEqual(wheelStepQueue(60, 60), { queue: 0, accum: 120 }, 'accumulated deltas stay sub-threshold');
+assert.deepStrictEqual(wheelStepQueue(-120), { queue: 0, accum: -120 }, 'single backward notch stays sub-threshold');
+assert.deepStrictEqual(wheelStepQueue(-120, -120), { queue: -1, accum: 0 }, 'two backward notches → one backward step');
 assert.deepStrictEqual(wheelStepQueue(500, 0, 120, 3), { queue: 3, accum: 20 }, 'oversized delta capped at max steps, remainder kept');
 assert.deepStrictEqual(wheelStepQueue(-500, 0, 120, 3), { queue: -3, accum: -20 }, 'oversized backward delta capped, remainder kept');
 
-// Burst invariant: N notches arriving during a glide chain exactly
-// min(N, MAX_QUEUED_STEPS) glides — the queue counts the in-flight step
-// (consumed on completion), so the cap bounds a whole gesture, not just the
-// backlog. Simulates the real code path: per-notch wheelStepQueue + the
-// capped add, then one glide per queued step.
+// Burst invariant: a burst of wheel input chains at most MAX_QUEUED_STEPS
+// glides — the queue counts the in-flight step (consumed on completion), so
+// the cap bounds a whole gesture, not just the backlog. Each 120px notch
+// contributes toward the WHEEL_STEP_PX=240 step, so steps emerge every two
+// notches; a single big flick delta is covered by the explicit oversized
+// wheelStepQueue cases above. Simulates the real code path: per-notch
+// wheelStepQueue + the capped add, then one glide per queued step.
 const simulateBurst = (deltas, cap = 3) => {
     let accum = 0, queue = 0;
     for (const d of deltas) {
@@ -431,15 +436,15 @@ const simulateBurst = (deltas, cap = 3) => {
     }
     return Math.abs(queue);
 };
-assert.strictEqual(simulateBurst([120]), 1, '1-notch burst → 1 glide');
-assert.strictEqual(simulateBurst([120, 120]), 2, '2-notch burst → 2 glides');
-assert.strictEqual(simulateBurst([120, 120, 120]), 3, '3-notch burst → 3 glides');
-assert.strictEqual(simulateBurst([120, 120, 120, 120, 120]), 3, '5-notch burst → capped at 3 glides');
+assert.strictEqual(simulateBurst([120]), 0, '1-notch burst → 0 glides (sub-threshold, native scroll)');
+assert.strictEqual(simulateBurst([120, 120]), 1, '2-notch burst → 1 glide');
+assert.strictEqual(simulateBurst([120, 120, 120]), 1, '3-notch burst → 1 glide (remainder carried)');
+assert.strictEqual(simulateBurst([120, 120, 120, 120]), 2, '4-notch burst → 2 glides');
 assert.strictEqual(simulateBurst(Array(9).fill(120)), 3, '9-notch burst → still capped at 3');
-assert.strictEqual(simulateBurst(Array(4).fill(-120)), 3, 'backward burst → capped at 3');
+assert.strictEqual(simulateBurst(Array(4).fill(-120)), 2, '4-notch backward burst → 2 glides');
 assert.strictEqual(simulateBurst([120, 120, -120]), 1, 'mixed burst → net direction');
-assert.strictEqual(simulateBurst([40, 40, 40, 40]), 1, 'trackpad-style small deltas accumulate to 1 step');
-assert.strictEqual(simulateBurst(Array(9).fill(40)), 3, 'trackpad-style small deltas accumulate to 3 steps (capped)');
+assert.strictEqual(simulateBurst([60, 60, 60, 60]), 1, 'trackpad-style small deltas accumulate to 1 step');
+assert.strictEqual(simulateBurst(Array(24).fill(40)), 3, 'trackpad-style small deltas accumulate to 3 steps (capped)');
 
 // stepQueue — the pure queue-state math shared by wheel and keyboard
 // stepping (clamped add; the keyboard path is queueStep(dir) = this + pump):
