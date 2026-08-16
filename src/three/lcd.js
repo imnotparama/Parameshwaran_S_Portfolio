@@ -1,53 +1,60 @@
 // @ts-check
 // ============================================================
-// LCD1 — 2.4" DISPLAY · SIGNAL REPAIR
+// LCD1 — 2.4" DISPLAY · SIGNAL RUNNER
 //
 // A real interactive screen on the board, styled like the firmware of an
 // old embedded device: a 128×64 monochrome green LCD (pixel font, scan
-// lines, ghosting, subtle CRT flicker) running a tiny game. The board has
-// lost its communication signal — broken signal packets drift across the
-// screen; the player walks a square cursor one grid cell at a time and
-// collects every packet before the 30s timer expires.
+// lines, ghosting, subtle CRT flicker) running a tiny endless runner.
 //
-//   SIG:08  TIME:24           STATUS:ONLINE
-//   collect TARGET 12 packets → MISSION COMPLETE
-//   timer out with packets left → SIGNAL LOST
-//   idle (no play for 15s) → "PRESS ENTER / TO REPAIR SIGNAL" blinks
+// The story: this motherboard contains a tiny LCD test module, and the
+// visitor is running firmware diagnostics. You are an electrical pulse
+// travelling down the copper trace, dodging broken traces, burned
+// resistors, capacitors, voltage spikes, EMI pulses, moving relays and
+// inspection beams while collecting electrons — restoring power to the
+// CPU. Survive as long as you can; the score is distance + electrons +
+// perfect jumps + combos (the machine's SIGNAL INTEGRITY).
 //
-// Boot: a scripted POST sequence (MEM CHECK / RX ACQUIRED / LINK STABLE /
-// CALIBRATE all OK) plays once on power-up, then the ready screen idles.
+//   SIG:NNN  DIST:NNNN        STATUS:ONLINE
+//   auto-run — Up/W/Space jump (double jump), Down/S slide,
+//   D/Shift dash (invulnerable), P pause, ~ hidden debug, Esc power off
+//
+// Power lifecycle (the immersion): the display is OFF at rest (a real LCD
+// module on a powered bench). Focusing it (click LCD1, or #/lcd) powers it
+// on: a boot POST + diagnostics wipe in, then the title screen idles.
+// Closing (Esc / scroll / re-click / chip click) powers it back down.
 //
 // Rendering: the game is drawn on a plain 2D <canvas> (128×64) and pushed
-// to the screen quad via THREE.CanvasTexture (needsUpdate only when the
-// frame actually changed — no per-frame GPU upload). This is the standard
-// in-scene screen, not a DOM overlay. "Only black and green" — every color
-// is a shade of the phosphor green on the near-black background.
+// to the screen quad via THREE.CanvasTexture (needsUpdate whenever the
+// frame changed — the runner animates every frame, the idle screens only
+// on blink transitions). This is the standard in-scene screen, not a DOM
+// overlay. "Only black and green" — every color is a shade of the phosphor
+// green on the near-black background.
 //
 // Interaction contract (mirrors the scope probe's governance):
-//   - At rest: the ready/idle screen (deterministic — no Math.random, a
-//     fixed-seed LCG places packets), so the board reads as powered on.
-//     Under reduced motion: a static title, no auto-play, no flicker.
-//   - Click LCD1 (Tier-1 raycast → camera glide, journey.js): the game
-//     becomes player-controlled. WASD/arrows move one cell per press (a
-//     held key auto-walks at a fixed rate), Enter starts/retries, Esc exits.
-//   - While focused, `body.lcd-active` is set — every other keyboard
-//     listener (fly-probe, section keys, arrow stepping, palette, cheat)
-//     gates on it, so the game gets EXCLUSIVE keys. Esc / re-click / scroll
-//     / chip-click all exit via the registered exit handler
-//     (journey.clearFocus), restoring the normal keyboard.
+//   - At rest: powered off (deterministic — nothing auto-plays).
+//   - Focus: boot → ready. Enter starts the run. While focused,
+//     `body.lcd-active` is set — every other keyboard listener (fly-probe,
+//     section keys, arrow stepping, palette, cheat) gates on it, so the
+//     game gets EXCLUSIVE keys. Esc / re-click / scroll / chip-click all
+//     exit via the registered exit handler (journey.clearFocus), restoring
+//     the normal keyboard.
 //   - Optional content: never needed for any section or the CTA. It is the
 //     third (and capped) "extra" after the fly-probe and the night bench —
 //     see the HUD extras hint.
 //
-// Persistence: the best SIG count survives across sessions via
-// localStorage (loaded once at build, written only by a finished player
-// run — the machine keeps its record).
+// Determinism: every run re-seeds the fixed LCG (1234567), so the SAME
+// trace layout plays every time — the skill is in the dodging, and records
+// are comparable. The headless smoke suite drives the same tick seam.
+//
+// Persistence: best score (localStorage), a top-5 leaderboard, and a set
+// of achievements — all loaded once at build, written only by finished
+// player runs (the machine keeps its record).
 // ============================================================
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
 import { interactiveObjects } from './components.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
-import { gameBeep, loseBuzz, powerUpBeep } from '../utils/sound.js';
+import { gameBeep, loseBuzz, powerUpBeep, jumpBlip, dashBlip } from '../utils/sound.js';
 
 // ─── Placement ──────────────────────────────────────────────
 // Board-local: right of center, below the U1 CPU's lower edge —
@@ -63,19 +70,27 @@ const SCREEN_H = 0.67;
 // ─── LCD geometry — 128×64, one pixel = one screen pixel ────
 const CANVAS_W = 128;
 const CANVAS_H = 64;
-const CELL = 8;                 // px per grid cell
-const GRID_COLS = 16;           // 128 / 8
-const GRID_ROWS = 6;            // playfield 8..56 px (STATUS row below)
-const GRID_Y = 8;               // top of the playfield (HUD sits above)
 
-// ─── Game tuning ────────────────────────────────────────────
-const TARGET = 12;              // collect every packet → MISSION COMPLETE
-const TIME_LIMIT = 30;          // seconds per run
-const SPAWN_INIT = 3;           // packets on the board at start
-const SPAWN_START = 3.0;        // seconds between spawns at run start
-const SPAWN_MIN = 1.2;          // difficulty floor (more packets at once)
-const MAX_ON_SCREEN = 6;        // spawn cap per wave
-const MOVE_REPEAT = 0.14;       // held-key auto-walk cadence (seconds)
+// ─── Runner tuning ──────────────────────────────────────────
+const GROUND_Y = 50;            // the copper trace the pulse runs on
+const BASE_SPEED = 85;          // world scroll px/s at run start
+const MAX_SPEED = 150;          // speed ceiling (ramps with distance)
+const SPEED_RAMP = 0.12;        // +px/s per px scrolled
+const GRAVITY = 760;            // px/s²
+const JUMP_V = 250;             // initial jump velocity (negative vy = up; apex ≈ 41px)
+const DOUBLE_V = 215;           // double-jump velocity
+const DASH_SEC = 0.28;          // invulnerable dash duration
+const DASH_CD = 1.4;            // seconds between dashes
+const SLIDE_FAST = 0.5;         // swipe-down slide duration (held keys are held)
+const SCORE_PX = 8;             // distance points: 1 SIG per 8px
+const SPAWN_BASE = 1.5;         // seconds between obstacles at run start
+const SPAWN_MIN = 0.85;         // difficulty floor
+const EL_SPAWN = 0.7;           // seconds between electron clusters
+const PWR_OVERCLOCK = 5;        // seconds of 2× score
+const PWR_TURBO = 4;            // seconds of +50% speed
+const PWR_STABILIZER = 5;       // seconds of slower obstacles
+const PWR_MAGNET = 6;           // seconds of electron attraction
+const MAGNET_PULL = 90;         // px/s attraction strength
 const SWIPE_PX = 24;            // drag distance before a touch counts as a swipe
 
 // ─── Screen glow — halo around the bezel ─────────────────────
@@ -94,7 +109,6 @@ const GLOW_FADE = 3.0;          // opacity fade rate toward the target (/s)
 const BOOT_SEC = 2.9;           // POST sequence duration
 const IDLE_BLINK_MS = 15000;    // prompt starts blinking after 15s idle
 const BLINK_SEC = 0.8;          // blink period once armed
-const EXPLOSION_SEC = 0.35;     // packet-collect pixel burst lifetime
 
 // Monochrome phosphor — black + green only (shades for ghost/scanline).
 const C_BG = '#03130a';
@@ -102,17 +116,20 @@ const C_BRIGHT = '#3ee6a0';
 const C_DIM = '#10794a';
 const C_FAINT = '#0a3d22';
 
-// ─── Persistent high score ───────────────────────────────────
-// Best SIG count across sessions, kept in localStorage so the best run
-// survives a reload (the machine keeps its record). Only finished PLAYER
-// runs write it; it loads once at createLcd into a module value, so the
-// render path stays deterministic (no storage reads inside the tick).
-// Guarded for headless/private modes where localStorage may be missing.
-const BEST_KEY = 'parama-signal-repair-best';
-/** @type {number} */
-let bestScore = 0;
-/** @type {((best: number) => void) | null} */
-let bestListener = null;
+// ─── Persistent state (localStorage) ────────────────────────
+// Best score, a top-5 leaderboard, and an achievement set — all survive
+// reloads. Loaded once at createLcd into module values, so the render path
+// stays deterministic (no storage reads inside the tick). Only finished
+// PLAYER runs write them. Guarded for headless/private modes.
+const BEST_KEY = 'parama-signal-runner-best';
+const BOARD_KEY = 'parama-signal-runner-board';
+const ACHV_KEY = 'parama-signal-runner-achv';
+/** @type {number} */ let bestScore = 0;
+/** @type {Array<{ score: number, dist: number, electrons: number, date: number }>} */
+let leaderboard = [];
+/** @type {Set<string>} */ let achvUnlocked = new Set();
+/** @type {Array<string>} */ let achvNewThisRun = [];
+/** @type {((best: number) => void) | null} */ let bestListener = null;
 
 /** @returns {Storage | null} */
 function getBestStorage() {
@@ -129,6 +146,10 @@ function loadBestScore() {
     try {
         const v = parseInt(s.getItem(BEST_KEY) || '0', 10);
         if (Number.isFinite(v) && v > 0) bestScore = v;
+        const board = JSON.parse(s.getItem(BOARD_KEY) || '[]');
+        if (Array.isArray(board)) leaderboard = board.filter((e) => e && typeof e.score === 'number').slice(0, 5);
+        const achv = JSON.parse(s.getItem(ACHV_KEY) || '[]');
+        if (Array.isArray(achv)) achv.forEach((a) => { if (typeof a === 'string') achvUnlocked.add(a); });
     } catch { /* private-mode read failure — start fresh */ }
 }
 
@@ -138,6 +159,22 @@ function persistBestScore() {
     try {
         s.setItem(BEST_KEY, String(bestScore));
     } catch { /* quota/private-mode write failure — session-only best */ }
+}
+
+function persistBoard() {
+    const s = getBestStorage();
+    if (!s) return;
+    try {
+        s.setItem(BOARD_KEY, JSON.stringify(leaderboard.slice(0, 5)));
+    } catch { /* session-only leaderboard */ }
+}
+
+function persistAchievements() {
+    const s = getBestStorage();
+    if (!s) return;
+    try {
+        s.setItem(ACHV_KEY, JSON.stringify([...achvUnlocked]));
+    } catch { /* session-only achievements */ }
 }
 
 // ─── Scene objects (created by createLcd) ───────────────────
@@ -151,38 +188,64 @@ let glowCurrent = 0;            // smoothed glow opacity (fades toward target)
 /** @type {CanvasRenderingContext2D | null} */ let ghostCtx = null;
 
 // ─── Game state ─────────────────────────────────────────────
-/** @typedef {'boot' | 'ready' | 'playing' | 'paused' | 'over'} LcdState */
-let state = /** @type {LcdState} */ ('boot');
+/** @typedef {'off' | 'boot' | 'ready' | 'playing' | 'paused' | 'over'} LcdState */
+let state = /** @type {LcdState} */ ('off');
 let bootAccum = 0;
-let idleAccum = 0;              // seconds spent on the ready screen
+let idleAccum = 0;              // seconds on the title screen (blink arming)
 let runElapsed = 0;             // seconds into the current run
-let timeLeft = TIME_LIMIT;
-let spawnAccum = 0;
-let spawned = 0;
+let dist = 0;                   // px scrolled (the "distance" stat)
 let score = 0;
-let overWin = false;
+let scoreAccum = 0;             // fractional distance points before floor
+let comboBonus = 0;             // points accrued from obstacle-pass combos
+let electrons = 0;
+let combo = 0;                  // consecutive obstacle passes
+let maxCombo = 0;
+let perfects = 0;               // obstacles cleared while airborne
 let overAccum = 0;              // seconds on the result screen (blink clock)
-let lastOverBlink = -1;         // last blink slot drawn on the result screen
-let pauseAccum = 0;             // seconds paused (blink clock for the pause screen)
-let lastPauseBlink = -1;        // last blink slot drawn on the pause screen
+let lastOverBlink = -1;
+let pauseAccum = 0;             // seconds paused (blink clock)
+let lastPauseBlink = -1;
 let newRecord = false;          // this run beat the stored best
 let playerActive = false;       // LCD focused (keys owned)
-let cursor = [7, 3];            // grid cell — center of the 16×6 field
-/** @type {Array<[number, number]>} */ let packets = [];
-/** @type {Array<{ x: number, y: number, t: number }>} */ let explosions = [];
-/** @type {Set<string>} */ let heldKeys = new Set();
-/** @type {[number, number] | null} */ let heldDir = null;
-let holdAccum = 0;
-let lcgSeed = 1234567;          // fixed seed — identical layouts per stream
+let debug = false;              // hidden ~ debug overlay
+
+// Runner kinematics — px/py is the pulse's FEET position.
+let px = 22;
+let py = GROUND_Y;
+let vy = 0;
+let onGround = true;
+let jumpsUsed = 0;
+let sliding = false;
+let slideTimer = 0;
+let dashing = false;
+let dashTimer = 0;
+let dashCd = 0;
+let invuln = 0;                 // seconds of obstacle pass-through
+
+// Power-up effects (remaining seconds; shield is a one-shot flag).
+let shield = false;
+let overclock = 0;
+let turbo = 0;
+let stabilizer = 0;
+let magnet = 0;
+
+/** @typedef {{ kind: 'obstacle' | 'powerup', type: string, x: number, y: number, w: number, h: number, baseY: number, phase: number, passed: boolean }} Actor */
+/** @type {Actor[]} */ let actors = [];
+/** @type {Array<{ x: number, y: number }>} */ let fieldEls = [];
+/** @type {Array<{ x: number, y: number, vx: number, vy: number, t: number, life: number, size: number }>} */
+let particles = [];
+let spawnAccum = 0;
+let elSpawnAccum = 0;
+let lcgSeed = 1234567;          // fixed seed — re-seeded per run: SAME trace every run
+
 /** @type {(() => void) | null} */ let exitHandler = null;
 let dirty = true;               // redraw needed
 let frameCount = 0;
 let lastBlinkVisible = true;
-let lastSecShown = -1;
 let reducedStaticDrawn = false;
 
 /** Deterministic LCG — the house discipline: no unseeded randomness
- *  anywhere in packet placement. */
+ *  anywhere in obstacle/electron/power-up placement. */
 function lcgNext() {
     lcgSeed = (lcgSeed * 1664525 + 1013904223) >>> 0;
     return lcgSeed / 4294967296;
@@ -278,16 +341,55 @@ function drawTextCentered(c, text, y, color) {
 
 // ─── Game logic (pure — no rendering; runs headlessly) ──────
 
-/** Freeze the run — P or a tap while playing. The timer/spawns/auto-walk
- *  stop and the glow dims to a steady low; resume continues exactly from
- *  where it paused. */
+/** Begin a fresh player run (Enter from ready/over). Every run re-seeds the
+ *  fixed LCG, so the same trace layout plays every time — deterministic,
+ *  comparable records, and the headless suite can drive it tick-for-tick. */
+function startRun() {
+    lcgSeed = 1234567;
+    state = 'playing';
+    playerActive = true;
+    newRecord = false;
+    runElapsed = 0;
+    dist = 0;
+    score = 0;
+    scoreAccum = 0;
+    comboBonus = 0;
+    electrons = 0;
+    combo = 0;
+    maxCombo = 0;
+    perfects = 0;
+    px = 22;
+    py = GROUND_Y;
+    vy = 0;
+    onGround = true;
+    jumpsUsed = 0;
+    sliding = false;
+    slideTimer = 0;
+    dashing = false;
+    dashTimer = 0;
+    dashCd = 0;
+    invuln = 0;
+    shield = false;
+    overclock = 0;
+    turbo = 0;
+    stabilizer = 0;
+    magnet = 0;
+    actors = [];
+    fieldEls = [];
+    particles = [];
+    spawnAccum = 0;
+    elSpawnAccum = 0;
+    achvNewThisRun = [];
+    dirty = true;
+}
+
+/** Freeze the run — P, or a two-finger tap while playing. Everything stops;
+ *  resume continues exactly from where it paused. */
 function pauseRun() {
     if (state !== 'playing') return;
     state = 'paused';
     pauseAccum = 0;
     lastPauseBlink = -1;
-    heldDir = null;
-    holdAccum = 0;
     dirty = true;
 }
 
@@ -298,53 +400,110 @@ function resumeRun() {
     dirty = true;
 }
 
-/** Begin a fresh player run (Enter from ready/over, or clicking the LCD). */
-function startRun() {
-    state = 'playing';
-    playerActive = true;
-    newRecord = false;
-    score = 0;
-    runElapsed = 0;
-    timeLeft = TIME_LIMIT;
-    spawnAccum = 0;
-    spawned = 0;
-    cursor = [7, 3];
-    packets = [];
-    explosions = [];
-    heldDir = null;
-    holdAccum = 0;
-    // Initial packet wave — deterministic LCG placements, never on the cursor.
-    for (let i = 0; i < SPAWN_INIT; i++) spawnPacket();
-    lastSecShown = TIME_LIMIT;
-    dirty = true;
+/** The pulse's AABB. Standing is a 3×7 column at px; sliding is a flat
+ *  5×3 skid (that is what lets the pulse pass under inspection beams). */
+function playerBox() {
+    return sliding
+        ? { x: px - 1, y: py - 3, w: 5, h: 3 }
+        : { x: px, y: py - 7, w: 3, h: 7 };
 }
 
-/** Place one packet at a free cell (not on the cursor, not already used). */
-function spawnPacket() {
-    if (spawned >= TARGET || packets.length >= MAX_ON_SCREEN) return;
-    for (let tries = 0; tries < 200; tries++) {
-        const px = Math.floor(lcgNext() * GRID_COLS);
-        const py = Math.floor(lcgNext() * GRID_ROWS);
-        if (px === cursor[0] && py === cursor[1]) continue;
-        if (packets.some(([x, y]) => x === px && y === py)) continue;
-        packets.push([px, py]);
-        spawned++;
-        dirty = true;
+/** Obstacle hitbox with a forgiving ~25% shrink (arcade feel).
+ *  @param {Actor} a */
+function actorBox(a) {
+    const sx = a.w * 0.12;
+    const sy = a.h * 0.15;
+    return { x: a.x + sx, y: a.y + sy, w: Math.max(2, a.w - sx * 2), h: Math.max(2, a.h - sy * 2) };
+}
+
+/** @param {{ x: number, y: number, w: number, h: number }} a
+ *  @param {{ x: number, y: number, w: number, h: number }} b */
+function boxOverlap(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+/** Spawn one actor from the LCG stream — a power-up occasionally, otherwise
+ *  an obstacle archetype (gap / resistor / capacitor / spike / beam /
+ *  relay — every kind the spec lists maps onto one of these). */
+function spawnActor() {
+    if (lcgNext() < 0.12) {
+        const types = ['shield', 'overclock', 'turbo', 'stabilizer', 'magnet'];
+        const type = types[Math.floor(lcgNext() * types.length)];
+        actors.push({ kind: 'powerup', type, x: CANVAS_W + 8, y: GROUND_Y - 16, w: 8, h: 8, baseY: GROUND_Y - 16, phase: 0, passed: false });
         return;
+    }
+    const roll = lcgNext();
+    let type = 'spike';
+    let w = 10;
+    let h = 10;
+    if (roll < 0.18) {
+        type = 'gap';                 // broken trace — a hole in the ground
+        w = 14 + Math.floor(lcgNext() * 10);
+        h = 0;
+    } else if (roll < 0.42) {
+        type = lcgNext() < 0.5 ? 'resistor' : 'capacitor'; // burned resistor / capacitor
+        w = 8;
+        h = type === 'resistor' ? 10 : 26;
+    } else if (roll < 0.62) {
+        type = 'spike';               // voltage spike
+        w = 10;
+        h = 10;
+    } else if (roll < 0.78) {
+        type = 'beam';                // EMI pulse / inspection beam — slide under
+        w = 12;
+        h = 4;
+    } else {
+        type = 'relay';               // moving relay — oscillates vertically
+        w = 8;
+        h = 12 + Math.floor(lcgNext() * 8);
+    }
+    const baseY = type === 'gap' ? GROUND_Y : GROUND_Y - h;
+    actors.push({ kind: 'obstacle', type, x: CANVAS_W + 8, y: baseY, w, h, baseY, phase: lcgNext() * Math.PI * 2, passed: false });
+}
+
+/** A small arc of electrons drifting toward the player. */
+function spawnElectrons() {
+    const x0 = CANVAS_W + 8;
+    for (let i = 0; i < 3; i++) {
+        fieldEls.push({ x: x0 + i * 6, y: GROUND_Y - 3 - Math.floor(lcgNext() * 10) });
     }
 }
 
-/** End the run — finished runs may set the record (persisted).
- *  @param {boolean} win */
-function endRun(win) {
+/** @param {string} type */
+function applyPowerup(type) {
+    if (type === 'shield') shield = true;
+    else if (type === 'overclock') overclock = PWR_OVERCLOCK;
+    else if (type === 'turbo') turbo = PWR_TURBO;
+    else if (type === 'stabilizer') stabilizer = PWR_STABILIZER;
+    else if (type === 'magnet') magnet = PWR_MAGNET;
+    scoreAccum += 20;
+    particles.push({ x: px, y: py - 4, vx: 0, vy: -12, t: 0, life: 0.3, size: 1 });
+    powerUpBeep();
+    dirty = true;
+}
+
+/** @param {Actor} a */
+function destroyObstacle(a) {
+    actors = actors.filter((o) => o !== a);
+    for (let k = 0; k < 8; k++) {
+        particles.push({ x: a.x + a.w / 2, y: a.y + a.h / 2, vx: (k % 4 - 1.5) * 22, vy: -Math.abs((k % 3) - 1) * 26 - 8, t: 0, life: 0.4, size: 1 });
+    }
+    scoreAccum += 15;
+}
+
+/** End the run — finished runs may set the record + leaderboard + achievements.
+ *  @param {string} cause */
+function endRun(cause) {
+    void cause;
     state = 'over';
-    overWin = win;
     playerActive = false;
-    heldDir = null;
     overAccum = 0;
     lastOverBlink = -1;
-    // A new record is scored by ANY run that beats the stored best — a
-    // signal-lost run with a partial haul still counts.
+    // Crash glitch — a quick pixel burst where the pulse died.
+    for (let k = 0; k < 10; k++) {
+        particles.push({ x: px, y: py - 4, vx: (k % 5 - 2) * 20, vy: -Math.abs((k % 3) - 1) * 30, t: 0, life: 0.45, size: 1 });
+    }
+    // A new record is scored by ANY run that beats the stored best.
     newRecord = score > bestScore;
     if (newRecord) {
         bestScore = score;
@@ -353,39 +512,234 @@ function endRun(win) {
         // machine's record — notify them only when the value actually changes.
         if (bestListener) bestListener(bestScore);
     }
-    if (win) powerUpBeep();
-    else loseBuzz();
+    checkAchievements();
+    addLeaderboard();
+    loseBuzz();
     dirty = true;
 }
 
-/** Move the cursor one cell (or clamp at the edge). Collects on arrival.
- *  @param {[number, number]} dir */
-function moveCursor(dir) {
-    const nx = cursor[0] + dir[0];
-    const ny = cursor[1] + dir[1];
-    if (nx < 0 || nx >= GRID_COLS || ny < 0 || ny >= GRID_ROWS) return;
-    cursor = [nx, ny];
-    dirty = true;
-    const idx = packets.findIndex(([px, py]) => px === nx && py === ny);
-    if (idx >= 0) {
-        packets.splice(idx, 1);
-        score++;
-        explosions.push({ x: nx, y: ny, t: 0 });
-        gameBeep();
-        dirty = true;
-        if (score >= TARGET) endRun(true);
+// ─── Achievements (hidden until earned) ─────────────────────
+const ACHIEVEMENTS = [
+    { id: 'first-run', label: 'FIRST RUN', test: () => true },
+    { id: 'dist-500', label: '500PX', test: () => dist >= 500 },
+    { id: 'sig-100', label: 'SIG 100', test: () => score >= 100 },
+    { id: 'sig-250', label: 'SIG 250', test: () => score >= 250 },
+    { id: 'electrons-50', label: 'E 50', test: () => electrons >= 50 },
+    { id: 'perfect-10', label: 'PERFECT 10', test: () => perfects >= 10 },
+    { id: 'combo-8', label: 'COMBO 8', test: () => maxCombo >= 8 },
+    { id: 'shielded', label: 'SHIELD HIT', test: () => shieldUsed }
+];
+let shieldUsed = false;         // an obstacle was absorbed by the shield
+
+function checkAchievements() {
+    for (const a of ACHIEVEMENTS) {
+        if (!achvUnlocked.has(a.id) && a.test()) {
+            achvUnlocked.add(a.id);
+            achvNewThisRun.push(a.label);
+        }
     }
+    if (achvNewThisRun.length > 0) persistAchievements();
+}
+
+// ─── Leaderboard (top 5, local) ─────────────────────────────
+function addLeaderboard() {
+    leaderboard.push({ score, dist: Math.floor(dist), electrons, date: Date.now() });
+    leaderboard.sort((a, b) => b.score - a.score);
+    leaderboard = leaderboard.slice(0, 5);
+    persistBoard();
+}
+
+// ─── Player input (actions only — key listeners in createLcd) ──
+function doJump() {
+    if (state !== 'playing') return;
+    if (onGround) {
+        vy = -JUMP_V;
+        onGround = false;
+        jumpsUsed = 1;
+    } else if (jumpsUsed < 2) {
+        vy = -DOUBLE_V;
+        jumpsUsed = 2;
+    } else {
+        return;
+    }
+    jumpBlip();
+    dirty = true;
+}
+
+function doSlide() {
+    if (state !== 'playing' || !onGround) return;
+    sliding = true;
+    slideTimer = SLIDE_FAST;
+    dirty = true;
+}
+
+function endSlide() {
+    if (sliding) {
+        sliding = false;
+        dirty = true;
+    }
+}
+
+function doDash() {
+    if (state !== 'playing' || dashCd > 0) return;
+    dashing = true;
+    dashTimer = DASH_SEC;
+    invuln = Math.max(invuln, DASH_SEC);
+    dashCd = DASH_CD;
+    dashBlip();
+    dirty = true;
+}
+
+function toggleDebug() {
+    debug = !debug;
+    dirty = true;
+}
+
+/** One simulation step of the run (playing only). Deterministic.
+ *  @param {number} delta */
+function stepPlay(delta) {
+    runElapsed += delta;
+    // Timers.
+    dashCd = Math.max(0, dashCd - delta);
+    invuln = Math.max(0, invuln - delta);
+    overclock = Math.max(0, overclock - delta);
+    turbo = Math.max(0, turbo - delta);
+    stabilizer = Math.max(0, stabilizer - delta);
+    magnet = Math.max(0, magnet - delta);
+    if (dashing) {
+        dashTimer -= delta;
+        if (dashTimer <= 0) dashing = false;
+    }
+    if (sliding) {
+        slideTimer -= delta;
+        if (slideTimer <= 0) sliding = false;
+    }
+    // World speed (the pulse auto-runs; the trace scrolls under it).
+    const base = Math.min(MAX_SPEED, BASE_SPEED + dist * SPEED_RAMP);
+    const speed = base * (turbo > 0 ? 1.5 : 1) * (dashing ? 1.7 : 1);
+    const obsSpeed = speed * (stabilizer > 0 ? 0.6 : 1);
+    dist += speed * delta;
+    scoreAccum += speed * delta / SCORE_PX;
+    score = Math.floor(scoreAccum) + electrons * 5 + perfects * 3 + comboBonus;
+    // Player physics — gravity (grounded → land).
+    if (!onGround) {
+        vy += GRAVITY * delta;
+        py += vy * delta;
+        if (py >= GROUND_Y) {
+            py = GROUND_Y;
+            vy = 0;
+            onGround = true;
+            jumpsUsed = 0;
+        }
+    }
+    // Scroll actors; relays oscillate vertically (deterministic sine).
+    for (const a of actors) {
+        a.x -= obsSpeed * delta;
+        if (a.type === 'relay') a.y = a.baseY + Math.sin(runElapsed * 3 + a.phase) * 5;
+        if (a.kind === 'powerup') a.x -= (speed - obsSpeed) * delta; // power-ups ride the full speed
+    }
+    actors = actors.filter((a) => a.x + a.w > -4);
+    // Electrons scroll; the magnet pulls them toward the pulse.
+    for (const e of fieldEls) {
+        e.x -= speed * delta;
+        if (magnet > 0) {
+            const ddx = px - e.x;
+            const ddy = (GROUND_Y - 4) - e.y;
+            e.x += Math.sign(ddx) * Math.min(Math.abs(ddx), MAGNET_PULL * delta);
+            e.y += Math.sign(ddy) * Math.min(Math.abs(ddy), MAGNET_PULL * delta * 0.5);
+        }
+    }
+    fieldEls = fieldEls.filter((e) => e.x > -4);
+    // Particle animation.
+    for (const p of particles) {
+        p.t += delta;
+        p.x += p.vx * delta;
+        p.y += p.vy * delta;
+        p.vy += 40 * delta;
+    }
+    particles = particles.filter((p) => p.t < p.life);
+    // Electron collection — overlap with the pulse scores +1 each (the
+    // machine's electron count feeds the SIG total).
+    const box = playerBox();
+    fieldEls = fieldEls.filter((e) => {
+        if (box.x < e.x + 2 && box.x + box.w > e.x && box.y < e.y + 2 && box.y + box.h > e.y) {
+            electrons++;
+            gameBeep();
+            return false;
+        }
+        return true;
+    });
+    // Collisions — player box vs actors.
+    for (const a of actors) {
+        if (a.kind === 'powerup') {
+            if (boxOverlap(box, actorBox(a))) {
+                applyPowerup(a.type);
+                actors = actors.filter((o) => o !== a);
+            }
+            continue;
+        }
+        if (a.type === 'gap') {
+            // A pit: grounded over the gap = the pulse falls in.
+            if (onGround && px + 1 >= a.x && px - 1 <= a.x + a.w) {
+                endRun('gap');
+                return;
+            }
+        } else if (a.type === 'beam') {
+            // Overhead only — a sliding pulse passes underneath.
+            if (!sliding && boxOverlap(box, actorBox(a))) {
+                if (!absorbHit(a)) return;
+            }
+        } else if (boxOverlap(box, actorBox(a))) {
+            if (!absorbHit(a)) return;
+        }
+        // Passed the obstacle — combo/perfect credit.
+        if (!a.passed && a.x + a.w < px - 2) {
+            a.passed = true;
+            combo++;
+            maxCombo = Math.max(maxCombo, combo);
+            comboBonus += combo * 4;
+            if (!onGround && !dashing) perfects++;
+            dirty = true;
+        }
+    }
+    // Spawns.
+    spawnAccum += delta;
+    const interval = Math.max(SPAWN_MIN, SPAWN_BASE - runElapsed * 0.03);
+    if (spawnAccum >= interval) {
+        spawnAccum = 0;
+        spawnActor();
+    }
+    elSpawnAccum += delta;
+    if (elSpawnAccum >= EL_SPAWN) {
+        elSpawnAccum = 0;
+        spawnElectrons();
+    }
+    dirty = true; // the runner animates every frame
+}
+
+/** Absorb a hit (shield) or die. Returns false when the run ended.
+ *  @param {Actor} a */
+function absorbHit(a) {
+    if (invuln > 0 || dashing) return true;      // dash/grace pass-through
+    if (shield) {
+        shield = false;
+        shieldUsed = true;
+        destroyObstacle(a);
+        return true;
+    }
+    endRun('hit');
+    return false;
 }
 
 /** Step the game clock. PURE logic with no rendering: runs even without a
  *  canvas context so the headless smoke test drives the deterministic
  *  simulation through the same seam the browser tick uses.
  *  @param {number} delta */
-function stepLcdGame(delta) {
-    // Reduced motion: no auto-play. The game itself is input-driven, so a
-    // focused run still steps (the user started it — interaction is allowed).
+function stepRunner(delta) {
+    // Reduced motion: nothing auto-plays at rest; a focused run still steps
+    // (the user started it — interaction is allowed).
     if (motionPrefs.reduced && !playerActive) return;
-
+    if (state === 'off') return;   // powered down — fully static
     if (state === 'boot') {
         bootAccum += delta;
         if (bootAccum >= BOOT_SEC) {
@@ -395,135 +749,208 @@ function stepLcdGame(delta) {
         }
         return;
     }
-
     if (state === 'ready') {
         idleAccum += delta;
         return;
     }
-
     if (state === 'paused') {
-        // Frozen: no timer, no spawns, no auto-walk. Only the pause-screen
-        // blink clock advances — and not under reduced motion (the prompt
-        // holds steady there, like every other blink).
+        // Frozen: no timer, no world, no physics. Only the pause-screen
+        // blink clock advances — and not under reduced motion.
         if (!motionPrefs.reduced) pauseAccum += delta;
         return;
     }
-
     if (state === 'playing') {
-        runElapsed += delta;
-        timeLeft -= delta;
-        // Held-key auto-walk at a fixed cadence (one cell per MOVE_REPEAT).
-        if (heldDir) {
-            holdAccum += delta;
-            if (holdAccum >= MOVE_REPEAT) {
-                holdAccum = 0;
-                moveCursor(heldDir);
-            }
-        }
-        // Difficulty: spawns come faster as the run goes on.
-        spawnAccum += delta;
-        const interval = Math.max(SPAWN_MIN, SPAWN_START - runElapsed / 15);
-        if (spawnAccum >= interval) {
-            spawnAccum = 0;
-            spawnPacket();
-        }
-        // The timer display only needs a redraw on the second boundary.
-        const sec = Math.max(0, Math.ceil(timeLeft));
-        if (sec !== lastSecShown) {
-            lastSecShown = sec;
-            dirty = true;
-        }
-        if (timeLeft <= 0) {
-            timeLeft = 0;
-            endRun(false);
-        }
+        stepPlay(delta);
         return;
     }
-
     // state === 'over' — hold the result screen (Enter retries). The clock
-    // only advances the blink (NEW RECORD + retry prompt); reduced motion
-    // never gets here (the early return above keeps it fully static).
+    // only advances the blink; reduced motion never gets here.
     if (state === 'over') overAccum += delta;
 }
 
 // ─── Rendering (skipped headlessly) ─────────────────────────
 
-/** Advance explosion timers; true while any burst is still animating.
- *  @param {number} delta */
-function stepExplosions(delta) {
-    let alive = false;
-    for (const e of explosions) {
-        e.t += delta;
-        if (e.t < EXPLOSION_SEC) alive = true;
-    }
-    if (!alive) explosions = [];
-    return alive;
-}
-
 /** @param {CanvasRenderingContext2D} c */
 function drawHud(c) {
-    drawText(c, `SIG:${String(score).padStart(2, '0')}`, 2, 1, C_BRIGHT);
-    const timeStr = `TIME:${String(Math.max(0, Math.ceil(timeLeft))).padStart(2, '0')}`;
-    drawText(c, timeStr, CANVAS_W - 2 - textWidth(timeStr), 1, C_BRIGHT);
-    drawTextCentered(c, 'STATUS:ONLINE', 58, C_DIM);
+    drawText(c, `SIG:${String(score).padStart(3, '0')}`, 2, 1, C_BRIGHT);
+    const distStr = `DIST:${String(Math.floor(dist)).padStart(4, '0')}`;
+    drawText(c, distStr, CANVAS_W - 2 - textWidth(distStr), 1, C_BRIGHT);
+    if (combo > 1) drawText(c, `x${combo}`, 58, 1, C_DIM);
+    if (electrons > 0) drawText(c, `E:${electrons}`, 44, 1, C_DIM);
+    // Active power-ups — a tiny status row under the HUD.
+    let pwr = '';
+    if (shield) pwr += 'SH ';
+    if (overclock > 0) pwr += 'OC ';
+    if (turbo > 0) pwr += 'TB ';
+    if (stabilizer > 0) pwr += 'ST ';
+    if (magnet > 0) pwr += 'MG ';
+    if (pwr) drawText(c, pwr.trim(), 2, 9, C_DIM);
 }
 
 /** @param {CanvasRenderingContext2D} c */
-function drawPlayfield(c) {
-    // Faint cell grid
-    c.fillStyle = C_FAINT;
-    for (let gx = 0; gx < GRID_COLS; gx++) c.fillRect(gx * CELL, GRID_Y + GRID_ROWS * CELL, 1, 1);
-    for (let gy = 0; gy < GRID_ROWS; gy++) c.fillRect(0, GRID_Y + gy * CELL, GRID_COLS * CELL, 1);
-
-    // Packets — bright diamond pulses
-    for (const [px, py] of packets) {
-        const ox = px * CELL, oy = GRID_Y + py * CELL;
-        c.fillStyle = C_BRIGHT;
-        c.fillRect(ox + 3, oy, 2, 2);
-        c.fillRect(ox + 1, oy + 2, 6, 2);
-        c.fillRect(ox + 3, oy + 4, 2, 2);
-    }
-
-    // Cursor — a filled square with a hollow center (reads as the probe)
-    const [cx, cy] = cursor;
-    const ox = cx * CELL, oy = GRID_Y + cy * CELL;
+function drawGround(c) {
+    // The copper trace — a 2-row rail with a dim under-row.
     c.fillStyle = C_BRIGHT;
-    c.fillRect(ox, oy, CELL, 1);
-    c.fillRect(ox, oy + CELL - 1, CELL, 1);
-    c.fillRect(ox, oy, 1, CELL);
-    c.fillRect(ox + CELL - 1, oy, 1, CELL);
+    c.fillRect(0, GROUND_Y, CANVAS_W, 1);
+    c.fillStyle = C_DIM;
+    c.fillRect(0, GROUND_Y + 1, CANVAS_W, 1);
+    // Broken-trace gaps — the rail is missing there, with frayed ends.
+    c.fillStyle = C_BG;
+    for (const a of actors) {
+        if (a.type !== 'gap') continue;
+        c.fillRect(a.x, GROUND_Y, a.w, 2);
+        // frayed ends
+        c.fillStyle = C_DIM;
+        c.fillRect(a.x - 1, GROUND_Y, 1, 1);
+        c.fillRect(a.x + a.w, GROUND_Y, 1, 1);
+        c.fillStyle = C_BG;
+    }
+}
 
-    // Explosions — expanding pixel bursts (deterministic)
-    for (const e of explosions) {
-        const p = e.t / EXPLOSION_SEC;
-        const ex = e.x * CELL + CELL / 2;
-        const ey = GRID_Y + e.y * CELL + CELL / 2;
-        const r = 1 + Math.floor(p * 3.5);
-        c.fillStyle = p < 0.5 ? C_BRIGHT : C_DIM;
-        for (let k = 0; k < 6; k++) {
-            const a = (e.x * 13.7 + e.y * 7.3 + k * 2.1);
-            const dx = Math.round(Math.cos(a) * r);
-            const dy = Math.round(Math.sin(a) * r);
-            c.fillRect(ex + dx, ey + dy, 1, 1);
+/** @param {CanvasRenderingContext2D} c @param {Actor} a */
+function drawObstacle(c, a) {
+    const { x, y, w, h } = a;
+    c.fillStyle = C_BRIGHT;
+    if (a.type === 'resistor') {
+        // Burned resistor — a striped block.
+        c.fillRect(x, y + 2, w, h - 4);
+        c.fillStyle = C_DIM;
+        c.fillRect(x + 2, y + 3, 1, h - 6);
+        c.fillRect(x + 5, y + 4, 1, h - 6);
+    } else if (a.type === 'capacitor') {
+        // Capacitor — a tall can with plate lines.
+        c.fillRect(x, y, w, 2);
+        c.fillRect(x, y + h - 2, w, 2);
+        c.fillStyle = C_DIM;
+        c.fillRect(x + 1, y + 2, 1, h - 4);
+        c.fillRect(x + 5, y + 2, 1, h - 4);
+    } else if (a.type === 'spike') {
+        // Voltage spike — a zigzag.
+        for (let i = 0; i < w; i += 2) {
+            c.fillRect(x + i, GROUND_Y - 1 - Math.floor(i / 2), 1, Math.floor(i / 2) + 1);
         }
+        c.fillRect(x, GROUND_Y - 1, w, 1);
+    } else if (a.type === 'beam') {
+        // EMI pulse / inspection beam — a glowing overhead bar.
+        c.fillRect(x, y, w, 1);
+        c.fillRect(x + 1, y + 1, w - 2, 1);
+        c.fillStyle = C_DIM;
+        c.fillRect(x + 3, y + 2, w - 6, 1);
+    } else if (a.type === 'relay') {
+        // Moving relay — a box with pin legs below it.
+        c.fillRect(x, y, w, h);
+        c.fillStyle = C_DIM;
+        c.fillRect(x + 1, y + 2, w - 2, 1);
+        c.fillRect(x + 2, GROUND_Y, 1, 2);
+        c.fillRect(x + w - 3, GROUND_Y, 1, 2);
+    }
+}
+
+/** @param {CanvasRenderingContext2D} c @param {Actor} a */
+function drawPowerup(c, a) {
+    const x = a.x;
+    const y = a.y;
+    c.fillStyle = C_BRIGHT;
+    if (a.type === 'shield') {
+        // ⊕
+        c.fillRect(x + 3, y, 2, 8);
+        c.fillRect(x, y + 3, 8, 2);
+    } else if (a.type === 'overclock') {
+        // ⚡ bolt
+        c.fillRect(x + 4, y, 2, 3);
+        c.fillRect(x + 2, y + 3, 2, 2);
+        c.fillRect(x + 4, y + 5, 2, 3);
+        c.fillRect(x + 6, y + 3, 2, 2);
+    } else if (a.type === 'turbo') {
+        // »»
+        c.fillRect(x + 1, y + 2, 3, 4);
+        c.fillRect(x + 5, y + 2, 3, 4);
+    } else if (a.type === 'stabilizer') {
+        // ≈
+        c.fillRect(x, y + 2, 8, 1);
+        c.fillRect(x + 1, y + 5, 7, 1);
+        c.fillRect(x, y + 1, 1, 1);
+        c.fillRect(x + 7, y + 4, 1, 1);
+    } else if (a.type === 'magnet') {
+        // ∩ with legs
+        c.fillRect(x + 1, y + 2, 6, 1);
+        c.fillRect(x + 1, y + 3, 1, 4);
+        c.fillRect(x + 6, y + 3, 1, 4);
+        c.fillRect(x + 2, y + 6, 4, 1);
+    }
+}
+
+/** @param {CanvasRenderingContext2D} c */
+function drawRunner(c) {
+    if (sliding) {
+        // Flat skid — the pulse hugging the trace under a beam.
+        c.fillStyle = C_BRIGHT;
+        c.fillRect(px - 1, py - 3, 5, 2);
+        c.fillRect(px, py - 1, 3, 1);
+        return;
+    }
+    const step = Math.floor(frameCount / 6) % 2;
+    c.fillStyle = dashing ? C_BRIGHT : C_DIM;
+    // Body — a 3-wide pulse column with a 2-frame run cycle (the "legs"
+    // alternate: a charge tick below the body).
+    c.fillRect(px + 1, py - 6, 1, 4);
+    c.fillStyle = C_BRIGHT;
+    c.fillRect(px, py - 5, 3, 3);
+    c.fillRect(px + 1, py - 2, 1, 1);
+    if (!onGround) {
+        // Jump pose — a rising bolt trail.
+        c.fillRect(px, py - 8, 1, 1);
+        c.fillRect(px - 1, py - 9, 1, 1);
+    } else if (step === 1) {
+        c.fillRect(px, py - 1, 1, 1);
+    } else {
+        c.fillRect(px + 2, py - 1, 1, 1);
+    }
+    // Dash afterglow.
+    if (dashing) {
+        c.fillStyle = C_DIM;
+        c.fillRect(px - 4, py - 4, 3, 2);
+        c.fillRect(px - 8, py - 3, 3, 1);
+    }
+}
+
+/** @param {CanvasRenderingContext2D} c */
+function drawField(c) {
+    drawGround(c);
+    for (const a of actors) {
+        if (a.kind === 'powerup') drawPowerup(c, a);
+        else if (a.type !== 'gap') drawObstacle(c, a);
+    }
+    // Electrons — small bright dots.
+    c.fillStyle = C_BRIGHT;
+    for (const e of fieldEls) {
+        c.fillRect(e.x, e.y, 2, 1);
+        c.fillRect(e.x, e.y + 1, 1, 1);
+    }
+    drawRunner(c);
+    // Particles — collect/dash/crash bursts.
+    for (const p of particles) {
+        const fade = 1 - p.t / p.life;
+        c.fillStyle = fade > 0.5 ? C_BRIGHT : C_DIM;
+        c.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
     }
 }
 
 /** @param {CanvasRenderingContext2D} c */
 function drawBoot(c) {
-    drawTextCentered(c, 'SIGNAL REPAIR', 8, C_BRIGHT);
-    drawTextCentered(c, 'FW 1.0.0', 16, C_DIM);
+    drawTextCentered(c, 'SIGNAL RUNNER', 8, C_BRIGHT);
+    drawTextCentered(c, 'FW 2.0.0', 16, C_DIM);
     // POST lines: the label wipes in, then the dot run fills to a fixed
     // column, then OK — every OK lands at the same x (a real POST table).
     /** @type {Array<[string, number, number]>} */
     const lines = [
         ['MEM CHECK', 24, 0.5],
-        ['RX ACQUIRED', 32, 1.0],
-        ['LINK STABLE', 40, 1.5],
+        ['TRACE SCAN', 32, 1.0],
+        ['PULSE GEN', 40, 1.5],
         ['CALIBRATE', 48, 2.0]
     ];
-    const DOT_COL = 18; // label + dots always fills to 18 chars before OK
-    const BLOCK_W = textWidth('MEM CHECK.........OK');
+    const DOT_COL = 16; // label + dots always fills to 16 chars before OK
+    const BLOCK_W = textWidth('TRACE SCAN........OK');
     const x0 = Math.floor((CANVAS_W - BLOCK_W) / 2);
     for (const [label, y, start] of lines) {
         const done = bootAccum - start; // seconds into this line
@@ -540,52 +967,85 @@ function drawBoot(c) {
 
 /** @param {CanvasRenderingContext2D} c */
 function drawReady(c) {
-    drawTextCentered(c, 'SIGNAL REPAIR', 10, C_BRIGHT);
-    drawTextCentered(c, 'TARGET 12 PACKETS', 20, C_DIM);
-    if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(2, '0')}`, 28, C_DIM);
+    drawTextCentered(c, 'SIGNAL RUNNER', 8, C_BRIGHT);
+    drawTextCentered(c, 'RESTORE CPU POWER', 16, C_DIM);
+    if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(3, '0')}`, 24, C_DIM);
+    if (leaderboard.length > 0) {
+        const top = leaderboard.slice(0, 3).map((e) => String(e.score).padStart(3, '0')).join(' ');
+        drawTextCentered(c, `TOP ${top}`, 32, C_FAINT);
+    }
+    drawTextCentered(c, `ACHV ${achvUnlocked.size}/${ACHIEVEMENTS.length}`, 40, C_FAINT);
     // After 15s idle the prompt starts to blink (idle mode); before that it
     // is steady so a fresh visitor sees it immediately.
     const armed = idleAccum >= IDLE_BLINK_MS / 1000;
     const visible = !armed || (Math.floor(idleAccum / BLINK_SEC) % 2 === 0);
     if (visible) {
-        drawTextCentered(c, 'PRESS ENTER', 42, C_BRIGHT);
-        drawTextCentered(c, 'TO REPAIR SIGNAL', 52, C_BRIGHT);
+        drawTextCentered(c, 'PRESS ENTER TO RUN', 50, C_BRIGHT);
     }
+    drawTextCentered(c, 'UP/W JUMP · DOWN/S SLIDE', 59, C_FAINT);
 }
 
 /** @param {CanvasRenderingContext2D} c */
 function drawPlaying(c) {
     drawHud(c);
-    drawPlayfield(c);
+    drawField(c);
+    drawTextCentered(c, 'STATUS:ONLINE', 58, C_FAINT);
 }
 
 /** @param {CanvasRenderingContext2D} c */
 function drawPaused(c) {
-    drawTextCentered(c, 'PAUSED', 12, C_BRIGHT);
-    drawTextCentered(c, `SIG ${String(score).padStart(2, '0')} · TIME ${String(Math.max(0, Math.ceil(timeLeft))).padStart(2, '0')}`, 24, C_DIM);
+    drawTextCentered(c, 'PAUSED', 10, C_BRIGHT);
+    drawTextCentered(c, `DIST ${String(Math.floor(dist)).padStart(4, '0')} · SIG ${String(score).padStart(3, '0')}`, 22, C_DIM);
     const blink = Math.floor(pauseAccum / BLINK_SEC) % 2 === 0;
-    if (blink) drawTextCentered(c, 'P / TAP RESUME', 42, C_BRIGHT);
-    drawTextCentered(c, 'ESC / SCROLL QUIT', 54, C_DIM);
+    if (blink) drawTextCentered(c, 'P / TAP RESUME', 40, C_BRIGHT);
+    drawTextCentered(c, 'ESC / SCROLL QUIT', 52, C_DIM);
 }
 
 /** @param {CanvasRenderingContext2D} c */
 function drawOver(c) {
-    // Dim the playfield behind the verdict
+    // Dim the run field behind the verdict.
     c.fillStyle = C_BG;
-    c.fillRect(0, GRID_Y, CANVAS_W, GRID_ROWS * CELL);
-    drawTextCentered(c, overWin ? 'MISSION COMPLETE' : 'SIGNAL LOST', 12, C_BRIGHT);
-    drawTextCentered(c, `SIG ${String(score).padStart(2, '0')}`, 24, C_DIM);
+    c.fillRect(0, 8, CANVAS_W, 52);
+    drawTextCentered(c, 'SIGNAL LOST', 8, C_BRIGHT);
+    drawTextCentered(c, `DIST ${String(Math.floor(dist)).padStart(4, '0')} · SIG ${String(score).padStart(3, '0')}`, 18, C_DIM);
+    drawTextCentered(c, `E ${electrons} · COMBO x${maxCombo}`, 26, C_DIM);
     // The blink clock is live (overAccum), so NEW RECORD and the retry prompt
     // actually flash; reduced motion never advances it → steady, no blink.
     const blink = Math.floor(overAccum / BLINK_SEC) % 2 === 0;
-    // A run that beat the record flashes NEW RECORD in the BEST line; a
-    // regular result keeps the steady best underneath.
     if (newRecord) {
-        if (blink) drawTextCentered(c, 'NEW RECORD', 32, C_BRIGHT);
+        if (blink) drawTextCentered(c, 'NEW RECORD', 34, C_BRIGHT);
     } else if (bestScore > 0) {
-        drawTextCentered(c, `BEST ${String(bestScore).padStart(2, '0')}`, 32, C_DIM);
+        drawTextCentered(c, `BEST ${String(bestScore).padStart(3, '0')}`, 34, C_DIM);
     }
-    if (blink) drawTextCentered(c, 'ENTER TO RETRY', 52, C_BRIGHT);
+    if (achvNewThisRun.length > 0 && blink) {
+        drawTextCentered(c, `ACHV ${achvNewThisRun.join(' ')}`, 42, C_DIM);
+    }
+    if (blink) drawTextCentered(c, 'ENTER TO RETRY', 54, C_BRIGHT);
+}
+
+/** @param {CanvasRenderingContext2D} c */
+function drawOff(c) {
+    // Powered down — a blank glass. (No standby text: a real module.)
+    c.fillStyle = C_BG;
+    c.fillRect(0, 0, CANVAS_W, CANVAS_H);
+}
+
+/** Hidden ~ debug overlay — firmware diagnostics on top of the frame.
+ *  @param {CanvasRenderingContext2D} c */
+function drawDebugOverlay(c) {
+    if (!debug) return;
+    const obs = actors.filter((a) => a.kind === 'obstacle').length;
+    const line1 = `ST ${state} · DIST ${Math.floor(dist)}`;
+    const line2 = `OBS ${obs} · SEED ${lcgSeed >>> 0}`;
+    const line3 = `P ${px},${Math.round(py)} · VY ${Math.round(vy)} · J ${jumpsUsed}`;
+    const line4 = `PWR SH ${shield ? 1 : 0} OC ${overclock > 0 ? 1 : 0} TB ${turbo > 0 ? 1 : 0}`;
+    c.fillStyle = C_BG;
+    c.fillRect(0, 8, CANVAS_W, 50);
+    c.fillStyle = C_DIM;
+    drawText(c, line1, 2, 10, C_DIM);
+    drawText(c, line2, 2, 18, C_DIM);
+    drawText(c, line3, 2, 26, C_DIM);
+    drawText(c, line4, 2, 34, C_DIM);
 }
 
 /** Compose one frame: ghost underlay → scene → scanlines → flicker. The
@@ -605,11 +1065,13 @@ function drawFrame(delta) {
         c.globalAlpha = 1;
     }
 
-    if (state === 'boot') drawBoot(c);
+    if (state === 'off') drawOff(c);
+    else if (state === 'boot') drawBoot(c);
     else if (state === 'ready') drawReady(c);
     else if (state === 'playing') drawPlaying(c);
     else if (state === 'paused') drawPaused(c);
     else drawOver(c);
+    if (state !== 'off' && debug) drawDebugOverlay(c);
 
     // Scanlines — every other row dimmed (a real 128×64 glass).
     c.fillStyle = 'rgba(0, 0, 0, 0.26)';
@@ -630,17 +1092,19 @@ function drawFrame(delta) {
     void delta;
 }
 
-/** Static title screen — shown instead of the boot/ready under reduced
- *  motion (decorative auto-play is motion; a title is not). */
-function drawStaticTitle() {
+/** The static frame drawn under reduced motion (no auto-play, no blink): a
+ *  blank glass when powered off, the title screen when focused. */
+function drawStaticFrame() {
     if (!gctx) return;
     const c = gctx;
     c.fillStyle = C_BG;
     c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    drawTextCentered(c, 'SIGNAL REPAIR', 20, C_BRIGHT);
-    drawTextCentered(c, '2.4IN LCD1', 34, C_DIM);
-    drawTextCentered(c, 'CLICK TO PLAY', 46, C_BRIGHT);
-    if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(2, '0')}`, 56, C_DIM);
+    if (state === 'ready') {
+        drawTextCentered(c, 'SIGNAL RUNNER', 20, C_BRIGHT);
+        drawTextCentered(c, '2.4IN LCD1', 32, C_DIM);
+        drawTextCentered(c, 'PRESS ENTER TO RUN', 44, C_BRIGHT);
+        if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(3, '0')}`, 54, C_DIM);
+    }
 }
 
 // ─── Public API ─────────────────────────────────────────────
@@ -679,31 +1143,51 @@ export function setBestListener(fn) {
     bestListener = fn;
 }
 
+/** Live runner state for the HUD oscilloscope — the scope shows the pulse's
+ *  heartbeat while the game is focused (spikes on jump/dash, flatline when
+ *  the run ends). @returns {{ active: boolean, state: string, jumping: boolean, sliding: boolean, dashing: boolean, shielded: boolean, over: boolean, paused: boolean, speed01: number }} */
+export function getRunnerScope() {
+    const speed = state === 'playing' ? Math.min(MAX_SPEED, BASE_SPEED + dist * SPEED_RAMP) : 0;
+    return {
+        active: isLcdActive(),
+        state,
+        jumping: state === 'playing' && !onGround && vy < 0,
+        sliding,
+        dashing,
+        shielded: shield,
+        over: state === 'over',
+        paused: state === 'paused',
+        speed01: Math.min(1, speed / MAX_SPEED)
+    };
+}
+
 /** Enter the game — called by journey.js when the camera glides to the
- *  display. Focus shows the ready/idle screen (with the prompt); Enter
- *  starts the run. The keyboard is owned from the moment of focus. With
- *  replayBoot, the boot POST plays again first (the #/lcd deep link lands
- *  on the machine powering on) — skipped under reduced motion, where the
- *  POST can't auto-advance, so the ready screen shows directly.
+ *  display. The machine powers ON: the boot POST + diagnostics play, then
+ *  the title screen idles (Enter starts). Under reduced motion the POST
+ *  can't auto-advance, so the title shows directly. The keyboard is owned
+ *  from the moment of focus.
  *  @param {boolean} [replayBoot] */
 export function focusLcd(replayBoot = false) {
+    void replayBoot; // power-on always boots now (the deep link and the click
+    // both land on the machine powering up — the #/lcd distinction was the
+    // old SIGNAL REPAIR's; a real module boots when powered).
     if (typeof document !== 'undefined') document.body.classList.add('lcd-active');
-    if (replayBoot && !motionPrefs.reduced) {
+    if (motionPrefs.reduced) {
+        state = 'ready';
+    } else {
         state = 'boot';
         bootAccum = 0;
-    } else {
-        state = 'ready';
     }
     idleAccum = 0;
+    reducedStaticDrawn = false;
     dirty = true;
 }
 
-/** Leave the game — restore the ready screen (the idle state). */
+/** Leave the game — power the display back down (a real LCD module). */
 export function exitLcd() {
     if (typeof document !== 'undefined') document.body.classList.remove('lcd-active');
     playerActive = false;
-    heldDir = null;
-    state = 'ready';
+    state = 'off';
     idleAccum = 0;
     dirty = true;
 }
@@ -712,12 +1196,14 @@ export function exitLcd() {
  *  pattern as journey.js's stepQueue / idle.js's idleDriftOffset). The game
  *  must be deterministic: the same tick schedule + inputs from the same
  *  state yield the identical snapshot every run.
- *  @returns {{ state: string, score: number, best: number, timeLeft: number, cursor: number[], packets: number, packetPos: number[][], spawned: number, over: boolean, win: boolean, paused: boolean, newRecord: boolean, glowOpacity: number, playerActive: boolean, idleAccum: number, frameHash: string }} */
+ *  @returns {{ state: string, score: number, best: number, dist: number, electrons: number, combo: number, maxCombo: number, perfects: number, player: { x: number, y: number, vy: number, onGround: boolean, sliding: boolean, dashing: boolean, invuln: number, jumpsUsed: number }, obstacles: Array<{ type: string, x: number, y: number }>, powerups: { shield: boolean, overclock: number, turbo: number, stabilizer: number, magnet: number }, over: boolean, paused: boolean, newRecord: boolean, achvCount: number, boardLen: number, glowOpacity: number, playerActive: boolean, idleAccum: number, debug: boolean, frameHash: string }} */
 export function lcdStateSnapshot() {
     // FNV-1a over the observable state — a compact, deterministic fingerprint
-    // of the current screen contents.
+    // of the current simulation (the runner + its world).
     let h = 2166136261;
-    const str = `${state}|${score}|${cursor[0]},${cursor[1]}|${packets.map((p) => p.join(',')).join(';')}|${overWin ? 1 : 0}`;
+    const obs = actors.map((a) => `${a.kind}${a.type}${Math.round(a.x)}${Math.round(a.y)}${a.passed ? 1 : 0}`).join(';');
+    const els = fieldEls.map((e) => `${Math.round(e.x)},${Math.round(e.y)}`).join(';');
+    const str = `${state}|${Math.floor(dist)}|${score}|${electrons}|${combo}|${perfects}|${Math.round(px)}|${Math.round(py)}|${Math.round(vy)}|${onGround ? 1 : 0}|${sliding ? 1 : 0}|${dashing ? 1 : 0}|${Math.round(invuln * 100)}|${shield ? 1 : 0}|${Math.round(overclock * 100)}|${Math.round(turbo * 100)}|${Math.round(stabilizer * 100)}|${Math.round(magnet * 100)}|${obs}|${els}`;
     for (let i = 0; i < str.length; i++) {
         h ^= str.charCodeAt(i);
         h = Math.imul(h, 16777619);
@@ -726,18 +1212,23 @@ export function lcdStateSnapshot() {
         state,
         score,
         best: bestScore,
-        timeLeft: Math.max(0, Math.ceil(timeLeft)),
-        cursor: [cursor[0], cursor[1]],
-        packets: packets.length,
-        packetPos: packets.map((p) => [p[0], p[1]]),
-        spawned,
+        dist: Math.floor(dist),
+        electrons,
+        combo,
+        maxCombo,
+        perfects,
+        player: { x: Math.round(px), y: Math.round(py), vy: Math.round(vy), onGround, sliding, dashing, invuln: Math.round(invuln * 100) / 100, jumpsUsed },
+        obstacles: actors.filter((a) => a.kind === 'obstacle').map((a) => ({ type: a.type, x: Math.round(a.x), y: Math.round(a.y) })),
+        powerups: { shield, overclock: Math.round(overclock * 100) / 100, turbo: Math.round(turbo * 100) / 100, stabilizer: Math.round(stabilizer * 100) / 100, magnet: Math.round(magnet * 100) / 100 },
         over: state === 'over',
-        win: state === 'over' && overWin,
         paused: state === 'paused',
         newRecord,
+        achvCount: achvUnlocked.size,
+        boardLen: leaderboard.length,
         glowOpacity: Math.round(glowCurrent * 1000) / 1000,
         playerActive,
         idleAccum,
+        debug,
         frameHash: (h >>> 0).toString(16)
     };
 }
@@ -751,9 +1242,14 @@ export function lcdStateSnapshot() {
  *  @param {number} delta */
 export function updateLcdScreen(elapsed, delta) {
     frameCount++;
-    // Bezel power LED — bright while the game is live, calm at rest.
+    // Bezel power LED — the power indicator: bright while a run is live,
+    // dimmer while the machine is on, near-off when powered down.
     if (bezelLedMat) {
-        bezelLedMat.emissiveIntensity = state === 'playing' ? 1.6 : 0.35;
+        bezelLedMat.emissiveIntensity = state === 'playing' ? 1.6
+            : state === 'paused' ? 1.0
+            : state === 'boot' || state === 'ready' ? 0.9
+            : state === 'over' ? 0.6
+            : 0.15;
     }
     // Screen glow — the halo brightens and pulses while a run is live, dims
     // to a steady low while paused, and fades back to nothing at rest (the
@@ -771,13 +1267,13 @@ export function updateLcdScreen(elapsed, delta) {
         glowMat.opacity = glowCurrent;
     }
     // Game logic first — stepped regardless of the render path.
-    stepLcdGame(delta);
+    stepRunner(delta);
     // Rendering — skipped headlessly (no canvas context, no screen quad).
     if (!screenTexture || !gctx) return;
-    // Reduced motion: the static title is drawn once (no auto-play).
+    // Reduced motion: draw the static frame once (no auto-play at rest).
     if (motionPrefs.reduced && !playerActive) {
         if (!reducedStaticDrawn) {
-            drawStaticTitle();
+            drawStaticFrame();
             reducedStaticDrawn = true;
             screenTexture.needsUpdate = true;
         }
@@ -785,9 +1281,9 @@ export function updateLcdScreen(elapsed, delta) {
     }
     // The boot POST wipes in progressively — redraw every frame while booting.
     if (state === 'boot') dirty = true;
-    // Explosions animate while alive (a dirty frame per tick during the burst).
-    if (state === 'playing' && stepExplosions(delta)) dirty = true;
-    // The ready prompt blinks once armed — redraw on the blink transition.
+    // The runner animates every frame while playing.
+    if (state === 'playing') dirty = true;
+    // The title prompt blinks once armed — redraw on the blink transition.
     if (state === 'ready') {
         const armed = idleAccum >= IDLE_BLINK_MS / 1000;
         const visible = !armed || (Math.floor(idleAccum / BLINK_SEC) % 2 === 0);
@@ -820,12 +1316,12 @@ export function updateLcdScreen(elapsed, delta) {
     }
 }
 
-/** Build the LCD1 assembly: bezel, screen quad (CanvasTexture),
- *  power LED, and the interactive hit bounds. Called from main.js
- *  after the other components. The smoke test's headless scene also
- *  builds it: the shim's null 2d context skips the screen quad, but
- *  the meshes join the graph and the game state still initializes so
- *  the deterministic simulation is exercisable.
+/** Build the LCD1 assembly: bezel, hollow trim frame, screen quad
+ *  (CanvasTexture), power LED, glow halo, and the interactive hit bounds.
+ *  Called from main.js after the other components. The smoke test's
+ *  headless scene also builds it: the shim's null 2d context skips the
+ *  screen texture, but the meshes join the graph and the game state still
+ *  initializes so the deterministic simulation is exercisable.
  *  @param {THREE.Group} boardGroup */
 export function createLcd(boardGroup) {
     const surfaceZ = 0.085;
@@ -842,8 +1338,30 @@ export function createLcd(boardGroup) {
     bezel.castShadow = true;
     boardGroup.add(bezel);
 
-    // Thin ENIG-gold trim ring around the bezel top (reads as a frame)
-    const trimGeo = new THREE.BoxGeometry(BEZEL_W + 0.03, BEZEL_H + 0.03, 0.012);
+    // Thin ENIG-gold trim FRAME around the bezel top (reads as a frame) —
+    // a hollow rectangle (0.015 border wider than the bezel, inner hole =
+    // the bezel face). NOT a solid slab: a solid box here would sit in
+    // front of the screen quad and occlude the entire display (the
+    // blank-LCD bug — the screen was hidden behind the trim's front face).
+    const frameShape = new THREE.Shape();
+    const fHw = BEZEL_W / 2 + 0.015;
+    const fHh = BEZEL_H / 2 + 0.015;
+    const holeHw = BEZEL_W / 2;
+    const holeHh = BEZEL_H / 2;
+    frameShape.moveTo(-fHw, -fHh);
+    frameShape.lineTo(fHw, -fHh);
+    frameShape.lineTo(fHw, fHh);
+    frameShape.lineTo(-fHw, fHh);
+    frameShape.closePath();
+    const hole = new THREE.Path();
+    hole.moveTo(-holeHw, -holeHh);
+    hole.lineTo(holeHw, -holeHh);
+    hole.lineTo(holeHw, holeHh);
+    hole.lineTo(-holeHw, holeHh);
+    hole.closePath();
+    frameShape.holes.push(hole);
+    const trimGeo = new THREE.ExtrudeGeometry(frameShape, { depth: 0.012, bevelEnabled: false });
+    trimGeo.translate(0, 0, -0.006); // center the 0.012 extrusion on the trim's z
     disposableResources.geometries.add(trimGeo);
     const trim = new THREE.Mesh(trimGeo, trimMat);
     trim.position.copy(LCD_LOCAL);
@@ -856,7 +1374,7 @@ export function createLcd(boardGroup) {
     bezelLedMat = new THREE.MeshStandardMaterial({
         color: 0x3ee6a0,
         emissive: 0x3ee6a0,
-        emissiveIntensity: 0.35,
+        emissiveIntensity: 0.15,
         roughness: 0.3
     });
     const led = new THREE.Mesh(ledGeo, bezelLedMat);
@@ -865,25 +1383,22 @@ export function createLcd(boardGroup) {
     disposableResources.materials.add(bezelLedMat);
 
     // Screen quad — the game canvas. Plane faces +z (toward the camera).
-    // The quad is skipped when there's no 2d context (headless shim), but
-    // the game state below still initializes — the tick's render path
-    // no-ops without the texture, while the simulation stays exercisable.
+    // The quad joins the graph even headlessly (no map there — never
+    // rendered, same posture as the glow) so the smoke suite can raycast
+    // that nothing occludes the display; the browser gets the CanvasTexture.
     gameCanvas = document.createElement('canvas');
     gameCanvas.width = CANVAS_W;
     gameCanvas.height = CANVAS_H;
     gctx = /** @type {CanvasRenderingContext2D | null} */ (gameCanvas.getContext('2d'));
+    const screenGeo = new THREE.PlaneGeometry(SCREEN_W, SCREEN_H);
+    disposableResources.geometries.add(screenGeo);
+    const screenMat = new THREE.MeshBasicMaterial();
     if (gctx) {
         screenTexture = new THREE.CanvasTexture(gameCanvas);
         screenTexture.colorSpace = THREE.SRGBColorSpace;
         screenTexture.anisotropy = 4;
         disposableResources.textures.add(screenTexture);
-        const screenGeo = new THREE.PlaneGeometry(SCREEN_W, SCREEN_H);
-        disposableResources.geometries.add(screenGeo);
-        const screenMat = new THREE.MeshBasicMaterial({ map: screenTexture });
-        const screen = new THREE.Mesh(screenGeo, screenMat);
-        screen.position.copy(LCD_LOCAL);
-        screen.position.z = zBezel + 0.05;
-        boardGroup.add(screen);
+        screenMat.map = screenTexture;
         // Ghost buffer — the previous frame, drawn faintly under the next
         // (LCD pixel persistence). Same 128×64 size, offscreen.
         ghostCanvas = document.createElement('canvas');
@@ -891,6 +1406,11 @@ export function createLcd(boardGroup) {
         ghostCanvas.height = CANVAS_H;
         ghostCtx = /** @type {CanvasRenderingContext2D | null} */ (ghostCanvas.getContext('2d'));
     }
+    const screen = new THREE.Mesh(screenGeo, screenMat);
+    screen.position.copy(LCD_LOCAL);
+    screen.position.z = zBezel + 0.05;
+    screen.name = 'lcd-screen';
+    boardGroup.add(screen);
 
     // Soft screen glow — a radial-gradient halo around the bezel (driven in
     // updateLcdScreen from the same deterministic sine as the LED array).
@@ -907,7 +1427,11 @@ export function createLcd(boardGroup) {
     });
     const glow = new THREE.Mesh(glowGeo, glowMat);
     glow.position.copy(LCD_LOCAL);
-    glow.position.z = surfaceZ + 0.02; // just above the substrate, under the bezel
+    // Above the bezel front (zBezel + 0.04) so the halo is actually visible
+    // around the display, below the screen quad (zBezel + 0.05) so the glass
+    // draws over its center. (It used to sit at surfaceZ + 0.02 — buried
+    // inside the bezel box, so the pulse animated an invisible mesh.)
+    glow.position.z = zBezel + 0.043;
     glow.name = 'lcd-glow';
     boardGroup.add(glow);
     disposableResources.materials.add(glowMat);
@@ -938,26 +1462,22 @@ export function createLcd(boardGroup) {
     bounds.position.z = zBezel;
     bounds.name = 'LCD1';
     bounds.userData = {
-        componentName: 'LCD1 — 2.4" Display (Signal Repair)',
+        componentName: 'LCD1 — 2.4" Display (Signal Runner)',
         type: 'LCD',
         isInteractive: true
     };
     boardGroup.add(bounds);
     interactiveObjects.push(bounds);
 
-    // Load the persistent best run (localStorage) before the first draw so
-    // the boot screen shows the machine's record. One read at build time —
-    // the tick's render path never touches storage.
+    // Load the persistent state (best / leaderboard / achievements) before
+    // the first draw. One read at build time — the tick's render path never
+    // touches storage.
     loadBestScore();
 
-    // Start the boot POST (or the static title under reduced motion).
-    state = 'boot';
-    bootAccum = 0;
+    // The display starts POWERED DOWN (state 'off'). Focusing it (click or
+    // #/lcd) powers it on: boot POST → title → run.
+    state = 'off';
     dirty = true;
-    if (motionPrefs.reduced) {
-        state = 'ready';
-        reducedStaticDrawn = false;
-    }
 
     // Exclusive keyboard capture while the game is focused. Registered
     // once; internally gated on isLcdActive() so it never steals keys at
@@ -988,56 +1508,49 @@ export function createLcd(boardGroup) {
             else if (state === 'paused') resumeRun();
             return;
         }
-        const d = key === 'ArrowUp' || key === 'w' || key === 'W' ? [0, -1]
-            : key === 'ArrowDown' || key === 's' || key === 'S' ? [0, 1]
-            : key === 'ArrowLeft' || key === 'a' || key === 'A' ? [-1, 0]
-            : key === 'ArrowRight' || key === 'd' || key === 'D' ? [1, 0]
-            : null;
-        if (!d) return;
-        e.preventDefault();
-        if (state !== 'playing') return;
-        heldKeys.add(key);
-        heldDir = /** @type {[number, number]} */ (d);
-        holdAccum = 0;
-        moveCursor(/** @type {[number, number]} */ (d));
+        if (key === 'Backquote' || key === '`') {
+            e.preventDefault();
+            toggleDebug();
+            return;
+        }
+        const isJump = key === 'ArrowUp' || key === 'w' || key === 'W' || key === ' ';
+        const isSlide = key === 'ArrowDown' || key === 's' || key === 'S';
+        const isDash = key === 'd' || key === 'D' || key === 'Shift' || key === 'ShiftLeft' || key === 'ShiftRight';
+        if (isJump) {
+            e.preventDefault();
+            doJump();
+            return;
+        }
+        if (isSlide) {
+            e.preventDefault();
+            doSlide();
+            return;
+        }
+        if (isDash) {
+            e.preventDefault();
+            doDash();
+            return;
+        }
     });
 
     window.addEventListener('keyup', (e) => {
         if (!isLcdActive()) return;
         const key = e.key;
-        const isMove = key === 'ArrowUp' || key === 'w' || key === 'W' || key === 'ArrowDown' || key === 's' || key === 'S'
-            || key === 'ArrowLeft' || key === 'a' || key === 'A' || key === 'ArrowRight' || key === 'd' || key === 'D';
-        if (!isMove) return;
-        heldKeys.delete(key);
-        if (state !== 'playing') {
-            // Not mid-run (paused/ready/over) — no held direction to keep.
-            heldDir = null;
-            holdAccum = 0;
-            return;
+        if (key === 'ArrowDown' || key === 's' || key === 'S') {
+            endSlide();
         }
-        // Re-derive the held direction from whatever movement key remains.
-        const last = [...heldKeys].pop();
-        heldDir = last
-            ? (last === 'ArrowUp' || last === 'w' || last === 'W' ? [0, -1]
-                : last === 'ArrowDown' || last === 's' || last === 'S' ? [0, 1]
-                : last === 'ArrowLeft' || last === 'a' || last === 'A' ? [-1, 0]
-                : [1, 0])
-            : null;
-        holdAccum = 0;
     });
 
-    // Touch steering — swipe on the display to move the probe while focused,
-    // the same exclusive contract as the keyboard: while body.lcd-active the
-    // game owns touch (drags steer, touchmove is canceled so the page never
-    // scrolls), a clean tap does the primary action (start/retry on the
-    // ready/over screen, pause/resume while a run is live — the touch
-    // Enter/P), and a steering swipe cancels its touchend so no synthetic
-    // click fires at the lift point (which would re-click the LCD and drop
-    // focus mid-run). While PAUSED the scroll lock relaxes — a drag scrolls
-    // the page away, and the journey's scroll-release quits the game (the
-    // touch Esc). At rest every handler early-returns — touch keeps doing
-    // whatever it does unfocused (scroll, the tap-to-focus raycast).
-    let touchStartX = 0, touchStartY = 0, touchSteered = false;
+    // Touch controls — the same exclusive contract as the keyboard: while
+    // body.lcd-active the game owns touch (touchmove is canceled so the page
+    // never scrolls), a clean tap does the primary action (start on the
+    // title/over screen, JUMP while running, resume while paused — the
+    // touch Up), a second finger toggles pause (the touch P), and a swipe
+    // down slides. While PAUSED the scroll lock relaxes — a drag scrolls the
+    // page away, and the journey's scroll-release quits the game (the touch
+    // Esc). At rest every handler early-returns — touch keeps doing whatever
+    // it does unfocused (scroll, the tap-to-focus raycast).
+    let touchStartX = 0, touchStartY = 0, touchSteered = false, twoFinger = false;
     window.addEventListener('touchstart', (e) => {
         if (!isLcdActive()) return;
         const t = e.touches && e.touches[0];
@@ -1045,6 +1558,7 @@ export function createLcd(boardGroup) {
         touchStartX = t.clientX;
         touchStartY = t.clientY;
         touchSteered = false;
+        twoFinger = (e.touches.length >= 2);
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
@@ -1056,40 +1570,43 @@ export function createLcd(boardGroup) {
         if (state !== 'paused' && e.cancelable) e.preventDefault();
         const dx = t.clientX - touchStartX;
         const dy = t.clientY - touchStartY;
-        if (Math.abs(dx) < SWIPE_PX && Math.abs(dy) < SWIPE_PX) return;
-        const dir = /** @type {[number, number]} */ (
-            Math.abs(dx) > Math.abs(dy) ? [dx > 0 ? 1 : -1, 0] : [0, dy > 0 ? 1 : -1]
-        );
-        touchSteered = true;
-        if (state === 'playing') {
-            heldDir = dir;
-            holdAccum = 0;
-            moveCursor(dir);
-        }
-        // Re-arm the origin so a continuing drag can re-cross the threshold
-        // and keep stepping (or change direction) without lifting.
-        touchStartX = t.clientX;
-        touchStartY = t.clientY;
+        if (Math.abs(dx) >= SWIPE_PX || Math.abs(dy) >= SWIPE_PX) touchSteered = true;
     }, { passive: false });
 
     window.addEventListener('touchend', (e) => {
         if (!isLcdActive()) return;
         // Only the last finger up settles the gesture.
         if (e.touches && e.touches.length > 0) return;
-        if (touchSteered) {
-            // A steering swipe must not fire the synthetic click — it would
-            // re-click the LCD at the lift point and drop focus mid-run.
+        const dy = (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : touchStartY) - touchStartY;
+        if (twoFinger) {
+            // A second finger = pause (the touch P).
             if (e.cancelable) e.preventDefault();
-            heldDir = null;
-            holdAccum = 0;
-        } else if (state === 'ready' || state === 'over') {
-            // Tap on the ready/over screen = Enter (start / retry).
+            if (state === 'playing') pauseRun();
+            else if (state === 'paused') resumeRun();
+            twoFinger = false;
+            touchSteered = false;
+            return;
+        }
+        if (touchSteered) {
+            // A swipe must not fire the synthetic click — it would re-click
+            // the LCD at the lift point and drop focus mid-run.
+            if (e.cancelable) e.preventDefault();
+            if (dy < -SWIPE_PX) {
+                doJump();          // swipe up = jump
+            } else if (dy > SWIPE_PX) {
+                doSlide();         // swipe down = slide
+            }
+            touchSteered = false;
+            return;
+        }
+        if (state === 'ready' || state === 'over') {
+            // Tap on the title/result screen = Enter (start / retry).
             if (e.cancelable) e.preventDefault();
             startRun();
         } else if (state === 'playing') {
-            // Tap while playing = pause (P on a touchscreen).
+            // Tap while running = jump (the primary touch action).
             if (e.cancelable) e.preventDefault();
-            pauseRun();
+            doJump();
         } else if (state === 'paused') {
             // Tap while paused = resume.
             if (e.cancelable) e.preventDefault();
@@ -1100,8 +1617,7 @@ export function createLcd(boardGroup) {
 
     window.addEventListener('touchcancel', () => {
         if (!isLcdActive()) return;
-        heldDir = null;
-        holdAccum = 0;
         touchSteered = false;
+        twoFinger = false;
     }, { passive: false });
 }

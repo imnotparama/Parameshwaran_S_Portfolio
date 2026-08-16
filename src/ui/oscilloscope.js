@@ -9,16 +9,26 @@
 //   TP2    → GND flat rail (zero + noise)
 //   U1     → square wave (digital clock pulses)
 //   U2     → faster square wave (GPU clock)
+//   LCD1   → the SIGNAL RUNNER's live pulse (reacts to gameplay)
 //   default→ slow ECG-style sine for any other component
+//
+// While the LCD game is focused the scope locks onto LCD1 and traces the
+// runner's heartbeat: spikes on jump/dash, a flatline when the run ends.
 //
 // Canvas is 120×40 retro phosphor green; scanlines added via CSS.
 // Called per frame from main.js tick loop; no-ops when scope canvas missing.
 // ============================================================
+import { getRunnerScope } from '../three/lcd.js';
 
 /** @type {HTMLCanvasElement | null} */
 let oscCanvas = null;
 /** @type {CanvasRenderingContext2D | null} */
 let ctx = null;
+
+// The runner's live state, refreshed every frame while the game is focused.
+/** @type {ReturnType<typeof getRunnerScope> | null} */
+let lcdScope = null;
+let lastScopeActive = false;
 
 // Phosphor green palette
 const COLOR_TRACE = '#00ff88';
@@ -84,6 +94,24 @@ function waveform(ref, t, x) {
         case 'VR1': {
             // Voltage regulator: smooth ramp + ripple
             return 0.5 + Math.sin(x * Math.PI * 2 + t * 0.8) * 0.2 + noise(t * 60 + x * 3, 0.06);
+        }
+        case 'LCD1': {
+            // SIGNAL RUNNER — the scope traces the pulse's live heartbeat:
+            // a running sine that speeds with the world, a sharp spike on a
+            // jump, a bright burst on a dash, a flatline when the run ends,
+            // and a calm low line while paused.
+            const l = lcdScope || { over: false, paused: false, jumping: false, dashing: false, shielded: false, speed01: 0 };
+            if (l.over) return noise(t + x * 5, 0.03) * 0.12;
+            if (l.paused) return Math.sin(x * Math.PI * 3 + t * 0.8) * 0.14 + noise(t * 2 + x, 0.02);
+            let base = Math.sin(x * Math.PI * 6 + t * (5 + l.speed01 * 3)) * (0.32 + l.speed01 * 0.28);
+            if (l.jumping) {
+                base += Math.sin(x * Math.PI * 16 - t * 12) * 0.45 * Math.max(0, Math.sin(x * Math.PI));
+            }
+            if (l.dashing) {
+                base += Math.max(0, Math.sin(x * Math.PI * 2 - t * 18)) * 0.75;
+            }
+            if (l.shielded) base = base * 0.75 + 0.15 * Math.sin(x * Math.PI * 8 + t * 3);
+            return base + noise(t * 6 + x * 4, 0.03);
         }
         case 'C1': case 'C2': case 'C3': case 'C4': {
             // Decoupling cap: small RC discharge/charge cycles
@@ -187,7 +215,24 @@ export function updateOscilloscope(elapsed, hoverRef) {
         ctx.stroke();
     }
 
-    const ref = hoverRef || '';
+    // While the LCD game is focused the scope locks onto LCD1 (the runner's
+    // pulse) and labels the chip accordingly; otherwise it follows the hover.
+    lcdScope = getRunnerScope();
+    const ref = lcdScope.active ? 'LCD1' : (hoverRef || '');
+    if (lcdScope.active) {
+        const refEl = document.getElementById('hud-scope-ref');
+        const valEl = document.getElementById('hud-scope-val');
+        if (refEl) refEl.textContent = 'SCOPE';
+        if (valEl) valEl.textContent = 'SIGNAL RUNNER';
+        document.body.classList.add('hud-scope-live');
+    } else if (lastScopeActive) {
+        const refEl = document.getElementById('hud-scope-ref');
+        const valEl = document.getElementById('hud-scope-val');
+        if (refEl) refEl.textContent = 'SCOPE';
+        if (valEl) valEl.textContent = 'AWAIT PROBE';
+        document.body.classList.remove('hud-scope-live');
+    }
+    lastScopeActive = lcdScope.active;
 
     // Draw the trace
     ctx.beginPath();

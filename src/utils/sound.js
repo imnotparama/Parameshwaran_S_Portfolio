@@ -105,6 +105,19 @@ export function loseBuzz() {
     blip(196, 0.4, 0.05, 'square');
 }
 
+/** Runner jump tick — a short rising square chirp (the pulse leaving the
+ *  trace). Two quick ascending notes, same gesture discipline as the rest. */
+export function jumpBlip() {
+    blip(520, 0.05, 0.03, 'square');
+    blip(780, 0.05, 0.025, 'square');
+}
+
+/** Runner dash sweep — a fast descending pair (the invulnerable lunge). */
+export function dashBlip() {
+    blip(1400, 0.06, 0.03, 'square');
+    blip(860, 0.07, 0.02, 'square');
+}
+
 // ─── Tactile relay + switch sounds ──────────────────────────────
 // Mechanical feedback for physical actions (night-bench relay, membrane
 // switch section jumps). Same master gate as every blip — silent unless the

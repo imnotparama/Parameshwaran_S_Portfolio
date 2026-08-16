@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // the components. Scroll stays the primary path; this is additive.
     createProbe(boardGroup);
 
-    // 6d. LCD1 — the 2.4" display running SIGNAL REPAIR (boot POST at
+    // 6d. LCD1 — the 2.4" display running SIGNAL RUNNER (boot POST at
     // rest; player-controlled once focused). Optional content, capped at
     // the third "extra" after the fly-probe and the night bench.
     createLcd(boardGroup);
@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // All three reuse existing entry points (togglePower / pulseBuzzer /
     // focusProject) — no new state, scroll stays the primary path.
     // LCD1 — clicking the display on the board glides the camera to it and
-    // hands the keyboard to SIGNAL SNAKE (journey.focusLcdCamera).
+    // hands the keyboard to SIGNAL RUNNER (journey.focusLcdCamera).
     setLcdHandler(() => focusLcdCamera());
     setSwitchHandler((switchName) => {
         if (switchName === 'SW1') {
