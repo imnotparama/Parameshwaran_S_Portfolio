@@ -252,6 +252,55 @@ export function createComponents(boardGroup) {
     gpuFrame.position.set(-3.2, 4.5, 0);
     boardGroup.add(gpuFrame);
 
+    // Package marking on U2's top — an etched identity (pin-1 dot, U2 ref,
+    // faint die grid, gold inner seam) so the dark package reads as a real IC
+    // at the Projects stop instead of a flat black slab (same "broken mesh"
+    // illusion as J1's body — a flat box at close range, not a missing
+    // texture). Same pattern as U1's silicon die: a thin textured plane
+    // slightly proud of the body top (body top face is at surfaceZ+0.09).
+    const gpuMarkCanvas = document.createElement('canvas');
+    gpuMarkCanvas.width = 256;
+    gpuMarkCanvas.height = 256;
+    const gctx = /** @type {CanvasRenderingContext2D | null} */ (gpuMarkCanvas.getContext('2d'));
+    if (gctx) {
+        gctx.fillStyle = '#1b1c20';
+        gctx.fillRect(0, 0, 256, 256);
+        // Faint die grid under the markings
+        gctx.strokeStyle = 'rgba(62, 230, 160, 0.08)';
+        gctx.lineWidth = 1;
+        for (let gi = 0; gi <= 8; gi++) {
+            const gp = gi * 32;
+            gctx.beginPath(); gctx.moveTo(gp, 0); gctx.lineTo(gp, 256); gctx.stroke();
+            gctx.beginPath(); gctx.moveTo(0, gp); gctx.lineTo(256, gp); gctx.stroke();
+        }
+        // Pin-1 dot (top-left, silkscreen white)
+        gctx.fillStyle = '#ece7d8';
+        gctx.beginPath(); gctx.arc(30, 30, 8, 0, Math.PI * 2); gctx.fill();
+        // U2 ref centered
+        gctx.font = 'bold 46px monospace';
+        gctx.textAlign = 'center';
+        gctx.textBaseline = 'middle';
+        gctx.fillStyle = 'rgba(236, 231, 216, 0.85)';
+        gctx.fillText('U2', 128, 118);
+        // Lot line under the ref
+        gctx.font = '17px monospace';
+        gctx.fillStyle = 'rgba(157, 180, 163, 0.7)';
+        gctx.fillText('PARAMA-GPU-2026', 128, 168);
+        // Gold inner seam (the package lid line)
+        gctx.strokeStyle = 'rgba(201, 162, 75, 0.55)';
+        gctx.lineWidth = 3;
+        gctx.strokeRect(12, 12, 232, 232);
+    }
+    const gpuMarkTexture = new THREE.CanvasTexture(gpuMarkCanvas);
+    gpuMarkTexture.colorSpace = THREE.SRGBColorSpace;
+    disposableResources.textures.add(gpuMarkTexture);
+    const gpuMarkGeo = new THREE.PlaneGeometry(1.62, 1.62);
+    disposableResources.geometries.add(gpuMarkGeo);
+    const gpuMarkMat = new THREE.MeshStandardMaterial({ map: gpuMarkTexture, roughness: 0.55, metalness: 0.35 });
+    const gpuMarkMesh = new THREE.Mesh(gpuMarkGeo, gpuMarkMat);
+    gpuMarkMesh.position.set(-3.2, 4.5, surfaceZ + 0.093);
+    boardGroup.add(gpuMarkMesh);
+
     // -------------------------------------------------------------
     // COMPONENT 3 — Capacitor Bank (C1-C4) - Skills (Display only)
     // -------------------------------------------------------------
@@ -360,6 +409,12 @@ export function createComponents(boardGroup) {
 
     // -------------------------------------------------------------
     // COMPONENT 6 — USB Power Connector (J1) - Experience
+    // The body alone is a featureless silver box — at a close camera stop
+    // it reads as a flat gray slab (the recurring "broken mesh" complaint
+    // was this framing, not a missing texture). Detail it like a real
+    // connector: a dark recessed port opening on the front face with gold
+    // contact blades inside, and two metal mounting ears with holes — so
+    // it reads as a USB-A jack at ANY zoom, not just at the wide stops.
     // -------------------------------------------------------------
     const usbGeo = new THREE.BoxGeometry(1.2, 0.8, 0.32);
     disposableResources.geometries.add(usbGeo);
@@ -370,6 +425,39 @@ export function createComponents(boardGroup) {
     usbMesh.userData = { componentName: 'USB Connector J1 (Experience)', type: 'USB' };
     boardGroup.add(usbMesh);
     interactiveObjects.push(usbMesh);
+
+    // Front-face port opening (the dark slot) + gold contact blades inside.
+    // The body is 0.32 deep centered at surfaceZ+0.06, so the front face sits
+    // at surfaceZ+0.22; the slot and blades sit just proud of it.
+    const portMat = new THREE.MeshStandardMaterial({ color: 0x0b0e12, roughness: 0.85, metalness: 0.1 });
+    const portGeo = new THREE.BoxGeometry(0.56, 0.18, 0.02);
+    disposableResources.geometries.add(portGeo);
+    const port = new THREE.Mesh(portGeo, portMat);
+    port.position.set(0, -7.3, surfaceZ + 0.23);
+    boardGroup.add(port);
+
+    const bladeGeo = new THREE.BoxGeometry(0.05, 0.1, 0.012);
+    disposableResources.geometries.add(bladeGeo);
+    for (let bi = 0; bi < 4; bi++) {
+        const blade = new THREE.Mesh(bladeGeo, goldMaterial.clone());
+        blade.position.set(-0.15 + bi * 0.1, -7.3, surfaceZ + 0.242);
+        boardGroup.add(blade);
+    }
+
+    // Metal mounting ears wrapping the body sides, each with a dark hole on
+    // top (the screw boss) — the classic USB-A silhouette.
+    const earGeo = new THREE.BoxGeometry(0.16, 0.18, 0.3);
+    disposableResources.geometries.add(earGeo);
+    const holeGeo = new THREE.BoxGeometry(0.06, 0.08, 0.015);
+    disposableResources.geometries.add(holeGeo);
+    for (const side of [-1, 1]) {
+        const ear = new THREE.Mesh(earGeo, metalMaterial.clone());
+        ear.position.set(side * 0.68, -7.3, surfaceZ + 0.04);
+        boardGroup.add(ear);
+        const hole = new THREE.Mesh(holeGeo, portMat);
+        hole.position.set(side * 0.68, -7.3, surfaceZ + 0.195);
+        boardGroup.add(hole);
+    }
 
     // -------------------------------------------------------------
     // COMPONENT 7 — LED Array (D1-D7) - Certifications

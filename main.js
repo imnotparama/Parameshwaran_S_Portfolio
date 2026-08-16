@@ -5,9 +5,10 @@ import { createComponents, updateLedArray, SWITCH_POS } from './src/three/compon
 import { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses } from './src/three/traces.js';
 import { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips, projectChips } from './src/three/project-chips.js';
+import { createLcd, updateLcdScreen, isLcdActive } from './src/three/lcd.js';
 import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
-import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler } from './src/utils/hover.js';
+import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler, setLcdHandler } from './src/utils/hover.js';
 import { isSoundEnabled, toggleSound, switchClack, electricalHum, stopElectricalHum, powerUpBeep } from './src/utils/sound.js';
 import { noteInteraction, updateIdleDrift } from './src/three/idle.js';
 import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeTarget, isProbeModeActive, activateProbe, deactivateProbe } from './src/three/probe.js';
@@ -19,7 +20,7 @@ import { initTelemetry, toggleSysinfo, toggleDebug, showDevNotes, updateTelemetr
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
-import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode } from './src/scroll/journey.js';
+import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode, focusLcdCamera } from './src/scroll/journey.js';
 
 // ─── Hash-based deep links ─────────────────────────────────
 // Each section gets a shareable URL (#/about, #/projects, ...). Nav clicks
@@ -133,6 +134,8 @@ function scheduleSigPath() {
 // in a field or when a modifier is held, so the page never hijacks input.
 function handleSectionKey(e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // LCD1's SIGNAL SNAKE owns all keys while its game is focused.
+    if (document.body.classList.contains('lcd-active')) return;
     const tag = (document.activeElement && document.activeElement.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement && document.activeElement.isContentEditable) return;
     const idx = parseInt(e.key, 10) - 1;
@@ -197,6 +200,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // the components. Scroll stays the primary path; this is additive.
     createProbe(boardGroup);
 
+    // 6d. LCD1 — the 2.4" display running SIGNAL SNAKE (attract demo at
+    // rest; player-controlled once focused). Optional content, capped at
+    // the third "extra" after the fly-probe and the night bench.
+    createLcd(boardGroup);
+
     // 7. Render section datasheet content from portfolio data
     renderSections();
 
@@ -230,6 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // SW2 sounds the horn, SW3 glides to the project chip nearest to it.
     // All three reuse existing entry points (togglePower / pulseBuzzer /
     // focusProject) — no new state, scroll stays the primary path.
+    // LCD1 — clicking the display on the board glides the camera to it and
+    // hands the keyboard to SIGNAL SNAKE (journey.focusLcdCamera).
+    setLcdHandler(() => focusLcdCamera());
     setSwitchHandler((switchName) => {
         if (switchName === 'SW1') {
             togglePower();
@@ -364,6 +375,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // hairline; the mesh-scale widens it without touching the geometry
         // the smoke test classifies).
         updateBenchSweep(elapsed, distScale);
+
+        // LCD1's screen: attract-mode demo snake (or the player's run) —
+        // the "powered on" display. Redraws the CanvasTexture only when
+        // the frame changed; static title under reduced motion.
+        updateLcdScreen(elapsed, delta);
 
         // Update screen-space panel positioning, connector line, and vignette
         if (typeof updateJourneyEffects === 'function' && !isLiteMode()) {
@@ -511,6 +527,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // focus: it's a deliberate global command, and the palette closes itself
     // on Esc. Guarded so a modifier-less 'k' still scrolls normally.
     window.addEventListener('keydown', (e) => {
+        // The palette is a global command — but the SIGNAL SNAKE session is
+        // exclusive, so Ctrl+K stands down while the game is focused.
+        if (isLcdActive()) return;
         if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
             e.preventDefault();
             openCommandPalette();
@@ -525,6 +544,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const normalizeProbeKey = (/** @type {string} */ k) => (k.length === 1 ? k.toLowerCase() : k);
     window.addEventListener('keydown', (e) => {
         if (isLiteMode()) return;
+        // LCD1's SIGNAL SNAKE owns WASD/arrows/Enter/Esc while its game is
+        // focused — the probe (and the P/T/D shortcuts below) stand down.
+        if (isLcdActive()) return;
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         const tag = (document.activeElement && document.activeElement.tagName) || '';
         if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) return;
@@ -566,6 +588,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let cheatBuf = '';
     window.addEventListener('keydown', (e) => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (document.body.classList.contains('lcd-active')) {
+            cheatBuf = '';
+            return;
+        }
         if (e.key.length !== 1 || !/[a-z]/i.test(e.key)) {
             cheatBuf = '';
             return;

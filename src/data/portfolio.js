@@ -227,7 +227,7 @@ export const portfolioData = {
         {
             date: "NOW",
             title: "Building flyrank.ai · Azure DP-900 prep",
-            detail: "Daily ML/DSA reps, startup build from the ground up, teaching myself Blender on the side."
+            detail: "flyrank.ai — my own solo-founded startup: an AI-powered ranking and visibility engine, built from the ground up. Core build in active development; architecture and matching logic in progress — not publicly launched yet. Alongside it: daily ML/DSA reps, Azure DP-900 prep, and Blender on the side."
         }
     ],
     certifications: [

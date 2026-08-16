@@ -189,7 +189,10 @@ export function createBoard(scene) {
                 [1433, 2867, 50, 50, 'TP2', 1388, 2922],
                 // ANT1 — meander antenna at (3.5, 0.5); box encloses the full
                 // zigzag (cy 1639-1985), label below clear of U1's label.
-                [1675, 1812, 186, 346, 'ANT1', 1615, 2035]
+                [1675, 1812, 186, 346, 'ANT1', 1615, 2035],
+                // LCD1 — the 2.4" display at (2.4, -1.2); box matches the
+                // bezel (1.6×1.2u → 298×327px), label below clear of TP2.
+                [1471, 2375, 298, 327, 'LCD1', 1400, 2590]
             ];
             fillerParts.forEach(([fx, fy, bw, bh, label, lx, ly]) => {
                 ctx.strokeRect(fx - bw / 2, fy - bh / 2, bw, bh);

@@ -11,10 +11,16 @@ import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import { cpuRadarRing, siliconDieMesh } from '../three/components.js';
 import { traceData, energizeTraceForSection } from '../three/traces.js';
 import { projectChips } from '../three/project-chips.js';
+import { LCD_LOCAL_POS, focusLcd, exitLcd, setLcdExitHandler } from '../three/lcd.js';
 import { getCanvasViewportSize } from '../three/scene.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+// LCD1 (the SIGNAL SNAKE display) releases its keyboard + camera focus
+// through the same clearFocus path as the project chips: Esc in the game
+// glides the camera back to the current section's stop.
+setLcdExitHandler(() => clearFocus(true));
 
 document.fonts?.ready?.then(() => {
   ScrollTrigger.refresh(); // font swap can change section heights
@@ -70,17 +76,19 @@ const COMPONENT_WORLD = {
 // explicit pose instead. Experience (J1): the default stop looked at the
 // board face a third of a unit above J1, where the bottom silkscreen band
 // ("PARAMA-DEV-BOARD-v1.0") and the board's darkest region fill the frame
-// instead of the connector. This pose pulls the camera IN (z 2.4 — J1
-// spans ~37% of frame height, verified against the rendered framebuffer at
-// the 58% canvas) and aims at the connector's body (world y ≈ -6.205), so
-// the silver USB block is the subject, the silkscreen band reads as context
-// above, and the board's bottom edge frames below. The trace ride still
-// ends here because rideCamera's dstCfg comes from this function.
+// instead of the connector. A too-close pose (z 2.4, the first fix) put J1's
+// featureless silver body across most of the frame — which reads as a flat
+// gray slab, the recurring "broken mesh" report. This pose pulls back to
+// frame the whole Experience neighborhood: J1 center-low, RN1 above, BZ1
+// and the D1-D7 array as context, board bottom edge below (verified against
+// the rendered framebuffer at the 58% canvas: J1 at NDC (0,-0.15), RN1 at
+// 0.84, BZ1 at (-0.37,0.31)). The trace ride still ends here because
+// rideCamera's dstCfg comes from this function.
 /** @type {Record<string, { pos: THREE.Vector3, look: THREE.Vector3 }>} */
 const CUSTOM_CAMERAS = {
   'sec-experience': {
-    pos: new THREE.Vector3(0, -5.5, 2.4),
-    look: new THREE.Vector3(0, -6.2, 0.17)
+    pos: new THREE.Vector3(0, -4.0, 9.0),
+    look: new THREE.Vector3(0, -5.2, 0.08)
   }
 };
 
@@ -470,6 +478,9 @@ function fillProjectDetailPanel(proj) {
  *  camera instead, so no glide. @param {boolean} [glideBack] */
 function clearFocus(glideBack = false) {
   if (!focusedChip) return;
+  // LCD1's game owns the keyboard while focused — releasing the focus
+  // (Esc, re-click, scroll, or a chip click) must hand the keys back.
+  if (focusedChip.ref === 'LCD1') exitLcd();
   focusedChip = null;
   if (glideBack && cameraRef) {
     const cfg = getCameraConfigForStop(currentSectionId);
@@ -489,6 +500,8 @@ export function focusProject(ref) {
     clearFocus(true);
     return;
   }
+  // A focused LCD1 game yields its keyboard + camera to the chip click.
+  if (focusedChip && focusedChip.ref === 'LCD1') exitLcd();
   focusedChip = { ref, localPos: chip.pos, data: chip.data };
 
   fillProjectDetailPanel(chip.data);
@@ -533,6 +546,25 @@ export function focusProject(ref) {
 /** Public release (close button / Esc wiring). */
 export function exitFocusMode() {
   clearFocus(true);
+}
+
+/** Click-to-component entry for LCD1: glide the camera to the display and
+ *  hand the keyboard to the SIGNAL SNAKE game (lcd.js). Clicking the
+ *  display again (or Esc / scroll / a chip click) releases — the same
+ *  toggle + clearFocus contract as the project chips, but no datasheet
+ *  panel (the game IS the content, rendered on the screen quad). */
+export function focusLcdCamera() {
+  if (!cameraRef || !journeyReady) return;
+  if (focusedChip && focusedChip.ref === 'LCD1') {
+    clearFocus(true);
+    return;
+  }
+  if (focusedChip) clearFocus(false); // a chip focus yields to the LCD
+  focusedChip = { ref: 'LCD1', localPos: LCD_LOCAL_POS.clone(), data: null };
+  const look = LCD_LOCAL_POS.clone().add(new THREE.Vector3(0, 0.05, 0));
+  const pos = LCD_LOCAL_POS.clone().add(CHIP_FOCUS_OFFSET);
+  glideCameraTo(pos, look, 1.2);
+  focusLcd();
 }
 
 // ─── Leg state: which section is active given where the scroll is ──
@@ -904,6 +936,12 @@ export function initJourney(camera) {
       end: 'top top',
       scrub: 0.6,
       onUpdate: (self) => {
+        // ANY user scroll releases chip/LCD focus — the scrub owns the
+        // camera from here (and LCD1's exclusive keyboard must hand back
+        // before the page keeps scrolling). Cleared here, before the leg
+        // camera write, so copper-ride legs release too — the old clear
+        // lived only in setCameraAtT, so ride legs silently kept focus.
+        if (focusedChip) clearFocus(false);
         const eased = gsap.parseEase('power2.out')(self.progress);
         // Component legs ride the actual copper (rideCamera returns false for
         // hero/contact legs, which keep the straight glide). The ride ends at
@@ -1219,6 +1257,8 @@ function onJourneyKeydown(e) {
   if (!journeyReady || motionPrefs.reduced) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (document.body.classList.contains('probe-flying')) return;
+  // LCD1's SIGNAL SNAKE owns arrows/WASD while its game is focused.
+  if (document.body.classList.contains('lcd-active')) return;
   const ae = /** @type {HTMLElement | null} */ (document.activeElement);
   const tag = (ae && ae.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || (ae && ae.isContentEditable)) return;

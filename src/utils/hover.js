@@ -54,6 +54,8 @@ let clickHandler = null;
 let buzzerHandler = null;
 /** @type {((switchName: string) => void) | null} */
 let switchHandler = null;
+/** @type {(() => void) | null} */
+let lcdHandler = null;
 // Hover is a fine-pointer concept — touch has no hover state, so the per-frame
 // raycast would burn cost for nothing and leave a glow stuck at the last tap
 // point. The flag is live (same listener pattern as motionPrefs): a device
@@ -111,7 +113,8 @@ const SCOPE_MAP = {
     'RV1':    { v: '10kΩ',      f: '—',         state: 'ADJ' },
     'SW1':    { v: '3.3V',      f: '—',         state: 'MOMENTARY' },
     'SW2':    { v: '3.3V',      f: '—',         state: 'MOMENTARY' },
-    'SW3':    { v: '3.3V',      f: '—',         state: 'MOMENTARY' }
+    'SW3':    { v: '3.3V',      f: '—',         state: 'MOMENTARY' },
+    'LCD1':   { v: '3.3V',      f: '16MHz',     state: 'GAME' }
 };
 
 /** Short measurement string for a component ref — the Tier-2 readout shown
@@ -374,6 +377,12 @@ export function initHover(camera, scene) {
                     pressTactile(obj.name);
                     clickBlip();
                     if (switchHandler) switchHandler(obj.name);
+                } else if (obj.userData && obj.userData.type === 'LCD' && lcdHandler) {
+                    // LCD1 — the display powers up: camera glides over and
+                    // the SIGNAL SNAKE game takes the keyboard (main.js
+                    // wires focusLcdCamera).
+                    clickBlip();
+                    lcdHandler();
                 }
             }
         });
@@ -397,6 +406,12 @@ export function setBuzzerHandler(fn) {
  * @param {(switchName: string) => void} fn */
 export function setSwitchHandler(fn) {
     switchHandler = fn;
+}
+
+/** Register the callback fired when the LCD1 display is clicked.
+ * @param {() => void} fn */
+export function setLcdHandler(fn) {
+    lcdHandler = fn;
 }
 
 // ─── Per-frame Raycast Check ────────────────────────────
