@@ -65,6 +65,25 @@ const COMPONENT_WORLD = {
   'sec-experience': new THREE.Vector3(0, -7.3, 0.085),
 };
 
+// Per-section camera OVERRIDES — sections whose default component framing
+// (COMPONENT_WORLD + CAMERA_OFFSET) doesn't frame its part well get an
+// explicit pose instead. Experience (J1): the default stop looked at the
+// board face a third of a unit above J1, where the bottom silkscreen band
+// ("PARAMA-DEV-BOARD-v1.0") and the board's darkest region fill the frame
+// instead of the connector. This pose pulls the camera IN (z 2.4 — J1
+// spans ~37% of frame height, verified against the rendered framebuffer at
+// the 58% canvas) and aims at the connector's body (world y ≈ -6.205), so
+// the silver USB block is the subject, the silkscreen band reads as context
+// above, and the board's bottom edge frames below. The trace ride still
+// ends here because rideCamera's dstCfg comes from this function.
+/** @type {Record<string, { pos: THREE.Vector3, look: THREE.Vector3 }>} */
+const CUSTOM_CAMERAS = {
+  'sec-experience': {
+    pos: new THREE.Vector3(0, -5.5, 2.4),
+    look: new THREE.Vector3(0, -6.2, 0.17)
+  }
+};
+
 // ─── Path definition: stops (section IDs) and via points (hardcoded) ─────
 /** @type {Array<{ stop?: string, via?: boolean, pos?: [number, number, number], look?: [number, number, number] }>} */
 const PATH = [
@@ -224,7 +243,12 @@ function buildCurves() {
       posPts.push(new THREE.Vector3(p.x, p.y, cruiseZ));
       lookPts.push(new THREE.Vector3(p.x, p.y, lookZ));
     }
-    posPts.push(new THREE.Vector3(dstCfg.pos.x, dstCfg.pos.y, cruiseZ));
+    // The destination's OWN z wins (not the source's cruiseZ): a custom
+    // camera stop (CUSTOM_CAMERAS — Experience/J1 sits close at z 2.4 vs
+    // the standard 4.2 cruise) must keep its framing altitude or the ride
+    // would discard it and arrive too far out. Every other stop's z equals
+    // cruiseZ, so this only changes the custom stop.
+    posPts.push(new THREE.Vector3(dstCfg.pos.x, dstCfg.pos.y, dstCfg.pos.z));
     lookPts.push(dstCfg.look.clone());
     ridePosCurves[i] = new THREE.CatmullRomCurve3(posPts, false, 'catmullrom', 0.4);
     rideLookCurves[i] = new THREE.CatmullRomCurve3(lookPts, false, 'catmullrom', 0.4);
@@ -250,6 +274,12 @@ function getHeroFramingZ() {
 // panel's center line).
 /** @param {string} sectionId */
 export function getCameraConfigForStop(sectionId) {
+  // Explicit override wins — sections whose default framing is wrong for
+  // their part (Experience/J1) declare their own pose here.
+  const custom = CUSTOM_CAMERAS[sectionId];
+  if (custom) {
+    return { pos: custom.pos.clone(), look: custom.look.clone() };
+  }
   if (COMPONENT_WORLD[sectionId]) {
     const compPos = COMPONENT_WORLD[sectionId].clone();
     return {
@@ -479,6 +509,21 @@ export function focusProject(ref) {
     ease: 'power1.out',
     overwrite: 'auto'
   });
+  // The socket gem reacts with its own pulse — the gem brightening is what
+  // reads as "this module is now active" on the board, in sync with the
+  // camera arriving at the chip (same tween shape, brighter peak so the
+  // category stone visibly lights up).
+  if (chip.gemMat) {
+    gsap.killTweensOf(chip.gemMat);
+    gsap.fromTo(chip.gemMat, { emissiveIntensity: 0.25 }, {
+      emissiveIntensity: 2.8,
+      duration: 0.3,
+      yoyo: true,
+      repeat: 1,
+      ease: 'power1.out',
+      overwrite: 'auto'
+    });
+  }
 
   const look = chip.pos.clone().add(new THREE.Vector3(0, 0.05, 0));
   const pos = chip.pos.clone().add(CHIP_FOCUS_OFFSET);

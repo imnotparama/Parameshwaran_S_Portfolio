@@ -70,6 +70,12 @@ body.full-journey #canvas-container {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    /* The bar itself may wrap its ROWS (name+nav on row 1, legend+CTA on
+       row 2 at narrow widths) — but the nav inside NEVER wraps (see
+       .hud-nav flex-wrap: nowrap). Row wrapping is the deliberate,
+       explicit breakpoint behavior; nav-internal wrapping is not. */
+    flex-wrap: wrap;
+    row-gap: 6px;
     gap: 16px;
     padding: 12px 22px;
     background: linear-gradient(to bottom, rgba(6, 14, 10, 0.94), rgba(6, 14, 10, 0.55) 75%, transparent);
@@ -114,7 +120,15 @@ body.hud-cta-hidden #cta-linkedin-hud {
 
 .hud-nav {
     display: flex;
-    flex-wrap: wrap;
+    /* NEVER wrap the five section buttons — the nav stays one row at every
+       width where it's visible (lite mode below 768px uses its own stack).
+       The 5 buttons total ~540px at desktop font, ~500px at the ≤900px
+       size, so nowrap is safe all the way down; the bar's own flex-wrap
+       (above) drops the legend/CTA to a second row instead of squeezing
+       the nav. */
+    flex-wrap: nowrap;
+    flex: 1 1 auto;
+    min-width: 0;
     gap: 4px 10px;
     justify-content: center;
 }
@@ -128,6 +142,13 @@ body.hud-cta-hidden #cta-linkedin-hud {
     letter-spacing: 1.5px;
     cursor: pointer;
     padding: 7px 8px;
+    white-space: nowrap;
+    position: relative;
+    /* The plain-English label under each nav item (the thematic refs stay
+       the primary read; the plain label is the recruiters' translation).
+       Hidden by default, revealed on hover/focus — pointer:fine gated
+       below so touch never leaves a stuck label. */
+    --nav-plain: '';
     transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
     position: relative;
     font-weight: 500;
@@ -156,6 +177,37 @@ body.hud-cta-hidden #cta-linkedin-hud {
 .hud-nav .nav-btn.nav-active .nav-ref {
     color: var(--enig-gold);
     opacity: 1;
+}
+
+/* Plain-English sublabel — shown on hover so the thematic [CORE]/[MODULES]
+   tabs still translate for a recruiter skimming fast. Absolutely positioned
+   under the button (transform-only show/hide, no layout shift); the ::before
+   route line and ::after active pad stay free because this is a real child
+   span, not a pseudo. pointer:fine gated — touch must not leave it stuck. */
+.hud-nav .nav-btn .nav-plain {
+    position: absolute;
+    top: calc(100% - 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 8.5px;
+    letter-spacing: 1px;
+    font-weight: 400;
+    color: var(--silkscreen-muted);
+    background: rgba(6, 14, 10, 0.92);
+    border: 1px solid rgba(201, 162, 75, 0.35);
+    border-radius: 2px;
+    padding: 2px 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--duration-fast) var(--ease-out);
+    z-index: 5;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .hud-nav .nav-btn:hover .nav-plain,
+    .hud-nav .nav-btn:focus-visible .nav-plain {
+        opacity: 1;
+    }
 }
 
 .hud-nav .nav-btn:hover {
@@ -363,6 +415,17 @@ body.probe-used #hud-bar.hud-ready .hud-probe-hint {
     font-size: 10px;
     letter-spacing: 1.5px;
     color: rgba(157, 180, 163, 0.55);
+}
+
+/* Explicit HUD breakpoint ladder — the NAV never wraps (nowrap above); the
+   bar's second row (legend + CTA) sheds the least-essential legend segments
+   as width drops: the two long hint spans go first (≤1280px), then the scope
+   chip (≤1100px), then the remaining hints (≤900px, the bar goes centered). */
+@media (max-width: 1280px) {
+    .hud-probe-hint,
+    .hud-extras-hint {
+        display: none;
+    }
 }
 
 @media (max-width: 900px) {
@@ -1355,6 +1418,30 @@ body.full-journey .projects-grid {
     box-shadow: 0 0 10px rgba(201, 162, 75, 0.2), inset 0 0 0 1px rgba(201, 162, 75, 0.2);
 }
 
+/* Per-category accent for the ACTIVE filter pin — the same three hues the
+   3D project-chip gems use (AI/ML rose, FULL-STACK cyan, SYSTEMS blue), so
+   the datasheet filter and the board agree on what a category looks like. */
+.proj-filter.active[data-filter="AI/ML"] {
+    color: #f43f5e;
+    background: rgba(244, 63, 94, 0.12);
+    border-color: rgba(244, 63, 94, 0.55);
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.2), inset 0 0 0 1px rgba(244, 63, 94, 0.2);
+}
+
+.proj-filter.active[data-filter="FULL-STACK"] {
+    color: #22d3ee;
+    background: rgba(34, 211, 238, 0.12);
+    border-color: rgba(34, 211, 238, 0.55);
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.2), inset 0 0 0 1px rgba(34, 211, 238, 0.2);
+}
+
+.proj-filter.active[data-filter="SYSTEMS"] {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.55);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2), inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
 /* Filtered-out cards — pointer-events off (unclickable while hidden); the
    opacity/transform are animated by sections.js (gsap, or a CSS snap under
    reduced motion). This class is the STATE; the animation owns the values. */
@@ -1507,22 +1594,51 @@ body.full-journey .projects-grid {
     box-shadow: inset 0 0 0 1px rgba(200, 150, 12, 0.55);
 }
 
-/* Status = a single LED. Steady signal-green for shipped, gold flicker for
-   in-build — the legend under the section title decodes the colors, so the
-   card itself stays quiet. */
+/* Status = a labeled chip: LED dot + SOLDERED / BREADBOARD text, so the
+   shipped/in-build distinction reads at a glance without decoding the legend
+   (the old 8px dot alone was ambiguous). The LED keeps the signal-green/
+   gold language; only the dot flickers for in-build (the label must stay
+   readable — a whole-chip flicker would strobe the text). */
 .proj-ds-status {
     flex: none;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+    letter-spacing: 1.4px;
     color: var(--glow-green, #00ff88);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-radius: 2px;
+    background: rgba(9, 20, 15, 0.6);
+    padding: 3px 8px;
+    text-transform: uppercase;
+}
+
+.proj-ds-status::before {
+    content: '';
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
     background: currentColor;
-    box-shadow: 0 0 8px rgba(62, 230, 160, 0.75);
+    box-shadow: 0 0 8px currentColor;
+}
+
+.proj-ds-status::after {
+    content: 'SOLDERED';
 }
 
 .proj-ds-status.building {
     color: var(--pcb-gold, #c8960c);
-    box-shadow: 0 0 8px rgba(200, 150, 12, 0.7);
+    border-color: rgba(200, 150, 12, 0.4);
+    animation: none;
+}
+
+.proj-ds-status.building::after {
+    content: 'BREADBOARD';
+}
+
+.proj-ds-status.building::before {
     animation: flicker 3.2s linear infinite;
 }
 
@@ -1647,6 +1763,54 @@ body.full-journey .projects-grid {
     box-shadow: 0 0 14px rgba(201, 162, 75, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+/* Visual weight — how many real projects actually use the skill. Heavy
+   (4+) skills carry the board's gold glow at rest; medium (2–3) get a quiet
+   signal-green edge; light (0–1) stay the plain solder look. The weight is
+   set as data-weight by sections.js from the projects' tags, so the grid
+   reads as proof instead of a flat label list. */
+.skill-pill[data-weight="heavy"] {
+    border-color: rgba(201, 162, 75, 0.4);
+    box-shadow: 0 0 10px rgba(201, 162, 75, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.skill-pill[data-weight="heavy"]:hover {
+    border-color: rgba(201, 162, 75, 0.75);
+    box-shadow: 0 0 18px rgba(201, 162, 75, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.skill-pill[data-weight="medium"] {
+    border-color: rgba(62, 230, 160, 0.28);
+}
+
+.skill-pill[data-weight="medium"]:hover {
+    border-color: rgba(62, 230, 160, 0.6);
+}
+
+/* USED IN — the proof line. Hidden at rest (opacity 0, clipped), revealed
+   on hover/focus as a compact second row inside the pill: "USED IN:
+   CrowdPulse, PRMxA". No motion under reduced-motion (instant flip). */
+.skill-pill .skill-used {
+    display: block;
+    font-style: normal;
+    font-size: 8.5px;
+    letter-spacing: 0.6px;
+    line-height: 1.3;
+    color: rgba(62, 230, 160, 0.85);
+    margin-top: 3px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out), max-height var(--duration-fast) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .skill-pill:hover .skill-used,
+    .skill-pill:focus-visible .skill-used {
+        max-height: 40px;
+        opacity: 1;
+    }
+}
+
 /* Plan 004: lift gated (same rule — SMD skill pills) */
 @media (hover: hover) and (pointer: fine) {
     .skill-pill:hover {
@@ -1758,6 +1922,11 @@ body.full-journey .projects-grid {
     display: flex;
     justify-content: center;
     align-items: center;
+    /* Three rows of identity (github · email · location) must never clip:
+       on narrow panels they wrap onto their own lines instead of the
+       rightmost item getting cut mid-glyph ("CH..."). */
+    flex-wrap: wrap;
+    row-gap: 8px;
     gap: 16px;
     margin: 12px 0 24px;
 }
@@ -1830,6 +1999,9 @@ body.full-journey .projects-grid {
         animation: none !important;
     }
     .proj-ds-status.building {
+        animation: none !important;
+    }
+    .proj-ds-status.building::before {
         animation: none !important;
     }
     .cta-linkedin {

@@ -1,6 +1,11 @@
 // Portfolio Data Schema - Source of truth for personal information and content
 import { LINKEDIN_URL, GITHUB_URL } from '../config.js';
 
+// Single source of truth for the GPA value — every display (hero badge, About
+// VREF row, education, timeline) derives from this one literal. Never write
+// '9.48' anywhere else.
+const GPA = '9.48/10';
+
 export const portfolioData = {
     personalInfo: {
         name: "PARAMESHWARAN S",
@@ -19,12 +24,18 @@ export const portfolioData = {
             github: GITHUB_URL,
             linkedin: LINKEDIN_URL
         },
+        // The four hero stats — derived, not hand-typed: projects = length of
+        // the projects array, hackathons = the two timeline entries (ORIGIN 26
+        // + Google Agentic Wars), certs = certifications.length. GPA is the
+        // single GPA literal above.
         stats: [
-            { label: "GPA", value: "9.48/10" },
-            { label: "MODULES", value: "9" }
+            { label: "GPA", value: GPA },
+            { label: "PROJECTS", value: "9" },
+            { label: "HACKATHONS", value: "2" },
+            { label: "CERTS", value: "7" }
         ],
-        heroLine: "I'm Parameshwaran S — an ECE + Data Science undergrad at SRM IST, Chennai, who builds for real. AI pipelines, full-stack apps, and embedded systems that actually ship: deployed ML APIs, live GPS tracking, a 24-hour fully-local AI calling agent, and flyrank.ai — my own startup, built solo from the ground up. No tutorials. No filler.",
-        bio: "PARAMA-CORE is a single-substrate system built for one purpose: shipping real products at the intersection of software, AI, and hardware.\n\nThe core cluster runs on a data-science specialization — machine learning pipelines, computer vision, and full-stack applications are the three main buses, and every one of them has reached production: deployed APIs, live tracking, a working startup. When the problem touches silicon, the stack extends down — embedded systems, VLSI fundamentals, and low-level architecture are part of the same design flow, not a separate board.\n\nTutorials are reference manuals, not products. The parts that make it onto this board are the ones that survived real builds — debugging, integration, deployment. Continuous learning is a hardware feature here: it ships in every revision.\n\nAuxiliary system: the operator keeps a training schedule. Heavy compound lifts, three times a week — same discipline as the code. Consistent, logged, load-incremented.",
+        heroLine: "I ship real, working projects — deployed ML APIs, live GPS tracking, a 24-hour fully-local AI calling agent, and flyrank.ai, my own startup, built solo from the ground up. Still figuring the rest out.",
+        bio: "Hi, I'm Parameshwaran — a 3rd-year ECE student specializing in Data Science at SRM Ramapuram. I'm still learning, and I don't pretend to have it all figured out — but I show up daily: working through ML and DSA problems, prepping for my Azure Data Fundamentals certification, and building flyrank.ai, my own startup project, from the ground up.\n\nOutside of code, I'm teaching myself Blender because I like understanding how things work end to end, not just the parts I'm comfortable with. If you're looking for someone who's genuinely curious and puts in real effort, that's me.",
         languages: [
             { name: "English", level: "Fluent" },
             { name: "Tamil", level: "Native" },
@@ -175,15 +186,15 @@ export const portfolioData = {
     skills: {
         ai_ml: ["Python", "Machine Learning", "OpenCV", "YOLO", "Pandas", "NumPy", "Scikit-learn"],
         web: ["Django", "FastAPI", "React", "JavaScript", "HTML", "CSS", "Vite", "Tailwind"],
-        data: ["SQL", "Power BI", "Data Analysis", "Excel", "Git"],
-        hardware: ["Arduino", "IoT", "IR Sensors", "ESP32", "C"]
+        data: ["SQL", "Power BI", "Data Analysis", "Excel"],
+        hardware: ["Arduino", "IoT", "IR Sensors", "ESP32", "C", "Git"]
     },
     education: [
         {
             degree: "B.Tech ECE with Specialization in Data Science",
             institution: "SRM Institute of Science and Technology, Ramapuram, Chennai",
             duration: "2024 – 2028",
-            grade: "GPA: 9.48 / 10"
+            grade: `GPA: ${GPA}`
         }
     ],
     // Experience — timeline etched into copper. Time-stamped junctions.
@@ -191,7 +202,7 @@ export const portfolioData = {
         {
             date: "2024",
             title: "B.Tech ECE (Data Science) — SRM Ramapuram",
-            detail: "Enrolled; currently 3rd year. GPA 9.48/10."
+            detail: `Enrolled; currently 3rd year. GPA ${GPA}.`
         },
         {
             date: "2025",

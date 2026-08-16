@@ -18,9 +18,33 @@ function esc(str) {
 
 export function renderSections() {
     wireProfileLinks();
+    renderHeroStats();
+    renderAboutVref();
     renderProjects();
     renderSkills();
     renderTimeline();
+}
+
+// Hero stat badges — GPA / PROJECTS / HACKATHONS / CERTS, rendered from
+// portfolioData.personalInfo.stats (the single source: GPA's value is the one
+// GPA literal in portfolio.js; the counts are hand-synced to the data arrays
+// they summarize). Idempotent — rebuilds the row in place.
+function renderHeroStats() {
+    const row = document.getElementById('hero-badges');
+    if (!row) return;
+    row.innerHTML = portfolioData.personalInfo.stats
+        .map((s) => `<div class="stat-badge"><span class="badge-lbl">${esc(s.label)}:</span><span class="badge-val">${esc(s.value)}</span></div>`)
+        .join('');
+}
+
+// About spec-table VREF row — the GPA half comes from the same single source
+// (portfolioData.personalInfo.stats[0].value); the rail voltage is static
+// board identity, not a stat.
+function renderAboutVref() {
+    const td = document.getElementById('about-vref');
+    if (!td) return;
+    const gpa = (portfolioData.personalInfo.stats[0] || {}).value || '—';
+    td.textContent = `GPA ${gpa} · 3.30V nominal`;
 }
 
 // The LinkedIn CTA is the entire point of the site — every
@@ -151,18 +175,42 @@ function applyProjectFilter(filter, clickedBtn) {
 }
 
 // Skills — each skill is one small component in the cluster.
+// The library is organized as component banks — each skill is one part on
+// the board, labeled with its component class (skillRoles): Python is the
+// MCU, FastAPI is the COMM BUS, React is the DISPLAY CTRL, and so on.
+// Banks are renamed to what they actually contain (C2 = web/backend bus,
+// C3 = data & analytics — Git moved to C4's tooling shelf), and each pill
+// carries a data-used cross-reference (which real projects use it) + a
+// usage weight so the grid reads as proof, not labels.
 function renderSkills() {
     const wrap = document.getElementById('skills-groups');
     if (!wrap) return;
 
-    // The library is organized as component banks — each skill is one part on
-    // the board, labeled with its component class (skillRoles): Python is the
-    // MCU, FastAPI is the COMM BUS, React is the DISPLAY CTRL, and so on.
+    // skill → short project names, derived from the projects' tags (the same
+    // tags shown on the datasheet cards). A skill with no project usage stays
+    // a plain label; the hover line only appears when there's proof.
+    /** @type {Record<string, string[]>} */
+    const usedIn = {};
+    for (const p of portfolioData.projects) {
+        const short = p.title.split(/\s*[—-]\s*/)[0];
+        for (const tag of p.tags || []) {
+            (usedIn[tag] = usedIn[tag] || []).push(short);
+        }
+    }
+    const shortName = (/** @type {string} */ s) => {
+        const hits = usedIn[s] || [];
+        return hits.length ? hits.slice(0, 4).join(', ') : '';
+    };
+    const weight = (/** @type {string} */ s) => {
+        const n = (usedIn[s] || []).length;
+        return n >= 4 ? 'heavy' : n >= 2 ? 'medium' : 'light';
+    };
+
     const groups = [
         { label: 'C1 — AI ACCELERATOR BANK', items: portfolioData.skills.ai_ml },
-        { label: 'C2 — DISPLAY & I/O BANK', items: portfolioData.skills.web },
-        { label: 'C3 — STORAGE CONTROLLER BANK', items: portfolioData.skills.data },
-        { label: 'C4 — FIRMWARE & RF MODULES', items: portfolioData.skills.hardware }
+        { label: 'C2 — COMM & INTERFACE BUS', items: portfolioData.skills.web },
+        { label: 'C3 — DATA & ANALYTICS BANK', items: portfolioData.skills.data },
+        { label: 'C4 — FIRMWARE, RF & TOOLING', items: portfolioData.skills.hardware }
     ];
 
     wrap.innerHTML = groups
@@ -170,7 +218,14 @@ function renderSkills() {
             (g) => `
         <div class="skill-group">
             <div class="skill-group-label">${esc(g.label)}</div>
-            <div class="skill-pills">${g.items.map((s) => `<span class="skill-pill">${esc(s)}<em>${esc(skillRoles[s] || 'PASSIVE')}</em></span>`).join('')}</div>
+            <div class="skill-pills">${g.items
+                .map(
+                    (s) => {
+                        const used = shortName(s);
+                        return `<span class="skill-pill" data-weight="${weight(s)}"${used ? ` data-used="${esc(used)}"` : ''} tabindex="0">${esc(s)}<em>${esc(skillRoles[s] || 'PASSIVE')}</em>${used ? `<i class="skill-used" aria-hidden="true">USED IN: ${esc(used)}</i>` : ''}</span>`;
+                    }
+                )
+                .join('')}</div>
         </div>`
         )
         .join('');

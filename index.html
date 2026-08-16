@@ -147,11 +147,11 @@
                  C1–C4, J1, ANT1) — the same silkscreen refs printed on the
                  panels — so the HUD reads as the board's pin map. The ref is
                  aria-hidden: the button's aria-label keeps the clean name. -->
-            <button class="nav-btn" data-section="sec-about" aria-label="Go to Core Processor — About section"><span class="nav-ref" aria-hidden="true">U1</span>[CORE]</button>
-            <button class="nav-btn" data-section="sec-projects" aria-label="Go to Expansion Modules — Projects section"><span class="nav-ref" aria-hidden="true">U2</span>[MODULES]</button>
-            <button class="nav-btn" data-section="sec-skills" aria-label="Go to Component Library — Skills section"><span class="nav-ref" aria-hidden="true">C1–C4</span>[LIBRARY]</button>
-            <button class="nav-btn" data-section="sec-experience" aria-label="Go to Experience section"><span class="nav-ref" aria-hidden="true">J1</span>[EXPERIENCE]</button>
-            <button class="nav-btn" data-section="sec-contact" aria-label="Go to Transmission Interface — Contact section"><span class="nav-ref" aria-hidden="true">ANT1</span>[TX/RX]</button>
+            <button class="nav-btn" data-section="sec-about" aria-label="Go to Core Processor — About section"><span class="nav-ref" aria-hidden="true">U1</span>[CORE]<span class="nav-plain" aria-hidden="true">About</span></button>
+            <button class="nav-btn" data-section="sec-projects" aria-label="Go to Expansion Modules — Projects section"><span class="nav-ref" aria-hidden="true">U2</span>[MODULES]<span class="nav-plain" aria-hidden="true">Projects</span></button>
+            <button class="nav-btn" data-section="sec-skills" aria-label="Go to Component Library — Skills section"><span class="nav-ref" aria-hidden="true">C1–C4</span>[LIBRARY]<span class="nav-plain" aria-hidden="true">Skills</span></button>
+            <button class="nav-btn" data-section="sec-experience" aria-label="Go to Experience section"><span class="nav-ref" aria-hidden="true">J1</span>[EXPERIENCE]<span class="nav-plain" aria-hidden="true">Experience</span></button>
+            <button class="nav-btn" data-section="sec-contact" aria-label="Go to Transmission Interface — Contact section"><span class="nav-ref" aria-hidden="true">ANT1</span>[TX/RX]<span class="nav-plain" aria-hidden="true">Contact</span></button>
         </nav>
         <div class="hud-legend">
             <!-- Night bench — the PWR LED is the board's power switch: click
@@ -217,11 +217,11 @@
                 <div class="subtitle-wrap">
                     <span id="typewriter-subtitle"></span><span class="terminal-cursor"></span>
                 </div>
-                <p class="hero-claim text-pretty">I'm Parameshwaran S &mdash; an ECE + Data Science undergrad at SRM IST, Chennai, who builds for real. AI pipelines, full-stack apps, and embedded systems that actually ship: deployed ML APIs, live GPS tracking, a 24-hour fully-local AI calling agent, and flyrank.ai &mdash; my own startup, built solo from the ground up. No tutorials. No filler.</p>
-                <div class="badge-row">
-                    <div class="stat-badge"><span class="badge-lbl">VREF:</span><span class="badge-val">GPA 9.48/10</span></div>
-                    <div class="stat-badge"><span class="badge-lbl">MODULES:</span><span class="badge-val">9</span></div>
-                </div>
+                <p class="hero-claim text-pretty">I ship real, working projects &mdash; deployed ML APIs, live GPS tracking, a 24-hour fully-local AI calling agent, and flyrank.ai, my own startup, built solo from the ground up. Still figuring the rest out.</p>
+                <!-- Four hero stats — rendered from portfolioData.personalInfo.stats
+                     (sections.js renderHeroStats): GPA / PROJECTS / HACKATHONS /
+                     CERTS, one source of truth. -->
+                <div class="badge-row" id="hero-badges"></div>
                 <div class="hero-cta-row">
                     <a class="cta-linkedin cta-primary js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
                 </div>
@@ -246,10 +246,10 @@
                         <tr><th scope="row">CORE</th><td>B.Tech ECE &middot; Data Science specialization</td></tr>
                         <tr><th scope="row">FAB</th><td>SRM IST &mdash; Ramapuram, Chennai</td></tr>
                         <tr><th scope="row">CLK</th><td>Daily builds &mdash; ML &middot; DSA &middot; flyrank.ai</td></tr>
-                        <tr><th scope="row">VREF</th><td>GPA 9.48 / 10 &middot; 3.30V nominal</td></tr>
+                        <tr><th scope="row">VREF</th><td id="about-vref">GPA 9.48 / 10 &middot; 3.30V nominal</td></tr>
                     </tbody>
                 </table>
-                <p class="ds-body text-pretty">PARAMA-CORE is a single-substrate system built for one purpose: shipping real products at the intersection of software, AI, and hardware.<br><br>The core cluster runs on a data-science specialization &mdash; machine learning pipelines, computer vision, and full-stack applications are the three main buses, and every one has reached production: deployed APIs, live tracking, a working startup. When the problem touches silicon, the stack extends down &mdash; embedded systems, VLSI fundamentals, and low-level architecture are part of the same design flow, not a separate board.<br><br>Tutorials are reference manuals, not products. The parts on this board are the ones that survived real builds &mdash; debugging, integration, deployment. Continuous learning is a hardware feature here: it ships in every revision.<br><br>Auxiliary system: the operator keeps a training schedule. Heavy compound lifts, three times a week &mdash; same discipline as the code. Consistent, logged, load-incremented.</p>
+                <p class="ds-body text-pretty">Hi, I'm Parameshwaran &mdash; a 3rd-year ECE student specializing in Data Science at SRM Ramapuram. I'm still learning, and I don't pretend to have it all figured out &mdash; but I show up daily: working through ML and DSA problems, prepping for my Azure Data Fundamentals certification, and building flyrank.ai, my own startup project, from the ground up.<br><br>Outside of code, I'm teaching myself Blender because I like understanding how things work end to end, not just the parts I'm comfortable with. If you're looking for someone who's genuinely curious and puts in real effort, that's me.</p>
                 <a class="cta-linkedin js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
             </div>
         </section>
@@ -300,7 +300,7 @@
                     <span class="headline-twin" aria-hidden="true">// TRANSMISSION INTERFACE</span>
                 </div>
                 <p class="ds-body text-pretty">TRANSMISSION INTERFACE ACTIVE. Primary uplink: LinkedIn &mdash; I respond to every signal. GitHub carries the source. Email is the secondary channel.</p>
-                <a class="cta-linkedin cta-primary cta-contact js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">OPEN PRIMARY UPLINK →</a>
+                <a class="cta-linkedin cta-primary cta-contact js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
                 <div class="contact-secondary">
                     <a class="secondary-link js-github" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my GitHub profile (opens in new tab)">github: imnotparama</a>
                     <span class="secondary-sep" aria-hidden="true">·</span>

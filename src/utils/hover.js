@@ -114,6 +114,19 @@ const SCOPE_MAP = {
     'SW3':    { v: '3.3V',      f: '—',         state: 'MOMENTARY' }
 };
 
+/** Short measurement string for a component ref — the Tier-2 readout shown
+ *  NEAR THE CURSOR (cursor.js probe chip) in the same voice as the HUD
+ *  scope: voltage · frequency for parts that carry one ("5V · 480Mbps"),
+ *  or '' when the part has no instrument value (the chip just shows its
+ *  ref). Same SCOPE_MAP as the HUD chip, so both readouts always agree.
+ *  @param {string} name Ref designator (mesh.name)
+ *  @returns {string} */
+export function getShortMeasurement(name) {
+    const r = SCOPE_MAP[name];
+    if (!r) return '';
+    return [r.v, r.f].filter((s) => s && s !== '—').join(' · ');
+}
+
 /** @type {HTMLElement | null} */
 let scopeRefEl = null;
 /** @type {HTMLElement | null} */

@@ -1,6 +1,7 @@
 // @ts-check
 // ============================================================
 // Scope-Probe Cursor — the pointer becomes the board's test probe.
+import { getShortMeasurement } from '../utils/hover.js';
 // A precision graticule crosshair with a per-section signal
 // readout chip, in the instrument's own voice. States:
 //   • default — signal-green crosshair + live readout chip
@@ -104,12 +105,18 @@ function tick(/** @type {number} */ now) {
         let signal;
         if (isProbe) {
             const hoverType = document.body.dataset.hoverType;
+            const ref = document.body.dataset.hoverRef || '';
             if (hoverType === 'BUZZER') {
                 signal = 'BEEP';
             } else if (hoverType === 'PROJECT') {
                 signal = 'MEASURE';
             } else {
-                signal = document.body.dataset.hoverRef || 'MEASURE';
+                // Tier-2 readout near the cursor: the component's ref + its
+                // short measurement ("J1 5V · 480Mbps") — every minor part
+                // answers the probe with its instrument value, not just its
+                // designator.
+                const short = getShortMeasurement(ref);
+                signal = short ? `${ref} ${short}` : (ref || 'MEASURE');
             }
         } else {
             const active = document.querySelector('.ds-panel.panel-active');
