@@ -807,6 +807,19 @@ assert.strictEqual(rearmed.best, LCD_TARGET, 'LCD: the record survives a re-arm'
 fakeKey('Escape');
 assert.ok(!isLcdActive(), 'LCD: clean exit after the gate + score tests');
 
+// The #/lcd deep link replays the boot POST before the ready screen
+// (focusLcd(true)); a fresh boot still lands on ready. Phase B turned
+// reduced motion on for the suite — flip it back for this block so the
+// POST can auto-advance, then restore.
+motionPrefs.reduced = false;
+focusLcd(true);
+assert.strictEqual(lcdStateSnapshot().state, 'boot', 'LCD: a deep-link focus replays the boot POST');
+for (let i = 0; i < LCD_BOOT_TICKS; i++) updateLcdScreen(0, DT);
+assert.strictEqual(lcdStateSnapshot().state, 'ready', 'LCD: the replayed boot lands on the ready screen');
+fakeKey('Escape');
+assert.ok(!isLcdActive(), 'LCD: clean exit after the deep-link replay test');
+motionPrefs.reduced = true;
+
 // ── 6. Phase C — the raycast layer (hover alignment) ─────────
 // A real PerspectiveCamera plus the app's own initHover/checkHover, driven
 // through the DOM mousemove path. The camera frustum matches the FAKE_CANVAS
@@ -944,7 +957,7 @@ console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
 console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
-console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, touch steering (tap-start / swipe-steer / tap-quit), screen glow (off at rest, pulsing in bounds while playing, fades on quit), timer loss + scripted MISSION COMPLETE, persistent best + NEW RECORD flash`);
+console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, touch steering (tap-start / swipe-steer / tap-quit), screen glow (off at rest, pulsing in bounds while playing, fades on quit), #/lcd deep-link boot replay, timer loss + scripted MISSION COMPLETE, persistent best + NEW RECORD flash`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);

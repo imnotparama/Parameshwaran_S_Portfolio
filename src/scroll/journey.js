@@ -553,7 +553,7 @@ export function exitFocusMode() {
  *  display again (or Esc / scroll / a chip click) releases — the same
  *  toggle + clearFocus contract as the project chips, but no datasheet
  *  panel (the game IS the content, rendered on the screen quad). */
-export function focusLcdCamera() {
+export function focusLcdCamera(replayBoot = false) {
   if (!cameraRef || !journeyReady) return;
   if (focusedChip && focusedChip.ref === 'LCD1') {
     clearFocus(true);
@@ -564,7 +564,9 @@ export function focusLcdCamera() {
   const look = LCD_LOCAL_POS.clone().add(new THREE.Vector3(0, 0.05, 0));
   const pos = LCD_LOCAL_POS.clone().add(CHIP_FOCUS_OFFSET);
   glideCameraTo(pos, look, 1.2);
-  focusLcd();
+  // The #/lcd deep link passes replayBoot so the display powers on with a
+  // fresh POST; the plain click path (no arg) shows the ready screen.
+  focusLcd(replayBoot);
 }
 
 // ─── Leg state: which section is active given where the scroll is ──

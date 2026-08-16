@@ -54,6 +54,14 @@ function applyHashNavigation() {
     // scroll tween isn't restarted twice per history step.
     if (window.location.hash === lastAppliedHash) return;
     lastAppliedHash = window.location.hash;
+    const raw = window.location.hash.replace(/^#\/?/, '').trim().toLowerCase();
+    if (raw === 'lcd') {
+        // #/lcd — the LCD game deep link: focus the display and replay the
+        // boot POST (no section scroll). If the game is already focused,
+        // leave it running — a share-link re-entry must not toggle it off.
+        if (!document.body.classList.contains('lcd-active')) focusLcdCamera(true);
+        return;
+    }
     const secId = sectionFromHash();
     if (secId) scrollToSection(secId);
 }

@@ -640,10 +640,19 @@ export function setBestListener(fn) {
 
 /** Enter the game — called by journey.js when the camera glides to the
  *  display. Focus shows the ready/idle screen (with the prompt); Enter
- *  starts the run. The keyboard is owned from the moment of focus. */
-export function focusLcd() {
+ *  starts the run. The keyboard is owned from the moment of focus. With
+ *  replayBoot, the boot POST plays again first (the #/lcd deep link lands
+ *  on the machine powering on) — skipped under reduced motion, where the
+ *  POST can't auto-advance, so the ready screen shows directly.
+ *  @param {boolean} [replayBoot] */
+export function focusLcd(replayBoot = false) {
     if (typeof document !== 'undefined') document.body.classList.add('lcd-active');
-    state = 'ready';
+    if (replayBoot && !motionPrefs.reduced) {
+        state = 'boot';
+        bootAccum = 0;
+    } else {
+        state = 'ready';
+    }
     idleAccum = 0;
     dirty = true;
 }
