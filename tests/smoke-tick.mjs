@@ -646,6 +646,74 @@ assert.ok(!isLcdActive(), 'LCD: Escape releases the exclusive-keys class');
 const afterEsc = lcdStateSnapshot();
 assert.strictEqual(afterEsc.state, 'ready', 'LCD: Escape returns to the ready screen');
 
+// ── Touch steering — same exclusive contract as the keyboard: touches pass
+// through unfocused; while focused a clean tap does the primary action
+// (start on the ready screen, quit while playing — the touch Enter/Esc), a
+// drag past SWIPE_PX steers one cell per re-cross and sets heldDir so the
+// shared auto-walk continues while the finger is down, lifting cancels the
+// touchend (no synthetic click at the lift point) and stops the auto-walk.
+const cancelledTouch = [];
+const fakeTouch = (type, x, y) => {
+    const lift = type === 'touchend' || type === 'touchcancel';
+    window.dispatchEvent({
+        type,
+        cancelable: true,
+        touches: lift ? [] : [{ clientX: x, clientY: y }],
+        changedTouches: lift ? [{ clientX: x, clientY: y }] : [],
+        preventDefault: () => { cancelledTouch.push(type); }
+    });
+};
+
+// Passive gate while unfocused (state ready, class off after Escape): no
+// preventDefault, cursor untouched.
+const cursorBeforeTouch = lcdStateSnapshot().cursor;
+cancelledTouch.length = 0;
+fakeTouch('touchstart', 0, 0);
+fakeTouch('touchmove', 50, 0);
+fakeTouch('touchend', 50, 0);
+assert.strictEqual(cancelledTouch.length, 0, 'LCD: touches pass through while unfocused');
+assert.deepStrictEqual(lcdStateSnapshot().cursor, cursorBeforeTouch, 'LCD: an unfocused touch must not move the cursor');
+
+// Focused tap on the ready screen = Enter: starts the run (fresh cursor,
+// full timer) and cancels its synthetic click.
+focusLcd();
+cancelledTouch.length = 0;
+fakeTouch('touchstart', 5, 5);
+fakeTouch('touchend', 5, 5);
+const tapStart = lcdStateSnapshot();
+assert.strictEqual(tapStart.state, 'playing', 'LCD: a tap on the ready screen starts a run');
+assert.strictEqual(tapStart.timeLeft, LCD_TIME_LIMIT, 'LCD: the touch run starts with the full timer');
+assert.deepStrictEqual(tapStart.cursor, [7, 3], 'LCD: the touch run resets the cursor center field');
+assert.ok(cancelledTouch.includes('touchend'), 'LCD: the start tap cancels its synthetic click');
+
+// Swipe: a drag past the threshold steers one cell and re-arms, so a
+// continuing drag keeps stepping; the held direction auto-walks at the
+// repeat cadence while the finger is down; lifting cancels the click and
+// stops the walk.
+cancelledTouch.length = 0;
+fakeTouch('touchstart', 0, 0);
+fakeTouch('touchmove', 40, 0);
+assert.deepStrictEqual(lcdStateSnapshot().cursor, [8, 3], 'LCD: a swipe right moves the cursor one cell');
+fakeTouch('touchmove', 80, 0);
+assert.deepStrictEqual(lcdStateSnapshot().cursor, [9, 3], 'LCD: a continuing drag re-arms and steps again');
+const beforeTouchHold = lcdStateSnapshot().cursor;
+for (let i = 0; i < LCD_MOVE_REPEAT_TICKS; i++) updateLcdScreen(0, DT);
+assert.ok(lcdStateSnapshot().cursor[0] > beforeTouchHold[0], 'LCD: a held drag auto-walks at the repeat cadence');
+fakeTouch('touchend', 80, 0);
+assert.ok(cancelledTouch.includes('touchend'), 'LCD: a steering swipe cancels its synthetic click');
+const afterLift = lcdStateSnapshot().cursor;
+for (let i = 0; i < 10; i++) updateLcdScreen(0, DT);
+assert.deepStrictEqual(lcdStateSnapshot().cursor, afterLift, 'LCD: lifting the finger stops the auto-walk');
+
+// Focused tap while playing = Esc: releases the class, back to ready,
+// synthetic click canceled.
+cancelledTouch.length = 0;
+fakeTouch('touchstart', 5, 5);
+fakeTouch('touchend', 5, 5);
+assert.ok(!isLcdActive(), 'LCD: a tap while playing releases the exclusive-keys class');
+assert.strictEqual(lcdStateSnapshot().state, 'ready', 'LCD: a tap while playing returns to the ready screen');
+assert.ok(cancelledTouch.includes('touchend'), 'LCD: the quit tap cancels its synthetic click');
+
 // Enter starts a run — but only while focused (the exclusive-keys gate):
 // after Escape the same key is inert until the LCD is re-focused.
 fakeKey('Enter');
@@ -867,7 +935,7 @@ console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
 console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
-console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, timer loss + scripted MISSION COMPLETE, persistent best + NEW RECORD flash`);
+console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, touch steering (tap-start / swipe-steer / tap-quit), timer loss + scripted MISSION COMPLETE, persistent best + NEW RECORD flash`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);

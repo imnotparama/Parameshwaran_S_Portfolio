@@ -76,6 +76,7 @@ const SPAWN_START = 3.0;        // seconds between spawns at run start
 const SPAWN_MIN = 1.2;          // difficulty floor (more packets at once)
 const MAX_ON_SCREEN = 6;        // spawn cap per wave
 const MOVE_REPEAT = 0.14;       // held-key auto-walk cadence (seconds)
+const SWIPE_PX = 24;            // drag distance before a touch counts as a swipe
 const BOOT_SEC = 2.9;           // POST sequence duration
 const IDLE_BLINK_MS = 15000;    // prompt starts blinking after 15s idle
 const BLINK_SEC = 0.8;          // blink period once armed
@@ -882,4 +883,77 @@ export function createLcd(boardGroup) {
             : null;
         holdAccum = 0;
     });
+
+    // Touch steering — swipe on the display to move the probe while focused,
+    // the same exclusive contract as the keyboard: while body.lcd-active the
+    // game owns touch (drags steer, touchmove is canceled so the page never
+    // scrolls), a clean tap does the primary action (start/retry on the
+    // ready/over screen, quit while playing — the touch Enter/Esc), and a
+    // steering swipe cancels its touchend so no synthetic click fires at the
+    // lift point (which would re-click the LCD and drop focus mid-run). At
+    // rest every handler early-returns — touch keeps doing whatever it does
+    // unfocused (scroll, the tap-to-focus raycast).
+    let touchStartX = 0, touchStartY = 0, touchSteered = false;
+    window.addEventListener('touchstart', (e) => {
+        if (!isLcdActive()) return;
+        const t = e.touches && e.touches[0];
+        if (!t) return;
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        touchSteered = false;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+        if (!isLcdActive()) return;
+        const t = e.touches && e.touches[0];
+        if (!t) return;
+        // The game owns the scroll while focused.
+        if (e.cancelable) e.preventDefault();
+        const dx = t.clientX - touchStartX;
+        const dy = t.clientY - touchStartY;
+        if (Math.abs(dx) < SWIPE_PX && Math.abs(dy) < SWIPE_PX) return;
+        const dir = /** @type {[number, number]} */ (
+            Math.abs(dx) > Math.abs(dy) ? [dx > 0 ? 1 : -1, 0] : [0, dy > 0 ? 1 : -1]
+        );
+        touchSteered = true;
+        if (state === 'playing') {
+            heldDir = dir;
+            holdAccum = 0;
+            moveCursor(dir);
+        }
+        // Re-arm the origin so a continuing drag can re-cross the threshold
+        // and keep stepping (or change direction) without lifting.
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+        if (!isLcdActive()) return;
+        // Only the last finger up settles the gesture.
+        if (e.touches && e.touches.length > 0) return;
+        if (touchSteered) {
+            // A steering swipe must not fire the synthetic click — it would
+            // re-click the LCD at the lift point and drop focus mid-run.
+            if (e.cancelable) e.preventDefault();
+            heldDir = null;
+            holdAccum = 0;
+        } else if (state === 'ready' || state === 'over') {
+            // Tap on the ready/over screen = Enter (start / retry).
+            if (e.cancelable) e.preventDefault();
+            startRun();
+        } else if (state === 'playing') {
+            // Tap while playing = Esc (quit back to the journey).
+            if (e.cancelable) e.preventDefault();
+            exitLcd();
+            if (exitHandler) exitHandler();
+        }
+        touchSteered = false;
+    }, { passive: false });
+
+    window.addEventListener('touchcancel', () => {
+        if (!isLcdActive()) return;
+        heldDir = null;
+        holdAccum = 0;
+        touchSteered = false;
+    }, { passive: false });
 }
