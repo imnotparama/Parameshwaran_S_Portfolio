@@ -142,6 +142,9 @@ let spawnAccum = 0;
 let spawned = 0;
 let score = 0;
 let overWin = false;
+let overAccum = 0;              // seconds on the result screen (blink clock)
+let lastOverBlink = -1;         // last blink slot drawn on the result screen
+let newRecord = false;          // this run beat the stored best
 let playerActive = false;       // LCD focused (keys owned)
 let cursor = [7, 3];            // grid cell — center of the 16×6 field
 /** @type {Array<[number, number]>} */ let packets = [];
@@ -258,6 +261,7 @@ function drawTextCentered(c, text, y, color) {
 function startRun() {
     state = 'playing';
     playerActive = true;
+    newRecord = false;
     score = 0;
     runElapsed = 0;
     timeLeft = TIME_LIMIT;
@@ -296,7 +300,12 @@ function endRun(win) {
     overWin = win;
     playerActive = false;
     heldDir = null;
-    if (score > bestScore) {
+    overAccum = 0;
+    lastOverBlink = -1;
+    // A new record is scored by ANY run that beats the stored best — a
+    // signal-lost run with a partial haul still counts.
+    newRecord = score > bestScore;
+    if (newRecord) {
         bestScore = score;
         persistBestScore();
     }
@@ -379,7 +388,10 @@ function stepLcdGame(delta) {
         return;
     }
 
-    // state === 'over' — hold the result screen (Enter retries).
+    // state === 'over' — hold the result screen (Enter retries). The clock
+    // only advances the blink (NEW RECORD + retry prompt); reduced motion
+    // never gets here (the early return above keeps it fully static).
+    if (state === 'over') overAccum += delta;
 }
 
 // ─── Rendering (skipped headlessly) ─────────────────────────
@@ -502,8 +514,16 @@ function drawOver(c) {
     c.fillRect(0, GRID_Y, CANVAS_W, GRID_ROWS * CELL);
     drawTextCentered(c, overWin ? 'MISSION COMPLETE' : 'SIGNAL LOST', 12, C_BRIGHT);
     drawTextCentered(c, `SIG ${String(score).padStart(2, '0')}`, 24, C_DIM);
-    if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(2, '0')}`, 32, C_DIM);
-    const blink = Math.floor(runElapsed / BLINK_SEC) % 2 === 0;
+    // The blink clock is live (overAccum), so NEW RECORD and the retry prompt
+    // actually flash; reduced motion never advances it → steady, no blink.
+    const blink = Math.floor(overAccum / BLINK_SEC) % 2 === 0;
+    // A run that beat the record flashes NEW RECORD in the BEST line; a
+    // regular result keeps the steady best underneath.
+    if (newRecord) {
+        if (blink) drawTextCentered(c, 'NEW RECORD', 32, C_BRIGHT);
+    } else if (bestScore > 0) {
+        drawTextCentered(c, `BEST ${String(bestScore).padStart(2, '0')}`, 32, C_DIM);
+    }
     if (blink) drawTextCentered(c, 'ENTER TO RETRY', 52, C_BRIGHT);
 }
 
@@ -606,7 +626,7 @@ export function exitLcd() {
  *  pattern as journey.js's stepQueue / idle.js's idleDriftOffset). The game
  *  must be deterministic: the same tick schedule + inputs from the same
  *  state yield the identical snapshot every run.
- *  @returns {{ state: string, score: number, best: number, timeLeft: number, cursor: number[], packets: number, packetPos: number[][], spawned: number, over: boolean, win: boolean, playerActive: boolean, idleAccum: number, frameHash: string }} */
+ *  @returns {{ state: string, score: number, best: number, timeLeft: number, cursor: number[], packets: number, packetPos: number[][], spawned: number, over: boolean, win: boolean, newRecord: boolean, playerActive: boolean, idleAccum: number, frameHash: string }} */
 export function lcdStateSnapshot() {
     // FNV-1a over the observable state — a compact, deterministic fingerprint
     // of the current screen contents.
@@ -627,6 +647,7 @@ export function lcdStateSnapshot() {
         spawned,
         over: state === 'over',
         win: state === 'over' && overWin,
+        newRecord,
         playerActive,
         idleAccum,
         frameHash: (h >>> 0).toString(16)
@@ -670,6 +691,15 @@ export function updateLcdScreen(elapsed, delta) {
         const visible = !armed || (Math.floor(idleAccum / BLINK_SEC) % 2 === 0);
         if (visible !== lastBlinkVisible) {
             lastBlinkVisible = visible;
+            dirty = true;
+        }
+    }
+    // The result screen blinks (NEW RECORD + retry prompt) — redraw only on
+    // the blink-slot transition, not every frame.
+    if (state === 'over') {
+        const o = Math.floor(overAccum / BLINK_SEC);
+        if (o !== lastOverBlink) {
+            lastOverBlink = o;
             dirty = true;
         }
     }

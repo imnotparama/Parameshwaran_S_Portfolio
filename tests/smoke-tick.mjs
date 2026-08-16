@@ -655,6 +655,7 @@ fakeKey('Enter');
 const run2 = lcdStateSnapshot();
 assert.strictEqual(run2.state, 'playing', 'LCD: Enter starts a run from the ready screen');
 assert.strictEqual(run2.score, 0, 'LCD: a fresh run is scoreless');
+assert.strictEqual(run2.newRecord, false, 'LCD: a fresh run resets the record flag');
 
 // Timer loss: an unsteered run times out at 30s → SIGNAL LOST, score 0.
 for (let i = 0; i < Math.ceil((LCD_TIME_LIMIT + 1) / DT); i++) updateLcdScreen(0, DT);
@@ -662,6 +663,7 @@ const lost = lcdStateSnapshot();
 assert.ok(lost.over && !lost.win, 'LCD: the timer expiring is SIGNAL LOST');
 assert.strictEqual(lost.score, 0, 'LCD: an unsteered run scores 0');
 assert.strictEqual(lost.best, 0, 'LCD: a scoreless loss does not set the record');
+assert.strictEqual(lost.newRecord, false, 'LCD: a scoreless loss is not a new record');
 
 // Win: a scripted walk collects all TARGET packets → MISSION COMPLETE, and
 // the finished run's score becomes the persisted best (localStorage).
@@ -695,6 +697,7 @@ const won = walkAll();
 assert.ok(won.over && won.win, `LCD: collecting all packets is MISSION COMPLETE (state ${won.state}, score ${won.score})`);
 assert.strictEqual(won.score, LCD_TARGET, `LCD: a winning run collects all ${LCD_TARGET} packets`);
 assert.strictEqual(won.best, LCD_TARGET, 'LCD: the winning run sets best equal to its score');
+assert.strictEqual(won.newRecord, true, 'LCD: beating the record flags a new record');
 assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(LCD_TARGET), 'LCD: the new best is persisted to localStorage');
 
 // A worse run (unsteered timeout, score 0) must not lower the record.
@@ -703,6 +706,7 @@ for (let i = 0; i < Math.ceil((LCD_TIME_LIMIT + 1) / DT); i++) updateLcdScreen(0
 const worse = lcdStateSnapshot();
 assert.ok(worse.over && !worse.win, 'LCD: the worse run loses');
 assert.strictEqual(worse.best, LCD_TARGET, 'LCD: a worse run must not lower the record');
+assert.strictEqual(worse.newRecord, false, 'LCD: a run below the record is not flagged');
 assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(LCD_TARGET), 'LCD: storage unchanged by a worse run');
 
 // The record survives a re-arm (exitLcd) and is the value a fresh boot
@@ -853,7 +857,7 @@ console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
 console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
-console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, timer loss + scripted MISSION COMPLETE, persistent best`);
+console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, timer loss + scripted MISSION COMPLETE, persistent best + NEW RECORD flash`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);
