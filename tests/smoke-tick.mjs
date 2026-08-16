@@ -711,15 +711,48 @@ const afterLift = lcdStateSnapshot().cursor;
 for (let i = 0; i < 10; i++) updateLcdScreen(0, DT);
 assert.deepStrictEqual(lcdStateSnapshot().cursor, afterLift, 'LCD: lifting the finger stops the auto-walk');
 
-// Focused tap while playing = Esc: releases the class, back to ready,
-// synthetic click canceled.
+// Pause — P (or a tap while playing) freezes the run: the timer and cursor
+// hold, the glow dims to its paused value, and movement keys stay captured
+// but inert. P/Enter/tap resume; Esc quits from a paused run.
+fakeKey('p');
+assert.strictEqual(lcdStateSnapshot().state, 'paused', 'LCD: P pauses the run');
+const paused0 = lcdStateSnapshot();
+for (let i = 0; i < 120; i++) updateLcdScreen(1.5 + i / 60, DT); // 2s paused
+const paused1 = lcdStateSnapshot();
+assert.strictEqual(paused1.timeLeft, paused0.timeLeft, 'LCD: the timer is frozen while paused');
+assert.deepStrictEqual(paused1.cursor, paused0.cursor, 'LCD: the cursor is frozen while paused');
+assert.ok(paused1.glowOpacity >= 0.05 && paused1.glowOpacity <= 0.12, `LCD: the glow dims while paused (${paused1.glowOpacity})`);
+// Movement keys are captured while paused but do nothing.
+cancelledKeys.length = 0;
+fakeKey('ArrowRight');
+assert.deepStrictEqual(cancelledKeys, ['ArrowRight'], 'LCD: movement keys stay captured while paused');
+assert.deepStrictEqual(lcdStateSnapshot().cursor, paused0.cursor, 'LCD: movement is inert while paused');
+// The scroll lock relaxes while paused — a touchmove is NOT canceled (a
+// drag scrolls the page away, and the journey's scroll-release quits the
+// game) — then holds again once resumed.
+cancelledTouch.length = 0;
+fakeTouch('touchmove', 100, 300);
+assert.ok(!cancelledTouch.includes('touchmove'), 'LCD: the scroll lock relaxes while paused');
+// Enter resumes; the lock holds while playing; P toggles back.
+fakeKey('Enter');
+assert.strictEqual(lcdStateSnapshot().state, 'playing', 'LCD: Enter resumes a paused run');
+cancelledTouch.length = 0;
+fakeTouch('touchmove', 100, 300);
+assert.ok(cancelledTouch.includes('touchmove'), 'LCD: the scroll lock holds while playing');
+fakeKey('p');
+assert.strictEqual(lcdStateSnapshot().state, 'paused', 'LCD: P pauses again');
 cancelledTouch.length = 0;
 fakeTouch('touchstart', 5, 5);
 fakeTouch('touchend', 5, 5);
-assert.ok(!isLcdActive(), 'LCD: a tap while playing releases the exclusive-keys class');
-assert.strictEqual(lcdStateSnapshot().state, 'ready', 'LCD: a tap while playing returns to the ready screen');
-assert.ok(cancelledTouch.includes('touchend'), 'LCD: the quit tap cancels its synthetic click');
-// The glow fades back out at rest.
+assert.strictEqual(lcdStateSnapshot().state, 'playing', 'LCD: a tap resumes a paused run');
+fakeTouch('touchstart', 5, 5);
+fakeTouch('touchend', 5, 5);
+assert.strictEqual(lcdStateSnapshot().state, 'paused', 'LCD: a tap while playing pauses (replaces quit)');
+assert.ok(cancelledTouch.includes('touchend'), 'LCD: the pause tap cancels its synthetic click');
+// Esc quits from a paused run and the glow fades back out at rest.
+fakeKey('Escape');
+assert.ok(!isLcdActive(), 'LCD: Escape quits a paused run');
+assert.strictEqual(lcdStateSnapshot().state, 'ready', 'LCD: quitting a paused run returns to the ready screen');
 for (let i = 0; i < 60; i++) updateLcdScreen(1.5 + i / 60, DT);
 assert.ok(lcdStateSnapshot().glowOpacity < 0.05, 'LCD: the screen glow fades back at rest');
 
@@ -957,7 +990,7 @@ console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
 console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
-console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, touch steering (tap-start / swipe-steer / tap-quit), screen glow (off at rest, pulsing in bounds while playing, fades on quit), #/lcd deep-link boot replay, timer loss + scripted MISSION COMPLETE, persistent best + NEW RECORD flash`);
+console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, touch steering (tap-start / swipe-steer / tap-pause-resume), pause (P/Enter/tap, frozen timer, dimmed glow, inert movement), screen glow, #/lcd deep-link boot replay, timer loss + scripted MISSION COMPLETE, persistent best + NEW RECORD flash`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);

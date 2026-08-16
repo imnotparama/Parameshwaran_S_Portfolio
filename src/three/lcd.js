@@ -89,6 +89,7 @@ const GLOW_PHASE = 2.1;         // fixed phase — every pulse is identical
 const GLOW_BASE = 0.18;         // playing pulse floor (opacity)
 const GLOW_AMP = 0.14;          // playing pulse amplitude (peak 0.32)
 const GLOW_STEADY = 0.22;       // reduced-motion playing value (no pulse)
+const GLOW_PAUSED = 0.08;       // dimmed steady value while paused
 const GLOW_FADE = 3.0;          // opacity fade rate toward the target (/s)
 const BOOT_SEC = 2.9;           // POST sequence duration
 const IDLE_BLINK_MS = 15000;    // prompt starts blinking after 15s idle
@@ -150,7 +151,7 @@ let glowCurrent = 0;            // smoothed glow opacity (fades toward target)
 /** @type {CanvasRenderingContext2D | null} */ let ghostCtx = null;
 
 // ─── Game state ─────────────────────────────────────────────
-/** @typedef {'boot' | 'ready' | 'playing' | 'over'} LcdState */
+/** @typedef {'boot' | 'ready' | 'playing' | 'paused' | 'over'} LcdState */
 let state = /** @type {LcdState} */ ('boot');
 let bootAccum = 0;
 let idleAccum = 0;              // seconds spent on the ready screen
@@ -162,6 +163,8 @@ let score = 0;
 let overWin = false;
 let overAccum = 0;              // seconds on the result screen (blink clock)
 let lastOverBlink = -1;         // last blink slot drawn on the result screen
+let pauseAccum = 0;             // seconds paused (blink clock for the pause screen)
+let lastPauseBlink = -1;        // last blink slot drawn on the pause screen
 let newRecord = false;          // this run beat the stored best
 let playerActive = false;       // LCD focused (keys owned)
 let cursor = [7, 3];            // grid cell — center of the 16×6 field
@@ -275,6 +278,26 @@ function drawTextCentered(c, text, y, color) {
 
 // ─── Game logic (pure — no rendering; runs headlessly) ──────
 
+/** Freeze the run — P or a tap while playing. The timer/spawns/auto-walk
+ *  stop and the glow dims to a steady low; resume continues exactly from
+ *  where it paused. */
+function pauseRun() {
+    if (state !== 'playing') return;
+    state = 'paused';
+    pauseAccum = 0;
+    lastPauseBlink = -1;
+    heldDir = null;
+    holdAccum = 0;
+    dirty = true;
+}
+
+/** Resume a paused run. */
+function resumeRun() {
+    if (state !== 'paused') return;
+    state = 'playing';
+    dirty = true;
+}
+
 /** Begin a fresh player run (Enter from ready/over, or clicking the LCD). */
 function startRun() {
     state = 'playing';
@@ -375,6 +398,14 @@ function stepLcdGame(delta) {
 
     if (state === 'ready') {
         idleAccum += delta;
+        return;
+    }
+
+    if (state === 'paused') {
+        // Frozen: no timer, no spawns, no auto-walk. Only the pause-screen
+        // blink clock advances — and not under reduced motion (the prompt
+        // holds steady there, like every other blink).
+        if (!motionPrefs.reduced) pauseAccum += delta;
         return;
     }
 
@@ -529,6 +560,15 @@ function drawPlaying(c) {
 }
 
 /** @param {CanvasRenderingContext2D} c */
+function drawPaused(c) {
+    drawTextCentered(c, 'PAUSED', 12, C_BRIGHT);
+    drawTextCentered(c, `SIG ${String(score).padStart(2, '0')} · TIME ${String(Math.max(0, Math.ceil(timeLeft))).padStart(2, '0')}`, 24, C_DIM);
+    const blink = Math.floor(pauseAccum / BLINK_SEC) % 2 === 0;
+    if (blink) drawTextCentered(c, 'P / TAP RESUME', 42, C_BRIGHT);
+    drawTextCentered(c, 'ESC / SCROLL QUIT', 54, C_DIM);
+}
+
+/** @param {CanvasRenderingContext2D} c */
 function drawOver(c) {
     // Dim the playfield behind the verdict
     c.fillStyle = C_BG;
@@ -568,6 +608,7 @@ function drawFrame(delta) {
     if (state === 'boot') drawBoot(c);
     else if (state === 'ready') drawReady(c);
     else if (state === 'playing') drawPlaying(c);
+    else if (state === 'paused') drawPaused(c);
     else drawOver(c);
 
     // Scanlines — every other row dimmed (a real 128×64 glass).
@@ -671,7 +712,7 @@ export function exitLcd() {
  *  pattern as journey.js's stepQueue / idle.js's idleDriftOffset). The game
  *  must be deterministic: the same tick schedule + inputs from the same
  *  state yield the identical snapshot every run.
- *  @returns {{ state: string, score: number, best: number, timeLeft: number, cursor: number[], packets: number, packetPos: number[][], spawned: number, over: boolean, win: boolean, newRecord: boolean, glowOpacity: number, playerActive: boolean, idleAccum: number, frameHash: string }} */
+ *  @returns {{ state: string, score: number, best: number, timeLeft: number, cursor: number[], packets: number, packetPos: number[][], spawned: number, over: boolean, win: boolean, paused: boolean, newRecord: boolean, glowOpacity: number, playerActive: boolean, idleAccum: number, frameHash: string }} */
 export function lcdStateSnapshot() {
     // FNV-1a over the observable state — a compact, deterministic fingerprint
     // of the current screen contents.
@@ -692,6 +733,7 @@ export function lcdStateSnapshot() {
         spawned,
         over: state === 'over',
         win: state === 'over' && overWin,
+        paused: state === 'paused',
         newRecord,
         glowOpacity: Math.round(glowCurrent * 1000) / 1000,
         playerActive,
@@ -713,17 +755,17 @@ export function updateLcdScreen(elapsed, delta) {
     if (bezelLedMat) {
         bezelLedMat.emissiveIntensity = state === 'playing' ? 1.6 : 0.35;
     }
-    // Screen glow — the halo brightens and pulses while a run is live and
-    // fades back to nothing at rest (the same deterministic sine the LED
-    // array uses). Reduced motion snaps straight to the state's value — a
-    // steady glow while playing, none at rest — with no animated fade.
+    // Screen glow — the halo brightens and pulses while a run is live, dims
+    // to a steady low while paused, and fades back to nothing at rest (the
+    // same deterministic sine the LED array uses). Reduced motion snaps
+    // straight to the state's value — no animated fade.
     if (glowMat) {
         if (motionPrefs.reduced) {
-            glowCurrent = state === 'playing' ? GLOW_STEADY : 0;
+            glowCurrent = state === 'playing' ? GLOW_STEADY : state === 'paused' ? GLOW_PAUSED : 0;
         } else {
             const target = state === 'playing'
                 ? GLOW_BASE + GLOW_AMP * (0.5 + 0.5 * Math.sin(elapsed * GLOW_FREQ * Math.PI * 2 + GLOW_PHASE))
-                : 0;
+                : state === 'paused' ? GLOW_PAUSED : 0;
             glowCurrent += (target - glowCurrent) * Math.min(1, delta * GLOW_FADE);
         }
         glowMat.opacity = glowCurrent;
@@ -760,6 +802,14 @@ export function updateLcdScreen(elapsed, delta) {
         const o = Math.floor(overAccum / BLINK_SEC);
         if (o !== lastOverBlink) {
             lastOverBlink = o;
+            dirty = true;
+        }
+    }
+    // The pause prompt blinks — same transition-gated redraw.
+    if (state === 'paused') {
+        const o = Math.floor(pauseAccum / BLINK_SEC);
+        if (o !== lastPauseBlink) {
+            lastPauseBlink = o;
             dirty = true;
         }
     }
@@ -925,7 +975,17 @@ export function createLcd(boardGroup) {
         }
         if (key === 'Enter') {
             e.preventDefault();
+            if (state === 'paused') {
+                resumeRun();
+                return;
+            }
             if (state === 'ready' || state === 'over') startRun();
+            return;
+        }
+        if (key === 'p' || key === 'P') {
+            e.preventDefault();
+            if (state === 'playing') pauseRun();
+            else if (state === 'paused') resumeRun();
             return;
         }
         const d = key === 'ArrowUp' || key === 'w' || key === 'W' ? [0, -1]
@@ -949,6 +1009,12 @@ export function createLcd(boardGroup) {
             || key === 'ArrowLeft' || key === 'a' || key === 'A' || key === 'ArrowRight' || key === 'd' || key === 'D';
         if (!isMove) return;
         heldKeys.delete(key);
+        if (state !== 'playing') {
+            // Not mid-run (paused/ready/over) — no held direction to keep.
+            heldDir = null;
+            holdAccum = 0;
+            return;
+        }
         // Re-derive the held direction from whatever movement key remains.
         const last = [...heldKeys].pop();
         heldDir = last
@@ -964,11 +1030,13 @@ export function createLcd(boardGroup) {
     // the same exclusive contract as the keyboard: while body.lcd-active the
     // game owns touch (drags steer, touchmove is canceled so the page never
     // scrolls), a clean tap does the primary action (start/retry on the
-    // ready/over screen, quit while playing — the touch Enter/Esc), and a
-    // steering swipe cancels its touchend so no synthetic click fires at the
-    // lift point (which would re-click the LCD and drop focus mid-run). At
-    // rest every handler early-returns — touch keeps doing whatever it does
-    // unfocused (scroll, the tap-to-focus raycast).
+    // ready/over screen, pause/resume while a run is live — the touch
+    // Enter/P), and a steering swipe cancels its touchend so no synthetic
+    // click fires at the lift point (which would re-click the LCD and drop
+    // focus mid-run). While PAUSED the scroll lock relaxes — a drag scrolls
+    // the page away, and the journey's scroll-release quits the game (the
+    // touch Esc). At rest every handler early-returns — touch keeps doing
+    // whatever it does unfocused (scroll, the tap-to-focus raycast).
     let touchStartX = 0, touchStartY = 0, touchSteered = false;
     window.addEventListener('touchstart', (e) => {
         if (!isLcdActive()) return;
@@ -983,8 +1051,9 @@ export function createLcd(boardGroup) {
         if (!isLcdActive()) return;
         const t = e.touches && e.touches[0];
         if (!t) return;
-        // The game owns the scroll while focused.
-        if (e.cancelable) e.preventDefault();
+        // The game owns the scroll while focused — except paused, where a
+        // drag scrolls the page away (the scroll-release quits the game).
+        if (state !== 'paused' && e.cancelable) e.preventDefault();
         const dx = t.clientX - touchStartX;
         const dy = t.clientY - touchStartY;
         if (Math.abs(dx) < SWIPE_PX && Math.abs(dy) < SWIPE_PX) return;
@@ -1018,10 +1087,13 @@ export function createLcd(boardGroup) {
             if (e.cancelable) e.preventDefault();
             startRun();
         } else if (state === 'playing') {
-            // Tap while playing = Esc (quit back to the journey).
+            // Tap while playing = pause (P on a touchscreen).
             if (e.cancelable) e.preventDefault();
-            exitLcd();
-            if (exitHandler) exitHandler();
+            pauseRun();
+        } else if (state === 'paused') {
+            // Tap while paused = resume.
+            if (e.cancelable) e.preventDefault();
+            resumeRun();
         }
         touchSteered = false;
     }, { passive: false });
