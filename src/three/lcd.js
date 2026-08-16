@@ -73,6 +73,44 @@ const C_PACKET = '#c9a24b';
 const C_NOISE = '#ef4444';
 const C_TEXT = '#3ee6a0';
 const C_MUTED = '#9db4a3';
+
+// ─── Persistent high score ───────────────────────────────────
+// Best SIGNAL INTEGRITY across sessions, kept in localStorage so the best
+// run survives a reload ("remembered" — the machine keeps its record, like
+// the demo re-seeding for identical attract runs). Only PLAYER runs write
+// it (the demo's greedy AI must not set the record); it loads once at
+// createLcd into a module value, so the render path stays deterministic
+// (no storage reads inside the tick). Guarded for headless/private modes
+// where localStorage may be missing or throw.
+const BEST_KEY = 'parama-signal-snake-best';
+/** @type {number} */
+let bestScore = 0;
+
+/** @returns {Storage | null} */
+function getBestStorage() {
+    try {
+        return typeof window !== 'undefined' && window.localStorage ? window.localStorage : null;
+    } catch {
+        return null;
+    }
+}
+
+function loadBestScore() {
+    const s = getBestStorage();
+    if (!s) return;
+    try {
+        const v = parseInt(s.getItem(BEST_KEY) || '0', 10);
+        if (Number.isFinite(v) && v > 0) bestScore = v;
+    } catch { /* private-mode read failure — start fresh */ }
+}
+
+function persistBestScore() {
+    const s = getBestStorage();
+    if (!s) return;
+    try {
+        s.setItem(BEST_KEY, String(bestScore));
+    } catch { /* quota/private-mode write failure — session-only best */ }
+}
 const C_RED = '#f87171';
 
 // ─── Scene objects (created by createLcd) ───────────────────
@@ -192,6 +230,12 @@ function queueDir(d) {
 function die() {
     dead = true;
     deathRestartAccum = 0;
+    // A finished PLAYER run may set the record (the demo AI doesn't count —
+    // it plays itself, so its score would be the machine's, not yours).
+    if (!demo && score > bestScore) {
+        bestScore = score;
+        persistBestScore();
+    }
     dirty = true;
 }
 
@@ -280,6 +324,14 @@ function drawScreen() {
     c.textAlign = 'right';
     c.fillText(demo ? 'DEMO' : 'LIVE', CANVAS_W - 10, 8);
     c.textAlign = 'left';
+    // Best run — the machine's record, on screen whenever the game is. Only
+    // after a record exists: a bare "BEST 000" before the first run would
+    // read as a broken score, not an empty one.
+    if (bestScore > 0) {
+        c.font = '10px monospace';
+        c.fillStyle = C_MUTED;
+        c.fillText(`BEST ${String(bestScore).padStart(3, '0')}`, 10, 22);
+    }
 
     // Faint grid
     c.strokeStyle = C_GRID;
@@ -363,6 +415,10 @@ function drawStaticTitle() {
     c.fillStyle = C_MUTED;
     c.fillText('2.4in DISPLAY · LCD1', CANVAS_W / 2, 100);
     c.fillText('CLICK TO PLAY', CANVAS_W / 2, 140);
+    if (bestScore > 0) {
+        c.fillStyle = C_TEXT;
+        c.fillText(`BEST ${String(bestScore).padStart(3, '0')}`, CANVAS_W / 2, 172);
+    }
     c.textAlign = 'left';
 }
 
@@ -434,7 +490,7 @@ function stepLcdGame(delta) {
  *  pattern as journey.js's stepQueue / idle.js's idleDriftOffset). The demo
  *  must be deterministic: the same tick schedule from a fresh reset yields
  *  the identical snapshot every run. Player mode adds the input turns.
- *  @returns {{ score: number, snakeLen: number, head: number[], dir: number[], packets: number, noise: number, dead: boolean, demo: boolean, playerActive: boolean, gridHash: string }} */
+ *  @returns {{ score: number, best: number, snakeLen: number, head: number[], dir: number[], packets: number, packetPos: number[][], noise: number, noisePos: number[][], dead: boolean, demo: boolean, playerActive: boolean, gridHash: string }} */
 export function lcdStateSnapshot() {
     // FNV-1a over the grid — a compact, deterministic fingerprint.
     let hash = 2166136261;
@@ -444,11 +500,14 @@ export function lcdStateSnapshot() {
     }
     return {
         score,
+        best: bestScore,
         snakeLen: snake.length,
         head: [snake[0][0], snake[0][1]],
         dir: [dir[0], dir[1]],
         packets: packets.length,
+        packetPos: packets.map((p) => [p[0], p[1]]),
         noise: noise.length,
+        noisePos: noise.map((p) => [p[0], p[1]]),
         dead,
         demo,
         playerActive,
@@ -570,6 +629,11 @@ export function createLcd(boardGroup) {
     };
     boardGroup.add(bounds);
     interactiveObjects.push(bounds);
+
+    // Load the persistent best run (localStorage) before the first draw so
+    // the boot screen shows the machine's record. One read at build time —
+    // the tick's render path never touches storage.
+    loadBestScore();
 
     // Start the attract demo (or the static title under reduced motion)
     if (motionPrefs.reduced) {

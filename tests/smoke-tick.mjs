@@ -64,7 +64,17 @@ globalThis.window = {
     addEventListener: (type, fn) => { (windowListeners[type] ||= []).push(fn); },
     dispatchEvent: (e) => { (windowListeners[e.type] || []).forEach((fn) => fn(e)); },
     AudioContext: undefined,
-    webkitAudioContext: undefined
+    webkitAudioContext: undefined,
+    // In-memory localStorage — lets the high-score phase observe the
+    // persistence write without touching the real disk.
+    localStorage: (() => {
+        const m = new Map();
+        return {
+            getItem: (k) => (m.has(k) ? m.get(k) : null),
+            setItem: (k, v) => { m.set(k, String(v)); },
+            removeItem: (k) => { m.delete(k); }
+        };
+    })()
 };
 // The canvas the raycast phase aims at — the 58% desktop split (742.4 of
 // 1280, left-anchored). The phase-C camera frustum matches this rect, so the
@@ -618,9 +628,92 @@ assert.ok(deadState.dead, 'LCD: an unsteered player run must die at the wall');
 fakeKey('Enter');
 const rebooted = lcdStateSnapshot();
 assert.ok(!rebooted.dead && rebooted.playerActive, 'LCD: Enter reboots the run from game over');
+
+// Persistent high score: best SIGNAL INTEGRITY is kept across runs AND
+// sessions (localStorage — the machine remembers its record, like the demo
+// re-seeds for identical attract runs). Only a FINISHED player run writes
+// it: the demo's greedy AI never sets the record, and a worse run never
+// lowers it. The shim's in-memory localStorage makes the write observable.
+const bestKey = 'parama-signal-snake-best';
+assert.strictEqual(lcdStateSnapshot().best, 0, 'LCD: best starts at 0 with no record');
+
+// Greedy-steer a player run into a packet. The snapshot exposes the
+// packet/noise positions (deterministic LCG), so the test mirrors the
+// attract AI's heuristic — move toward the packet, never into a wall, the
+// body, or noise — while tracking the body itself (a score bump means the
+// tail held: a packet was eaten).
+const greedySteer = (maxSteps) => {
+    // Fresh player runs start at (12,9) heading right, length 4.
+    let body = [[12, 9], [11, 9], [10, 9], [9, 9]];
+    let lastScore = 0;
+    for (let s = 0; s < maxSteps; s++) {
+        const snap = lcdStateSnapshot();
+        if (snap.dead) break;
+        lastScore = snap.score;
+        const [hx, hy] = snap.head;
+        const [px, py] = snap.packetPos[0] || [0, 0];
+        const occupied = new Set(body.map(([x, y]) => `${x},${y}`));
+        const noiseSet = new Set(snap.noisePos.map(([x, y]) => `${x},${y}`));
+        const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+        const [cdx, cdy] = snap.dir;
+        let best = null;
+        let bestD = Infinity;
+        for (const [dx, dy] of dirs) {
+            if (dx === -cdx && dy === -cdy) continue; // no reversal
+            const nx = hx + dx, ny = hy + dy;
+            if (nx < 0 || nx >= 24 || ny < 0 || ny >= 18) continue;
+            if (occupied.has(`${nx},${ny}`) || noiseSet.has(`${nx},${ny}`)) continue;
+            const d = Math.abs(nx - px) + Math.abs(ny - py);
+            if (d < bestD) { bestD = d; best = [dx, dy]; }
+        }
+        if (!best) break; // boxed in — the current direction hits a wall/body
+        const key = best[0] === 1 ? 'ArrowRight' : best[0] === -1 ? 'ArrowLeft' : best[1] === 1 ? 'ArrowDown' : 'ArrowUp';
+        fakeKey(key);
+        updateLcdScreen(0, DT * LCD_STEP_TICKS); // exactly one step
+        const after = lcdStateSnapshot();
+        if (!after.dead) {
+            const grew = after.score > lastScore;
+            body = [[after.head[0], after.head[1]], ...body];
+            if (!grew) body.pop();
+        }
+    }
+    // When boxed (no safe move), stop steering and let the run end on its
+    // own — the current direction runs into a wall or the body within a few
+    // steps. Bounded guard so the run is guaranteed to finish.
+    let guard = 0;
+    while (!lcdStateSnapshot().dead && guard < 3000) {
+        updateLcdScreen(0, DT);
+        guard++;
+    }
+    return lcdStateSnapshot();
+};
+
+// Run 1 — greedy play eats at least one packet, then dies; the run's score
+// becomes the record and is persisted.
+focusLcd();
+const beaten = greedySteer(4000);
+assert.ok(beaten.score > 0, `LCD: greedy steer must score before dying (got ${beaten.score})`);
+assert.ok(beaten.dead, 'LCD: the greedy run must end in death (the record-set moment)');
+assert.strictEqual(beaten.best, beaten.score, 'LCD: the finished run sets best equal to its score');
+assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(beaten.score), 'LCD: the new best is persisted to localStorage');
+
+// Run 2 — a worse death (immediate unsteered wall, score 0) must not lower it.
+focusLcd();
+for (let i = 0; i < 500; i++) updateLcdScreen(0, DT); // ~83 steps — past the wall
+const worse = lcdStateSnapshot();
+assert.ok(worse.dead && worse.score === 0, 'LCD: the unsteered run dies scoreless');
+assert.strictEqual(worse.best, beaten.score, 'LCD: a worse run must not lower the record');
+assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(beaten.score), 'LCD: storage unchanged by a worse run');
+
+// The record survives the attract re-seed (a demo reset doesn't clear it)
+// and is the value a fresh boot would load.
+exitLcd();
+const afterReSeed = lcdStateSnapshot();
+assert.strictEqual(afterReSeed.best, beaten.score, 'LCD: the record survives the demo re-seed');
+
 // Leave the game inactive and armed for the phases that follow.
 fakeKey('Escape');
-assert.ok(!isLcdActive(), 'LCD: clean exit after the gate tests');
+assert.ok(!isLcdActive(), 'LCD: clean exit after the gate + high-score tests');
 
 // ── 6. Phase C — the raycast layer (hover alignment) ─────────
 // A real PerspectiveCamera plus the app's own initHover/checkHover, driven
@@ -759,7 +852,7 @@ console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
 console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
-console.log(`  phase E: LCD1 SIGNAL SNAKE — demo deterministic (${LCD_STEP_TICKS}-tick STEP cadence), exclusive-keyboard gate holds`);
+console.log(`  phase E: LCD1 SIGNAL SNAKE — demo deterministic (${LCD_STEP_TICKS}-tick STEP cadence), exclusive-keyboard gate + persistent best hold`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);
