@@ -1,88 +1,99 @@
 // @ts-check
 // ============================================================
-// LCD1 — 2.4" DISPLAY · SIGNAL SNAKE
+// LCD1 — 2.4" DISPLAY · SIGNAL REPAIR
 //
-// A real interactive screen on the board: the snake is a copper
-// trace, it eats small gold signal-packet pulses, and touching a
-// red noise block ends the run ("SIGNAL INTEGRITY: N").
+// A real interactive screen on the board, styled like the firmware of an
+// old embedded device: a 128×64 monochrome green LCD (pixel font, scan
+// lines, ghosting, subtle CRT flicker) running a tiny game. The board has
+// lost its communication signal — broken signal packets drift across the
+// screen; the player walks a square cursor one grid cell at a time and
+// collects every packet before the 30s timer expires.
 //
-// Rendering: the game is drawn on a plain 2D <canvas> and pushed
-// to the screen quad via THREE.CanvasTexture (needsUpdate only
-// when the frame actually changed — no per-frame GPU upload).
-// This is the standard in-scene screen, not a DOM overlay.
+//   SIG:08  TIME:24           STATUS:ONLINE
+//   collect TARGET 12 packets → MISSION COMPLETE
+//   timer out with packets left → SIGNAL LOST
+//   idle (no play for 15s) → "PRESS ENTER / TO REPAIR SIGNAL" blinks
+//
+// Boot: a scripted POST sequence (MEM CHECK / RX ACQUIRED / LINK STABLE /
+// CALIBRATE all OK) plays once on power-up, then the ready screen idles.
+//
+// Rendering: the game is drawn on a plain 2D <canvas> (128×64) and pushed
+// to the screen quad via THREE.CanvasTexture (needsUpdate only when the
+// frame actually changed — no per-frame GPU upload). This is the standard
+// in-scene screen, not a DOM overlay. "Only black and green" — every color
+// is a shade of the phosphor green on the near-black background.
 //
 // Interaction contract (mirrors the scope probe's governance):
-//   - At rest: an attract-mode demo snake plays the game itself
-//     (seeded LCG, deterministic) so the board reads as powered
-//     on; hidden entirely under reduced motion (static title).
-//   - Click LCD1 (Tier-1 raycast → camera glide, journey.js):
-//     the game becomes player-controlled via arrows/WASD.
-//   - While focused, `body.lcd-active` is set — every other
-//     keyboard listener (fly-probe, section keys, arrow stepping,
-//     palette, cheat) gates on it, so the snake gets EXCLUSIVE
-//     keys. Esc / re-click / scroll / chip-click all exit via the
-//     registered exit handler (journey.clearFocus), restoring the
-//     normal keyboard.
-//   - Optional content: never needed for any section or the CTA.
-//     It is the third (and capped) "extra" after the fly-probe
-//     and the night bench — see the HUD extras hint.
+//   - At rest: the ready/idle screen (deterministic — no Math.random, a
+//     fixed-seed LCG places packets), so the board reads as powered on.
+//     Under reduced motion: a static title, no auto-play, no flicker.
+//   - Click LCD1 (Tier-1 raycast → camera glide, journey.js): the game
+//     becomes player-controlled. WASD/arrows move one cell per press (a
+//     held key auto-walks at a fixed rate), Enter starts/retries, Esc exits.
+//   - While focused, `body.lcd-active` is set — every other keyboard
+//     listener (fly-probe, section keys, arrow stepping, palette, cheat)
+//     gates on it, so the game gets EXCLUSIVE keys. Esc / re-click / scroll
+//     / chip-click all exit via the registered exit handler
+//     (journey.clearFocus), restoring the normal keyboard.
+//   - Optional content: never needed for any section or the CTA. It is the
+//     third (and capped) "extra" after the fly-probe and the night bench —
+//     see the HUD extras hint.
 //
-// Determinism: the demo uses a fixed-seed LCG (no Math.random),
-// so the attract screen is identical on every load, matching the
-// board's house discipline (animejs seek-safe doctrine).
+// Persistence: the best SIG count survives across sessions via
+// localStorage (loaded once at build, written only by a finished player
+// run — the machine keeps its record).
 // ============================================================
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
 import { interactiveObjects } from './components.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
+import { gameBeep, loseBuzz, powerUpBeep } from '../utils/sound.js';
 
 // ─── Placement ──────────────────────────────────────────────
 // Board-local: right of center, below the U1 CPU's lower edge —
 // an open area of the substrate (RN1 is below, SW2/SW3 to the
-// right, TP2 to the lower-left). Bezel 1.6×1.2 units.
+// right, TP2 to the lower-left). Bezel 1.6×1.0 units around a
+// 2:1 glass (128×64 LCD proportions).
 const LCD_LOCAL = new THREE.Vector3(2.4, -1.2, 0.085 + 0.04);
 const BEZEL_W = 1.6;
-const BEZEL_H = 1.2;
+const BEZEL_H = 1.0;
 const SCREEN_W = 1.34;
-const SCREEN_H = 1.02;
+const SCREEN_H = 0.67;
 
-// ─── Game geometry ──────────────────────────────────────────
-const CELLS_X = 24;
-const CELLS_Y = 18;
-const STEP_SEC = 0.15;        // snake advances every 150ms
-const START_LEN = 4;
-const NOISE_EVERY = 3;        // a noise block joins after every N packets
-const MAX_NOISE = 9;
+// ─── LCD geometry — 128×64, one pixel = one screen pixel ────
+const CANVAS_W = 128;
+const CANVAS_H = 64;
+const CELL = 8;                 // px per grid cell
+const GRID_COLS = 16;           // 128 / 8
+const GRID_ROWS = 6;            // playfield 8..56 px (STATUS row below)
+const GRID_Y = 8;               // top of the playfield (HUD sits above)
 
-// Canvas backing the screen quad — 320×240 at cell 11px.
-const CANVAS_W = 320;
-const CANVAS_H = 240;
-const CELL = 11;
-const GRID_PX_W = CELLS_X * CELL;
-const GRID_PX_H = CELLS_Y * CELL;
-const OFFSET_X = Math.floor((CANVAS_W - GRID_PX_W) / 2);
-const OFFSET_Y = 30; // room for the score bar
+// ─── Game tuning ────────────────────────────────────────────
+const TARGET = 12;              // collect every packet → MISSION COMPLETE
+const TIME_LIMIT = 30;          // seconds per run
+const SPAWN_INIT = 3;           // packets on the board at start
+const SPAWN_START = 3.0;        // seconds between spawns at run start
+const SPAWN_MIN = 1.2;          // difficulty floor (more packets at once)
+const MAX_ON_SCREEN = 6;        // spawn cap per wave
+const MOVE_REPEAT = 0.14;       // held-key auto-walk cadence (seconds)
+const BOOT_SEC = 2.9;           // POST sequence duration
+const IDLE_BLINK_MS = 15000;    // prompt starts blinking after 15s idle
+const BLINK_SEC = 0.8;          // blink period once armed
+const EXPLOSION_SEC = 0.35;     // packet-collect pixel burst lifetime
 
-// Screen palette — the board's own voice (dark phosphor, signal
-// green trace, ENIG-gold packets, red noise).
-const C_BG = '#040a06';
-const C_GRID = 'rgba(62, 230, 160, 0.06)';
-const C_HEAD = '#3ee6a0';
-const C_BODY = '#128a4f';
-const C_PACKET = '#c9a24b';
-const C_NOISE = '#ef4444';
-const C_TEXT = '#3ee6a0';
-const C_MUTED = '#9db4a3';
+// Monochrome phosphor — black + green only (shades for ghost/scanline).
+const C_BG = '#03130a';
+const C_BRIGHT = '#3ee6a0';
+const C_DIM = '#10794a';
+const C_FAINT = '#0a3d22';
 
 // ─── Persistent high score ───────────────────────────────────
-// Best SIGNAL INTEGRITY across sessions, kept in localStorage so the best
-// run survives a reload ("remembered" — the machine keeps its record, like
-// the demo re-seeding for identical attract runs). Only PLAYER runs write
-// it (the demo's greedy AI must not set the record); it loads once at
-// createLcd into a module value, so the render path stays deterministic
-// (no storage reads inside the tick). Guarded for headless/private modes
-// where localStorage may be missing or throw.
-const BEST_KEY = 'parama-signal-snake-best';
+// Best SIG count across sessions, kept in localStorage so the best run
+// survives a reload (the machine keeps its record). Only finished PLAYER
+// runs write it; it loads once at createLcd into a module value, so the
+// render path stays deterministic (no storage reads inside the tick).
+// Guarded for headless/private modes where localStorage may be missing.
+const BEST_KEY = 'parama-signal-repair-best';
 /** @type {number} */
 let bestScore = 0;
 
@@ -111,315 +122,443 @@ function persistBestScore() {
         s.setItem(BEST_KEY, String(bestScore));
     } catch { /* quota/private-mode write failure — session-only best */ }
 }
-const C_RED = '#f87171';
 
 // ─── Scene objects (created by createLcd) ───────────────────
-/** @type {HTMLCanvasElement | null} */
-let gameCanvas = null;
-/** @type {CanvasRenderingContext2D | null} */
-let gctx = null;
-/** @type {THREE.CanvasTexture | null} */
-let screenTexture = null;
-/** @type {THREE.MeshStandardMaterial | null} */
-let bezelLedMat = null;
+/** @type {HTMLCanvasElement | null} */ let gameCanvas = null;
+/** @type {CanvasRenderingContext2D | null} */ let gctx = null;
+/** @type {THREE.CanvasTexture | null} */ let screenTexture = null;
+/** @type {THREE.MeshStandardMaterial | null} */ let bezelLedMat = null;
+/** @type {HTMLCanvasElement | null} */ let ghostCanvas = null;
+/** @type {CanvasRenderingContext2D | null} */ let ghostCtx = null;
 
 // ─── Game state ─────────────────────────────────────────────
-/** @type {Uint8Array} */ let grid = new Uint8Array(CELLS_X * CELLS_Y);
-/** @type {Array<[number, number]>} */ let snake = [];
-/** @type {[number, number]} */ let dir = [1, 0];
-/** @type {Array<[number, number]>} */ let dirQueue = [];
-/** @type {Array<[number, number]>} */ let packets = [];
-/** @type {Array<[number, number]>} */ let noise = [];
+/** @typedef {'boot' | 'ready' | 'playing' | 'over'} LcdState */
+let state = /** @type {LcdState} */ ('boot');
+let bootAccum = 0;
+let idleAccum = 0;              // seconds spent on the ready screen
+let runElapsed = 0;             // seconds into the current run
+let timeLeft = TIME_LIMIT;
+let spawnAccum = 0;
+let spawned = 0;
 let score = 0;
-let eaten = 0;
-let dead = false;
-let demo = true;          // true = attract-mode demo, false = player
-let playerActive = false; // LCD focused and the player is in a run
-let stepAccum = 0;
-let deathRestartAccum = 0;
-let lcgSeed = 1234567;    // fixed seed — identical demo every load
+let overWin = false;
+let playerActive = false;       // LCD focused (keys owned)
+let cursor = [7, 3];            // grid cell — center of the 16×6 field
+/** @type {Array<[number, number]>} */ let packets = [];
+/** @type {Array<{ x: number, y: number, t: number }>} */ let explosions = [];
+/** @type {Set<string>} */ let heldKeys = new Set();
+/** @type {[number, number] | null} */ let heldDir = null;
+let holdAccum = 0;
+let lcgSeed = 1234567;          // fixed seed — identical layouts per stream
 /** @type {(() => void) | null} */ let exitHandler = null;
-let dirty = true;         // redraw needed
+let dirty = true;               // redraw needed
+let frameCount = 0;
+let lastBlinkVisible = true;
+let lastSecShown = -1;
 let reducedStaticDrawn = false;
 
-/** Deterministic LCG — the animejs discipline: no unseeded
- *  randomness anywhere in the demo or obstacle placement. */
+/** Deterministic LCG — the house discipline: no unseeded randomness
+ *  anywhere in packet placement. */
 function lcgNext() {
     lcgSeed = (lcgSeed * 1664525 + 1013904223) >>> 0;
     return lcgSeed / 4294967296;
 }
 
-/** @param {number} x @param {number} y */
-function inBounds(x, y) {
-    return x >= 0 && x < CELLS_X && y >= 0 && y < CELLS_Y;
+// ─── 3×5 pixel font (uppercase + digits + a few symbols) ────
+// Each glyph is 5 rows of 3 px; '.' = off, '#' = on. The only font on the
+// screen — no canvas text calls anywhere in the render path.
+/** @type {Record<string, string[]>} */
+const FONT = {
+    '0': ['###', '#.#', '#.#', '#.#', '###'],
+    '1': ['.#.', '##.', '.#.', '.#.', '###'],
+    '2': ['###', '..#', '###', '#..', '###'],
+    '3': ['###', '..#', '###', '..#', '###'],
+    '4': ['#.#', '#.#', '###', '..#', '..#'],
+    '5': ['###', '#..', '###', '..#', '###'],
+    '6': ['###', '#..', '###', '#.#', '###'],
+    '7': ['###', '..#', '..#', '..#', '..#'],
+    '8': ['###', '#.#', '###', '#.#', '###'],
+    '9': ['###', '#.#', '###', '..#', '###'],
+    'A': ['.#.', '#.#', '###', '#.#', '#.#'],
+    'B': ['##.', '#.#', '##.', '#.#', '##.'],
+    'C': ['.##', '#..', '#..', '#..', '.##'],
+    'D': ['##.', '#.#', '#.#', '#.#', '##.'],
+    'E': ['###', '#..', '##.', '#..', '###'],
+    'F': ['###', '#..', '##.', '#..', '#..'],
+    'G': ['.##', '#..', '#.#', '#.#', '.##'],
+    'H': ['#.#', '#.#', '###', '#.#', '#.#'],
+    'I': ['###', '.#.', '.#.', '.#.', '###'],
+    'J': ['..#', '..#', '..#', '#.#', '###'],
+    'K': ['#.#', '#.#', '##.', '#.#', '#.#'],
+    'L': ['#..', '#..', '#..', '#..', '###'],
+    'M': ['#.#', '###', '###', '#.#', '#.#'],
+    'N': ['#.#', '###', '###', '###', '#.#'],
+    'O': ['###', '#.#', '#.#', '#.#', '###'],
+    'P': ['###', '#.#', '###', '#..', '#..'],
+    'Q': ['###', '#.#', '#.#', '###', '..#'],
+    'R': ['###', '#.#', '##.', '#.#', '#.#'],
+    'S': ['###', '#..', '###', '..#', '###'],
+    'T': ['###', '.#.', '.#.', '.#.', '.#.'],
+    'U': ['#.#', '#.#', '#.#', '#.#', '###'],
+    'V': ['#.#', '#.#', '#.#', '#.#', '.#.'],
+    'W': ['#.#', '#.#', '###', '###', '#.#'],
+    'X': ['#.#', '#.#', '.#.', '#.#', '#.#'],
+    'Y': ['#.#', '#.#', '.#.', '.#.', '.#.'],
+    'Z': ['###', '..#', '.#.', '#..', '###'],
+    ':': ['...', '.#.', '...', '.#.', '...'],
+    '.': ['...', '...', '...', '...', '.#.'],
+    '-': ['...', '...', '###', '...', '...'],
+    '/': ['..#', '..#', '.#.', '#..', '#..'],
+    '>': ['##.', '..#', '.#.', '..#', '##.'],
+    '!': ['.#.', '.#.', '.#.', '...', '.#.'],
+    '?': ['###', '..#', '.#.', '...', '.#.'],
+    ',': ['...', '...', '...', '.#.', '#..'],
+    'v': ['...', '...', '#.#', '#.#', '.#.'],
+    ' ': ['...', '...', '...', '...', '...']
+};
+
+/** Width in px of a text string in the 3×5 font (4px advance, 1px gap).
+ *  @param {string} text */
+function textWidth(text) {
+    return text.length * 4 - 1;
 }
 
-/** Place a packet at a free, non-adjacent cell. */
-function spawnPacket() {
-    for (let tries = 0; tries < 200; tries++) {
-        const px = Math.floor(lcgNext() * CELLS_X);
-        const py = Math.floor(lcgNext() * CELLS_Y);
-        if (grid[py * CELLS_X + px] !== 0) continue;
-        // Keep it away from the head (no instant eat on spawn)
-        const head = snake[0];
-        if (head && Math.abs(px - head[0]) + Math.abs(py - head[1]) < 5) continue;
-        packets.push([px, py]);
-        grid[py * CELLS_X + px] = 2;
-        return;
+/** Draw a text string in the 3×5 pixel font.
+ *  @param {CanvasRenderingContext2D} c
+ *  @param {string} text
+ *  @param {number} x
+ *  @param {number} y
+ *  @param {string} color */
+function drawText(c, text, x, y, color) {
+    c.fillStyle = color;
+    let cx = x;
+    for (const ch of text) {
+        const g = FONT[ch] || FONT['?'];
+        for (let r = 0; r < 5; r++) {
+            for (let cc = 0; cc < 3; cc++) {
+                if (g[r][cc] === '#') c.fillRect(cx + cc, y + r, 1, 1);
+            }
+        }
+        cx += 4;
     }
 }
 
-/** Place a noise block at a free cell, away from the snake's head. */
-function spawnNoise() {
-    if (noise.length >= MAX_NOISE) return;
-    for (let tries = 0; tries < 200; tries++) {
-        const nx = Math.floor(lcgNext() * CELLS_X);
-        const ny = Math.floor(lcgNext() * CELLS_Y);
-        if (grid[ny * CELLS_X + nx] !== 0) continue;
-        const head = snake[0];
-        if (head && Math.abs(nx - head[0]) + Math.abs(ny - head[1]) < 4) continue;
-        noise.push([nx, ny]);
-        grid[ny * CELLS_X + nx] = 3;
-        return;
-    }
+/** Centered drawText.
+ *  @param {CanvasRenderingContext2D} c
+ *  @param {string} text
+ *  @param {number} y
+ *  @param {string} color */
+function drawTextCentered(c, text, y, color) {
+    drawText(c, text, Math.floor((CANVAS_W - textWidth(text)) / 2), y, color);
 }
 
-/** @param {boolean} playAsPlayer */
-function resetGame(playAsPlayer) {
-    // Demo runs are FULLY deterministic: the LCG re-seeds on every demo
-    // reset, so every attract run (including post-death reboots) is
-    // identical on every load — the house discipline, asserted by the
-    // smoke test. Player runs don't re-seed: they continue from wherever
-    // the stream is, so repeated plays don't see the same packet layout.
-    if (!playAsPlayer) lcgSeed = 1234567;
-    grid.fill(0);
-    packets.length = 0;
-    noise.length = 0;
-    dirQueue.length = 0;
-    dir = [1, 0];
+// ─── Game logic (pure — no rendering; runs headlessly) ──────
+
+/** Begin a fresh player run (Enter from ready/over, or clicking the LCD). */
+function startRun() {
+    state = 'playing';
+    playerActive = true;
     score = 0;
-    eaten = 0;
-    dead = false;
-    stepAccum = 0;
-    deathRestartAccum = 0;
-    demo = !playAsPlayer;
-    playerActive = playAsPlayer;
-    snake = [];
-    const cy = Math.floor(CELLS_Y / 2);
-    for (let i = 0; i < START_LEN; i++) {
-        const cx = Math.floor(CELLS_X / 2) - i;
-        snake.push([cx, cy]);
-        grid[cy * CELLS_X + cx] = 1;
-    }
-    spawnPacket();
-    spawnNoise();
-    spawnNoise();
+    runElapsed = 0;
+    timeLeft = TIME_LIMIT;
+    spawnAccum = 0;
+    spawned = 0;
+    cursor = [7, 3];
+    packets = [];
+    explosions = [];
+    heldDir = null;
+    holdAccum = 0;
+    // Initial packet wave — deterministic LCG placements, never on the cursor.
+    for (let i = 0; i < SPAWN_INIT; i++) spawnPacket();
+    lastSecShown = TIME_LIMIT;
     dirty = true;
 }
 
-/** @param {[number, number]} d */
-function queueDir(d) {
-    if (dirQueue.length >= 2) return;
-    const last = dirQueue.length ? dirQueue[dirQueue.length - 1] : dir;
-    // No 180° reversal into the current (or queued) direction
-    if (d[0] === -last[0] && d[1] === -last[1]) return;
-    dirQueue.push(d);
-    dirty = true;
-}
-
-function die() {
-    dead = true;
-    deathRestartAccum = 0;
-    // A finished PLAYER run may set the record (the demo AI doesn't count —
-    // it plays itself, so its score would be the machine's, not yours).
-    if (!demo && score > bestScore) {
-        bestScore = score;
-        persistBestScore();
-    }
-    dirty = true;
-}
-
-/** Advance the snake one cell. Returns true when a step happened. */
-function stepSnake() {
-    if (dirQueue.length) {
-        const d = dirQueue.shift();
-        if (d) dir = d;
-    }
-    const head = snake[0];
-    const nx = head[0] + dir[0];
-    const ny = head[1] + dir[1];
-    const cell = inBounds(nx, ny) ? grid[ny * CELLS_X + nx] : 1; // wall = collision
-    if (cell === 1 || cell === 3) {
-        die();
-        return;
-    }
-    snake.unshift([nx, ny]);
-    grid[ny * CELLS_X + nx] = 1;
-    if (cell === 2) {
-        // Ate the packet — +10 integrity, grow, resupply
-        const idx = packets.findIndex((p) => p[0] === nx && p[1] === ny);
-        if (idx >= 0) packets.splice(idx, 1);
-        grid[ny * CELLS_X + nx] = 1;
-        score += 10;
-        eaten++;
-        if (eaten % NOISE_EVERY === 0) spawnNoise();
-        spawnPacket();
+/** Place one packet at a free cell (not on the cursor, not already used). */
+function spawnPacket() {
+    if (spawned >= TARGET || packets.length >= MAX_ON_SCREEN) return;
+    for (let tries = 0; tries < 200; tries++) {
+        const px = Math.floor(lcgNext() * GRID_COLS);
+        const py = Math.floor(lcgNext() * GRID_ROWS);
+        if (px === cursor[0] && py === cursor[1]) continue;
+        if (packets.some(([x, y]) => x === px && y === py)) continue;
+        packets.push([px, py]);
+        spawned++;
         dirty = true;
         return;
     }
-    // No packet — tail advances (no growth)
-    const tail = snake.pop();
-    if (tail) grid[tail[1] * CELLS_X + tail[0]] = 0;
+}
+
+/** End the run — finished runs may set the record (persisted).
+ *  @param {boolean} win */
+function endRun(win) {
+    state = 'over';
+    overWin = win;
+    playerActive = false;
+    heldDir = null;
+    if (score > bestScore) {
+        bestScore = score;
+        persistBestScore();
+    }
+    if (win) powerUpBeep();
+    else loseBuzz();
     dirty = true;
 }
 
-/** Greedy attract AI: head toward the packet, prefer the move that
- *  minimizes Manhattan distance, never reverse or hit walls/self/noise. */
-function attractStep() {
-    const head = snake[0];
-    const target = packets[0];
-    if (!target) {
-        die();
-        return;
+/** Move the cursor one cell (or clamp at the edge). Collects on arrival.
+ *  @param {[number, number]} dir */
+function moveCursor(dir) {
+    const nx = cursor[0] + dir[0];
+    const ny = cursor[1] + dir[1];
+    if (nx < 0 || nx >= GRID_COLS || ny < 0 || ny >= GRID_ROWS) return;
+    cursor = [nx, ny];
+    dirty = true;
+    const idx = packets.findIndex(([px, py]) => px === nx && py === ny);
+    if (idx >= 0) {
+        packets.splice(idx, 1);
+        score++;
+        explosions.push({ x: nx, y: ny, t: 0 });
+        gameBeep();
+        dirty = true;
+        if (score >= TARGET) endRun(true);
     }
-    /** @type {Array<[number, number]>} */
-    const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
-    /** @type {[number, number] | null} */
-    let best = null;
-    let bestD = Infinity;
-    for (const [dx, dy] of dirs) {
-        if (dx === -dir[0] && dy === -dir[1]) continue; // no reversal
-        const nx = head[0] + dx;
-        const ny = head[1] + dy;
-        if (!inBounds(nx, ny)) continue;
-        const c = grid[ny * CELLS_X + nx];
-        if (c === 1 || c === 3) continue;
-        const d = Math.abs(nx - target[0]) + Math.abs(ny - target[1]);
-        if (d < bestD) {
-            bestD = d;
-            best = [dx, dy];
-        }
-    }
-    if (!best) {
-        die();
-        return;
-    }
-    queueDir(best);
-    stepSnake();
 }
 
-// ─── Drawing ────────────────────────────────────────────────
-function drawScreen() {
+/** Step the game clock. PURE logic with no rendering: runs even without a
+ *  canvas context so the headless smoke test drives the deterministic
+ *  simulation through the same seam the browser tick uses.
+ *  @param {number} delta */
+function stepLcdGame(delta) {
+    // Reduced motion: no auto-play. The game itself is input-driven, so a
+    // focused run still steps (the user started it — interaction is allowed).
+    if (motionPrefs.reduced && !playerActive) return;
+
+    if (state === 'boot') {
+        bootAccum += delta;
+        if (bootAccum >= BOOT_SEC) {
+            state = 'ready';
+            idleAccum = 0;
+            dirty = true;
+        }
+        return;
+    }
+
+    if (state === 'ready') {
+        idleAccum += delta;
+        return;
+    }
+
+    if (state === 'playing') {
+        runElapsed += delta;
+        timeLeft -= delta;
+        // Held-key auto-walk at a fixed cadence (one cell per MOVE_REPEAT).
+        if (heldDir) {
+            holdAccum += delta;
+            if (holdAccum >= MOVE_REPEAT) {
+                holdAccum = 0;
+                moveCursor(heldDir);
+            }
+        }
+        // Difficulty: spawns come faster as the run goes on.
+        spawnAccum += delta;
+        const interval = Math.max(SPAWN_MIN, SPAWN_START - runElapsed / 15);
+        if (spawnAccum >= interval) {
+            spawnAccum = 0;
+            spawnPacket();
+        }
+        // The timer display only needs a redraw on the second boundary.
+        const sec = Math.max(0, Math.ceil(timeLeft));
+        if (sec !== lastSecShown) {
+            lastSecShown = sec;
+            dirty = true;
+        }
+        if (timeLeft <= 0) {
+            timeLeft = 0;
+            endRun(false);
+        }
+        return;
+    }
+
+    // state === 'over' — hold the result screen (Enter retries).
+}
+
+// ─── Rendering (skipped headlessly) ─────────────────────────
+
+/** Advance explosion timers; true while any burst is still animating.
+ *  @param {number} delta */
+function stepExplosions(delta) {
+    let alive = false;
+    for (const e of explosions) {
+        e.t += delta;
+        if (e.t < EXPLOSION_SEC) alive = true;
+    }
+    if (!alive) explosions = [];
+    return alive;
+}
+
+/** @param {CanvasRenderingContext2D} c */
+function drawHud(c) {
+    drawText(c, `SIG:${String(score).padStart(2, '0')}`, 2, 1, C_BRIGHT);
+    const timeStr = `TIME:${String(Math.max(0, Math.ceil(timeLeft))).padStart(2, '0')}`;
+    drawText(c, timeStr, CANVAS_W - 2 - textWidth(timeStr), 1, C_BRIGHT);
+    drawTextCentered(c, 'STATUS:ONLINE', 58, C_DIM);
+}
+
+/** @param {CanvasRenderingContext2D} c */
+function drawPlayfield(c) {
+    // Faint cell grid
+    c.fillStyle = C_FAINT;
+    for (let gx = 0; gx < GRID_COLS; gx++) c.fillRect(gx * CELL, GRID_Y + GRID_ROWS * CELL, 1, 1);
+    for (let gy = 0; gy < GRID_ROWS; gy++) c.fillRect(0, GRID_Y + gy * CELL, GRID_COLS * CELL, 1);
+
+    // Packets — bright diamond pulses
+    for (const [px, py] of packets) {
+        const ox = px * CELL, oy = GRID_Y + py * CELL;
+        c.fillStyle = C_BRIGHT;
+        c.fillRect(ox + 3, oy, 2, 2);
+        c.fillRect(ox + 1, oy + 2, 6, 2);
+        c.fillRect(ox + 3, oy + 4, 2, 2);
+    }
+
+    // Cursor — a filled square with a hollow center (reads as the probe)
+    const [cx, cy] = cursor;
+    const ox = cx * CELL, oy = GRID_Y + cy * CELL;
+    c.fillStyle = C_BRIGHT;
+    c.fillRect(ox, oy, CELL, 1);
+    c.fillRect(ox, oy + CELL - 1, CELL, 1);
+    c.fillRect(ox, oy, 1, CELL);
+    c.fillRect(ox + CELL - 1, oy, 1, CELL);
+
+    // Explosions — expanding pixel bursts (deterministic)
+    for (const e of explosions) {
+        const p = e.t / EXPLOSION_SEC;
+        const ex = e.x * CELL + CELL / 2;
+        const ey = GRID_Y + e.y * CELL + CELL / 2;
+        const r = 1 + Math.floor(p * 3.5);
+        c.fillStyle = p < 0.5 ? C_BRIGHT : C_DIM;
+        for (let k = 0; k < 6; k++) {
+            const a = (e.x * 13.7 + e.y * 7.3 + k * 2.1);
+            const dx = Math.round(Math.cos(a) * r);
+            const dy = Math.round(Math.sin(a) * r);
+            c.fillRect(ex + dx, ey + dy, 1, 1);
+        }
+    }
+}
+
+/** @param {CanvasRenderingContext2D} c */
+function drawBoot(c) {
+    drawTextCentered(c, 'SIGNAL REPAIR', 8, C_BRIGHT);
+    drawTextCentered(c, 'FW 1.0.0', 16, C_DIM);
+    // POST lines: the label wipes in, then the dot run fills to a fixed
+    // column, then OK — every OK lands at the same x (a real POST table).
+    /** @type {Array<[string, number, number]>} */
+    const lines = [
+        ['MEM CHECK', 24, 0.5],
+        ['RX ACQUIRED', 32, 1.0],
+        ['LINK STABLE', 40, 1.5],
+        ['CALIBRATE', 48, 2.0]
+    ];
+    const DOT_COL = 18; // label + dots always fills to 18 chars before OK
+    const BLOCK_W = textWidth('MEM CHECK.........OK');
+    const x0 = Math.floor((CANVAS_W - BLOCK_W) / 2);
+    for (const [label, y, start] of lines) {
+        const done = bootAccum - start; // seconds into this line
+        if (done <= 0) continue;
+        const p = Math.min(1, done / 0.45);
+        const need = DOT_COL - label.length;
+        const dots = Math.floor(p * need);
+        let s = label;
+        for (let i = 0; i < Math.min(need, dots); i++) s += '.';
+        if (p >= 1) s += 'OK';
+        drawText(c, s, x0, y, C_DIM);
+    }
+}
+
+/** @param {CanvasRenderingContext2D} c */
+function drawReady(c) {
+    drawTextCentered(c, 'SIGNAL REPAIR', 10, C_BRIGHT);
+    drawTextCentered(c, 'TARGET 12 PACKETS', 20, C_DIM);
+    if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(2, '0')}`, 28, C_DIM);
+    // After 15s idle the prompt starts to blink (idle mode); before that it
+    // is steady so a fresh visitor sees it immediately.
+    const armed = idleAccum >= IDLE_BLINK_MS / 1000;
+    const visible = !armed || (Math.floor(idleAccum / BLINK_SEC) % 2 === 0);
+    if (visible) {
+        drawTextCentered(c, 'PRESS ENTER', 42, C_BRIGHT);
+        drawTextCentered(c, 'TO REPAIR SIGNAL', 52, C_BRIGHT);
+    }
+}
+
+/** @param {CanvasRenderingContext2D} c */
+function drawPlaying(c) {
+    drawHud(c);
+    drawPlayfield(c);
+}
+
+/** @param {CanvasRenderingContext2D} c */
+function drawOver(c) {
+    // Dim the playfield behind the verdict
+    c.fillStyle = C_BG;
+    c.fillRect(0, GRID_Y, CANVAS_W, GRID_ROWS * CELL);
+    drawTextCentered(c, overWin ? 'MISSION COMPLETE' : 'SIGNAL LOST', 12, C_BRIGHT);
+    drawTextCentered(c, `SIG ${String(score).padStart(2, '0')}`, 24, C_DIM);
+    if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(2, '0')}`, 32, C_DIM);
+    const blink = Math.floor(runElapsed / BLINK_SEC) % 2 === 0;
+    if (blink) drawTextCentered(c, 'ENTER TO RETRY', 52, C_BRIGHT);
+}
+
+/** Compose one frame: ghost underlay → scene → scanlines → flicker. The
+ *  ghost (previous frame at low alpha) is the LCD's pixel persistence; the
+ *  flicker is a seeded per-frame dim so it is deterministic.
+ *  @param {number} delta */
+function drawFrame(delta) {
     if (!gctx) return;
     const c = gctx;
     c.fillStyle = C_BG;
     c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-    // Score bar
-    c.font = '13px monospace';
-    c.textBaseline = 'top';
-    c.fillStyle = C_TEXT;
-    c.fillText(`SIGNAL INTEGRITY: ${String(score).padStart(3, '0')}`, 10, 8);
-    c.fillStyle = C_MUTED;
-    c.textAlign = 'right';
-    c.fillText(demo ? 'DEMO' : 'LIVE', CANVAS_W - 10, 8);
-    c.textAlign = 'left';
-    // Best run — the machine's record, on screen whenever the game is. Only
-    // after a record exists: a bare "BEST 000" before the first run would
-    // read as a broken score, not an empty one.
-    if (bestScore > 0) {
-        c.font = '10px monospace';
-        c.fillStyle = C_MUTED;
-        c.fillText(`BEST ${String(bestScore).padStart(3, '0')}`, 10, 22);
+    // LCD ghosting — the previous frame bleeds through faintly where this
+    // frame is empty, so a moving object leaves a fading trail (persistence).
+    if (ghostCanvas && ghostCtx && !motionPrefs.reduced) {
+        c.globalAlpha = 0.16;
+        c.drawImage(ghostCanvas, 0, 0);
+        c.globalAlpha = 1;
     }
 
-    // Faint grid
-    c.strokeStyle = C_GRID;
-    c.lineWidth = 1;
-    for (let gx = 0; gx <= CELLS_X; gx++) {
-        c.beginPath();
-        c.moveTo(OFFSET_X + gx * CELL, OFFSET_Y);
-        c.lineTo(OFFSET_X + gx * CELL, OFFSET_Y + GRID_PX_H);
-        c.stroke();
-    }
-    for (let gy = 0; gy <= CELLS_Y; gy++) {
-        c.beginPath();
-        c.moveTo(OFFSET_X, OFFSET_Y + gy * CELL);
-        c.lineTo(OFFSET_X + GRID_PX_W, OFFSET_Y + gy * CELL);
-        c.stroke();
+    if (state === 'boot') drawBoot(c);
+    else if (state === 'ready') drawReady(c);
+    else if (state === 'playing') drawPlaying(c);
+    else drawOver(c);
+
+    // Scanlines — every other row dimmed (a real 128×64 glass).
+    c.fillStyle = 'rgba(0, 0, 0, 0.26)';
+    for (let y = 1; y < CANVAS_H; y += 2) c.fillRect(0, y, CANVAS_W, 1);
+
+    // Subtle CRT flicker — deterministic from the frame counter.
+    if (!motionPrefs.reduced) {
+        const f = (frameCount * 2654435761) >>> 0;
+        const fl = 0.012 + ((f & 7) / 7) * 0.028;
+        c.fillStyle = `rgba(0, 0, 0, ${fl.toFixed(4)})`;
+        c.fillRect(0, 0, CANVAS_W, CANVAS_H);
     }
 
-    // Noise blocks — red obstacles
-    for (const [nx, ny] of noise) {
-        c.fillStyle = C_NOISE;
-        c.fillRect(OFFSET_X + nx * CELL + 2, OFFSET_Y + ny * CELL + 2, CELL - 4, CELL - 4);
-    }
+    // Persist this frame as next frame's ghost.
+    if (ghostCtx) ghostCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    if (ghostCtx && gameCanvas && !motionPrefs.reduced) ghostCtx.drawImage(gameCanvas, 0, 0);
 
-    // Packets — gold signal pulses (diamond)
-    c.fillStyle = C_PACKET;
-    for (const [px, py] of packets) {
-        const cx = OFFSET_X + px * CELL + CELL / 2;
-        const cy = OFFSET_Y + py * CELL + CELL / 2;
-        const r = CELL / 2 - 1;
-        c.beginPath();
-        c.moveTo(cx, cy - r);
-        c.lineTo(cx + r, cy);
-        c.lineTo(cx, cy + r);
-        c.lineTo(cx - r, cy);
-        c.closePath();
-        c.fill();
-    }
-
-    // Snake — the copper trace (head brightest)
-    snake.forEach(([sx, sy], i) => {
-        c.fillStyle = i === 0 ? C_HEAD : C_BODY;
-        const pad = i === 0 ? 0 : 1;
-        c.fillRect(OFFSET_X + sx * CELL + pad, OFFSET_Y + sy * CELL + pad, CELL - pad * 2, CELL - pad * 2);
-    });
-
-    // Status overlays
-    if (dead) {
-        c.fillStyle = 'rgba(4, 10, 6, 0.72)';
-        c.fillRect(OFFSET_X, OFFSET_Y, GRID_PX_W, GRID_PX_H);
-        c.fillStyle = C_RED;
-        c.font = 'bold 22px monospace';
-        c.textAlign = 'center';
-        c.fillText('SIGNAL LOST', CANVAS_W / 2, OFFSET_Y + GRID_PX_H / 2 - 20);
-        c.font = '13px monospace';
-        c.fillStyle = C_TEXT;
-        c.fillText(`INTEGRITY ${score}`, CANVAS_W / 2, OFFSET_Y + GRID_PX_H / 2 + 8);
-        c.fillStyle = C_MUTED;
-        c.fillText(demo ? 'REBOOTING…' : 'ENTER TO REBOOT', CANVAS_W / 2, OFFSET_Y + GRID_PX_H / 2 + 30);
-        c.textAlign = 'left';
-    } else if (playerActive) {
-        c.fillStyle = C_MUTED;
-        c.font = '10px monospace';
-        c.textAlign = 'center';
-        c.fillText('ESC EXIT', CANVAS_W / 2, CANVAS_H - 13);
-        c.textAlign = 'left';
-    }
+    void delta;
 }
 
-/** Static title screen — shown instead of the demo under reduced
+/** Static title screen — shown instead of the boot/ready under reduced
  *  motion (decorative auto-play is motion; a title is not). */
 function drawStaticTitle() {
     if (!gctx) return;
     const c = gctx;
     c.fillStyle = C_BG;
     c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    c.textAlign = 'center';
-    c.fillStyle = C_TEXT;
-    c.font = 'bold 20px monospace';
-    c.fillText('SIGNAL SNAKE', CANVAS_W / 2, 70);
-    c.font = '13px monospace';
-    c.fillStyle = C_MUTED;
-    c.fillText('2.4in DISPLAY · LCD1', CANVAS_W / 2, 100);
-    c.fillText('CLICK TO PLAY', CANVAS_W / 2, 140);
-    if (bestScore > 0) {
-        c.fillStyle = C_TEXT;
-        c.fillText(`BEST ${String(bestScore).padStart(3, '0')}`, CANVAS_W / 2, 172);
-    }
-    c.textAlign = 'left';
+    drawTextCentered(c, 'SIGNAL REPAIR', 20, C_BRIGHT);
+    drawTextCentered(c, '2.4IN LCD1', 34, C_DIM);
+    drawTextCentered(c, 'CLICK TO PLAY', 46, C_BRIGHT);
+    if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(2, '0')}`, 56, C_DIM);
 }
 
 // ─── Public API ─────────────────────────────────────────────
@@ -443,90 +582,70 @@ export function setLcdExitHandler(fn) {
     exitHandler = fn;
 }
 
-/** Enter player mode — called by journey.js when the camera glides
- *  to the display. Begins a fresh player run. */
+/** Enter the game — called by journey.js when the camera glides to the
+ *  display. Focus shows the ready/idle screen (with the prompt); Enter
+ *  starts the run. The keyboard is owned from the moment of focus. */
 export function focusLcd() {
     if (typeof document !== 'undefined') document.body.classList.add('lcd-active');
-    resetGame(true);
+    state = 'ready';
+    idleAccum = 0;
+    dirty = true;
 }
 
-/** Leave player mode — restore the attract demo (or, under reduced
- *  motion, the static title). */
+/** Leave the game — restore the ready screen (the idle state). */
 export function exitLcd() {
     if (typeof document !== 'undefined') document.body.classList.remove('lcd-active');
     playerActive = false;
-    if (!motionPrefs.reduced) {
-        resetGame(false); // back to the demo
-    } else {
-        reducedStaticDrawn = false; // redraw the title once
-        dirty = true;
-    }
-}
-
-/** Step the game clock — the demo (attract) or the player run. PURE game
- *  logic with no rendering: runs even without a canvas context so the
- *  headless smoke test drives the deterministic simulation through the
- *  same seam the browser tick uses.
- *  @param {number} delta */
-function stepLcdGame(delta) {
-    // Reduced motion: no auto-play. Static title unless the player is
-    // actively playing (input-driven interaction is allowed).
-    if (motionPrefs.reduced && !playerActive) return;
-    if (dead) {
-        // Freeze frame, then restart (demo auto-reboots after ~2.2s)
-        deathRestartAccum += delta;
-        if (demo && deathRestartAccum > 2.2) resetGame(false);
-        return;
-    }
-    stepAccum += delta;
-    if (stepAccum >= STEP_SEC) {
-        stepAccum = 0;
-        if (demo) attractStep();
-        else stepSnake();
-    }
+    heldDir = null;
+    state = 'ready';
+    idleAccum = 0;
+    dirty = true;
 }
 
 /** Serialized game state — the pure seam for the headless smoke test (same
- *  pattern as journey.js's stepQueue / idle.js's idleDriftOffset). The demo
- *  must be deterministic: the same tick schedule from a fresh reset yields
- *  the identical snapshot every run. Player mode adds the input turns.
- *  @returns {{ score: number, best: number, snakeLen: number, head: number[], dir: number[], packets: number, packetPos: number[][], noise: number, noisePos: number[][], dead: boolean, demo: boolean, playerActive: boolean, gridHash: string }} */
+ *  pattern as journey.js's stepQueue / idle.js's idleDriftOffset). The game
+ *  must be deterministic: the same tick schedule + inputs from the same
+ *  state yield the identical snapshot every run.
+ *  @returns {{ state: string, score: number, best: number, timeLeft: number, cursor: number[], packets: number, packetPos: number[][], spawned: number, over: boolean, win: boolean, playerActive: boolean, idleAccum: number, frameHash: string }} */
 export function lcdStateSnapshot() {
-    // FNV-1a over the grid — a compact, deterministic fingerprint.
-    let hash = 2166136261;
-    for (let i = 0; i < grid.length; i++) {
-        hash ^= grid[i];
-        hash = Math.imul(hash, 16777619);
+    // FNV-1a over the observable state — a compact, deterministic fingerprint
+    // of the current screen contents.
+    let h = 2166136261;
+    const str = `${state}|${score}|${cursor[0]},${cursor[1]}|${packets.map((p) => p.join(',')).join(';')}|${overWin ? 1 : 0}`;
+    for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
     }
     return {
+        state,
         score,
         best: bestScore,
-        snakeLen: snake.length,
-        head: [snake[0][0], snake[0][1]],
-        dir: [dir[0], dir[1]],
+        timeLeft: Math.max(0, Math.ceil(timeLeft)),
+        cursor: [cursor[0], cursor[1]],
         packets: packets.length,
         packetPos: packets.map((p) => [p[0], p[1]]),
-        noise: noise.length,
-        noisePos: noise.map((p) => [p[0], p[1]]),
-        dead,
-        demo,
+        spawned,
+        over: state === 'over',
+        win: state === 'over' && overWin,
         playerActive,
-        gridHash: (hash >>> 0).toString(16)
+        idleAccum,
+        frameHash: (h >>> 0).toString(16)
     };
 }
 
-/** Per-frame tick — steps the demo (attract) or the player run, redraws
- *  the screen when the frame changed, and keeps the bezel power LED lit
- *  while the game is live. Runs from main.js's tick pipeline (same
- *  registry as the LED array / ripple). The game LOGIC runs even without
- *  a render context (headless smoke test); only the drawing is skipped.
+/** Per-frame tick — steps the game, redraws the screen when the frame
+ *  changed, and keeps the bezel power LED lit while the game is live. Runs
+ *  from main.js's tick pipeline (same registry as the LED array / ripple).
+ *  The game LOGIC runs even without a render context (headless smoke test);
+ *  only the drawing is skipped.
  *  @param {number} elapsed
  *  @param {number} delta */
 export function updateLcdScreen(elapsed, delta) {
     void elapsed;
+    frameCount++;
     // Bezel power LED — bright while the game is live, calm at rest.
     if (bezelLedMat) {
-        bezelLedMat.emissiveIntensity = playerActive ? 1.6 : 0.35;
+        bezelLedMat.emissiveIntensity = state === 'playing' ? 1.6 : 0.35;
     }
     // Game logic first — stepped regardless of the render path.
     stepLcdGame(delta);
@@ -541,8 +660,21 @@ export function updateLcdScreen(elapsed, delta) {
         }
         return;
     }
+    // The boot POST wipes in progressively — redraw every frame while booting.
+    if (state === 'boot') dirty = true;
+    // Explosions animate while alive (a dirty frame per tick during the burst).
+    if (state === 'playing' && stepExplosions(delta)) dirty = true;
+    // The ready prompt blinks once armed — redraw on the blink transition.
+    if (state === 'ready') {
+        const armed = idleAccum >= IDLE_BLINK_MS / 1000;
+        const visible = !armed || (Math.floor(idleAccum / BLINK_SEC) % 2 === 0);
+        if (visible !== lastBlinkVisible) {
+            lastBlinkVisible = visible;
+            dirty = true;
+        }
+    }
     if (dirty) {
-        drawScreen();
+        drawFrame(delta);
         screenTexture.needsUpdate = true;
         dirty = false;
     }
@@ -612,6 +744,12 @@ export function createLcd(boardGroup) {
         screen.position.copy(LCD_LOCAL);
         screen.position.z = zBezel + 0.05;
         boardGroup.add(screen);
+        // Ghost buffer — the previous frame, drawn faintly under the next
+        // (LCD pixel persistence). Same 128×64 size, offscreen.
+        ghostCanvas = document.createElement('canvas');
+        ghostCanvas.width = CANVAS_W;
+        ghostCanvas.height = CANVAS_H;
+        ghostCtx = /** @type {CanvasRenderingContext2D | null} */ (ghostCanvas.getContext('2d'));
     }
 
     // Interactive hit bounds — the whole assembly (same pattern as the
@@ -623,7 +761,7 @@ export function createLcd(boardGroup) {
     bounds.position.z = zBezel;
     bounds.name = 'LCD1';
     bounds.userData = {
-        componentName: 'LCD1 — 2.4" Display (Signal Snake)',
+        componentName: 'LCD1 — 2.4" Display (Signal Repair)',
         type: 'LCD',
         isInteractive: true
     };
@@ -635,12 +773,13 @@ export function createLcd(boardGroup) {
     // the tick's render path never touches storage.
     loadBestScore();
 
-    // Start the attract demo (or the static title under reduced motion)
+    // Start the boot POST (or the static title under reduced motion).
+    state = 'boot';
+    bootAccum = 0;
+    dirty = true;
     if (motionPrefs.reduced) {
+        state = 'ready';
         reducedStaticDrawn = false;
-        dirty = true;
-    } else {
-        resetGame(false);
     }
 
     // Exclusive keyboard capture while the game is focused. Registered
@@ -659,7 +798,7 @@ export function createLcd(boardGroup) {
         }
         if (key === 'Enter') {
             e.preventDefault();
-            if (dead || playerActive) resetGame(true);
+            if (state === 'ready' || state === 'over') startRun();
             return;
         }
         const d = key === 'ArrowUp' || key === 'w' || key === 'W' ? [0, -1]
@@ -669,7 +808,28 @@ export function createLcd(boardGroup) {
             : null;
         if (!d) return;
         e.preventDefault();
-        if (dead) resetGame(true);
-        else queueDir(/** @type {[number, number]} */ (d));
+        if (state !== 'playing') return;
+        heldKeys.add(key);
+        heldDir = /** @type {[number, number]} */ (d);
+        holdAccum = 0;
+        moveCursor(/** @type {[number, number]} */ (d));
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (!isLcdActive()) return;
+        const key = e.key;
+        const isMove = key === 'ArrowUp' || key === 'w' || key === 'W' || key === 'ArrowDown' || key === 's' || key === 'S'
+            || key === 'ArrowLeft' || key === 'a' || key === 'A' || key === 'ArrowRight' || key === 'd' || key === 'D';
+        if (!isMove) return;
+        heldKeys.delete(key);
+        // Re-derive the held direction from whatever movement key remains.
+        const last = [...heldKeys].pop();
+        heldDir = last
+            ? (last === 'ArrowUp' || last === 'w' || last === 'W' ? [0, -1]
+                : last === 'ArrowDown' || last === 's' || last === 'S' ? [0, 1]
+                : last === 'ArrowLeft' || last === 'a' || last === 'A' ? [-1, 0]
+                : [1, 0])
+            : null;
+        holdAccum = 0;
     });
 }

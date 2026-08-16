@@ -86,6 +86,25 @@ export function clickBlip() {
     blip(980, 0.06, 0.04, 'triangle');
 }
 
+// ─── LCD1 Signal Repair blips ─────────────────────────────────
+// Retro embedded-firmware tones for the LCD game: a sharp square-wave tick
+// on packet collect and a low square buzz on signal loss. Same master gate
+// (SND OFF by default) and same gesture discipline — the game only plays
+// these after the user has already pressed a key (a legal gesture).
+
+/** Packet-collect tick — the machine's "packet received" chirp: a sharp
+ *  square two-tone (same pattern as powerUpBeep — one bright blip, one
+ *  echo). */
+export function gameBeep() {
+    blip(1320, 0.045, 0.04, 'square');
+    blip(1760, 0.04, 0.03, 'square');
+}
+
+/** Signal-lost buzz — low, flat, unpleasant (the diagnostic failed). */
+export function loseBuzz() {
+    blip(196, 0.4, 0.05, 'square');
+}
+
 // ─── Tactile relay + switch sounds ──────────────────────────────
 // Mechanical feedback for physical actions (night-bench relay, membrane
 // switch section jumps). Same master gate as every blip — silent unless the

@@ -533,54 +533,46 @@ mixedQ = stepQueue(mixedQ, 1);
 mixedQ = stepQueue(mixedQ, -1);
 assert.strictEqual(mixedQ, 1, 'ArrowDown ×2 + ArrowUp → net 1 step');
 
-// ── 5e. Phase E — LCD1 SIGNAL SNAKE (determinism + cadence + keys) ──
-// The game state is module-private; lcdStateSnapshot is the pure seam (same
-// pattern as journey's stepQueue / idle's drift offset). Assertions:
-//   • determinism — the demo re-seeds its LCG on every reset, so a fresh
-//     demo + the same tick schedule yields the identical snapshot
-//   • step cadence — the snake advances only once STEP_SEC (0.15s) of
-//     accumulated delta passes (9 ticks @ 1/60)
-//   • the exclusive-keyboard gate — lcd.js's own keydown listener captures
-//     keys (preventDefault) ONLY while body.lcd-active is set, which is the
-//     exact class every other key listener (probe, section keys, arrows)
-//     gates on. The shim's dispatchEvent fires the real listeners; a
-//     plain-object event stands in for a KeyboardEvent, and preventDefault
-//     is the observable side effect.
-const LCD_STEP_TICKS = 9; // ceil(STEP_SEC 0.15s / (1/60)) = 9 ticks
+// ── 5e. Phase E — LCD1 SIGNAL REPAIR (state machine + movement + keys) ──
+// The 128×64 monochrome LCD game: boot POST → ready (idle) → Enter starts a
+// 30s run; the cursor walks one grid cell per keypress collecting signal
+// packets; all TARGET packets before the timer = MISSION COMPLETE, timer
+// out = SIGNAL LOST. lcdStateSnapshot is the pure seam (same pattern as
+// journey's stepQueue / idle's drift offset). Assertions:
+//   • the state machine — boot POST ends at ready; the ready screen is
+//     deterministic (idle only accumulates); exitLcd re-arms ready
+//   • movement — a keypress moves the cursor exactly one cell; no key = no
+//     move; a held key auto-walks at MOVE_REPEAT and stops on keyup
+//   • the exclusive-keyboard gate — keys are captured (preventDefault)
+//     ONLY while body.lcd-active is set; Esc releases; Enter starts
+//   • the timer — an unsteered run times out at 30s → SIGNAL LOST
+//   • the win — a scripted walk collects all TARGET packets → MISSION
+//     COMPLETE; the finished run's score becomes the persisted best
+//   • a worse run doesn't lower the record; it survives a re-arm
+const LCD_TARGET = 12;
+const LCD_TIME_LIMIT = 30;
+const LCD_MOVE_REPEAT_TICKS = Math.ceil(0.14 / DT); // ceil(MOVE_REPEAT 0.14s / (1/60)) = 9 ticks
+const LCD_BOOT_TICKS = Math.ceil(2.9 / DT) + 5;
 
-// Fresh demo sanity: exitLcd() arms the attract demo (re-seeded LCG).
-exitLcd();
-const freshDemo = lcdStateSnapshot();
-assert.ok(freshDemo.demo && !freshDemo.playerActive, 'LCD: exitLcd() arms the attract demo');
-assert.strictEqual(freshDemo.snakeLen, 4, 'LCD: demo starts at the base snake length');
-assert.strictEqual(freshDemo.packets, 1, `LCD: demo spawns 1 packet (got ${freshDemo.packets})`);
-assert.strictEqual(freshDemo.noise, 2, `LCD: demo spawns 2 noise blocks (got ${freshDemo.noise})`);
-
-// Step cadence: 8 ticks (0.133s) < STEP_SEC → the grid must not move; the
-// 9th tick crosses 0.15s → exactly one step, no growth.
-exitLcd();
-const cadence0 = lcdStateSnapshot();
-for (let i = 0; i < 8; i++) updateLcdScreen(0, DT);
-const cadence1 = lcdStateSnapshot();
-assert.deepStrictEqual(cadence1, cadence0, 'LCD: snake must not step before STEP_SEC elapses');
-updateLcdScreen(0, DT); // the 9th tick crosses 0.15s
-const cadence2 = lcdStateSnapshot();
-assert.notStrictEqual(cadence2.gridHash, cadence1.gridHash, 'LCD: snake must step once STEP_SEC passes');
-assert.strictEqual(cadence2.snakeLen, cadence1.snakeLen, 'LCD: a single step does not grow the snake');
-
-// Determinism: two fresh demo runs over the same 60-tick schedule (10 steps)
-// are byte-identical — same grid, same head, same score, same layout.
-const runDemo = () => {
-    exitLcd();
-    for (let i = 0; i < 60; i++) updateLcdScreen(0, DT);
-    return lcdStateSnapshot();
-};
-const detA = runDemo();
-const detB = runDemo();
-assert.deepStrictEqual(detB, detA, 'LCD: the attract demo must be deterministic from a fresh reset');
+// The game starts in 'boot' and POSTs into 'ready' (the idle screen).
+exitLcd(); // re-arm from the earlier phases (mid-state safety)
+for (let i = 0; i < LCD_BOOT_TICKS; i++) updateLcdScreen(0, DT);
+const booted = lcdStateSnapshot();
+assert.strictEqual(booted.state, 'ready', 'LCD: the boot POST ends at the ready screen');
+assert.strictEqual(booted.score, 0, 'LCD: ready starts scoreless');
+assert.strictEqual(booted.packets, 0, 'LCD: no packets until a run starts');
+assert.strictEqual(booted.best, 0, 'LCD: best starts at 0 with no record');
+// Determinism: the ready screen is pure — 2s of idle changes nothing
+// observable (the frame hash + state hold; only idle time accrues).
+const idleA = lcdStateSnapshot();
+for (let i = 0; i < 120; i++) updateLcdScreen(0, DT); // 2s idle
+const idleB = lcdStateSnapshot();
+assert.strictEqual(idleB.frameHash, idleA.frameHash, 'LCD: the ready screen must be deterministic (no auto-play)');
+assert.strictEqual(idleB.state, idleA.state, 'LCD: idle must not change state');
+assert.ok(idleB.idleAccum > idleA.idleAccum, `LCD: idle time accumulates (${idleA.idleAccum} → ${idleB.idleAccum})`);
 
 // Passive gate: while INACTIVE the listener ignores keys — no preventDefault,
-// and a stray ArrowUp leaves the demo trajectory exactly as if unpressed.
+// and a stray ArrowRight leaves the cursor exactly where it was.
 let cancelledKeys = [];
 const fakeKey = (key) => {
     // The shim's dispatchEvent routes by e.type — a real KeyboardEvent has
@@ -588,132 +580,141 @@ const fakeKey = (key) => {
     const e = { type: 'keydown', key, metaKey: false, ctrlKey: false, altKey: false, preventDefault: () => { cancelledKeys.push(key); } };
     window.dispatchEvent(e);
 };
-exitLcd();
+const fakeKeyUp = (key) => {
+    const e = { type: 'keyup', key, metaKey: false, ctrlKey: false, altKey: false, preventDefault: () => { cancelledKeys.push(key); } };
+    window.dispatchEvent(e);
+};
 cancelledKeys = [];
-fakeKey('ArrowUp');
+fakeKey('ArrowRight');
 assert.strictEqual(cancelledKeys.length, 0, 'LCD: keys must pass through while inactive');
-const pass0 = lcdStateSnapshot();
-updateLcdScreen(0, DT * LCD_STEP_TICKS); // one step, with the stray press
-const pass1 = lcdStateSnapshot();
-exitLcd(); // fresh — identical seed
-const clean0 = lcdStateSnapshot();
-updateLcdScreen(0, DT * LCD_STEP_TICKS); // one step, no stray press
-const clean1 = lcdStateSnapshot();
-assert.deepStrictEqual(pass1, clean1, 'LCD: an inactive ArrowUp must not alter the demo trajectory');
+assert.deepStrictEqual(lcdStateSnapshot().cursor, [7, 3], 'LCD: an inactive keypress must not move the cursor');
 
-// Active gate: focusLcd() sets the exclusive class; ArrowUp is captured
-// (preventDefaulted) and queues an UP turn — consumed on the next step.
+// Active gate + movement: focusLcd() shows the ready screen (Enter starts
+// the run); keys are captured from the moment of focus but the cursor does
+// not move until a run is live; ArrowRight then moves exactly one cell; a
+// held key auto-walks at MOVE_REPEAT; keyup stops it; no key = no move.
 focusLcd();
 assert.ok(isLcdActive(), 'LCD: focusLcd() sets the exclusive-keys class');
+const focused = lcdStateSnapshot();
+assert.strictEqual(focused.state, 'ready', 'LCD: focusing shows the ready screen (Enter starts)');
+assert.strictEqual(focused.timeLeft, LCD_TIME_LIMIT, 'LCD: the ready screen holds the full timer');
+assert.deepStrictEqual(focused.cursor, [7, 3], 'LCD: the cursor sits center field');
 cancelledKeys = [];
-fakeKey('ArrowUp');
-assert.deepStrictEqual(cancelledKeys, ['ArrowUp'], 'LCD: ArrowUp must be captured while focused');
-updateLcdScreen(0, DT * LCD_STEP_TICKS); // consume the queued turn
-const turned = lcdStateSnapshot();
-assert.deepStrictEqual(turned.dir, [0, -1], 'LCD: the queued ArrowUp turns the snake up');
-assert.strictEqual(turned.playerActive, true, 'LCD: focused run is player mode');
+fakeKey('ArrowRight');
+assert.deepStrictEqual(cancelledKeys, ['ArrowRight'], 'LCD: movement keys are captured from the moment of focus');
+assert.deepStrictEqual(lcdStateSnapshot().cursor, [7, 3], 'LCD: a keypress before a run starts must not move the cursor');
+fakeKey('Enter');
+const started = lcdStateSnapshot();
+assert.strictEqual(started.state, 'playing', 'LCD: Enter starts a run from the ready screen');
+assert.strictEqual(started.timeLeft, LCD_TIME_LIMIT, 'LCD: a run starts with the full timer');
+assert.deepStrictEqual(started.cursor, [7, 3], 'LCD: the cursor starts center field');
+cancelledKeys = [];
+fakeKey('ArrowRight');
+assert.deepStrictEqual(cancelledKeys, ['ArrowRight'], 'LCD: movement keys are captured while focused');
+assert.deepStrictEqual(lcdStateSnapshot().cursor, [8, 3], 'LCD: a keypress moves the cursor exactly one cell');
+const beforeHold = lcdStateSnapshot().cursor;
+for (let i = 0; i < LCD_MOVE_REPEAT_TICKS; i++) updateLcdScreen(0, DT);
+const afterHold = lcdStateSnapshot();
+assert.ok(afterHold.cursor[0] === beforeHold[0] + 1, `LCD: a held key auto-walks (${beforeHold[0]} → ${afterHold.cursor[0]})`);
+fakeKeyUp('ArrowRight');
+const holdStop = lcdStateSnapshot();
+for (let i = 0; i < 30; i++) updateLcdScreen(0, DT);
+assert.deepStrictEqual(lcdStateSnapshot().cursor, holdStop.cursor, 'LCD: releasing the key stops the auto-walk');
 
-// Esc releases: class cleared, player mode dropped, demo re-armed.
+// Collect: walking onto a packet scores 1 and consumes it.
+const collect = lcdStateSnapshot();
+if (collect.packetPos.length > 0) {
+    let guard = 0;
+    let snap = lcdStateSnapshot();
+    while (snap.score === 0 && !snap.over && guard < 80) {
+        const [px, py] = snap.packetPos[0];
+        const [cx2, cy2] = snap.cursor;
+        let key = null;
+        if (cx2 !== px) key = px > cx2 ? 'ArrowRight' : 'ArrowLeft';
+        else if (cy2 !== py) key = py > cy2 ? 'ArrowDown' : 'ArrowUp';
+        if (!key) break;
+        fakeKey(key);
+        snap = lcdStateSnapshot();
+        guard++;
+    }
+    assert.ok(snap.score >= 1 || snap.over, 'LCD: walking onto a packet must score (or complete the run)');
+}
+
+// Esc releases: class cleared, run abandoned, back to the ready screen.
 fakeKey('Escape');
 assert.ok(!isLcdActive(), 'LCD: Escape releases the exclusive-keys class');
 const afterEsc = lcdStateSnapshot();
-assert.ok(afterEsc.demo && !afterEsc.playerActive, 'LCD: Escape returns to the attract demo');
+assert.strictEqual(afterEsc.state, 'ready', 'LCD: Escape returns to the ready screen');
 
-// Enter reboots a dead run: an unsteered player run drives straight right
-// and dies at the wall; Enter restarts it in player mode.
-focusLcd();
-for (let i = 0; i < 500; i++) updateLcdScreen(0, DT); // ~83 steps — past the wall
-const deadState = lcdStateSnapshot();
-assert.ok(deadState.dead, 'LCD: an unsteered player run must die at the wall');
+// Enter starts a run — but only while focused (the exclusive-keys gate):
+// after Escape the same key is inert until the LCD is re-focused.
 fakeKey('Enter');
-const rebooted = lcdStateSnapshot();
-assert.ok(!rebooted.dead && rebooted.playerActive, 'LCD: Enter reboots the run from game over');
+assert.strictEqual(lcdStateSnapshot().state, 'ready', 'LCD: Enter is inert while the LCD is unfocused');
+focusLcd();
+fakeKey('Enter');
+const run2 = lcdStateSnapshot();
+assert.strictEqual(run2.state, 'playing', 'LCD: Enter starts a run from the ready screen');
+assert.strictEqual(run2.score, 0, 'LCD: a fresh run is scoreless');
 
-// Persistent high score: best SIGNAL INTEGRITY is kept across runs AND
-// sessions (localStorage — the machine remembers its record, like the demo
-// re-seeds for identical attract runs). Only a FINISHED player run writes
-// it: the demo's greedy AI never sets the record, and a worse run never
-// lowers it. The shim's in-memory localStorage makes the write observable.
-const bestKey = 'parama-signal-snake-best';
-assert.strictEqual(lcdStateSnapshot().best, 0, 'LCD: best starts at 0 with no record');
+// Timer loss: an unsteered run times out at 30s → SIGNAL LOST, score 0.
+for (let i = 0; i < Math.ceil((LCD_TIME_LIMIT + 1) / DT); i++) updateLcdScreen(0, DT);
+const lost = lcdStateSnapshot();
+assert.ok(lost.over && !lost.win, 'LCD: the timer expiring is SIGNAL LOST');
+assert.strictEqual(lost.score, 0, 'LCD: an unsteered run scores 0');
+assert.strictEqual(lost.best, 0, 'LCD: a scoreless loss does not set the record');
 
-// Greedy-steer a player run into a packet. The snapshot exposes the
-// packet/noise positions (deterministic LCG), so the test mirrors the
-// attract AI's heuristic — move toward the packet, never into a wall, the
-// body, or noise — while tracking the body itself (a score bump means the
-// tail held: a packet was eaten).
-const greedySteer = (maxSteps) => {
-    // Fresh player runs start at (12,9) heading right, length 4.
-    let body = [[12, 9], [11, 9], [10, 9], [9, 9]];
-    let lastScore = 0;
-    for (let s = 0; s < maxSteps; s++) {
-        const snap = lcdStateSnapshot();
-        if (snap.dead) break;
-        lastScore = snap.score;
-        const [hx, hy] = snap.head;
-        const [px, py] = snap.packetPos[0] || [0, 0];
-        const occupied = new Set(body.map(([x, y]) => `${x},${y}`));
-        const noiseSet = new Set(snap.noisePos.map(([x, y]) => `${x},${y}`));
-        const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
-        const [cdx, cdy] = snap.dir;
-        let best = null;
-        let bestD = Infinity;
-        for (const [dx, dy] of dirs) {
-            if (dx === -cdx && dy === -cdy) continue; // no reversal
-            const nx = hx + dx, ny = hy + dy;
-            if (nx < 0 || nx >= 24 || ny < 0 || ny >= 18) continue;
-            if (occupied.has(`${nx},${ny}`) || noiseSet.has(`${nx},${ny}`)) continue;
-            const d = Math.abs(nx - px) + Math.abs(ny - py);
-            if (d < bestD) { bestD = d; best = [dx, dy]; }
-        }
-        if (!best) break; // boxed in — the current direction hits a wall/body
-        const key = best[0] === 1 ? 'ArrowRight' : best[0] === -1 ? 'ArrowLeft' : best[1] === 1 ? 'ArrowDown' : 'ArrowUp';
-        fakeKey(key);
-        updateLcdScreen(0, DT * LCD_STEP_TICKS); // exactly one step
-        const after = lcdStateSnapshot();
-        if (!after.dead) {
-            const grew = after.score > lastScore;
-            body = [[after.head[0], after.head[1]], ...body];
-            if (!grew) body.pop();
-        }
-    }
-    // When boxed (no safe move), stop steering and let the run end on its
-    // own — the current direction runs into a wall or the body within a few
-    // steps. Bounded guard so the run is guaranteed to finish.
+// Win: a scripted walk collects all TARGET packets → MISSION COMPLETE, and
+// the finished run's score becomes the persisted best (localStorage).
+const bestKey = 'parama-signal-repair-best';
+const walkAll = () => {
     let guard = 0;
-    while (!lcdStateSnapshot().dead && guard < 3000) {
-        updateLcdScreen(0, DT);
+    let snap = lcdStateSnapshot();
+    while (!snap.over && guard < 4000) {
+        snap = lcdStateSnapshot();
+        if (snap.over) break;
+        if (snap.packetPos.length === 0) {
+            // No packets to chase yet — tick until the next spawn arrives
+            // (difficulty adds packets over time; a tick is 1/60s).
+            updateLcdScreen(0, DT);
+            guard++;
+            continue;
+        }
+        const [px, py] = snap.packetPos[0];
+        const [cx2, cy2] = snap.cursor;
+        let key = null;
+        if (cx2 !== px) key = px > cx2 ? 'ArrowRight' : 'ArrowLeft';
+        else if (cy2 !== py) key = py > cy2 ? 'ArrowDown' : 'ArrowUp';
+        if (key) fakeKey(key);
         guard++;
     }
     return lcdStateSnapshot();
 };
-
-// Run 1 — greedy play eats at least one packet, then dies; the run's score
-// becomes the record and is persisted.
 focusLcd();
-const beaten = greedySteer(4000);
-assert.ok(beaten.score > 0, `LCD: greedy steer must score before dying (got ${beaten.score})`);
-assert.ok(beaten.dead, 'LCD: the greedy run must end in death (the record-set moment)');
-assert.strictEqual(beaten.best, beaten.score, 'LCD: the finished run sets best equal to its score');
-assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(beaten.score), 'LCD: the new best is persisted to localStorage');
+fakeKey('Enter'); // focus shows the ready screen — Enter starts the run
+const won = walkAll();
+assert.ok(won.over && won.win, `LCD: collecting all packets is MISSION COMPLETE (state ${won.state}, score ${won.score})`);
+assert.strictEqual(won.score, LCD_TARGET, `LCD: a winning run collects all ${LCD_TARGET} packets`);
+assert.strictEqual(won.best, LCD_TARGET, 'LCD: the winning run sets best equal to its score');
+assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(LCD_TARGET), 'LCD: the new best is persisted to localStorage');
 
-// Run 2 — a worse death (immediate unsteered wall, score 0) must not lower it.
-focusLcd();
-for (let i = 0; i < 500; i++) updateLcdScreen(0, DT); // ~83 steps — past the wall
+// A worse run (unsteered timeout, score 0) must not lower the record.
+fakeKey('Enter');
+for (let i = 0; i < Math.ceil((LCD_TIME_LIMIT + 1) / DT); i++) updateLcdScreen(0, DT);
 const worse = lcdStateSnapshot();
-assert.ok(worse.dead && worse.score === 0, 'LCD: the unsteered run dies scoreless');
-assert.strictEqual(worse.best, beaten.score, 'LCD: a worse run must not lower the record');
-assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(beaten.score), 'LCD: storage unchanged by a worse run');
+assert.ok(worse.over && !worse.win, 'LCD: the worse run loses');
+assert.strictEqual(worse.best, LCD_TARGET, 'LCD: a worse run must not lower the record');
+assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(LCD_TARGET), 'LCD: storage unchanged by a worse run');
 
-// The record survives the attract re-seed (a demo reset doesn't clear it)
-// and is the value a fresh boot would load.
+// The record survives a re-arm (exitLcd) and is the value a fresh boot
+// would load.
 exitLcd();
-const afterReSeed = lcdStateSnapshot();
-assert.strictEqual(afterReSeed.best, beaten.score, 'LCD: the record survives the demo re-seed');
+const rearmed = lcdStateSnapshot();
+assert.strictEqual(rearmed.state, 'ready', 'LCD: exitLcd re-arms the ready screen');
+assert.strictEqual(rearmed.best, LCD_TARGET, 'LCD: the record survives a re-arm');
 
 // Leave the game inactive and armed for the phases that follow.
 fakeKey('Escape');
-assert.ok(!isLcdActive(), 'LCD: clean exit after the gate + high-score tests');
+assert.ok(!isLcdActive(), 'LCD: clean exit after the gate + score tests');
 
 // ── 6. Phase C — the raycast layer (hover alignment) ─────────
 // A real PerspectiveCamera plus the app's own initHover/checkHover, driven
@@ -852,7 +853,7 @@ console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
 console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
-console.log(`  phase E: LCD1 SIGNAL SNAKE — demo deterministic (${LCD_STEP_TICKS}-tick STEP cadence), exclusive-keyboard gate + persistent best hold`);
+console.log(`  phase E: LCD1 SIGNAL REPAIR — boot→ready, 1-cell movement + held auto-walk, exclusive keys, timer loss + scripted MISSION COMPLETE, persistent best`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);
