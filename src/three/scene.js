@@ -432,10 +432,19 @@ export function initScene(canvasElement) {
     const timer = new THREE.Timer();
     const MAX_DELTA = 0.05; // 50ms cap — slower frames get a bounded response
 
-    function animate() {
+    /** @param {number} [timestamp] */
+    function animate(timestamp) {
         // initScene assigns all three exports before starting the loop — the
         // guard satisfies checkJs narrowing for the module-level lets.
         if (!scene || !camera || !renderer) return;
+        // THREE.Timer only refreshes _delta/_elapsed in update() — WITHOUT
+        // this call every frame delivers delta = 0, freezing every
+        // delta-driven system (the LCD game's bootAccum never advances, so
+        // the display parks on the SIGNAL RUNNER title forever; particles,
+        // hover lerps, and the float all sit dead). The rAF timestamp is the
+        // same timebase as performance.now(), so passing it keeps the timer
+        // aligned to the frames it actually serves.
+        timer.update(timestamp);
         const delta = Math.min(timer.getDelta(), MAX_DELTA);
         const elapsed = timer.getElapsed();
 
@@ -449,7 +458,8 @@ export function initScene(canvasElement) {
         if (composer) composer.render();
         else renderer.render(scene, camera);
 
-        requestAnimationFrame(animate);
+        // The rAF timestamp feeds timer.update() (see the update call above).
+        requestAnimationFrame((ts) => animate(ts));
     }
     animate();
 }

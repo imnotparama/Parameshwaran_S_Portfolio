@@ -597,8 +597,23 @@ assert.strictEqual(hashToSectionId('#about'), 'sec-about', "'#about' (no slash) 
 //   • death + persistence — an unsteered run dies deterministically, sets
 //     the record (localStorage) + a leaderboard entry + FIRST RUN; an
 //     identical second run scores the same and does NOT re-fire the listener
+// Reduced-motion visitors still get the game: focusing the LCD is an EXPLICIT
+// user action, so the machine powers on and the run auto-starts even with
+// prefers-reduced-motion — only the ambient chrome (glow pulse, ghosting,
+// CRT flicker, blink) is silenced. Regression lock for the "the LCD only
+// shows the SIGNAL RUNNER title" bug (focusLcd used to park on a frozen
+// title when playerActive was still false).
+motionPrefs.reduced = true;
+focusLcd();
+for (let i = 0; i < Math.ceil(1.0 / DT) + 1; i++) updateLcdScreen(0, DT);
+assert.strictEqual(lcdStateSnapshot().state, 'count', 'reduced: focusing powers on even with prefers-reduced-motion');
+for (let i = 0; i < Math.ceil(0.75 / DT) + 1; i++) updateLcdScreen(0, DT);
+assert.strictEqual(lcdStateSnapshot().state, 'playing', 'reduced: the run auto-starts when focused (no frozen title)');
+exitLcd();
+updateLcdScreen(0, DT); // power-down snap: the glow returns to 0 under reduced motion
+assert.strictEqual(lcdStateSnapshot().glowOpacity, 0, 'reduced: powering down returns the glow to 0');
 motionPrefs.reduced = false; // the boot POST must auto-advance in this phase
-const LCD_BOOT_TICKS = Math.ceil(2.9 / DT) + 1; // cross the boot boundary (2.9s) into the countdown
+const LCD_BOOT_TICKS = Math.ceil(1.0 / DT) + 1; // cross the boot boundary (1.0s power-on) into the countdown
 
 // The display starts powered down.
 exitLcd(); // re-arm from earlier phases (mid-state safety)
@@ -646,11 +661,16 @@ assert.strictEqual(booted.score, 0, 'LCD: the countdown is scoreless');
 assert.strictEqual(booted.best, 0, 'LCD: best starts at 0 with no record');
 assert.strictEqual(booted.achvCount, 0, 'LCD: no achievements before a first run');
 assert.strictEqual(booted.boardLen, 0, 'LCD: an empty leaderboard before a first run');
-// The countdown auto-advances: 3s → playing, with dist still 0 (nothing
-// has scrolled yet) and the pulse grounded at the start line. Step to the
-// boundary plus the transition tick (the run starts the instant countAccum
-// crosses 3s — that tick itself is still pre-gameplay).
-for (let i = 0; i < Math.ceil(3.0 / DT) + 1; i++) updateLcdScreen(0, DT);
+// The countdown auto-advances: 0.75s (3-2-1 at 0.25s per digit) → playing,
+// with dist still 0 (nothing has scrolled yet) and the pulse grounded at
+// the start line. Step tick-by-tick and break the INSTANT the run starts —
+// the transition tick itself is still pre-gameplay, so dist must be exactly
+// 0 (a naive ceil+buffer loop can round the boundary and sneak one
+// gameplay tick in, drifting dist to 2).
+for (let i = 0; i < Math.ceil(0.75 / DT) + 4; i++) {
+    updateLcdScreen(0, DT);
+    if (lcdStateSnapshot().state === 'playing') break;
+}
 const autoStarted = lcdStateSnapshot();
 assert.strictEqual(autoStarted.state, 'playing', 'LCD: the countdown auto-starts the run (no input)');
 assert.strictEqual(autoStarted.dist, 0, 'LCD: the auto-start begins at distance 0');
@@ -756,7 +776,7 @@ assert.strictEqual(getBestScore(), 0, 'LCD: no record before the first death');
 const unsteeredRun = () => {
     focusLcd();
     for (let i = 0; i < LCD_BOOT_TICKS; i++) updateLcdScreen(0, DT);
-    for (let i = 0; i < Math.ceil(3.0 / DT) + 1; i++) updateLcdScreen(0, DT); // auto-start countdown
+    for (let i = 0; i < Math.ceil(0.75 / DT) + 1; i++) updateLcdScreen(0, DT); // auto-start countdown
     let guard = 0;
     let s = lcdStateSnapshot();
     while (!s.over && guard < 6000) {
@@ -801,7 +821,7 @@ assert.deepStrictEqual(bestEvents, [deathScore], 'LCD: an identical run must not
 const touchRun = () => {
     focusLcd();
     for (let i = 0; i < LCD_BOOT_TICKS; i++) updateLcdScreen(0, DT);
-    for (let i = 0; i < Math.ceil(3.0 / DT) + 1; i++) updateLcdScreen(0, DT); // auto-start countdown
+    for (let i = 0; i < Math.ceil(0.75 / DT) + 1; i++) updateLcdScreen(0, DT); // auto-start countdown
 };
 // Tap while running = the touch Up (jump).
 touchRun();

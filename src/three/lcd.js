@@ -106,9 +106,9 @@ const GLOW_AMP = 0.14;          // playing pulse amplitude (peak 0.32)
 const GLOW_STEADY = 0.22;       // reduced-motion playing value (no pulse)
 const GLOW_PAUSED = 0.08;       // dimmed steady value while paused
 const GLOW_FADE = 3.0;          // opacity fade rate toward the target (/s)
-const BOOT_SEC = 2.9;           // POST sequence duration
-const COUNT_SEC = 3.0;          // 3-2-1 auto-start countdown after boot (1s per digit)
-const COUNT_DIGIT = 1.0;        // seconds per countdown digit
+const BOOT_SEC = 1.0;           // POST sequence duration — a 1s power-on (a real module boots fast)
+const COUNT_SEC = 0.75;         // 3-2-1 auto-start countdown after boot (0.25s per digit)
+const COUNT_DIGIT = 0.25;       // seconds per countdown digit
 const IDLE_BLINK_MS = 15000;    // prompt starts blinking after 15s idle (reduced-motion ready screen)
 const BLINK_SEC = 0.8;          // blink period once armed
 
@@ -972,10 +972,10 @@ function drawBoot(c) {
     // column, then OK — every OK lands at the same x (a real POST table).
     /** @type {Array<[string, number, number]>} */
     const lines = [
-        ['MEM CHECK', 24, 0.5],
-        ['TRACE SCAN', 32, 1.0],
-        ['PULSE GEN', 40, 1.5],
-        ['CALIBRATE', 48, 2.0]
+        ['MEM CHECK', 24, 0.12],
+        ['TRACE SCAN', 32, 0.32],
+        ['PULSE GEN', 40, 0.52],
+        ['CALIBRATE', 48, 0.72]
     ];
     const DOT_COL = 16; // label + dots always fills to 16 chars before OK
     const BLOCK_W = textWidth('TRACE SCAN........OK');
@@ -983,7 +983,7 @@ function drawBoot(c) {
     for (const [label, y, start] of lines) {
         const done = bootAccum - start; // seconds into this line
         if (done <= 0) continue;
-        const p = Math.min(1, done / 0.45);
+        const p = Math.min(1, done / 0.18);
         const need = DOT_COL - label.length;
         const dots = Math.floor(p * need);
         let s = label;
@@ -1140,18 +1140,29 @@ function drawFrame(delta) {
     void delta;
 }
 
-/** The static frame drawn under reduced motion (no auto-play, no blink): a
- *  blank glass when powered off, the title screen when focused. */
+/** The static frame drawn under reduced motion when NOT actively focused
+ *  (no auto-play at rest, no blink): blank glass when powered off, the
+ *  result/pause screens drawn once so a reduced-motion player is never left
+ *  staring at nothing after a run ends. */
 function drawStaticFrame() {
     if (!gctx) return;
     const c = gctx;
     c.fillStyle = C_BG;
     c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    if (state === 'ready') {
+    if (state === 'over') {
+        drawTextCentered(c, 'SIGNAL LOST', 8, C_BRIGHT);
+        drawTextCentered(c, `DIST ${String(Math.floor(dist)).padStart(4, '0')} · SIG ${String(score).padStart(3, '0')}`, 18, C_DIM);
+        drawTextCentered(c, `E ${electrons} · COMBO x${maxCombo}`, 26, C_DIM);
+        if (newRecord) drawTextCentered(c, 'NEW RECORD', 34, C_BRIGHT);
+        else if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(3, '0')}`, 34, C_DIM);
+        drawTextCentered(c, 'ENTER TO RETRY', 44, C_BRIGHT);
+    } else if (state === 'paused') {
+        drawTextCentered(c, 'PAUSED', 10, C_BRIGHT);
+        drawTextCentered(c, `DIST ${String(Math.floor(dist)).padStart(4, '0')} · SIG ${String(score).padStart(3, '0')}`, 22, C_DIM);
+        drawTextCentered(c, 'P / TAP RESUME', 40, C_BRIGHT);
+    } else if (state === 'ready') {
         drawTextCentered(c, 'SIGNAL RUNNER', 20, C_BRIGHT);
         drawTextCentered(c, '2.4IN LCD1', 32, C_DIM);
-        // Reduced motion parks at the title — the auto-start countdown can't
-        // advance without interaction, so a key/tap launches the run instead.
         drawTextCentered(c, 'ENTER TO RUN', 44, C_BRIGHT);
         if (bestScore > 0) drawTextCentered(c, `BEST ${String(bestScore).padStart(3, '0')}`, 54, C_DIM);
     }
@@ -1222,12 +1233,15 @@ export function focusLcd(replayBoot = false) {
     // both land on the machine powering up — the #/lcd distinction was the
     // old SIGNAL REPAIR's; a real module boots when powered).
     if (typeof document !== 'undefined') document.body.classList.add('lcd-active');
-    if (motionPrefs.reduced) {
-        state = 'ready';
-    } else {
-        state = 'boot';
-        bootAccum = 0;
-    }
+    // Focus is an EXPLICIT user action, so the machine powers on and the run
+    // auto-starts even under prefers-reduced-motion — reduced motion only
+    // silences the ambient chrome (glow pulse, ghosting, CRT flicker, blink),
+    // never the game the user asked to play. (Parking here on a frozen title
+    // was the "only shows SIGNAL RUNNER" bug — a reduced-motion visitor saw
+    // the boot title forever.)
+    playerActive = true;
+    state = 'boot';
+    bootAccum = 0;
     idleAccum = 0;
     reducedStaticDrawn = false;
     dirty = true;
