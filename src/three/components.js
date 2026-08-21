@@ -24,10 +24,23 @@ export let cpuRadarRing;
 // Decorative motion — respect prefers-reduced-motion: keep the arc static
 // (motionPrefs from ../utils/motion-prefs.js — the single policy source).
 
-/** @param {number} elapsed */
-export function updateRadarRing(elapsed) {
+/** @param {number} elapsed
+ *  @param {{ celebrateFrac: number, dipFrac: number } | null} [fx] board FX
+ *  from the LCD game (getBoardFx) — the death power-dip stutters the sweep */
+export function updateRadarRing(elapsed, fx = null) {
     if (!cpuRadarRing) return;
     if (motionPrefs.reduced) return; // static arc for reduced-motion users
+    const dip = fx && fx.dipFrac > 0 ? fx.dipFrac : 0;
+    if (dip > 0) {
+        // Power dip after a SIGNAL RUNNER death: the sweep stutters — the arc
+        // jitters instead of rotating smoothly and fades toward the dim.
+        cpuRadarRing.rotation.z = elapsed * 0.8 + Math.sin(elapsed * 40) * 0.3 * dip;
+        const mat = cpuRadarRing.material;
+        if (mat instanceof THREE.MeshBasicMaterial) {
+            mat.opacity = 0.45 - 0.35 * dip;
+        }
+        return;
+    }
     cpuRadarRing.rotation.z = elapsed * 0.8; // full revolution ≈ 7.8s
     // The ring is created with MeshBasicMaterial above — keep in sync if that
     // ever changes (instanceof narrows Material | Material[]; the old property
@@ -62,20 +75,51 @@ const ledPulseDrivers = [];
  *  the tempo (ledFreq) and brightness (ledAmp) — the CPU core breathes fast
  *  and bright, the RF section stays calm and steady. Section id is optional:
  *  an unknown id falls back to the baseline tuning (original behavior).
+ *  Board FX from the LCD game (getBoardFx) override the ambient pulse: a
+ *  NEW RECORD celebration chases a bright front twice across the array, and
+ *  a death power-dip dims the whole array toward near-blackout before it
+ *  fades back. Reduced motion ignores the FX entirely (calm base only).
  *  @param {number} elapsed
- *  @param {string} [sectionId] */
-export function updateLedArray(elapsed, sectionId) {
+ *  @param {string} [sectionId]
+ *  @param {{ celebrateFrac: number, dipFrac: number } | null} [fx]
+ *  @param {number} [selfTest] idle self-test fraction 0..1 (0 = not running) */
+export function updateLedArray(elapsed, sectionId, fx = null, selfTest = 0) {
     const t = getSectionAmbient(sectionId);
-    for (const d of ledPulseDrivers) {
+    const celebrate = fx && fx.celebrateFrac > 0 ? fx.celebrateFrac : 0;
+    const dip = fx && fx.dipFrac > 0 ? fx.dipFrac : 0;
+    const n = ledPulseDrivers.length || 1;
+    for (let i = 0; i < ledPulseDrivers.length; i++) {
+        const d = ledPulseDrivers[i];
         if (motionPrefs.reduced) {
             d.mat.emissiveIntensity = LED_PULSE_BASE;
+            continue;
+        }
+        if (celebrate > 0) {
+            // The celebration sweeps the array twice (front travels 0→2n);
+            // the front LED is brightest, the one behind half-lit, the rest
+            // calm — a comet-tail chase. Peak 1.9 matches the arrival flash.
+            const front = ((1 - celebrate) * 2 * n) % n;
+            const pos = (front - i + n * 2) % n;
+            const tail = Math.max(0, 1 - pos * 0.5);
+            d.mat.emissiveIntensity = LED_PULSE_BASE + tail * 1.8;
+            continue;
+        }
+        if (selfTest > 0) {
+            // Idle self-test POST walk: diodes 0..front light UP one by one
+            // and HOLD — a shift-register progress check, deliberately
+            // distinct from the transient celebrate comet-tail. The front
+            // advances with the run's fraction; when the run ends selfTest
+            // drops to 0 and the array returns to the ambient pulse.
+            const front = Math.min(n - 1, Math.floor(selfTest * n));
+            d.mat.emissiveIntensity = i <= front ? LED_PULSE_BASE + 1.8 : LED_PULSE_BASE;
             continue;
         }
         // Sharpened sine (n²·²): a slow rise with a brief bright peak reads as
         // a status pulse, not a sinusoid. Per-LED freq/phase desync the array;
         // the section's ledFreq/ledAmp multipliers shift the whole array's feel.
-        const n = 0.5 + 0.5 * Math.sin(elapsed * d.freq * t.ledFreq * Math.PI * 2 + d.phase);
-        d.mat.emissiveIntensity = LED_PULSE_BASE + Math.pow(n, 2.2) * (LED_PULSE_AMP * t.ledAmp);
+        const m = 0.5 + 0.5 * Math.sin(elapsed * d.freq * t.ledFreq * Math.PI * 2 + d.phase);
+        const dim = dip > 0 ? Math.max(0.03, 1 - dip) : 1;
+        d.mat.emissiveIntensity = (LED_PULSE_BASE + Math.pow(m, 2.2) * (LED_PULSE_AMP * t.ledAmp)) * dim;
     }
 }
 

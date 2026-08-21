@@ -105,6 +105,37 @@ export function enableBloom() {
 /** @type {Array<(elapsed: number, delta: number) => void>} */
 export const tickCallbacks = [];
 
+/** @type {THREE.Timer | null} */
+let timer = null;
+// Delta clamp — after a background-tab return or a long frame hitch,
+// getDelta() can spike to seconds; unclamped that teleports delta-driven
+// motion (particles, lerps, hover response) instead of just skipping the
+// frame. Elapsed-driven oscillators (radar ring, LED flicker) intentionally
+// phase-skip on return — invisible for sines. Hoisted to module scope so
+// the exported stepFrame seam shares it with the render loop.
+const MAX_DELTA = 0.05; // 50ms cap — slower frames get a bounded response
+
+/** Step ONE animation frame's clock + tick work — the real-loop seam.
+ *  animate() delegates the whole clock→tick chain here, so the headless
+ *  suite can drive it through a fake-rAF cadence: timer.update(timestamp)
+ *  → getDelta() → clamp → tickCallbacks.forEach(elapsed, delta). A
+ *  regression that drops ANY link — e.g. the missing timer.update() that
+ *  froze the LCD on the SIGNAL RUNNER title — delivers zero deltas here,
+ *  and smoke phase R catches it before a user ever sees it.
+ *  @param {number} [timestamp]
+ *  @returns {number} the clamped delta (seconds) actually delivered */
+export function stepFrame(timestamp) {
+    // First call bootstraps the timer — initScene normally owns it, but the
+    // headless suite has no WebGL context, so stepFrame self-creates on
+    // first use. Production behavior is unchanged (initScene assigned first).
+    if (!timer) timer = new THREE.Timer();
+    const t = timer; // local so the closure below keeps the non-null narrowing
+    t.update(timestamp);
+    const delta = Math.min(t.getDelta(), MAX_DELTA);
+    tickCallbacks.forEach(callback => callback(t.getElapsed(), delta));
+    return delta;
+}
+
 // Track all disposable resources for cleanup
 export const disposableResources = {
     geometries: new Set(),
@@ -424,35 +455,24 @@ export function initScene(canvasElement) {
     // THREE.Timer replaces the deprecated THREE.Clock (r185+). This is a
     // real-time interactive scene, so a wall-clock-derived Timer is the
     // correct source of truth here (unlike deterministic HyperFrames renders).
-    // The delta is CLAMPED at the source: after a background-tab return or a
-    // long frame hitch, getDelta() can spike to seconds — unclamped, that
-    // teleports delta-driven motion (particles, lerps, hover response) instead
-    // of just skipping the frame. Elapsed-driven oscillators (radar ring,
-    // LED flicker) intentionally phase-skip on return — invisible for sines.
-    const timer = new THREE.Timer();
-    const MAX_DELTA = 0.05; // 50ms cap — slower frames get a bounded response
+    // The clock→tick chain itself lives in stepFrame (module scope) — the
+    // one seam the headless suite drives with a fake rAF — and this loop
+    // only adds the render pass + performance guardrail around it.
+    timer = new THREE.Timer();
 
     /** @param {number} [timestamp] */
     function animate(timestamp) {
         // initScene assigns all three exports before starting the loop — the
         // guard satisfies checkJs narrowing for the module-level lets.
         if (!scene || !camera || !renderer) return;
-        // THREE.Timer only refreshes _delta/_elapsed in update() — WITHOUT
-        // this call every frame delivers delta = 0, freezing every
-        // delta-driven system (the LCD game's bootAccum never advances, so
-        // the display parks on the SIGNAL RUNNER title forever; particles,
-        // hover lerps, and the float all sit dead). The rAF timestamp is the
-        // same timebase as performance.now(), so passing it keeps the timer
-        // aligned to the frames it actually serves.
-        timer.update(timestamp);
-        const delta = Math.min(timer.getDelta(), MAX_DELTA);
-        const elapsed = timer.getElapsed();
+        // Clock + tick: timer.update → clamped delta → registered callbacks.
+        // (THREE.Timer only refreshes _delta/_elapsed in update() — skipping
+        // it delivers delta 0 every frame and freezes every delta-driven
+        // system; smoke phase R locks the whole chain against that class.)
+        const delta = stepFrame(timestamp);
 
         // Performance check (every frame, delta is in seconds)
         checkPerformance(delta * 1000);
-
-        // Run registered callbacks
-        tickCallbacks.forEach(callback => callback(elapsed, delta));
 
         // Render pass — composer (bloom) when enabled, plain render otherwise
         if (composer) composer.render();

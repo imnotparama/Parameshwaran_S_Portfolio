@@ -5,12 +5,15 @@ import { createComponents, updateLedArray, SWITCH_POS } from './src/three/compon
 import { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses } from './src/three/traces.js';
 import { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips, projectChips } from './src/three/project-chips.js';
-import { createLcd, updateLcdScreen, isLcdActive, getBestScore, setBestListener } from './src/three/lcd.js';
+import { createLcd, updateLcdScreen, isLcdActive, getBestScore, setBestListener, getBoardFx } from './src/three/lcd.js';
 import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler, setLcdHandler } from './src/utils/hover.js';
 import { isSoundEnabled, toggleSound, switchClack, electricalHum, stopElectricalHum, powerUpBeep } from './src/utils/sound.js';
-import { noteInteraction, updateIdleDrift } from './src/three/idle.js';
+import { noteInteraction, updateIdleDrift, updateIdleSelfTest, selfTestPostLine } from './src/three/idle.js';
+// The HUD scope's value line — the board's live readout. Cached once so the
+// idle self-test's POST replay doesn't do a DOM lookup per frame.
+let scopeValEl = null;
 import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeTarget, isProbeModeActive, activateProbe, deactivateProbe } from './src/three/probe.js';
 import { initPower, togglePower } from './src/three/power.js';
 import { initCursor } from './src/ui/cursor.js';
@@ -335,13 +338,50 @@ document.addEventListener('DOMContentLoaded', () => {
         // Hidden telemetry readouts (no-op unless the palette revealed them)
         updateTelemetry(elapsed, delta);
 
-        // U1 CPU radar sweep (procedural, elapsed-driven)
-        updateRadarRing(elapsed);
+        // The LCD game's board-reactive FX (NEW RECORD chase, death power
+        // dip) — read once per frame and fed to the radar sweep and the
+        // D1-D7 array below. Zeroed inside lcd.js under reduced motion.
+        const boardFx = getBoardFx();
+
+        // U1 CPU radar sweep (procedural, elapsed-driven) — the LCD game's
+        // power dip stutters it after a SIGNAL RUNNER death.
+        updateRadarRing(elapsed, boardFx);
+
+        // Idle self-test — after ~60s of stillness the board runs a one-shot
+        // diagnostic: the D1-D7 walk below + a compressed POST log on the
+        // HUD scope readout. Cancelled instantly by any interaction (the
+        // same noteInteraction listeners); skipped under reduced motion. The
+        // LCD game's FX outrank it (celebrate/dip win inside the array).
+        const selfTest = updateIdleSelfTest(delta);
+
+        // POST replay: while the self-test runs, the scope shows the current
+        // POST line. On the run's FIRST active frame we capture the readout
+        // we're replacing (the board's resting measurement, e.g. the U1
+        // SCOPE_MAP readout — never a hardcoded string), and when the run
+        // ends or is cancelled we restore exactly that. A probe measurement
+        // can't race it: probing requires interaction, which cancels the
+        // self-test on the same event.
+        if (!scopeValEl) scopeValEl = document.getElementById('hud-scope-val');
+        if (scopeValEl) {
+            if (selfTest.active) {
+                if (!scopeValEl.dataset.selfTest) {
+                    scopeValEl.dataset.selfTestRestore = scopeValEl.textContent || '';
+                    scopeValEl.dataset.selfTest = '1';
+                }
+                scopeValEl.textContent = selfTestPostLine(selfTest.frac);
+            } else if (scopeValEl.dataset.selfTest) {
+                scopeValEl.textContent = scopeValEl.dataset.selfTestRestore || '';
+                delete scopeValEl.dataset.selfTest;
+                delete scopeValEl.dataset.selfTestRestore;
+            }
+        }
 
         // D1-D7 status LEDs — staggered seeded pulse at rest (idle-life
         // layer; the array breathes instead of sitting flat). The active
-        // section tunes tempo/brightness (ambient-tunings.js).
-        updateLedArray(elapsed, activeSectionId);
+        // section tunes tempo/brightness (ambient-tunings.js); the LCD game
+        // overrides with a NEW RECORD chase or a death power-dip; the idle
+        // self-test walks the array as a POST diagnostic.
+        updateLedArray(elapsed, activeSectionId, boardFx, selfTest.frac);
 
         // Update project chip LEDs (flicker breadboard LEDs)
         updateProjectChips(elapsed);

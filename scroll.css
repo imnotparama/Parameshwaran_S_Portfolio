@@ -1303,6 +1303,20 @@ body.full-journey .ds-panel.panel-active {
     color: var(--color-text-primary, #d7ffe6);
 }
 
+/* Hero claim signal words — the four proof points lifted into the board's
+   "live" green (--signal, the ONLY glow per the design doctrine) with a
+   hairline trace under the word: they read as marked live outputs on the
+   datasheet, not highlighted keywords. Static — no motion, safe under
+   reduced motion. Copy untouched (locked-content rule: markup only). */
+.hero-claim .sig-word {
+    color: var(--signal);
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-thickness: 1px;
+    text-decoration-color: rgba(62, 230, 160, 0.45);
+}
+
 .hero-panel .badge-row {
     justify-content: center;
     margin: 18px 0;

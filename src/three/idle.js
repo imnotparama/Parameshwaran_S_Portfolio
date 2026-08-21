@@ -18,6 +18,13 @@
 // input-gating concern, not scene state (same precedent as the
 // hybrid-touch suppression window in hover.js). All motion values
 // themselves are deterministic functions of elapsed time.
+//
+// Beyond the micro-drift, a LONGER stillness (60s) triggers the board's
+// one-shot SELF-TEST: the D1-D7 array walks a bright front through all
+// seven diodes while a compressed POST log plays on the HUD scope — the
+// machine diagnosing itself at rest. Any interaction cancels it instantly
+// and re-arms it (noteInteraction), so it fires once per idle period.
+// Skipped entirely under reduced motion, same posture as the drift.
 // ============================================================
 import { camera } from './scene.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
@@ -48,10 +55,69 @@ let lastInteractionAt = nowMs();
 let driftX = 0;
 let driftY = 0;
 
+// ─── Idle self-test state ────────────────────────────────────
+export const SELF_TEST_SEC = 2.2; // one sweep + POST run
+const SELF_TEST_DELAY_MS = 60000; // stillness before the one-shot fires
+const SELF_TEST_POST_LINES = ['> POST GEOMETRY', '> POST RAIL OK', '> SYS OPERATIONAL'];
+let selfTestT = -1;        // -1 = not running; else seconds into the run
+let selfTestFired = false; // one-shot per idle period (interaction re-arms)
+
 /** Mark an interaction (scroll, wheel, pointer, key, touch). Called from
- *  main.js's passive listeners. */
+ *  main.js's passive listeners. Cancels an in-flight self-test instantly
+ *  (the board stands down the moment the user touches it) and re-arms the
+ *  one-shot so it can fire again on the NEXT idle period. */
 export function noteInteraction() {
     lastInteractionAt = nowMs();
+    selfTestT = -1;
+    selfTestFired = false;
+}
+
+/** Test seam — put the idle clock past the self-test threshold so the
+ *  headless suite can drive the sweep without waiting 60s of wall-clock. */
+export function forceSelfTestIdle() {
+    lastInteractionAt = nowMs() - (SELF_TEST_DELAY_MS + 1000);
+}
+
+/** The compressed POST line shown at a sweep fraction (0..1) — pure, so the
+ *  suite can assert the progression without DOM.
+ *  @param {number} frac */
+export function selfTestPostLine(frac) {
+    const i = Math.min(SELF_TEST_POST_LINES.length - 1, Math.floor(frac * SELF_TEST_POST_LINES.length));
+    return SELF_TEST_POST_LINES[i];
+}
+
+/** Current self-test state — { active, frac } for the tick + suite. */
+export function getSelfTestState() {
+    return {
+        active: selfTestT >= 0,
+        frac: selfTestT >= 0 ? Math.min(1, selfTestT / SELF_TEST_SEC) : 0
+    };
+}
+
+/** Per-frame idle self-test driver. Advances the one-shot run while it's
+ *  active; starts it when the idle threshold is crossed (and it hasn't fired
+ *  this idle period); stands down under reduced motion. Returns the active
+ *  fraction for the LED sweep — the POST line comes from selfTestPostLine.
+ *  The START is wall-clock-gated (input gating); the run itself is a pure
+ *  accumulation of deltas, so the sweep is deterministic.
+ *  @param {number} [delta]
+ *  @returns {{ active: boolean, frac: number }} */
+export function updateIdleSelfTest(delta = 1 / 60) {
+    if (motionPrefs.reduced) {
+        selfTestT = -1;
+        selfTestFired = false;
+        return { active: false, frac: 0 };
+    }
+    if (selfTestT >= 0) {
+        selfTestT += delta;
+        if (selfTestT >= SELF_TEST_SEC) {
+            selfTestT = -1;
+            selfTestFired = true; // one-shot — an interaction re-arms it
+        }
+    } else if (!selfTestFired && nowMs() - lastInteractionAt >= SELF_TEST_DELAY_MS) {
+        selfTestT = 0;
+    }
+    return getSelfTestState();
 }
 
 /** Has the page been still long enough for the idle loop? */

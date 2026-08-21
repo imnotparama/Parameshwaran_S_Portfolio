@@ -279,6 +279,41 @@ export function runBootSequence(onCompleteCallback) {
         ease: 'back.out(1.7)'
     }, SCHEDULE.badges);
 
+    // Stat badge count-up (counting-dynamic-scale): the four hero readouts
+    // count from 0 to their final value on the pop beat, and each badge
+    // swells with its value (peak ~2-3% mid-count) before settling to rest
+    // — the "instrument just reported" beat. One proxy tween per badge at
+    // the SAME absolute position as the pop (matching its 0.1 stagger), so
+    // the count is a pure function of timeline time: no timers, no random,
+    // seek-safe both directions. Values ending in a suffix ("9.48/10")
+    // keep it through the count; non-numeric values are left untouched.
+    const BADGE_COUNT_SEC = 0.9;
+    Array.from(badges).forEach((badge, i) => {
+        const valEl = badge.querySelector('.badge-val');
+        if (!valEl) return;
+        const match = /^(\d+(?:\.\d+)?)(.*)$/.exec(valEl.textContent || '');
+        if (!match) return;
+        const target = parseFloat(match[1]);
+        if (!(target > 0)) return;
+        const suffix = match[2];
+        const decimals = (match[1].split('.')[1] || '').length;
+        const proxy = { n: 0 };
+        const at = SCHEDULE.badges + i * 0.1; // same stagger as the pop
+        tl.to(proxy, {
+            n: target,
+            duration: BADGE_COUNT_SEC,
+            ease: 'power2.out',
+            onUpdate: () => {
+                if (valEl) valEl.textContent = proxy.n.toFixed(decimals) + suffix;
+                // Swell with the value, settle to exactly 1: the (1-linear)
+                // term pulls the scale back to rest by the end, so the
+                // badge's settled transform never drifts from CSS.
+                const linear = Math.min(1, Math.max(0, (tl.time() - at) / BADGE_COUNT_SEC));
+                gsap.set(badge, { scale: 1 + 0.06 * (proxy.n / target) * (1 - linear) });
+            }
+        }, at);
+    });
+
     // Step 4: PCB board fades in from below, floats up to position
     tl.to(canvasContainer, {
         opacity: 1,

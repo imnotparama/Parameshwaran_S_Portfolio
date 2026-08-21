@@ -35,6 +35,9 @@
 //     cursor across a sweep of camera poses — this asserts the canvas-rect
 //     pointer→NDC conversion AND the raycast pipeline together (the pre-fix
 //     window-relative conversion would aim ~21%-of-window left and fail)
+//   - the LCD SIM BOUNDARY: lcd-sim.js (the zero-THREE/DOM simulation)
+//     imports BEFORE the shim is installed — any THREE/DOM dependency that
+//     sneaks into the pure module fails the suite at import time
 //
 // No DOM, no WebGL, no dependencies: a minimal window/document shim is
 // installed BEFORE the modules import (the modules guard all their real
@@ -47,6 +50,17 @@
 // ============================================================
 import assert from 'node:assert';
 import gsap from 'gsap';
+
+// ── 0. Pure sim import (NO shim) ────────────────────────────────
+// lcd-sim.js is the zero-THREE/DOM SIGNAL RUNNER simulation. It must load
+// in a bare Node context — BEFORE the window/document shim below — with no
+// three.js, no DOM, no matchMedia. (lcd.js re-imports the SAME module
+// instance after the shim; the ES module cache dedupes, so the whole suite
+// drives one sim.) The standalone init proves the extraction boundary: any
+// future THREE/DOM dependency sneaking into the sim fails here, at import.
+const lcdSim = await import('../src/three/lcd-sim.js');
+assert.strictEqual(lcdSim.simView().state, 'off', 'lcd-sim: the pure sim initializes powered down with no shim');
+assert.strictEqual(typeof lcdSim.stepRunner, 'function', 'lcd-sim: stepRunner is the sim step seam');
 
 // ── 1. Minimal DOM shim (must precede every app import) ────────
 const classSet = new Set(['full-journey']);
@@ -110,14 +124,18 @@ globalThis.matchMedia = globalThis.window.matchMedia;
 
 // ── 2. Import the real modules (same instances the app uses) ──
 const THREE = await import('three');
-const { tickCallbacks } = await import('../src/three/scene.js');
+const { tickCallbacks, stepFrame } = await import('../src/three/scene.js');
 const board = await import('../src/three/board.js');
 const { createComponents, updateRadarRing, updateLedArray, interactiveObjects } = await import('../src/three/components.js');
+// The namespace (not the destructure) for values createComponents ASSIGNS
+// later — a destructured binding snapshots the pre-create `undefined` (same
+// pattern as `board.boardGroup` above).
+const componentsNs = await import('../src/three/components.js');
 const { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses } = await import('../src/three/traces.js');
 const idle = await import('../src/three/idle.js');
 const { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } = await import('../src/three/particles.js');
 const { createProjectChips, updateProjectChips } = await import('../src/three/project-chips.js');
-const { createLcd, updateLcdScreen, focusLcd, exitLcd, isLcdActive, lcdStateSnapshot, getBestScore, setBestListener, LCD_LOCAL_POS } = await import('../src/three/lcd.js');
+const { createLcd, updateLcdScreen, focusLcd, exitLcd, isLcdActive, lcdStateSnapshot, getBestScore, setBestListener, resetRunCounter, LCD_LOCAL_POS } = await import('../src/three/lcd.js');
 const { mouse, initHover, checkHover, clearHover } = await import('../src/utils/hover.js');
 const { motionPrefs } = await import('../src/utils/motion-prefs.js');
 // journey.js's getCameraConfigForStop exports the per-viewport hero pose —
@@ -135,6 +153,40 @@ const { SECTION_HASHES, hashToSectionId } = await import('../src/utils/hash-nav.
 // NOTE: `board.boardGroup` is read via the module namespace GETTER after
 // createBoard runs — destructuring would snapshot the pre-create `undefined`.
 assert.ok(board.boardGroup === undefined, 'boardGroup must start unset before createBoard');
+
+// ── 0. Phase R — real-loop clock (the dead-clock regression lock) ──
+// The LCD-frozen bug was a frame loop that never advanced: animate() read
+// timer.getDelta() without ever calling timer.update(), so EVERY frame
+// delivered delta = 0 and bootAccum += 0 forever. The suite drives tick
+// callbacks with explicit deltas, so it could never see a zero-delta loop.
+// This phase drives the REAL chain — stepFrame(timestamp) is exactly what
+// animate() calls each frame (timer.update → getDelta → clamp →
+// tickCallbacks.forEach(elapsed, delta)) — through a fake-rAF cadence with
+// synthetic timestamps in the performance.now() timebase. Runs before the
+// board build so a dead clock fails the suite fast.
+{
+    const delivered = [];
+    tickCallbacks.push((elapsed, delta) => delivered.push({ elapsed, delta }));
+    const t0 = performance.now();
+    // Fake rAF driver: two steady 60fps frames, a duplicate-timestamp
+    // re-fire, a 1s hitch (background-tab return), then a normal step.
+    const frameTs = [t0, t0 + 16.7, t0 + 33.4, t0 + 33.4, t0 + 1033.4, t0 + 1050.1];
+    for (const ts of frameTs) stepFrame(ts);
+    tickCallbacks.pop();
+    assert.strictEqual(delivered.length, frameTs.length, 'real-loop: every frame delivers an (elapsed, delta) pair to the callbacks');
+    // Steady frames deliver exactly 16.7ms — the clock genuinely advances.
+    assert.ok(Math.abs(delivered[1].delta - 0.0167) < 1e-9, `real-loop: a steady frame delivers 16.7ms (got ${delivered[1].delta})`);
+    assert.ok(Math.abs(delivered[2].delta - 0.0167) < 1e-9, `real-loop: the second steady frame advances too (got ${delivered[2].delta})`);
+    // A duplicate timestamp (same-frame re-fire) delivers delta 0 — but the
+    // callbacks still RUN (the loop is alive, the frame is just static).
+    assert.strictEqual(delivered[3].delta, 0, 'real-loop: a duplicate-timestamp frame delivers delta 0 (callbacks still fire)');
+    // The 1s hitch is clamped at the source — never a teleport.
+    assert.strictEqual(delivered[4].delta, 0.05, 'real-loop: a 1s hitch is clamped to the 50ms cap (MAX_DELTA)');
+    // And the frame after the hitch is back to a normal step.
+    assert.ok(Math.abs(delivered[5].delta - 0.0167) < 1e-9, 'real-loop: the post-hitch frame delivers a normal 16.7ms step');
+    // Elapsed is the accumulation of delivered deltas, not wall-clock.
+    assert.ok(delivered[2].elapsed > delivered[0].elapsed, 'real-loop: elapsed accumulates across frames');
+}
 
 // ── 3. Build the board ─────────────────────────────────────────
 const sc = new THREE.Scene();
@@ -786,7 +838,12 @@ const unsteeredRun = () => {
     }
     return s;
 };
+// Pin the run counter so the first death plays seed 1234567 (the layout the
+// assertions below are written against — earlier phase-E runs already
+// consumed runs 0+ via the auto-start/physics/pause blocks).
+resetRunCounter();
 const death1 = unsteeredRun();
+assert.strictEqual(death1.seed, 1234567, 'LCD: the first death plays the pinned seed 1234567');
 assert.ok(death1.over, 'LCD: an unsteered run eventually dies at an obstacle');
 assert.ok(death1.score > 0, `LCD: the run scored from distance before dying (${death1.score})`);
 assert.strictEqual(death1.best, death1.score, 'LCD: the death sets best equal to its score');
@@ -795,6 +852,23 @@ assert.strictEqual(death1.achvCount, 1, 'LCD: a finished run unlocks FIRST RUN')
 assert.strictEqual(death1.boardLen, 1, 'LCD: a finished run writes a leaderboard entry');
 assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(death1.score), 'LCD: the new best is persisted to localStorage');
 assert.deepStrictEqual(bestEvents, [death1.score], 'LCD: the best listener fires once with the new record');
+// Seed stamping: the record is layout-relative — it carries the seed it was
+// set on, persisted alongside the score, and every leaderboard entry is
+// stamped with the layout it was run on.
+const bestSeedKey = 'parama-signal-runner-best-seed';
+assert.strictEqual(death1.bestSeed, death1.seed, 'LCD: the record carries the seed it was set on');
+assert.strictEqual(globalThis.window.localStorage.getItem(bestSeedKey), String(death1.seed), 'LCD: the record seed is persisted to localStorage');
+const boardAfter1 = JSON.parse(globalThis.window.localStorage.getItem('parama-signal-runner-board') || '[]');
+assert.strictEqual(boardAfter1[0].seed, death1.seed, 'LCD: the leaderboard entry is stamped with the run seed');
+// Board-reactive FX — the LCD tells the board what happened: the record run
+// fires a NEW RECORD celebration (D1-D7 chase) and the death fires a board
+// power dip. Both are transient timers that decay deterministically.
+assert.ok(death1.fx.celebrate > 0, 'LCD: a record run fires the NEW RECORD celebration');
+assert.ok(death1.fx.dip > 0, 'LCD: a death fires the board power dip');
+for (let i = 0; i < Math.ceil(2.5 / DT) + 2; i++) updateLcdScreen(0, DT); // FX_CELEBRATE_SEC
+const fxDecayed = lcdStateSnapshot();
+assert.strictEqual(fxDecayed.fx.celebrate, 0, 'LCD: the celebration decays to 0');
+assert.strictEqual(fxDecayed.fx.dip, 0, 'LCD: the power dip decays to 0');
 const deathDist = death1.dist;
 const deathScore = death1.score;
 const deathObstacle = death1.obstacles[0] && death1.obstacles[0].type;
@@ -805,7 +879,9 @@ assert.ok(deathObstacle, 'LCD: the death was caused by an obstacle');
 // listener does not re-fire, the record holds, and the leaderboard grows.
 fakeKey('Escape'); // power off between runs
 assert.strictEqual(lcdStateSnapshot().state, 'off', 'LCD: powered down between runs');
+resetRunCounter(); // pin seed 1234567 again — an IDENTICAL run must play the same layout
 const death2 = unsteeredRun();
+assert.strictEqual(death2.seed, 1234567, 'LCD: the identical run plays the pinned seed');
 assert.ok(death2.over, 'LCD: the second run also dies');
 assert.strictEqual(death2.dist, deathDist, `LCD: the same trace dies at the same distance (${deathDist})`);
 assert.strictEqual(death2.score, deathScore, 'LCD: the same trace scores the same');
@@ -814,6 +890,33 @@ assert.strictEqual(death2.newRecord, false, 'LCD: an identical run is not a new 
 assert.strictEqual(death2.boardLen, 2, 'LCD: the second death writes another leaderboard entry');
 assert.strictEqual(globalThis.window.localStorage.getItem(bestKey), String(deathScore), 'LCD: storage unchanged by the identical run');
 assert.deepStrictEqual(bestEvents, [deathScore], 'LCD: an identical run must not re-fire the listener');
+// Seed stamping on the identical (pinned-seed) run: the record seed holds,
+// and both leaderboard entries carry the same pinned seed.
+assert.strictEqual(death2.bestSeed, death1.seed, 'LCD: an identical run keeps the record seed');
+const boardAfter2 = JSON.parse(globalThis.window.localStorage.getItem('parama-signal-runner-board') || '[]');
+assert.strictEqual(boardAfter2[0].seed, death1.seed, 'LCD: the top entry keeps the record run seed');
+assert.strictEqual(boardAfter2[1].seed, death1.seed, 'LCD: the second entry carries the same pinned seed');
+assert.strictEqual(death2.fx.celebrate, 0, 'LCD: an identical run does NOT re-fire the celebration (only records celebrate)');
+assert.ok(death2.fx.dip > 0, 'LCD: the second death fires the power dip too');
+
+// Per-run seed variety + bounded difficulty envelope: without a reset, every
+// run advances the seed (BASE_SEED + runCount) — layouts DIFFER, so deaths
+// land at different distances — yet the spawn cadence/speed/mix are FIXED
+// constants, so unsteered runs stay inside a bounded band, keeping SIG
+// comparable across layouts.
+const envelopeDists = [{ seed: death1.seed, dist: deathDist }];
+for (let k = 0; k < 3; k++) {
+    const s = unsteeredRun();
+    envelopeDists.push({ seed: s.seed, dist: s.dist });
+    fakeKey('Escape');
+}
+const dists = envelopeDists.map((e) => e.dist);
+assert.ok(
+    dists.every((d) => d >= 100 && d <= 3000),
+    `LCD: unsteered death stays in the difficulty envelope across seeds (${dists.join(', ')})`
+);
+assert.ok(new Set(envelopeDists.map((e) => e.seed)).size === envelopeDists.length, `LCD: each run advances to a distinct seed (${envelopeDists.map((e) => e.seed).join(', ')})`);
+assert.ok(new Set(dists).size >= 2, `LCD: different seeds produce different layouts (${dists.join(', ')})`);
 
 // Touch — the same exclusive contract: tap starts, tap jumps while running,
 // a swipe down slides, a second finger pauses; the scroll lock holds while
@@ -862,6 +965,7 @@ assert.ok(!isLcdActive(), 'LCD: clean exit after the touch run');
 exitLcd();
 assert.strictEqual(lcdStateSnapshot().state, 'off', 'LCD: exitLcd powers the display off');
 assert.strictEqual(lcdStateSnapshot().best, deathScore, 'LCD: the record survives a re-arm');
+assert.strictEqual(lcdStateSnapshot().bestSeed, death1.seed, 'LCD: the record seed survives a re-arm');
 fakeKey('Escape');
 focusLcd(true);
 assert.strictEqual(lcdStateSnapshot().state, 'boot', 'LCD: a deep-link focus replays the boot POST');
@@ -870,6 +974,33 @@ assert.strictEqual(lcdStateSnapshot().state, 'count', 'LCD: the replayed boot la
 fakeKey('Escape');
 assert.ok(!isLcdActive(), 'LCD: clean exit after the deep-link replay test');
 assert.strictEqual(lcdStateSnapshot().state, 'off', 'LCD: powered down after the replay test');
+
+// Every 1000px the trace reaches a CPU checkpoint — a status flash fires on
+// the glass (fx.milestone > 0, milestonePx on a 1000 boundary). The pinned
+// layout (seed 1234567) makes a SCRIPTED policy deterministic: jump whenever
+// a ground obstacle is 20-45px ahead — found by sweeping the policy against
+// the real sim, so it is a test constant, not luck. It survives past the
+// first two checkpoints (crossing 1000 then 2000 proves the cadence).
+resetRunCounter(); // pin seed 1234567 for the policy run
+focusLcd();
+for (let i = 0; i < LCD_BOOT_TICKS; i++) updateLcdScreen(0, DT);
+for (let i = 0; i < Math.ceil(0.75 / DT) + 1; i++) updateLcdScreen(0, DT); // auto-start countdown
+let s = lcdStateSnapshot();
+let guard = 0;
+while (s.fx.milestonePx < 2000 && !s.over && guard < 15000) {
+    const px = s.player.x;
+    if (s.player.onGround && s.obstacles.some((o) => o.x >= px + 20 && o.x <= px + 45)) {
+        fakeKey('ArrowUp');
+    }
+    updateLcdScreen(0, DT);
+    s = lcdStateSnapshot();
+    guard++;
+}
+assert.strictEqual(s.over, false, 'LCD: the scripted policy survives past the CPU checkpoints');
+assert.strictEqual(s.fx.milestonePx, 2000, 'LCD: CPU checkpoints flash every 1000px (crossed 1000 then 2000)');
+assert.ok(s.fx.milestone > 0, 'LCD: the CPU status flash is active at the checkpoint');
+fakeKey('Escape');
+assert.strictEqual(lcdStateSnapshot().state, 'off', 'LCD: powered down after the milestone run');
 
 // ── 6. Phase C — the raycast layer (hover alignment) ─────────
 // A real PerspectiveCamera plus the app's own initHover/checkHover, driven
@@ -1009,6 +1140,26 @@ assert.ok(
 // And the whole graph still finite:
 const reducedProblems = audit();
 assert.ok(reducedProblems.length === 0, `reduced-motion run produced audit violations:\n  - ${reducedProblems.slice(0, 8).join('\n  - ')}`);
+// Board FX are motion too: even if the LCD reports a celebration or a dip,
+// the array and the radar ignore it under reduced motion (calm base 0.1 /
+// static arc) — the record still persists, only the motion is cut.
+motionPrefs.reduced = true;
+const rotBefore = componentsNs.cpuRadarRing.rotation.z;
+updateRadarRing(1.5, { celebrateFrac: 0.9, dipFrac: 0.5 });
+assert.strictEqual(componentsNs.cpuRadarRing.rotation.z, rotBefore, 'reduced: the radar ignores the dip FX');
+updateLedArray(1.5, 'sec-about', { celebrateFrac: 0.9, dipFrac: 0.5 });
+for (const m of ledDomeMats) {
+    assert.ok(Math.abs(m.emissiveIntensity - 0.1) < EPS, 'reduced: LEDs hold the calm base during FX');
+}
+motionPrefs.reduced = false;
+// And in NORMAL motion the FX are real: the chase lights the array past its
+// pulse peak (1.9 ≈ the arrival flash) and a deep dip drives it below the
+// calm base (a power dip, not a flicker).
+updateLedArray(1.5, 'sec-about', { celebrateFrac: 0.5, dipFrac: 0 });
+const chaseMax = Math.max(...ledDomeMats.map((m) => m.emissiveIntensity));
+assert.ok(chaseMax > 1.0, `LCD: the NEW RECORD chase lights an LED past the pulse peak (${chaseMax.toFixed(2)})`);
+updateLedArray(1.5, 'sec-about', { celebrateFrac: 0, dipFrac: 0.9 });
+for (const m of ledDomeMats) assert.ok(m.emissiveIntensity < 0.1, 'LCD: a deep power dip drives the array below its calm base');
 
 // ── 8. Phase D — idle-drift layer (bounds + determinism) ─────
 // The camera micro-drift offset must be a pure deterministic function of
@@ -1025,17 +1176,62 @@ assert.strictEqual(driftA.y, driftB.y, 'drift must be deterministic');
 idle.noteInteraction();
 assert.ok(!idle.isIdle(), 'isIdle() must be false right after an interaction');
 
+// Idle SELF-TEST — after a LONG stillness (60s) the board runs a one-shot
+// diagnostic: the D1-D7 POST walk + a compressed POST log on the scope. The
+// start is wall-clock-gated (not waitable), so the suite uses the
+// forceSelfTestIdle seam to cross the threshold, then drives the run with
+// real deltas and asserts the pure math: fire-once, advance, complete,
+// cancel-on-interaction, reduced-motion gate, and the LED walk lighting
+// past the calm base.
+assert.strictEqual(idle.updateIdleSelfTest(DT).active, false, 'self-test: not running before the idle threshold');
+assert.strictEqual(idle.selfTestPostLine(0), '> POST GEOMETRY', 'self-test: POST line 1 is the geometry check');
+assert.strictEqual(idle.selfTestPostLine(0.5), '> POST RAIL OK', 'self-test: POST line 2 is the rail check');
+assert.strictEqual(idle.selfTestPostLine(0.99), '> SYS OPERATIONAL', 'self-test: POST line 3 is the operational line');
+idle.forceSelfTestIdle();
+const stStart = idle.updateIdleSelfTest(DT);
+assert.strictEqual(stStart.active, true, 'self-test: fires once the idle threshold is crossed');
+assert.strictEqual(stStart.frac, 0, 'self-test: the run starts at the beginning of the sweep (frac 0 — no snap-in)');
+// The sweep advances with real deltas — a few ticks in, the fraction grew.
+let adv = stStart;
+for (let i = 0; i < 10; i++) adv = idle.updateIdleSelfTest(DT);
+assert.ok(adv.frac > 0 && adv.frac < 0.2, `self-test: the sweep advances with deltas (${adv.frac.toFixed(3)})`);
+// LED POST walk: with the run active, the walked diodes light past the calm
+// base (a shift-register progress check, distinct from the celebrate chase).
+updateLedArray(1.5, 'sec-about', null, 0.5);
+const walkMax = Math.max(...ledDomeMats.map((m) => m.emissiveIntensity));
+assert.ok(walkMax > 1.0, `self-test: the POST walk lights a diode past the calm base (${walkMax.toFixed(2)})`);
+// Reduced motion: the self-test never fires (stand-down + no start).
+motionPrefs.reduced = true;
+idle.forceSelfTestIdle();
+assert.strictEqual(idle.updateIdleSelfTest(DT).active, false, 'self-test: gated off under reduced motion');
+motionPrefs.reduced = false;
+// One-shot: driving through the whole run completes it, and it does NOT
+// re-fire while still idle — an interaction re-arms it for the next period.
+idle.forceSelfTestIdle();
+let st = idle.updateIdleSelfTest(DT);
+let selfTestGuard = 0;
+while (st.active && selfTestGuard < 10000) { st = idle.updateIdleSelfTest(DT); selfTestGuard++; }
+assert.ok(!st.active, 'self-test: the run completes and stands down');
+assert.strictEqual(idle.updateIdleSelfTest(DT).active, false, 'self-test: one-shot — no re-fire while still idle');
+idle.noteInteraction(); // re-arm
+idle.forceSelfTestIdle();
+assert.strictEqual(idle.updateIdleSelfTest(DT).active, true, 'self-test: an interaction re-arms the one-shot');
+idle.noteInteraction(); // cancel mid-run
+assert.strictEqual(idle.updateIdleSelfTest(DT).active, false, 'self-test: an interaction cancels the run instantly');
+
 // ── 9. Report ─────────────────────────────────────────────────
 console.log('── tick smoke test: PASS ────────────────────────────');
 console.log(`  graph: ${allMeshes.length} meshes, ${allMaterials.size} materials`);
 console.log(`  ripple segments: ${rippleMats.length} | sweep: 2 | dust: ${dustMeshes.length} | pulses: ${pulseMeshes.length} | LEDs: ${ledDomeMats.length}`);
+console.log(`  phase R: real-loop clock — stepFrame drives timer.update → getDelta → clamp → tickCallbacks as ONE chain (the dead-clock lock): 16.7ms steady frames, duplicate-ts frame still fires, 1s hitch clamped to the 50ms cap, elapsed accumulates`);
 console.log(`  phase A: ${NORMAL_FRAMES} frames normal motion — float/ripple/sweep/dust/LED/pulse in bounds, zero NaN`);
 console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
 console.log(`  phase B: reduced-motion run — float planted, ${allMaterials.size} materials frozen, sweep + dust + pulses hidden, LCD game holds still`);
 console.log(`  phase F: per-section ambient signatures — ${SECTION_IDS.length} neighborhoods (hero/about/projects/skills/experience/contact), each swept 5s through LED/ripple/pulse/dust/fleck/dot with bounds held`);
-console.log(`  phase E: LCD1 SIGNAL RUNNER — power cycle (off→boot→3-2-1 countdown→auto-start→off), SPD/FPS HUD telemetry, auto-run + distance scoring, jump/double-jump/slide/dash physics, exclusive keys + ~ debug, pause (frozen world, dimmed glow), touch (tap-jump / swipe-slide / two-finger-pause / scroll-lock), deterministic unsteered death → record + leaderboard + FIRST RUN, identical re-run holds the record, #/lcd boot replay`);
+console.log(`  phase E: LCD1 SIGNAL RUNNER — power cycle (off→boot→3-2-1 countdown→auto-start→off), SPD/FPS HUD telemetry, auto-run + distance scoring, jump/double-jump/slide/dash physics, exclusive keys + ~ debug, pause (frozen world, dimmed glow), touch (tap-jump / swipe-slide / two-finger-pause / scroll-lock), deterministic unsteered death → record + leaderboard + FIRST RUN, identical re-run (pinned seed) holds the record, per-run seed variety (different layouts) within a bounded difficulty envelope, board FX (record chase / death dip fire + decay, no chase on identical runs, CPU checkpoint at 1000px), #/lcd boot replay`);
 console.log(`  hash deep links: #/about #/projects #/skills #/experience #/contact resolve to their sections (round-trip), bare root → hero, #/lcd + unknown → null, case/slash-insensitive`);
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
+console.log(`  idle self-test: 60s-stillness one-shot POST — fires at the threshold, sweep advances with deltas, LED walk lights past the calm base, completes and does NOT re-fire (one-shot), an interaction cancels instantly + re-arms, reduced-motion never starts it, POST line progression GEOMETRY → RAIL → OPERATIONAL`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);
