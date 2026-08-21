@@ -82,8 +82,9 @@ const ledPulseDrivers = [];
  *  @param {number} elapsed
  *  @param {string} [sectionId]
  *  @param {{ celebrateFrac: number, dipFrac: number } | null} [fx]
- *  @param {number} [selfTest] idle self-test fraction 0..1 (0 = not running) */
-export function updateLedArray(elapsed, sectionId, fx = null, selfTest = 0) {
+ *  @param {number} [selfTest] idle self-test fraction 0..1 (0 = not running)
+ *  @param {number} [heartbeat] idle heartbeat flash fraction 0..1 (0 = off) */
+export function updateLedArray(elapsed, sectionId, fx = null, selfTest = 0, heartbeat = 0) {
     const t = getSectionAmbient(sectionId);
     const celebrate = fx && fx.celebrateFrac > 0 ? fx.celebrateFrac : 0;
     const dip = fx && fx.dipFrac > 0 ? fx.dipFrac : 0;
@@ -112,6 +113,13 @@ export function updateLedArray(elapsed, sectionId, fx = null, selfTest = 0) {
             // drops to 0 and the array returns to the ambient pulse.
             const front = Math.min(n - 1, Math.floor(selfTest * n));
             d.mat.emissiveIntensity = i <= front ? LED_PULSE_BASE + 1.8 : LED_PULSE_BASE;
+            continue;
+        }
+        if (heartbeat > 0) {
+            // Idle heartbeat: ALL diodes flash bright simultaneously — a
+            // brief "I'm still monitoring" pulse, deliberately distinct from
+            // the self-test's sequential walk and the celebrate's chase.
+            d.mat.emissiveIntensity = LED_PULSE_BASE + heartbeat * 1.4;
             continue;
         }
         // Sharpened sine (n²·²): a slow rise with a brief bright peak reads as

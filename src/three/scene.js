@@ -102,8 +102,7 @@ export function enableBloom() {
     }
 }
 
-/** @type {Array<(elapsed: number, delta: number) => void>} */
-export const tickCallbacks = [];
+import { tickPrioritized } from './tick-scheduler.js';
 
 /** @type {THREE.Timer | null} */
 let timer = null;
@@ -115,13 +114,19 @@ let timer = null;
 // the exported stepFrame seam shares it with the render loop.
 const MAX_DELTA = 0.05; // 50ms cap — slower frames get a bounded response
 
+// Per-frame JS budget — half of the 16.6ms rAF interval. The GPU quality
+// ladder (QUALITY_LEVELS) steps down at ~22ms (45 fps); this gates the JS
+// tick cost earlier, at 8ms, so the critical path always lands inside the
+// frame and STANDARD/DEFERRED can be shed before the GPU feels the pinch.
+const FRAME_BUDGET_MS = 8;
+
 /** Step ONE animation frame's clock + tick work — the real-loop seam.
  *  animate() delegates the whole clock→tick chain here, so the headless
  *  suite can drive it through a fake-rAF cadence: timer.update(timestamp)
- *  → getDelta() → clamp → tickCallbacks.forEach(elapsed, delta). A
- *  regression that drops ANY link — e.g. the missing timer.update() that
- *  froze the LCD on the SIGNAL RUNNER title — delivers zero deltas here,
- *  and smoke phase R catches it before a user ever sees it.
+ *  → getDelta() → clamp → tickPrioritized(elapsed, delta, budget).
+ *  A regression that drops ANY link — e.g. the missing timer.update()
+ *  that froze the LCD on the SIGNAL RUNNER title — delivers zero deltas
+ *  here, and smoke phase R catches it before a user ever sees it.
  *  @param {number} [timestamp]
  *  @returns {number} the clamped delta (seconds) actually delivered */
 export function stepFrame(timestamp) {
@@ -132,7 +137,9 @@ export function stepFrame(timestamp) {
     const t = timer; // local so the closure below keeps the non-null narrowing
     t.update(timestamp);
     const delta = Math.min(t.getDelta(), MAX_DELTA);
-    tickCallbacks.forEach(callback => callback(t.getElapsed(), delta));
+    // Priority-gated tick: CRITICAL runs every frame; STANDARD and DEFERRED
+    // are shed when the critical pass eats too much of the budget.
+    tickPrioritized(t.getElapsed(), delta, FRAME_BUDGET_MS);
     return delta;
 }
 
@@ -465,10 +472,12 @@ export function initScene(canvasElement) {
         // initScene assigns all three exports before starting the loop — the
         // guard satisfies checkJs narrowing for the module-level lets.
         if (!scene || !camera || !renderer) return;
-        // Clock + tick: timer.update → clamped delta → registered callbacks.
-        // (THREE.Timer only refreshes _delta/_elapsed in update() — skipping
-        // it delivers delta 0 every frame and freezes every delta-driven
-        // system; smoke phase R locks the whole chain against that class.)
+        // Clock + tick: timer.update → clamped delta → priority-gated callbacks.
+        // CRITICAL runs every frame; STANDARD/DEFERRED shed when the critical
+        // pass eats too much of the budget. (THREE.Timer only refreshes
+        // _delta/_elapsed in update() — skipping it delivers delta 0 every
+        // frame and freezes every delta-driven system; smoke phase R locks
+        // the whole chain against that class.)
         const delta = stepFrame(timestamp);
 
         // Performance check (every frame, delta is in seconds)

@@ -393,8 +393,10 @@ function drawField(c) {
 function drawBoot(c) {
     drawTextCentered(c, 'SIGNAL RUNNER', 8, C_BRIGHT);
     drawTextCentered(c, 'FW 2.0.0', 16, C_DIM);
-    // POST lines: the label wipes in, then the dot run fills to a fixed
-    // column, then OK — every OK lands at the same x (a real POST table).
+    // POST lines: the label TYPES OUT character by character (~80 chars/s),
+    // then dots fill to a fixed column, then OK — every OK lands at the
+    // same x (a real POST table).  The two-phase split keeps the total
+    // time per line unchanged (0.18s) while adding the typing feel.
     /** @type {Array<[string, number, number]>} */
     const lines = [
         ['MEM CHECK', 24, 0.12],
@@ -405,16 +407,29 @@ function drawBoot(c) {
     const DOT_COL = 16; // label + dots always fills to 16 chars before OK
     const BLOCK_W = textWidth('TRACE SCAN........OK');
     const x0 = Math.floor((CANVAS_W - BLOCK_W) / 2);
+    // 60% of the 0.18s window for typing, 40% for dots + OK.
+    const TYPE_FRAC = 0.6;
     for (const [label, y, start] of lines) {
         const done = S.bootAccum - start; // seconds into this line
         if (done <= 0) continue;
         const p = Math.min(1, done / 0.18);
-        const need = DOT_COL - label.length;
-        const dots = Math.floor(p * need);
-        let s = label;
-        for (let i = 0; i < Math.min(need, dots); i++) s += '.';
-        if (p >= 1) s += 'OK';
-        drawText(c, s, x0, y, C_DIM);
+        if (p < TYPE_FRAC) {
+            // Typing phase: label appears character by character.
+            // At ~80 chars/s a 9-char label types in ~0.11s (within the
+            // 0.108s typing window).  Each char pops in on its own frame.
+            const typeP = p / TYPE_FRAC;
+            const charsVisible = Math.min(label.length, Math.floor(typeP * label.length) + 1);
+            drawText(c, label.substring(0, charsVisible), x0, y, C_DIM);
+        } else {
+            // Dots + OK phase: label is fully typed, now fill dots.
+            const dotP = (p - TYPE_FRAC) / (1 - TYPE_FRAC);
+            const need = DOT_COL - label.length;
+            const dots = Math.floor(dotP * need);
+            let s = label;
+            for (let i = 0; i < Math.min(need, dots); i++) s += '.';
+            if (dotP >= 1) s += 'OK';
+            drawText(c, s, x0, y, C_DIM);
+        }
     }
 }
 

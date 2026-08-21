@@ -1,5 +1,6 @@
 import { detectWebGL, showFallbackUI, setupCleanup } from './src/ui/fallback.js';
-import { initScene, scene, camera, renderer, tickCallbacks, enableBloom, syncCanvasSize } from './src/three/scene.js';
+import { initScene, scene, camera, renderer, enableBloom, syncCanvasSize } from './src/three/scene.js';
+import { onTick, CRITICAL, STANDARD, DEFERRED } from './src/three/tick-scheduler.js';
 import { createBoard, boardGroup, updateBoardParallax, updateBenchSweep, updateHoverShadow } from './src/three/board.js';
 import { createComponents, updateLedArray, SWITCH_POS } from './src/three/components.js';
 import { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses } from './src/three/traces.js';
@@ -10,7 +11,7 @@ import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler, setLcdHandler } from './src/utils/hover.js';
 import { isSoundEnabled, toggleSound, switchClack, electricalHum, stopElectricalHum, powerUpBeep } from './src/utils/sound.js';
-import { noteInteraction, updateIdleDrift, updateIdleSelfTest, selfTestPostLine } from './src/three/idle.js';
+import { noteInteraction, updateIdleDrift, updateIdleSelfTest, selfTestPostLine, updateIdleHeartbeat } from './src/three/idle.js';
 // The HUD scope's value line — the board's live readout. Cached once so the
 // idle self-test's POST replay doesn't do a DOM lookup per frame.
 let scopeValEl = null;
@@ -323,144 +324,99 @@ document.addEventListener('DOMContentLoaded', () => {
         initPower();
     }
 
-    // 11. Add animation loops to ticks callback registry
-    tickCallbacks.push((elapsed, delta) => {
-        // The section the current scroll leg has activated — computed once per
-        // frame and threaded into every section-aware ambient layer (LED
-        // pulse, copper ripple, signal pulses, dust, flecks, current dot) so
-        // each journey stop feels like a different circuit neighborhood.
-        const activeSectionId = getActiveSectionId();
+    // 11. Register animation loops on the priority tick scheduler.
+    //
+    // CRITICAL — runs every frame, no exceptions:
+    //   Physics, camera, interactivity, the LCD game, LED array, radar,
+    //   parallax, probe, hover.  If these fall behind the user sees lag.
+    //
+    // STANDARD — cosmetic ambient, skipped when the critical pass eats
+    //   >8ms of the 16.6ms budget:
+    //   Trace ripple/sweep/current, ambient dust/flecks, oscilloscope,
+    //   project-chips, idle drift, self-test, hover shadow.
+    //
+    // DEFERRED — hidden UI, skipped when >5ms spent:
+    //   Telemetry readouts, journey panel positioning.
+    //
+    // The self-test + LED array + radar ring share the boardFx and
+    // selfTest values computed once per frame in a CRITICAL preamble,
+    // so STANDARD callbacks that need them read the module-scoped
+    // snapshot (set by the preamble) rather than recomputing.
 
-        // Run electron pathing animations
-        updateParticles(delta);
-        // Update oscilloscope waveform
-        updateOscilloscope(elapsed, document.body.dataset.hoverRef);
-        // Hidden telemetry readouts (no-op unless the palette revealed them)
-        updateTelemetry(elapsed, delta);
+    // Shared per-frame reads (CRITICAL preamble — computed once).
+    let _activeSectionId = '';
+    let _boardFx = null;
+    let _selfTest = /** @type {{ active: boolean, frac: number }} */ ({ active: false, frac: 0 });
+    let _heartbeatFrac = 0;
+    let _distScale = 1;
 
-        // The LCD game's board-reactive FX (NEW RECORD chase, death power
-        // dip) — read once per frame and fed to the radar sweep and the
-        // D1-D7 array below. Zeroed inside lcd.js under reduced motion.
-        const boardFx = getBoardFx();
+    onTick(CRITICAL, (elapsed, delta) => {
+        _activeSectionId = getActiveSectionId();
+        _boardFx = getBoardFx();
+        _selfTest = updateIdleSelfTest(delta);
+        _heartbeatFrac = updateIdleHeartbeat(delta).frac;
 
-        // U1 CPU radar sweep (procedural, elapsed-driven) — the LCD game's
-        // power dip stutters it after a SIGNAL RUNNER death.
-        updateRadarRing(elapsed, boardFx);
-
-        // Idle self-test — after ~60s of stillness the board runs a one-shot
-        // diagnostic: the D1-D7 walk below + a compressed POST log on the
-        // HUD scope readout. Cancelled instantly by any interaction (the
-        // same noteInteraction listeners); skipped under reduced motion. The
-        // LCD game's FX outrank it (celebrate/dip win inside the array).
-        const selfTest = updateIdleSelfTest(delta);
-
-        // POST replay: while the self-test runs, the scope shows the current
-        // POST line. On the run's FIRST active frame we capture the readout
-        // we're replacing (the board's resting measurement, e.g. the U1
-        // SCOPE_MAP readout — never a hardcoded string), and when the run
-        // ends or is cancelled we restore exactly that. A probe measurement
-        // can't race it: probing requires interaction, which cancels the
-        // self-test on the same event.
+        // POST replay: while the self-test runs, the scope shows the
+        // current POST line.  Captures the resting readout on first
+        // active frame and restores exactly that on cancel/complete.
         if (!scopeValEl) scopeValEl = document.getElementById('hud-scope-val');
         if (scopeValEl) {
-            if (selfTest.active) {
+            if (_selfTest.active) {
                 if (!scopeValEl.dataset.selfTest) {
                     scopeValEl.dataset.selfTestRestore = scopeValEl.textContent || '';
                     scopeValEl.dataset.selfTest = '1';
                 }
-                scopeValEl.textContent = selfTestPostLine(selfTest.frac);
+                scopeValEl.textContent = selfTestPostLine(_selfTest.frac);
             } else if (scopeValEl.dataset.selfTest) {
                 scopeValEl.textContent = scopeValEl.dataset.selfTestRestore || '';
                 delete scopeValEl.dataset.selfTest;
                 delete scopeValEl.dataset.selfTestRestore;
             }
         }
-
-        // D1-D7 status LEDs — staggered seeded pulse at rest (idle-life
-        // layer; the array breathes instead of sitting flat). The active
-        // section tunes tempo/brightness (ambient-tunings.js); the LCD game
-        // overrides with a NEW RECORD chase or a death power-dip; the idle
-        // self-test walks the array as a POST diagnostic.
-        updateLedArray(elapsed, activeSectionId, boardFx, selfTest.frac);
-
-        // Update project chip LEDs (flicker breadboard LEDs)
-        updateProjectChips(elapsed);
-
-        // Run hover raycasting intersection diagnostics (suspended while the
-        // flying scope probe is active — one probe at a time)
-        if (!isProbeModeActive()) {
-            checkHover(delta);
+        // Heartbeat scope flicker: during a flash the scope briefly shows
+        // "HEARTBEAT" then restores the resting readout.  Uses the same
+        // capture/restore pattern as the self-test but with its own flag.
+        if (scopeValEl && _heartbeatFrac > 0 && !_selfTest.active) {
+            if (!scopeValEl.dataset.hbRestore) {
+                scopeValEl.dataset.hbRestore = scopeValEl.textContent || '';
+            }
+            scopeValEl.textContent = 'HEARTBEAT';
+        } else if (scopeValEl && scopeValEl.dataset.hbRestore && _heartbeatFrac === 0) {
+            scopeValEl.textContent = scopeValEl.dataset.hbRestore;
+            delete scopeValEl.dataset.hbRestore;
         }
 
-        // Fly the scope probe (WASD/arrows) — moves in board-local space,
-        // raycasts its tip, drives the HUD scope readout
+        updateParticles(delta);
+        updateRadarRing(elapsed, _boardFx);
+        updateLedArray(elapsed, _activeSectionId, _boardFx, _selfTest.frac, _heartbeatFrac);
+
+        if (!isProbeModeActive()) checkHover(delta);
         updateProbe(delta);
 
-        // Apply mouse movement 3D board parallax tilts (delta-scaled lerp).
-        // The active section gates the tilt strength — boosted on About so the
-        // "move cursor to tilt board" affordance is felt, capped everywhere.
-        // Distance-scaled ambient intensity: the hero/contact cameras sit far
-        // back (z≈25-33) where a world-unit of motion projects to a few
-        // pixels, so the float and sweep would read as static on the first
-        // screen. Scale their amplitudes with camera distance — 1.0 at the
-        // component stops (z≈4.2), ramping to ≤3 at hero — so the board reads
-        // alive at EVERY framing; close stops are never amplified.
-        const distScale = Math.min(1 + Math.max(camera.position.z - 4.2, 0) / 12, 3);
-        // isFocusMode(): while a chip is focused, board.js damps the levitation
-        // to 20% so the focused composition steadies (probe touchdown).
-        updateBoardParallax(elapsed, mouse, delta, activeSectionId, journeyLive, isFocusMode(), distScale);
+        _distScale = Math.min(1 + Math.max(camera.position.z - 4.2, 0) / 12, 3);
+        updateBoardParallax(elapsed, mouse, delta, _activeSectionId, journeyLive, isFocusMode(), _distScale);
 
-        // Hover shadow — the contact grounding that makes the levitation
-        // legible (opacity tracks the float height; runs after the float
-        // writes the pose).
-        updateHoverShadow();
-
-        // Ambient dust — the mote cloud around the board (deterministic,
-        // reduced-motion gated inside particles.js). Section-tuned density.
-        updateAmbientDust(elapsed, activeSectionId);
-
-        // Gold flecks — sparse ENIG-gold specks drifting above the board
-        // (slower than the dust; reads as suspended solder debris).
-        updateAmbientGoldFlecks(elapsed, activeSectionId);
-
-        // Traveling current dot: power visibly flows along the active
-        // section's trace (the arrival pulse is the flash; this is the
-        // sustained current).
-        updateTraceCurrent(elapsed, activeSectionId);
-
-        // Ambient signal pulses: one gold current dot traveling EVERY main
-        // trace route, continuously — the board reads as powered on, not
-        // just lit. Independent of scroll. Section-tuned travel speed.
-        updateAmbientPulses(elapsed, activeSectionId);
-
-        // Copper ripple: a power blob floods every trace from the CPU (the
-        // whole board carries current, not just the active section) + the
-        // probe-energized shimmer on hovered copper. The section shapes the
-        // wave (speed / wavelength / amplitude).
-        updateTraceRipple(elapsed, activeSectionId);
-
-        // Bench sweep: the CRT scan line crossing the board surface (scaled
-        // with camera distance too — at hero a 0.05-wide plane is a 1px
-        // hairline; the mesh-scale widens it without touching the geometry
-        // the smoke test classifies).
-        updateBenchSweep(elapsed, distScale);
-
-        // LCD1's screen: attract-mode demo snake (or the player's run) —
-        // the "powered on" display. Redraws the CanvasTexture only when
-        // the frame changed; static title under reduced motion.
         updateLcdScreen(elapsed, delta);
 
-        // Update screen-space panel positioning, connector line, and vignette
+        if (journeyLive) updateIdleDrift(elapsed, delta);
+    });
+
+    onTick(STANDARD, (elapsed, _delta) => {
+        updateOscilloscope(elapsed, document.body.dataset.hoverRef);
+        updateProjectChips(elapsed);
+        updateHoverShadow();
+        updateAmbientDust(elapsed, _activeSectionId);
+        updateAmbientGoldFlecks(elapsed, _activeSectionId);
+        updateTraceCurrent(elapsed, _activeSectionId);
+        updateAmbientPulses(elapsed, _activeSectionId);
+        updateTraceRipple(elapsed, _activeSectionId);
+        updateBenchSweep(elapsed, _distScale);
+    });
+
+    onTick(DEFERRED, (elapsed, delta) => {
+        updateTelemetry(elapsed, delta);
         if (typeof updateJourneyEffects === 'function' && !isLiteMode()) {
             updateJourneyEffects(camera, boardGroup);
-        }
-
-        // Idle ambient micro-drift — last writer while the page is still
-        // (delta-applied, so a scroll scrub simply takes over the base).
-        // Runs only after boot (journeyLive) so the boot's arrival camera
-        // stays untouched.
-        if (journeyLive) {
-            updateIdleDrift(elapsed, delta);
         }
     });
 

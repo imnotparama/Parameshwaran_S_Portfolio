@@ -62,6 +62,18 @@ const SELF_TEST_POST_LINES = ['> POST GEOMETRY', '> POST RAIL OK', '> SYS OPERAT
 let selfTestT = -1;        // -1 = not running; else seconds into the run
 let selfTestFired = false; // one-shot per idle period (interaction re-arms)
 
+// ─── Idle heartbeat state ────────────────────────────────────
+// A lightweight "I'm still monitoring" pulse between the micro-drift
+// (3s) and the full self-test (60s).  Every HEARTBEAT_INTERVAL_MS of
+// stillness the board fires a brief flash — all D1-D7 LEDs pulse
+// bright for HEARTBEAT_FLASH_SEC, then fade back.  Repeats every
+// interval (NOT one-shot like the self-test).  Cancelled instantly
+// on interaction and skipped under reduced motion.
+const HEARTBEAT_INTERVAL_MS = 20000; // 20s between flashes
+const HEARTBEAT_FLASH_SEC = 0.35;    // duration of each flash
+let heartbeatAccum = 0;  // seconds since the last flash fired
+let heartbeatFlash = -1; // -1 = not flashing; else seconds into the flash
+
 /** Mark an interaction (scroll, wheel, pointer, key, touch). Called from
  *  main.js's passive listeners. Cancels an in-flight self-test instantly
  *  (the board stands down the moment the user touches it) and re-arms the
@@ -70,12 +82,20 @@ export function noteInteraction() {
     lastInteractionAt = nowMs();
     selfTestT = -1;
     selfTestFired = false;
+    heartbeatAccum = 0;
+    heartbeatFlash = -1;
 }
 
 /** Test seam — put the idle clock past the self-test threshold so the
  *  headless suite can drive the sweep without waiting 60s of wall-clock. */
 export function forceSelfTestIdle() {
     lastInteractionAt = nowMs() - (SELF_TEST_DELAY_MS + 1000);
+}
+
+/** Test seam — put the idle clock past the heartbeat threshold. */
+export function forceHeartbeatIdle() {
+    lastInteractionAt = nowMs() - (HEARTBEAT_INTERVAL_MS + 1000);
+    heartbeatAccum = HEARTBEAT_INTERVAL_MS; // ready to fire on next tick
 }
 
 /** The compressed POST line shown at a sweep fraction (0..1) — pure, so the
@@ -118,6 +138,40 @@ export function updateIdleSelfTest(delta = 1 / 60) {
         selfTestT = 0;
     }
     return getSelfTestState();
+}
+
+/** Per-frame heartbeat driver.  Counts idle time and fires a brief
+ *  LED flash every HEARTBEAT_INTERVAL_MS.  The flash fraction peaks at
+ *  1.0 (a sine pulse) and decays back to 0 over HEARTBEAT_FLASH_SEC.
+ *  The START is wall-clock-gated (input gating); the flash itself is a
+ *  pure accumulation of deltas, so the peak timing is deterministic.
+ *  @param {number} [delta]
+ *  @returns {{ frac: number }} the flash fraction 0..1 (0 = off) */
+export function updateIdleHeartbeat(delta = 1 / 60) {
+    if (motionPrefs.reduced) {
+        heartbeatAccum = 0;
+        heartbeatFlash = -1;
+        return { frac: 0 };
+    }
+    // Advance the flash if one is in progress.
+    if (heartbeatFlash >= 0) {
+        heartbeatFlash += delta;
+        if (heartbeatFlash >= HEARTBEAT_FLASH_SEC) {
+            heartbeatFlash = -1; // flash done
+        }
+    }
+    // Advance the interval timer.
+    heartbeatAccum += delta * 1000; // convert to ms
+    // Fire a new flash when the interval is reached.
+    if (heartbeatFlash < 0 && heartbeatAccum >= HEARTBEAT_INTERVAL_MS) {
+        heartbeatAccum = 0;
+        heartbeatFlash = 0;
+    }
+    // The fraction is a sine pulse: peaks at 1.0 in the middle of the flash.
+    const frac = heartbeatFlash >= 0
+        ? Math.sin((heartbeatFlash / HEARTBEAT_FLASH_SEC) * Math.PI)
+        : 0;
+    return { frac };
 }
 
 /** Has the page been still long enough for the idle loop? */

@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { interactiveObjects, pressTactile } from '../three/components.js';
 import { highlightTrace } from '../three/traces.js';
+import { simView } from '../three/lcd-sim.js';
 import { hoverBlip, clickBlip } from './sound.js';
 import { motionPrefs } from './motion-prefs.js';
 
@@ -125,6 +126,12 @@ const SCOPE_MAP = {
  *  @param {string} name Ref designator (mesh.name)
  *  @returns {string} */
 export function getShortMeasurement(name) {
+    if (name === 'LCD1') {
+        const v = simView();
+        if (v.state === 'playing') return `SIG ${String(v.score).padStart(3, '0')} · SPD ${Math.round(v.curSpeed)}`;
+        if (v.state === 'paused') return `SIG ${String(v.score).padStart(3, '0')} · PAUSED`;
+        if (v.state === 'over') return `FINAL ${String(v.score).padStart(3, '0')}`;
+    }
     const r = SCOPE_MAP[name];
     if (!r) return '';
     return [r.v, r.f].filter((s) => s && s !== '—').join(' · ');
@@ -207,6 +214,19 @@ export function setScopeReadout(name, userData) {
         // The chip's status lives in its componentName ("TITLE — SOLDERED (SHIPPED)").
         const status = String(userData && userData.componentName || '').split('—').pop();
         reading = { v: '3.3V', f: '—', state: (status || '—').trim() };
+    } else if (name === 'LCD1') {
+        // LCD1 is live: when the game is playing, the scope shows the
+        // real-time score/speed/distance instead of the static BOM values.
+        const v = simView();
+        if (v.state === 'playing') {
+            reading = { v: `SIG ${String(v.score).padStart(3, '0')}`, f: `SPD ${Math.round(v.curSpeed)}`, state: `DIST ${Math.round(v.dist)}` };
+        } else if (v.state === 'paused') {
+            reading = { v: `SIG ${String(v.score).padStart(3, '0')}`, f: 'SPD 0', state: 'PAUSED' };
+        } else if (v.state === 'over') {
+            reading = { v: `FINAL ${String(v.score).padStart(3, '0')}`, f: `DIST ${Math.round(v.dist)}`, state: 'SIGNAL LOST' };
+        } else {
+            reading = SCOPE_MAP[name];
+        }
     } else if (SCOPE_MAP[name]) {
         reading = SCOPE_MAP[name];
     }

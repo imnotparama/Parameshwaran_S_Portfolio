@@ -124,7 +124,9 @@ globalThis.matchMedia = globalThis.window.matchMedia;
 
 // ── 2. Import the real modules (same instances the app uses) ──
 const THREE = await import('three');
-const { tickCallbacks, stepFrame } = await import('../src/three/scene.js');
+const { stepFrame } = await import('../src/three/scene.js');
+import { getTickBucket, tickPrioritized, CRITICAL, STANDARD, DEFERRED, onTick } from '../src/three/tick-scheduler.js';
+const tickCallbacks = getTickBucket(CRITICAL);
 const board = await import('../src/three/board.js');
 const { createComponents, updateRadarRing, updateLedArray, interactiveObjects } = await import('../src/three/components.js');
 // The namespace (not the destructure) for values createComponents ASSIGNS
@@ -161,9 +163,9 @@ assert.ok(board.boardGroup === undefined, 'boardGroup must start unset before cr
 // callbacks with explicit deltas, so it could never see a zero-delta loop.
 // This phase drives the REAL chain — stepFrame(timestamp) is exactly what
 // animate() calls each frame (timer.update → getDelta → clamp →
-// tickCallbacks.forEach(elapsed, delta)) — through a fake-rAF cadence with
-// synthetic timestamps in the performance.now() timebase. Runs before the
-// board build so a dead clock fails the suite fast.
+// tickPrioritized(elapsed, delta, budget)) — through a fake-rAF cadence
+// with synthetic timestamps in the performance.now() timebase. Runs before
+// the board build so a dead clock fails the suite fast.
 {
     const delivered = [];
     tickCallbacks.push((elapsed, delta) => delivered.push({ elapsed, delta }));
@@ -186,6 +188,65 @@ assert.ok(board.boardGroup === undefined, 'boardGroup must start unset before cr
     assert.ok(Math.abs(delivered[5].delta - 0.0167) < 1e-9, 'real-loop: the post-hitch frame delivers a normal 16.7ms step');
     // Elapsed is the accumulation of delivered deltas, not wall-clock.
     assert.ok(delivered[2].elapsed > delivered[0].elapsed, 'real-loop: elapsed accumulates across frames');
+}
+
+// ── 0b. Phase R2 — priority-scheduler budget gating ───────────
+// Verifies that STANDARD and DEFERRED callbacks are actually shed when
+// the frame budget is tight, while CRITICAL always runs.  Uses the
+// scheduler's own API (tickPrioritized) with a tiny budget so the
+// critical pass alone exceeds it.
+{
+    // Register one callback per tier that stamps a flag.
+    const flags = { critical: false, standard: false, deferred: false };
+    const { getSkipCounts } = await import('../src/three/tick-scheduler.js');
+    onTick(CRITICAL, () => { flags.critical = true; });
+    onTick(STANDARD, () => { flags.standard = true; });
+    onTick(DEFERRED, () => { flags.deferred = true; });
+
+    // Frame with a tiny budget (0ms) — the critical pass alone exceeds it,
+    // so STANDARD is skipped.  DEFERRED has its own 5ms threshold which a
+    // trivial critical pass won't hit — so DEFERRED still runs here.
+    tickPrioritized(0, 1 / 60, 0);
+    assert.strictEqual(flags.critical, true, 'scheduler: CRITICAL always runs');
+    assert.strictEqual(flags.standard, false, 'scheduler: STANDARD skipped under 0ms budget');
+    assert.strictEqual(flags.deferred, true, 'scheduler: DEFERRED runs when total < 5ms (trivial critical)');
+    const skipA = getSkipCounts();
+    assert.ok(skipA.standard > 0, 'scheduler: skip count tracks STANDARD shedding');
+    assert.strictEqual(skipA.deferred, 0, 'scheduler: DEFERRED not skipped when total < 5ms');
+
+    // Reset flags for the generous-budget test.
+    flags.critical = false;
+    flags.standard = false;
+    flags.deferred = false;
+
+    // Frame with a huge budget — everything runs.
+    tickPrioritized(0, 1 / 60, 999);
+    assert.strictEqual(flags.critical, true, 'scheduler: CRITICAL runs with generous budget');
+    assert.strictEqual(flags.standard, true, 'scheduler: STANDARD runs with generous budget');
+    assert.strictEqual(flags.deferred, true, 'scheduler: DEFERRED runs with generous budget');
+    const skipB = getSkipCounts();
+    assert.strictEqual(skipB.standard, 0, 'scheduler: no STANDARD skips with generous budget');
+    assert.strictEqual(skipB.deferred, 0, 'scheduler: no DEFERRED skips with generous budget');
+
+    // Simulate a slow critical pass (>5ms) to test DEFERRED skipping.
+    // Spin-wait inside a CRITICAL callback to inflate the frame time.
+    flags.critical = false;
+    flags.standard = false;
+    flags.deferred = false;
+    onTick(CRITICAL, () => { const end = performance.now() + 8; while (performance.now() < end) {} });
+    tickPrioritized(0, 1 / 60, 0);
+    assert.strictEqual(flags.standard, false, 'scheduler: STANDARD skipped when critical > budget');
+    assert.strictEqual(flags.deferred, false, 'scheduler: DEFERRED skipped when total > 5ms');
+    const skipC = getSkipCounts();
+    assert.ok(skipC.standard > 0, 'scheduler: skip count tracks STANDARD shedding under load');
+    assert.ok(skipC.deferred > 0, 'scheduler: skip count tracks DEFERRED shedding under load');
+
+    // Clean up — remove the test callbacks so they don't fire in later phases.
+    // pop() removes the last-registered callback per tier.
+    getTickBucket(CRITICAL).pop(); // spin-wait callback
+    getTickBucket(CRITICAL).pop(); // flag callback
+    getTickBucket(STANDARD).pop();
+    getTickBucket(DEFERRED).pop();
 }
 
 // ── 3. Build the board ─────────────────────────────────────────
@@ -386,7 +447,7 @@ for (let i = 0; i < NORMAL_FRAMES; i++) {
     // Sweep the cursor through a deterministic orbit so the tilt (and its
     // clamp) is exercised across the whole input range, not just the origin.
     mouse.set(Math.sin(i * 0.013), Math.cos(i * 0.011));
-    tickCallbacks.forEach((cb) => cb(i * DT, DT));
+    tickPrioritized(i * DT, DT, Infinity);
     if (i === 0) firstTickY = boardGroup.position.y;
 }
 const normalProblems = audit();
@@ -1102,13 +1163,13 @@ motionPrefs.reduced = true; // the live flag — same switch the listener flips
 // mode — a deliberate one-time settle, not motion. The snapshot happens
 // AFTER it, so the assertion is "nothing moves once reduced" (plus the float
 // is checked separately below, since it must not move at all).
-tickCallbacks.forEach((cb) => cb(200, DT));
+tickPrioritized(200, DT, Infinity);
 const floatPose = { y: boardGroup.position.y, z: boardGroup.position.z, rz: boardGroup.rotation.z };
 const materialSnap = [...allMaterials].map((m) => ({ ei: m.emissiveIntensity, op: m.opacity }));
 // The LCD game must hold still too (reduced motion: no auto-play).
 const lcdReduced0 = lcdStateSnapshot();
 for (let i = 1; i < 2000; i++) {
-    tickCallbacks.forEach((cb) => cb(200 + i * DT, DT));
+    tickPrioritized(200 + i * DT, DT, Infinity);
 }
 const lcdReduced1 = lcdStateSnapshot();
 assert.deepStrictEqual(lcdReduced1, lcdReduced0, 'reduced: the LCD game must hold still (no auto-play)');
@@ -1219,11 +1280,57 @@ assert.strictEqual(idle.updateIdleSelfTest(DT).active, true, 'self-test: an inte
 idle.noteInteraction(); // cancel mid-run
 assert.strictEqual(idle.updateIdleSelfTest(DT).active, false, 'self-test: an interaction cancels the run instantly');
 
+// ── 8b. Idle HEARTBEAT — a 20s-interval LED flash + scope flicker ──
+// Fires every HEARTBEAT_INTERVAL_MS; the flash is a sine pulse that peaks
+// at 1.0 then decays over HEARTBEAT_FLASH_SEC.  Repeats (NOT one-shot).
+// Cancelled instantly on interaction, skipped under reduced motion.
+{
+    // Not firing before the interval.
+    const hb0 = idle.updateIdleHeartbeat(DT);
+    assert.strictEqual(hb0.frac, 0, 'heartbeat: not flashing before the interval');
+    // Force past the interval.  The first tick starts the flash (frac = sin(0) = 0);
+    // the second tick advances it into the sine pulse.
+    idle.forceHeartbeatIdle();
+    idle.updateIdleHeartbeat(DT); // starts the flash
+    const hb1 = idle.updateIdleHeartbeat(DT); // advances into the pulse
+    assert.ok(hb1.frac > 0, `heartbeat: fires once the interval is crossed (${hb1.frac.toFixed(3)})`);
+    // The flash advances with deltas — a few ticks in, frac grew then
+    // decayed (sine pulse peaks in the middle of the flash).
+    let hbMax = hb1.frac;
+    for (let i = 0; i < 10; i++) {
+        const h = idle.updateIdleHeartbeat(DT);
+        hbMax = Math.max(hbMax, h.frac);
+    }
+    assert.ok(hbMax > 0.5, `heartbeat: the sine pulse peaks above 0.5 (${hbMax.toFixed(3)})`);
+    // Drive through the full flash to completion.
+    let hg = 0;
+    while (idle.updateIdleHeartbeat(DT).frac > 0 && hg < 1000) hg++;
+    assert.ok(hg > 0, 'heartbeat: the flash completes and frac returns to 0');
+    assert.strictEqual(idle.updateIdleHeartbeat(DT).frac, 0, 'heartbeat: idle after flash completes');
+    // Repeats: driving past another interval fires again.
+    idle.forceHeartbeatIdle();
+    idle.updateIdleHeartbeat(DT); // starts the flash
+    assert.ok(idle.updateIdleHeartbeat(DT).frac > 0, 'heartbeat: repeats on the next interval (not one-shot)');
+    // Cancel mid-flash: interaction stops it instantly.
+    idle.noteInteraction();
+    assert.strictEqual(idle.updateIdleHeartbeat(DT).frac, 0, 'heartbeat: an interaction cancels the flash instantly');
+    // Reduced motion: never fires.
+    motionPrefs.reduced = true;
+    idle.forceHeartbeatIdle();
+    assert.strictEqual(idle.updateIdleHeartbeat(DT).frac, 0, 'heartbeat: gated off under reduced motion');
+    motionPrefs.reduced = false;
+    // LED array: a heartbeat flash lights all diodes past the calm base.
+    updateLedArray(1.5, 'sec-about', null, 0, 0.8);
+    const hbMaxLed = Math.max(...ledDomeMats.map((m) => m.emissiveIntensity));
+    assert.ok(hbMaxLed > 1.0, `heartbeat: the LED flash lights all diodes past the calm base (${hbMaxLed.toFixed(2)})`);
+}
+
 // ── 9. Report ─────────────────────────────────────────────────
 console.log('── tick smoke test: PASS ────────────────────────────');
 console.log(`  graph: ${allMeshes.length} meshes, ${allMaterials.size} materials`);
 console.log(`  ripple segments: ${rippleMats.length} | sweep: 2 | dust: ${dustMeshes.length} | pulses: ${pulseMeshes.length} | LEDs: ${ledDomeMats.length}`);
-console.log(`  phase R: real-loop clock — stepFrame drives timer.update → getDelta → clamp → tickCallbacks as ONE chain (the dead-clock lock): 16.7ms steady frames, duplicate-ts frame still fires, 1s hitch clamped to the 50ms cap, elapsed accumulates`);
+console.log(`  phase R: real-loop clock — stepFrame drives timer.update → getDelta → clamp → tickPrioritized as ONE chain (the dead-clock lock): 16.7ms steady frames, duplicate-ts frame still fires, 1s hitch clamped to the 50ms cap, elapsed accumulates`);
+console.log(`  phase R2: priority-scheduler budget gating — CRITICAL always runs, STANDARD shed under 0ms budget, DEFERRED shed under >5ms total, generous budget runs all three tiers`);
 console.log(`  phase A: ${NORMAL_FRAMES} frames normal motion — float/ripple/sweep/dust/LED/pulse in bounds, zero NaN`);
 console.log(`    wake-in first tick y = ${firstTickY} (no settle-pop)`);
 console.log(`    final float y = ${boardGroup.position.y.toFixed(4)} (|y| ≤ ${FLOAT_AMP_Y})`);
@@ -1234,4 +1341,5 @@ console.log(`  hash deep links: #/about #/projects #/skills #/experience #/conta
 console.log(`  phase C: raycast layer — ${rayAimed} aimable component-poses (${aimedNames.size} unique components) across ${RAY_POSES.length} camera poses, hover === independent ray at the same NDC (${rayAimed - rayMisses.length}/${rayAimed})`);
 console.log(`  phase D: idle drift — offset bounds |x| ≤ ${DRIFT_X_MAX.toFixed(3)}, |y| ≤ ${DRIFT_Y_MAX.toFixed(3)}, deterministic, interaction resets the clock`);
 console.log(`  idle self-test: 60s-stillness one-shot POST — fires at the threshold, sweep advances with deltas, LED walk lights past the calm base, completes and does NOT re-fire (one-shot), an interaction cancels instantly + re-arms, reduced-motion never starts it, POST line progression GEOMETRY → RAIL → OPERATIONAL`);
+console.log(`  idle heartbeat: 20s-interval LED flash — sine pulse peaks >0.5, repeats (not one-shot), interaction cancels instantly, reduced-motion gated, LED array lights past the calm base`);
 console.log(`  ambient: hover shadow (opacity ${shadowBlob.material.opacity.toFixed(2)}) + ${fleckMeshes.length} gold flecks + ${ledDomeMats.length} pulsing LEDs, all in bounds, hidden/frozen under reduced motion`);
