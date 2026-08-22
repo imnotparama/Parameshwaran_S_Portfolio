@@ -2276,3 +2276,63 @@ body.hud-scope-live .hud-scope {
         padding: 4px 10px;
     }
 }
+
+/* ─── LCD game focus: sidebar hides during gameplay ──────────
+ * When the LCD display is focused and the game is active, the sidebar
+ * panel content (bio, stats, full CTA) is hidden — replaced by a minimal
+ * game-only readout. A small minimized LinkedIn CTA stays visible in the
+ * corner so the one rule this build has held (reachable at every point)
+ * isn't broken by the one section that's a delightful surprise.
+ * On exit (Esc / scroll / re-click), the full sidebar restores instantly.
+ */
+body.lcd-game-focus .ds-panel.panel-active > *:not(.lcd-game-minicta) {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+body.lcd-game-focus .ds-panel.panel-active {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+body.lcd-game-focus .hud-nav,
+body.lcd-game-focus .hud-legend {
+    opacity: 0.3;
+    pointer-events: none;
+}
+/* Minimized CTA — a small LinkedIn icon-button in the bottom-right corner
+ * of the sidebar, visible only during LCD gameplay. */
+.lcd-game-minicta {
+    display: none;
+}
+body.lcd-game-focus .lcd-game-minicta {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 35;
+    background: rgba(3, 19, 10, 0.85);
+    border: 1px solid var(--signal, #3ee6a0);
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--signal, #3ee6a0);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+body.lcd-game-focus .lcd-game-minicta:hover {
+    background: rgba(62, 230, 160, 0.15);
+    border-color: #fff;
+    color: #fff;
+}

@@ -301,7 +301,7 @@ boardGroup.traverse((o) => { if (o.isMesh && o.name === 'gold-fleck') fleckMeshe
 assert.strictEqual(fleckMeshes.length, 12, 'expected 12 gold flecks');
 const pulseMeshes = [];
 boardGroup.traverse((o) => { if (o.isMesh && o.name === 'ambient-pulse') pulseMeshes.push(o); });
-assert.strictEqual(pulseMeshes.length, 10, `expected one ambient pulse per trace route, got ${pulseMeshes.length}`);
+assert.strictEqual(pulseMeshes.length, 11, `expected one ambient pulse per trace route, got ${pulseMeshes.length}`);
 const ledDomeMats = allMeshes
     .filter((m) => m.name && String(m.name).startsWith('led_diode'))
     .map((m) => /** @type {any} */ (m.material));

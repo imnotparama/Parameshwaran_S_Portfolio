@@ -683,7 +683,17 @@ function setActivePanel(panelId) {
   // keep animating off-screen (they collapse instantly — the panel is hidden).
   if (prevPanelId) {
     const prevPanel = document.getElementById(prevPanelId);
-    if (prevPanel) resetTypewriter(prevPanel);
+    if (prevPanel) {
+      resetTypewriter(prevPanel);
+      // Kill any in-flight headline-twin sweep on the departing panel so
+      // the gradient twin doesn't linger at opacity > 0 (the "duplicate
+      // header" bug — the twin was stuck visible from an interrupted sweep).
+      const staleTwin = prevPanel.querySelector('.headline-twin');
+      if (staleTwin) {
+        gsap.killTweensOf(staleTwin);
+        gsap.set(staleTwin, { opacity: 0, clearProps: 'backgroundPosition' });
+      }
+    }
   }
   activePanelId = panelId;
   document.querySelectorAll('.ds-panel').forEach((el) => {
@@ -709,7 +719,12 @@ function setActivePanel(panelId) {
     const titleTwin = activePanelEl.querySelector('.headline-twin');
     if (titleTwin) {
       gsap.killTweensOf(titleTwin);
-      gsap.set(titleTwin, { backgroundPosition: '100% 50%', opacity: 1 });
+      // Reset the twin to hidden first — ensures no stale twin from a
+      // previous interrupted sweep is visible before the new sweep starts.
+      gsap.set(titleTwin, { opacity: 0, backgroundPosition: '100% 50%' });
+      // One-shot gold sweep: gradient travels left→right,
+      // then the twin fades back to opacity 0 so only the solid
+      // silkscreen h2 owns the rest state.
       gsap.fromTo(titleTwin,
         { backgroundPosition: '100% 50%' },
         { backgroundPosition: '0% 50%', duration: 1.2, ease: 'none' }
@@ -1058,9 +1073,11 @@ export function scrollToSection(sectionId) {
     onComplete: () => {
       glideActive = false;
       navGlideActive = false;
-      // A step queued by keyboard input during the nav glide chains after
-      // the nav lands (wheel steps are dropped, so this is arrows only) —
-      // same queue semantics as the wheel burst.
+      // One gesture = one section: clear any residual queue so keyboard
+      // steps queued during the nav glide don't auto-chain past the
+      // target. The user must make a fresh gesture to advance again.
+      glideQueued = 0;
+      wheelAccum = 0;
       pumpGlide();
     }
   });
@@ -1179,7 +1196,10 @@ function queueStep(dir) {
 function glideToY(y) {
   if (Math.abs(window.scrollY - y) < 2) {
     glideActive = false;
-    glideQueued -= Math.sign(glideQueued);
+    // One gesture = one section advance: clear any residual queue so the
+    // page doesn't auto-chain past the target section.
+    glideQueued = 0;
+    wheelAccum = 0;
     pumpGlide();
     return;
   }
@@ -1190,9 +1210,12 @@ function glideToY(y) {
     overwrite: 'auto',
     onComplete: () => {
       glideActive = false;
-      // Consume the step on COMPLETION, not at start: the queue counts the
-      // in-flight step too, so MAX_QUEUED_STEPS bounds a whole burst.
-      glideQueued -= Math.sign(glideQueued);
+      // One gesture = one section: clear the queue on completion so
+      // trackpad flicks that queued 2–3 steps don't auto-chain past
+      // the target section. The user must make a fresh gesture to
+      // advance again.
+      glideQueued = 0;
+      wheelAccum = 0;
       pumpGlide();
     }
   });
@@ -1280,4 +1303,14 @@ function wireSmoothScroll() {
   smoothScrollWired = true;
   window.addEventListener('wheel', onJourneyWheel, { passive: false });
   window.addEventListener('keydown', onJourneyKeydown);
+  // Native-scroll guard: when the user scrolls via scrollbar, touch drag,
+  // or any path that isn't our glide system, clear the queue so stale
+  // wheel steps don't fire after the native scroll lands.  The listener
+  // is passive (no preventDefault) — it only cleans up state.
+  window.addEventListener('scroll', () => {
+    if (!glideActive && !navGlideActive && (glideQueued !== 0 || wheelAccum !== 0)) {
+      glideQueued = 0;
+      wheelAccum = 0;
+    }
+  }, { passive: true });
 }

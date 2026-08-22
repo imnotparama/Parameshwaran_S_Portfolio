@@ -235,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSections();
 
     // 7b. Wire LinkedIn and GitHub links from config
-    document.querySelectorAll('.js-linkedin, #cta-linkedin-hud').forEach(a => { a.href = LINKEDIN_URL; });
+    document.querySelectorAll('.js-linkedin, #cta-linkedin-hud, #lcd-game-minicta').forEach(a => { a.href = LINKEDIN_URL; });
     document.querySelectorAll('.js-github').forEach(a => { a.href = GITHUB_URL; });
 
     // 7c. LinkedIn CTA click tracking — one named goal, separate from

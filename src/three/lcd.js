@@ -487,6 +487,9 @@ function drawPlaying(c) {
     if (S.fxMilestone > 0 && Math.floor(S.fxMilestone * 4) % 2 === 0) {
         drawTextCentered(c, `CPU ${String(S.milestonePx).padStart(4, '0')} OK`, 50, C_BRIGHT);
     }
+    // SND status — a tiny indicator so the player knows if audio is live.
+    const sndLabel = (typeof document !== 'undefined' && document.body.classList.contains('sound-on')) ? 'SND:ON' : 'SND:OFF';
+    drawText(c, sndLabel, CANVAS_W - 2 - textWidth(sndLabel), 58, C_FAINT);
     drawTextCentered(c, 'STATUS:ONLINE', 58, C_FAINT);
 }
 
@@ -695,7 +698,12 @@ export function focusLcd(replayBoot = false) {
     void replayBoot; // power-on always boots now (the deep link and the click
     // both land on the machine powering up — the #/lcd distinction was the
     // old SIGNAL REPAIR's; a real module boots when powered).
-    if (typeof document !== 'undefined') document.body.classList.add('lcd-active');
+    if (typeof document !== 'undefined') {
+        document.body.classList.add('lcd-active');
+        // Hide sidebar content during gameplay — the game IS the content.
+        // A small minimized LinkedIn CTA stays visible (css: .lcd-game-minicta).
+        document.body.classList.add('lcd-game-focus');
+    }
     // Focus is an EXPLICIT user action, so the machine powers on and the run
     // auto-starts even under prefers-reduced-motion — reduced motion only
     // silences the ambient chrome (glow pulse, ghosting, CRT flicker, blink),
@@ -709,7 +717,11 @@ export function focusLcd(replayBoot = false) {
 
 /** Leave the game — power the display back down (a real LCD module). */
 export function exitLcd() {
-    if (typeof document !== 'undefined') document.body.classList.remove('lcd-active');
+    if (typeof document !== 'undefined') {
+        document.body.classList.remove('lcd-active');
+        // Restore the full sidebar on exit.
+        document.body.classList.remove('lcd-game-focus');
+    }
     powerOffLcd();
 }
 

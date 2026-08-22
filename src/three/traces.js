@@ -199,7 +199,16 @@ export function createTraces(boardGroup) {
                 new THREE.Vector3(3.0, -4.5, surfaceZ)
             ]
         },
-        // 8. Ground edge ring trace connecting to ANT1
+        // 8. LCD1 (2.4" display) to ANT1 bus — the display's data feed
+        {
+            component: 'LCD1',
+            width: 0.04,
+            points: [
+                new THREE.Vector3(2.4, -1.2, surfaceZ),
+                new THREE.Vector3(2.4, 0.5, surfaceZ)
+            ]
+        },
+        // 9. Ground edge ring trace connecting to ANT1
         {
             component: 'ANT1',
             width: 0.03,
