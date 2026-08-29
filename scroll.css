@@ -515,7 +515,9 @@ body.sound-on .hud-sound {
 }
 
 .hud-btn-sub.active,
-body.teardown-active #teardown-toggle-btn {
+body.teardown-active #teardown-toggle-btn,
+body.rover-active #rover-toggle-btn,
+body.overclock-active #turbo-toggle-btn {
     color: var(--signal);
     border-color: rgba(62, 230, 160, 0.55);
     text-shadow: 0 0 6px rgba(62, 230, 160, 0.6);

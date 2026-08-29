@@ -25,6 +25,9 @@ import { initTeardown, toggleTeardown, isTeardownActive } from './src/three/tear
 import { cycleTheme } from './src/three/potentiometer.js';
 import { initOverclock, updateOverclock, toggleOverclock } from './src/three/overclock.js';
 import { updateAudioPeak } from './src/utils/synth.js';
+import { createRover } from './src/three/rover.js';
+import { initPlaygroundProps } from './src/three/playground-props.js';
+import { activateRover, deactivateRover, toggleRover, isRoverModeActive, handleRoverKeyDown, handleRoverKeyUp, updateRoverPhysics } from './src/three/rover-physics.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
@@ -211,6 +214,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6c3. Turbo Overclock initialization
     initOverclock(boardGroup);
 
+    // 6c4. 3D PCB Nano-Rover & Playground Props
+    createRover(boardGroup);
+    initPlaygroundProps(boardGroup);
+
     // 6d. LCD1 — the 2.4" display running SIGNAL RUNNER (boot POST at
     // rest; player-controlled once focused). Optional content, capped at
     // the third "extra" after the fly-probe and the night bench.
@@ -314,7 +321,11 @@ document.addEventListener('DOMContentLoaded', () => {
         pwrBtn.addEventListener('click', () => togglePower());
     }
 
-    // 8d. Teardown & Theme HUD buttons
+    // 8d. Teardown, Rover & Theme HUD buttons
+    const roverBtn = document.getElementById('rover-toggle-btn');
+    if (roverBtn) {
+        roverBtn.addEventListener('click', () => toggleRover(() => scrollToSection(getActiveSectionId())));
+    }
     const teardownBtn = document.getElementById('teardown-toggle-btn');
     if (teardownBtn) {
         teardownBtn.addEventListener('click', () => toggleTeardown(() => scrollToSection(getActiveSectionId())));
@@ -416,7 +427,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const audioPeak = updateAudioPeak(delta);
         updateLedArray(elapsed, _activeSectionId, _boardFx, _selfTest.frac, _heartbeatFrac, audioPeak);
 
-        if (!isProbeModeActive()) checkHover(delta);
+        if (isRoverModeActive()) {
+            updateRoverPhysics(delta, (ref) => focusProject(ref));
+        }
+
+        if (!isProbeModeActive() && !isRoverModeActive()) checkHover(delta);
         updateProbe(delta);
 
         _distScale = Math.min(1 + Math.max(camera.position.z - 4.2, 0) / 12, 3);
@@ -572,6 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleDebug,
         toggleTeardown: () => toggleTeardown(() => scrollToSection(getActiveSectionId())),
         toggleOverclock: () => toggleOverclock(),
+        toggleRover: () => toggleRover(() => scrollToSection(getActiveSectionId())),
         cycleTheme: () => cycleTheme(),
         linkedinUrl: LINKEDIN_URL,
         githubUrl: GITHUB_URL
@@ -606,6 +622,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const tag = (document.activeElement && document.activeElement.tagName) || '';
         if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) return;
         const key = normalizeProbeKey(e.key);
+        if (isRoverModeActive()) {
+            if (e.key === 'Escape') {
+                deactivateRover(() => scrollToSection(getActiveSectionId()));
+            } else {
+                handleRoverKeyDown(e.key);
+            }
+            return;
+        }
+
         if (PROBE_MOVE_KEYS.includes(key)) {
             // Arrows are the page's scroll keys — only hijack them once the
             // probe is already active (WASD is the activation affordance).
@@ -622,6 +647,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Night bench — cut/restore the bench lights (the PWR switch).
             e.preventDefault();
             togglePower();
+        } else if (!isProbeModeActive() && key === 'r') {
+            // 3D PCB Nano-Rover Drive Mode (R key)
+            e.preventDefault();
+            toggleRover(() => scrollToSection(getActiveSectionId()));
         } else if (!isProbeModeActive() && key === 'e') {
             // 3D Exploded Hardware Teardown view (E key)
             e.preventDefault();
@@ -636,7 +665,13 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleDebug();
         }
     });
-    window.addEventListener('keyup', (e) => releaseProbeKey(normalizeProbeKey(e.key)));
+    window.addEventListener('keyup', (e) => {
+        if (isRoverModeActive()) {
+            handleRoverKeyUp(e.key);
+        } else {
+            releaseProbeKey(normalizeProbeKey(e.key));
+        }
+    });
 
     // 20. Hidden cheat-code: typing 'parama' (the board's name) fires the
     // operator-notes easter egg — a one-shot gold chip that thanks the
