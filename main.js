@@ -23,6 +23,8 @@ import { initCommandPalette, openCommandPalette } from './src/ui/command-palette
 import { initTelemetry, toggleSysinfo, toggleDebug, showDevNotes, updateTelemetry } from './src/ui/telemetry.js';
 import { initTeardown, toggleTeardown, isTeardownActive } from './src/three/teardown.js';
 import { cycleTheme } from './src/three/potentiometer.js';
+import { initOverclock, updateOverclock, toggleOverclock } from './src/three/overclock.js';
+import { updateAudioPeak } from './src/utils/synth.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
@@ -206,6 +208,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6c2. 3D Exploded Teardown initialization
     initTeardown(boardGroup);
 
+    // 6c3. Turbo Overclock initialization
+    initOverclock(boardGroup);
+
     // 6d. LCD1 — the 2.4" display running SIGNAL RUNNER (boot POST at
     // rest; player-controlled once focused). Optional content, capped at
     // the third "extra" after the fly-probe and the night bench.
@@ -314,6 +319,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (teardownBtn) {
         teardownBtn.addEventListener('click', () => toggleTeardown(() => scrollToSection(getActiveSectionId())));
     }
+    const turboBtn = document.getElementById('turbo-toggle-btn');
+    if (turboBtn) {
+        turboBtn.addEventListener('click', () => toggleOverclock());
+    }
     const themeBtn = document.getElementById('theme-toggle-btn');
     if (themeBtn) {
         themeBtn.addEventListener('click', () => cycleTheme());
@@ -404,7 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateParticles(delta);
         updateRadarRing(elapsed, _boardFx);
-        updateLedArray(elapsed, _activeSectionId, _boardFx, _selfTest.frac, _heartbeatFrac);
+        const audioPeak = updateAudioPeak(delta);
+        updateLedArray(elapsed, _activeSectionId, _boardFx, _selfTest.frac, _heartbeatFrac, audioPeak);
 
         if (!isProbeModeActive()) checkHover(delta);
         updateProbe(delta);
@@ -417,7 +427,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (journeyLive) updateIdleDrift(elapsed, delta);
     });
 
-    onTick(STANDARD, (elapsed, _delta) => {
+    onTick(STANDARD, (elapsed, delta) => {
+        updateOverclock(elapsed, delta);
         updateOscilloscope(elapsed, document.body.dataset.hoverRef);
         updateProjectChips(elapsed);
         updateHoverShadow();
@@ -560,6 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleSysinfo,
         toggleDebug,
         toggleTeardown: () => toggleTeardown(() => scrollToSection(getActiveSectionId())),
+        toggleOverclock: () => toggleOverclock(),
         cycleTheme: () => cycleTheme(),
         linkedinUrl: LINKEDIN_URL,
         githubUrl: GITHUB_URL
@@ -615,10 +627,9 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             toggleTeardown(() => scrollToSection(getActiveSectionId()));
         } else if (!isProbeModeActive() && key === 't') {
-            // Hidden shortcut: T = system telemetry (same chip the BIOS
-            // palette reveals). Free while the probe isn't flying.
+            // Turbo Overclock mode (T key)
             e.preventDefault();
-            toggleSysinfo();
+            toggleOverclock();
         } else if (!isProbeModeActive() && key === 'd') {
             // Hidden shortcut: D = debug overlay (FPS/frame).
             e.preventDefault();

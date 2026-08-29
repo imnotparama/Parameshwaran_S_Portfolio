@@ -11,7 +11,7 @@
 //        openCommandPalette() / closeCommandPalette() from keybind.
 // ============================================================
 
-/** @typedef {{ scrollToSection: (id: string) => void, togglePower: () => void, toggleSound: () => void, activateProbe: () => void, deactivateProbe: () => void, toggleSysinfo: () => void, toggleDebug: () => void, toggleTeardown?: () => void, cycleTheme?: () => void, linkedinUrl: string, githubUrl: string }} CPDeps */
+/** @typedef {{ scrollToSection: (id: string) => void, togglePower: () => void, toggleSound: () => void, activateProbe: () => void, deactivateProbe: () => void, toggleSysinfo: () => void, toggleDebug: () => void, toggleTeardown?: () => void, toggleOverclock?: () => void, cycleTheme?: () => void, linkedinUrl: string, githubUrl: string }} CPDeps */
 
 /** @type {CPDeps | null} */
 let deps = null;
@@ -39,6 +39,7 @@ function buildCommands() {
         { icon: '⌂',  label: 'Go to Home',                    hint: 'HERO · BOARD',  exec: () => deps && deps.scrollToSection('sec-hero') },
         // ── Utilities
         { icon: '◫', label: '3D Hardware Teardown (Explode)', hint: 'E · 5-Layer',   exec: () => deps && deps.toggleTeardown && deps.toggleTeardown() },
+        { icon: '⚡', label: 'Turbo Overclock (100MHz / 5V)', hint: 'T · High-Voltage', exec: () => deps && deps.toggleOverclock && deps.toggleOverclock() },
         { icon: '🎨', label: 'Cycle Board Theme',             hint: 'ENIG / 24K / Cyber / Stealth', exec: () => deps && deps.cycleTheme && deps.cycleTheme() },
         { icon: '◉', label: 'Toggle Night Bench',             hint: 'P · PWR LED',   exec: () => deps && deps.togglePower() },
         { icon: '♪', label: 'Toggle Sound',                   hint: 'SND toggle',    exec: () => deps && deps.toggleSound() },

@@ -12,6 +12,7 @@ import { simView } from '../three/lcd-sim.js';
 import { hoverBlip, clickBlip } from './sound.js';
 import { motionPrefs } from './motion-prefs.js';
 import { rotatePotentiometer } from '../three/potentiometer.js';
+import { playComponentTone } from './synth.js';
 
 // ─── Exports ────────────────────────────────────────────────
 export const mouse = new THREE.Vector2();
@@ -538,8 +539,9 @@ function handleHoverEnter(mesh) {
         });
     }
 
-    // The component's own voice: a quiet instrument tick on hover-in.
+    // The component's own voice: a quiet instrument tick and chiptune synth note.
     hoverBlip();
+    playComponentTone(name);
 
     // Mini hover light — subtle preview glow only
     if (hoverLight) {

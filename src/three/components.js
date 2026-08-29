@@ -85,8 +85,9 @@ const ledPulseDrivers = [];
  *  @param {string} [sectionId]
  *  @param {{ celebrateFrac: number, dipFrac: number } | null} [fx]
  *  @param {number} [selfTest] idle self-test fraction 0..1 (0 = not running)
- *  @param {number} [heartbeat] idle heartbeat flash fraction 0..1 (0 = off) */
-export function updateLedArray(elapsed, sectionId, fx = null, selfTest = 0, heartbeat = 0) {
+ *  @param {number} [heartbeat] idle heartbeat flash fraction 0..1 (0 = off)
+ *  @param {number} [audioPeak] audio visualizer peak 0..1 (0 = none) */
+export function updateLedArray(elapsed, sectionId, fx = null, selfTest = 0, heartbeat = 0, audioPeak = 0) {
     const t = getSectionAmbient(sectionId);
     const celebrate = fx && fx.celebrateFrac > 0 ? fx.celebrateFrac : 0;
     const dip = fx && fx.dipFrac > 0 ? fx.dipFrac : 0;
@@ -123,6 +124,14 @@ export function updateLedArray(elapsed, sectionId, fx = null, selfTest = 0, hear
             // the self-test's sequential walk and the celebrate's chase.
             d.mat.emissiveIntensity = LED_PULSE_BASE + heartbeat * 1.4;
             continue;
+        }
+        if (audioPeak > 0) {
+            // Audio-reactive VU meter: diodes light up sequentially with audio energy
+            const vuFront = Math.floor(audioPeak * n);
+            if (i <= vuFront) {
+                d.mat.emissiveIntensity = LED_PULSE_BASE + 1.2 * (1.0 - (vuFront - i) * 0.15);
+                continue;
+            }
         }
         // Sharpened sine (n²·²): a slow rise with a brief bright peak reads as
         // a status pulse, not a sinusoid. Per-LED freq/phase desync the array;
