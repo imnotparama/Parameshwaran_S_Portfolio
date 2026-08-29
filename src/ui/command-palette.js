@@ -11,7 +11,7 @@
 //        openCommandPalette() / closeCommandPalette() from keybind.
 // ============================================================
 
-/** @typedef {{ scrollToSection: (id: string) => void, togglePower: () => void, toggleSound: () => void, activateProbe: () => void, deactivateProbe: () => void, toggleSysinfo: () => void, toggleDebug: () => void, linkedinUrl: string, githubUrl: string }} CPDeps */
+/** @typedef {{ scrollToSection: (id: string) => void, togglePower: () => void, toggleSound: () => void, activateProbe: () => void, deactivateProbe: () => void, toggleSysinfo: () => void, toggleDebug: () => void, toggleTeardown?: () => void, cycleTheme?: () => void, linkedinUrl: string, githubUrl: string }} CPDeps */
 
 /** @type {CPDeps | null} */
 let deps = null;
@@ -38,6 +38,8 @@ function buildCommands() {
         { icon: '▶', label: 'Transmission Interface (Contact)', hint: 'ANT1 · RF',  exec: () => deps && deps.scrollToSection('sec-contact') },
         { icon: '⌂',  label: 'Go to Home',                    hint: 'HERO · BOARD',  exec: () => deps && deps.scrollToSection('sec-hero') },
         // ── Utilities
+        { icon: '◫', label: '3D Hardware Teardown (Explode)', hint: 'E · 5-Layer',   exec: () => deps && deps.toggleTeardown && deps.toggleTeardown() },
+        { icon: '🎨', label: 'Cycle Board Theme',             hint: 'ENIG / 24K / Cyber / Stealth', exec: () => deps && deps.cycleTheme && deps.cycleTheme() },
         { icon: '◉', label: 'Toggle Night Bench',             hint: 'P · PWR LED',   exec: () => deps && deps.togglePower() },
         { icon: '♪', label: 'Toggle Sound',                   hint: 'SND toggle',    exec: () => deps && deps.toggleSound() },
         { icon: '✜', label: 'Fly Probe',                      hint: 'WASD · scope',  exec: () => deps && deps.activateProbe() },

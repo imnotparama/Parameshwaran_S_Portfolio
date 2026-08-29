@@ -5,6 +5,8 @@ import { disposableResources } from './scene.js';
 import { beepBuzzer } from '../utils/buzzer.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 import { getSectionAmbient } from './ambient-tunings.js';
+import { registerTeardownObject, LAYER_OFFSETS } from './teardown.js';
+import { registerRvScrew } from './potentiometer.js';
 
 /** @type {THREE.Mesh[]} */
 export const interactiveObjects = [];
@@ -889,11 +891,13 @@ export function createComponents(boardGroup) {
     const rvScrew = new THREE.Mesh(rvScrewGeo, goldMaterial);
     rvScrew.position.set(-4.85, -1.2, surfaceZ + 0.21);
     boardGroup.add(rvScrew);
+    registerRvScrew(rvScrew);
 
-    // Dynamic tagging of isInteractive = true
+    // Dynamic tagging of isInteractive = true and registering components for Teardown Layer
     interactiveObjects.forEach(obj => {
         if (!obj.userData) obj.userData = {};
         obj.userData.isInteractive = true;
+        registerTeardownObject(obj, LAYER_OFFSETS.COMPONENTS);
     });
 }
 

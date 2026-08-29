@@ -11,6 +11,7 @@ import { highlightTrace } from '../three/traces.js';
 import { simView } from '../three/lcd-sim.js';
 import { hoverBlip, clickBlip } from './sound.js';
 import { motionPrefs } from './motion-prefs.js';
+import { rotatePotentiometer } from '../three/potentiometer.js';
 
 // ─── Exports ────────────────────────────────────────────────
 export const mouse = new THREE.Vector2();
@@ -403,6 +404,9 @@ export function initHover(camera, scene) {
                     // wires focusLcdCamera).
                     clickBlip();
                     lcdHandler();
+                } else if (obj.userData && (obj.userData.type === 'TRIMPOT' || obj.name === 'RV1')) {
+                    // RV1 Trimmer Potentiometer — rotate screw and tune clock frequency
+                    rotatePotentiometer(0.08);
                 }
             }
         });

@@ -6,11 +6,13 @@ import * as THREE from 'three';
 import { disposableResources } from './scene.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 import { siliconDieMesh } from './components.js';
+import { registerTeardownObject, LAYER_OFFSETS } from './teardown.js';
+import { registerThemeMaterial } from './potentiometer.js';
 
 /** @type {THREE.Group | undefined} */
 export let boardGroup;
-// Module-private: the silkscreen mesh is live on the board but nothing imports it.
-let silkscreenMesh;
+/** @type {THREE.Mesh | undefined} */
+export let silkscreenMesh;
 
 /** @param {THREE.Scene} scene */
 export function createBoard(scene) {
@@ -53,11 +55,13 @@ export function createBoard(scene) {
         metalness: 0.15
     });
     disposableResources.materials.add(boardMaterial);
+    registerThemeMaterial(boardMaterial, 'board');
 
     const boardMesh = new THREE.Mesh(boardGeometry, boardMaterial);
     boardMesh.receiveShadow = true;
     boardMesh.castShadow = true;
     boardGroup.add(boardMesh);
+    registerTeardownObject(boardMesh, LAYER_OFFSETS.CORE);
 
     // Lighter soldermask top overlay layer
     const maskGeom = new THREE.PlaneGeometry(width - 0.1, height - 0.1);
@@ -68,10 +72,13 @@ export function createBoard(scene) {
         metalness: 0.2
     });
     disposableResources.materials.add(maskMat);
+    registerThemeMaterial(maskMat, 'soldermask');
+
     const soldermask = new THREE.Mesh(maskGeom, maskMat);
     soldermask.position.z = thickness / 2 + 0.001; // Just above base
     soldermask.receiveShadow = true;
     boardGroup.add(soldermask);
+    registerTeardownObject(soldermask, LAYER_OFFSETS.CORE);
 
     // 1.5. Add plated vias
     createViaArray(boardGroup);
@@ -358,6 +365,7 @@ export function createBoard(scene) {
     silkscreenMesh = new THREE.Mesh(silkscreenGeom, silkscreenMat);
     silkscreenMesh.position.z = thickness / 2 + 0.003;
     boardGroup.add(silkscreenMesh);
+    registerTeardownObject(silkscreenMesh, LAYER_OFFSETS.SILKSCREEN);
 
     // 3. Mounting holes — plated-through holes in the 4 corners (reads instantly
     // as a real PCB). Positions align with the silkscreen crosshairs/markers above
@@ -756,4 +764,6 @@ export function drawCopperPour(boardGroup) {
     const copperPour = new THREE.Mesh(pourGeo, pourMat);
     copperPour.position.z = 0.001; // Just above board base
     boardGroup.add(copperPour);
+    registerTeardownObject(copperPour, LAYER_OFFSETS.TRACES);
+    registerThemeMaterial(pourMat, 'trace');
 }

@@ -21,6 +21,8 @@ import { initCursor } from './src/ui/cursor.js';
 import { initOscilloscope, updateOscilloscope } from './src/ui/oscilloscope.js';
 import { initCommandPalette, openCommandPalette } from './src/ui/command-palette.js';
 import { initTelemetry, toggleSysinfo, toggleDebug, showDevNotes, updateTelemetry } from './src/ui/telemetry.js';
+import { initTeardown, toggleTeardown, isTeardownActive } from './src/three/teardown.js';
+import { cycleTheme } from './src/three/potentiometer.js';
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
@@ -197,8 +199,12 @@ document.addEventListener('DOMContentLoaded', () => {
     createProjectChips(boardGroup);
 
     // 6c. Flying scope probe (WASD) — the board's test probe, flyable over
+    // 6c. Flying scope probe (WASD) — the board's test probe, flyable over
     // the components. Scroll stays the primary path; this is additive.
     createProbe(boardGroup);
+
+    // 6c2. 3D Exploded Teardown initialization
+    initTeardown(boardGroup);
 
     // 6d. LCD1 — the 2.4" display running SIGNAL RUNNER (boot POST at
     // rest; player-controlled once focused). Optional content, capped at
@@ -301,6 +307,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const pwrBtn = document.getElementById('pwr-led');
     if (pwrBtn) {
         pwrBtn.addEventListener('click', () => togglePower());
+    }
+
+    // 8d. Teardown & Theme HUD buttons
+    const teardownBtn = document.getElementById('teardown-toggle-btn');
+    if (teardownBtn) {
+        teardownBtn.addEventListener('click', () => toggleTeardown(() => scrollToSection(getActiveSectionId())));
+    }
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    if (themeBtn) {
+        themeBtn.addEventListener('click', () => cycleTheme());
     }
 
     // 9. Set up body class for mode detection
@@ -543,6 +559,8 @@ document.addEventListener('DOMContentLoaded', () => {
         deactivateProbe,
         toggleSysinfo,
         toggleDebug,
+        toggleTeardown: () => toggleTeardown(() => scrollToSection(getActiveSectionId())),
+        cycleTheme: () => cycleTheme(),
         linkedinUrl: LINKEDIN_URL,
         githubUrl: GITHUB_URL
     });
@@ -585,12 +603,17 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (e.key === 'Enter' && isProbeModeActive()) {
             e.preventDefault();
             measureProbeTarget();
-        } else if (e.key === 'Escape' && isProbeModeActive()) {
-            deactivateProbe();
+        } else if (e.key === 'Escape') {
+            if (isProbeModeActive()) deactivateProbe();
+            if (isTeardownActive()) toggleTeardown(() => scrollToSection(getActiveSectionId()));
         } else if (key === 'p') {
             // Night bench — cut/restore the bench lights (the PWR switch).
             e.preventDefault();
             togglePower();
+        } else if (!isProbeModeActive() && key === 'e') {
+            // 3D Exploded Hardware Teardown view (E key)
+            e.preventDefault();
+            toggleTeardown(() => scrollToSection(getActiveSectionId()));
         } else if (!isProbeModeActive() && key === 't') {
             // Hidden shortcut: T = system telemetry (same chip the BIOS
             // palette reveals). Free while the probe isn't flying.

@@ -4,6 +4,8 @@ import gsap from 'gsap';
 import { disposableResources } from './scene.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 import { getSectionAmbient } from './ambient-tunings.js';
+import { registerTeardownObject, LAYER_OFFSETS } from './teardown.js';
+import { registerThemeMaterial } from './potentiometer.js';
 
 /**
  * A routed copper trace between two components, materialized as solid 3D
@@ -239,6 +241,8 @@ export function createTraces(boardGroup) {
         segment.rotation.z = angle - Math.PI / 2;
         segment.receiveShadow = true;
         boardGroup.add(segment);
+        registerTeardownObject(segment, LAYER_OFFSETS.TRACES);
+        registerThemeMaterial(/** @type {THREE.MeshStandardMaterial} */ (segment.material), 'trace');
         return segment;
     };
 
@@ -257,9 +261,10 @@ export function createTraces(boardGroup) {
         // Via internal hole (dark center)
         const holeGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.018, 12);
         holeGeo.rotateX(Math.PI / 2);
-        const hole = new THREE.Mesh(holeGeo, viaInnerMaterial);
-        hole.position.z = 0.001;
-        viaGroup.add(hole);
+        const viaMesh = new THREE.Mesh(holeGeo, viaInnerMaterial);
+        viaMesh.castShadow = true;
+        viaGroup.add(viaMesh);
+        registerTeardownObject(viaGroup, LAYER_OFFSETS.TRACES);
     };
 
     // Construct traces and vias

@@ -495,6 +495,47 @@ body.sound-on .hud-sound {
     outline-offset: 2px;
 }
 
+/* Teardown & Theme HUD Buttons */
+.hud-btn-sub {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    color: rgba(157, 180, 163, 0.55);
+    background: rgba(9, 20, 15, 0.6);
+    border: 1px solid rgba(236, 231, 216, 0.12);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.hud-btn-sub:hover {
+    color: var(--enig-gold);
+    border-color: rgba(201, 162, 75, 0.5);
+}
+
+.hud-btn-sub.active,
+body.teardown-active #teardown-toggle-btn {
+    color: var(--signal);
+    border-color: rgba(62, 230, 160, 0.55);
+    text-shadow: 0 0 6px rgba(62, 230, 160, 0.6);
+    background: rgba(62, 230, 160, 0.1);
+}
+
+/* Theme classes on body */
+body.theme-24k-magic {
+    --enig-gold: #ffd700;
+    --signal: #ffe066;
+}
+body.theme-cyber-neon {
+    --enig-gold: #f43f5e;
+    --signal: #00ffff;
+}
+body.theme-stealth-dark {
+    --enig-gold: #6366f1;
+    --signal: #a855f7;
+}
+
 /* ─── BIOS Terminal Command Palette (Ctrl+K / Cmd+K) ───
    Retro phosphor-green terminal modal: dimmed fullscreen overlay, centered
    terminal chrome (scanlines, > prompt, ■ cursor), fuzzy search results.
