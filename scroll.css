@@ -102,12 +102,18 @@ body.hud-cta-hidden #cta-linkedin-hud {
     transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
 }
 
+.hud-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .hud-name {
     color: var(--silkscreen);
     text-decoration: none;
     font-size: 15px;
-    letter-spacing: 3px;
-    font-weight: 600;
+    letter-spacing: 2px;
+    font-weight: 700;
     font-family: var(--font-heading);
     white-space: nowrap;
     transition: color var(--duration-fast) var(--ease-out);
@@ -115,99 +121,74 @@ body.hud-cta-hidden #cta-linkedin-hud {
 
 .hud-name:hover,
 .hud-name:focus-visible {
-    color: var(--enig-gold);
+    color: var(--signal);
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #3ee6a0;
+    background: rgba(62, 230, 160, 0.12);
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    border-radius: 999px;
+    padding: 3px 10px;
+    letter-spacing: 0.5px;
+}
+
+.pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #3ee6a0;
+    box-shadow: 0 0 8px #3ee6a0;
+    animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.5; }
 }
 
 .hud-nav {
     display: flex;
-    /* NEVER wrap the five section buttons — the nav stays one row at every
-       width where it's visible (lite mode below 768px uses its own stack).
-       The 5 buttons total ~540px at desktop font, ~500px at the ≤900px
-       size, so nowrap is safe all the way down; the bar's own flex-wrap
-       (above) drops the legend/CTA to a second row instead of squeezing
-       the nav. */
     flex-wrap: nowrap;
     flex: 1 1 auto;
     min-width: 0;
-    gap: 4px 10px;
+    gap: 6px;
     justify-content: center;
 }
 
 .hud-nav .nav-btn {
-    background: none;
-    border: none;
-    color: var(--silkscreen-muted);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 1.5px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid transparent;
+    color: rgba(230, 245, 235, 0.75);
+    font-family: var(--font-heading);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
     cursor: pointer;
-    padding: 7px 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
     white-space: nowrap;
-    position: relative;
-    /* The plain-English label under each nav item (the thematic refs stay
-       the primary read; the plain label is the recruiters' translation).
-       Hidden by default, revealed on hover/focus — pointer:fine gated
-       below so touch never leaves a stuck label. */
-    --nav-plain: '';
-    transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
-    position: relative;
-    font-weight: 500;
-    border-radius: var(--radius-sm, 2px);
+    transition: all var(--duration-fast) var(--ease-out);
 }
 
-/* Reference designator (U1, U2, C1–C4, J1, ANT1) — a tiny gold silkscreen
-   glyph before each section label, matching the refs printed on the panels.
-   Kept quiet (9px, 0.8 opacity) so the label stays the primary read; it
-   brightens with the button's own hover/active states. */
-.nav-ref {
-    font-size: 9px;
-    letter-spacing: 0.5px;
-    color: var(--enig-gold);
-    opacity: 0.8;
-    margin-right: 6px;
-    font-weight: 500;
-    /* Plan 006: the ref glyph must not snap on section change — the active
-       state flips opacity 0.8→1, and it wasn't in any transition list. Same
-       fast curve as the button's own color transition, so the section change
-       reads as one beat (button label + ref + panel cascade). */
-    transition: opacity var(--duration-fast) var(--ease-out);
+.hud-nav .nav-btn:hover {
+    color: #ffffff;
+    background: rgba(62, 230, 160, 0.12);
+    border-color: rgba(62, 230, 160, 0.3);
+    transform: translateY(-1px);
 }
 
-.hud-nav .nav-btn:hover .nav-ref,
-.hud-nav .nav-btn.nav-active .nav-ref {
-    color: var(--enig-gold);
-    opacity: 1;
-}
-
-/* Plain-English sublabel — shown on hover so the thematic [CORE]/[MODULES]
-   tabs still translate for a recruiter skimming fast. Absolutely positioned
-   under the button (transform-only show/hide, no layout shift); the ::before
-   route line and ::after active pad stay free because this is a real child
-   span, not a pseudo. pointer:fine gated — touch must not leave it stuck. */
-.hud-nav .nav-btn .nav-plain {
-    position: absolute;
-    top: calc(100% - 2px);
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 8.5px;
-    letter-spacing: 1px;
-    font-weight: 400;
-    color: var(--silkscreen-muted);
-    background: rgba(6, 14, 10, 0.92);
-    border: 1px solid rgba(201, 162, 75, 0.35);
-    border-radius: 2px;
-    padding: 2px 6px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--duration-fast) var(--ease-out);
-    z-index: 5;
-}
-
-@media (hover: hover) and (pointer: fine) {
-    .hud-nav .nav-btn:hover .nav-plain,
-    .hud-nav .nav-btn:focus-visible .nav-plain {
-        opacity: 1;
-    }
+.hud-nav .nav-btn.nav-active {
+    color: #06190f;
+    background: var(--signal);
+    border-color: var(--signal);
+    font-weight: 700;
+    box-shadow: 0 0 14px rgba(62, 230, 160, 0.4);
 }
 
 .hud-nav .nav-btn:hover {
@@ -1075,57 +1056,21 @@ body.theme-stealth-dark {
 /* All sections share the base 120vh track — the old per-section overrides
    (200–300vh) existed to park full-screen overlays that no longer exist. */
 
-/* ─── Datasheet panels ────────────────────────────────────
-   Daughterboard treatment: each panel reads as a physical PCB
-   module seated on the board — FR-4 glass-weave substrate, four
-   corner mounting holes, gold edge-connector pads along the
-   bottom edge (border-image: pinned to the border box, so it
-   never scrolls with content), and a double-routed outline.
-   Background layers scroll with panel content by design — the
-   texture is meant to behave like substrate. */
+/* ─── Modern Glassmorphic Right-Side Panels ─────────────── */
 .ds-panel {
     box-sizing: border-box;
-    width: min(480px, calc(100vw - 40px));
-    background-color: rgba(4, 15, 9, 0.92);
-    background-image:
-        /* corner mounting holes — gold ground ring, dark through-hole */
-        radial-gradient(circle at 14px 14px, rgba(3, 11, 6, 0.98) 0 4.5px, rgba(201, 162, 75, 0.8) 5px 6px, transparent 6.8px),
-        radial-gradient(circle at calc(100% - 14px) 14px, rgba(3, 11, 6, 0.98) 0 4.5px, rgba(201, 162, 75, 0.8) 5px 6px, transparent 6.8px),
-        radial-gradient(circle at 14px calc(100% - 14px), rgba(3, 11, 6, 0.98) 0 4.5px, rgba(201, 162, 75, 0.8) 5px 6px, transparent 6.8px),
-        radial-gradient(circle at calc(100% - 14px) calc(100% - 14px), rgba(3, 11, 6, 0.98) 0 4.5px, rgba(201, 162, 75, 0.8) 5px 6px, transparent 6.8px),
-        /* FR-4 glass weave */
-        repeating-linear-gradient(45deg, rgba(236, 231, 216, 0.013) 0 2px, transparent 2px 4px),
-        repeating-linear-gradient(-45deg, rgba(236, 231, 216, 0.013) 0 2px, transparent 2px 4px),
-        /* soldermask sheen */
-        linear-gradient(160deg, rgba(30, 77, 51, 0.14) 0%, rgba(30, 77, 51, 0.03) 55%, rgba(4, 10, 6, 0.18) 100%);
-    border: 1px solid rgba(236, 231, 216, 0.2);
-    /* gold edge-connector pad strip — border-image paints only the bottom
-       region (slice 0 0 12 0), so the other three sides keep the plain
-       border. Pads are in the border box: always visible, never clipped. */
-    border-bottom-width: 12px;
-    border-image-source: repeating-linear-gradient(90deg, var(--enig-gold) 0 10px, rgba(5, 14, 9, 0.9) 10px 14px);
-    border-image-slice: 0 0 12 0;
-    border-image-width: 0 0 12px 0;
-    border-image-repeat: stretch;
-    box-shadow:
-        inset 0 0 0 1px rgba(236, 231, 216, 0.05),
-        0 2px 0 rgba(201, 162, 75, 0.16),
-        0 24px 48px rgba(0, 0, 0, 0.55);
-    padding: 28px 30px 40px;
+    width: min(520px, calc(100vw - 40px));
+    background: rgba(8, 20, 14, 0.82);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(62, 230, 160, 0.18);
+    border-radius: 20px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    padding: 36px 36px 42px;
     color: var(--color-text-primary, #d7ffe6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     will-change: transform, opacity;
 }
 
-/* Full-journey mode — the fixed datasheet SIDEBAR. Every panel is pinned to
-   the SAME box in the right 42% of the viewport: identical daughterboard
-   chrome, identical position, across all six sections. Only the inner content
-   changes, via a pure-opacity cross-fade (~300ms) on the site-wide
-   power2.inOut curve (--ease-in-out). The box is bounded by the HUD above
-   (top: 84px) and a 24px margin below/right, with a 24px gap from the canvas
-   edge; max-width caps the daughterboard on ultrawide viewports and
-   margin:auto centers it within the right region. */
 body.full-journey .ds-panel {
     position: fixed;
     z-index: 30;
@@ -1138,133 +1083,70 @@ body.full-journey .ds-panel {
     margin-left: auto;
     margin-right: auto;
     overflow-y: auto;
-    /* Slim scrollbar matching the board legend (the page body already styles
-       its own 6px scrollbar; the fixed sidebar is a separate scroll port). */
     scrollbar-width: thin;
-    scrollbar-color: rgba(30, 77, 51, 0.8) rgba(3, 9, 3, 0.4);
+    scrollbar-color: rgba(62, 230, 160, 0.4) transparent;
     opacity: 0;
     visibility: hidden;
-    transform: none;
-    will-change: opacity;
-    /* Visibility flips instantly on activate, but waits out the fade on
-       deactivate (0s delay 0.3s). NEVER animate visibility itself: Chromium
-       won't tick transitions on un-rendered (visibility:hidden) elements, so a
-       visibility transition deadlocks — the panel freezes at opacity 0 while
-       its transitions sit perpetually at currentTime 0. */
-    transition: opacity 0.3s var(--ease-in-out), visibility 0s linear 0.3s;
+    transform: translateY(12px);
+    will-change: opacity, transform;
+    transition: opacity 0.35s var(--ease-in-out), transform 0.35s var(--ease-in-out), visibility 0s linear 0.35s;
 }
 
 body.full-journey .ds-panel.panel-active {
     opacity: 1;
     visibility: visible;
-    transform: none;
-    transition: opacity 0.3s var(--ease-in-out), visibility 0s;
+    transform: translateY(0);
+    transition: opacity 0.35s var(--ease-in-out), transform 0.35s var(--ease-in-out), visibility 0s;
+}
+
+/* Staggered entrance animation for active panel children */
+.ds-panel.panel-active > * {
+    animation: panel-child-entrance 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.ds-panel.panel-active > *:nth-child(1) { animation-delay: 0.04s; }
+.ds-panel.panel-active > *:nth-child(2) { animation-delay: 0.08s; }
+.ds-panel.panel-active > *:nth-child(3) { animation-delay: 0.12s; }
+.ds-panel.panel-active > *:nth-child(4) { animation-delay: 0.16s; }
+.ds-panel.panel-active > *:nth-child(5) { animation-delay: 0.20s; }
+.ds-panel.panel-active > *:nth-child(6) { animation-delay: 0.24s; }
+
+@keyframes panel-child-entrance {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .ds-panel-wide {
     width: min(980px, calc(100vw - 40px));
 }
 
-/* ─── Datasheet typography ──────────────────────────────── */
-/* Body copy reads in Instrument Sans (readable) while labels and data
-   stay in Fragment Mono — the datasheet register is data, the prose is
-   prose. */
-.ds-body,
-.hero-claim,
-.proj-field,
-.tl-detail {
-    font-family: var(--font-body);
-}
-
-/* ds-ref = silkscreen legend row: a via node, the reference designator,
-   then a copper trace that fades out toward the right edge. */
-.ds-ref {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+/* ─── Typography & Headings ─────────────────────────────── */
+.panel-eyebrow {
     font-size: 11px;
-    letter-spacing: 2.5px;
-    color: rgba(200, 150, 12, 0.85);
-    margin-bottom: 8px;
-    font-weight: 500;
-    text-transform: uppercase;
-    opacity: 0;
-    /* Inner content cross-fades (pure opacity, power2.inOut) with a tiny
-       stagger — the panel box itself never moves. */
-    transition: opacity 0.3s var(--ease-in-out);
-}
-
-.ds-ref::before {
-    content: '';
-    flex: none;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: radial-gradient(circle, #08150d 0 2.2px, var(--enig-gold) 2.6px 3.4px, transparent 4px);
-}
-
-.ds-ref::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    margin-left: 6px;
-    background: linear-gradient(90deg, rgba(201, 162, 75, 0.45), transparent);
-}
-
-.ds-panel.panel-active .ds-ref {
-    opacity: 1;
-    transition-delay: 0.05s;
-}
-
-/* ds-title = datasheet heading with a gold pad tick on the left */
-.ds-title {
-    position: relative;
-    padding-left: 12px;
-    font-size: 22px;
-    letter-spacing: 3px;
-    color: var(--silkscreen);
-    margin: 0 0 14px;
     font-weight: 700;
-    text-shadow: 0 0 20px rgba(201, 162, 75, 0.25);
-    opacity: 0;
-    transition: opacity 0.3s var(--ease-in-out);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 8px;
 }
 
-.ds-title::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 3px;
-    height: 18px;
-    background: var(--enig-gold);
-    opacity: 0.85;
+.ds-title {
+    font-family: var(--font-heading);
+    font-size: 28px;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0 0 16px;
+    letter-spacing: -0.5px;
 }
 
-.ds-panel.panel-active .ds-title {
-    opacity: 1;
-    transition-delay: 0.1s;
-}
-
-/* Centered panels (contact) drop the left tick */
-.contact-panel .ds-title {
-    padding-left: 0;
-}
-
-.contact-panel .ds-title::before {
-    display: none;
-}
-
-/* ─── ds-title-stack — gradient-text-sweep twin (hero mechanism extended) ──
-   The datasheet heading sits in a grid with a pixel-identical twin that
-   carries the gold→green gradient masked INTO the glyphs (base rules live
-   on .headline-twin in style.css). The twin is opacity 0 by default and
-   only raised by journey.js for the one-shot sweep on panel activation.
-   These overrides match .ds-title's metrics so the twins stack exactly. */
 .ds-title-stack {
     display: grid;
-    margin: 0 0 14px; /* was h2.ds-title's margin — moved to the wrapper */
+    margin: 0 0 16px;
 }
 
 .ds-title-stack .ds-title {
@@ -1272,506 +1154,336 @@ body.full-journey .ds-panel.panel-active {
 }
 
 .ds-title-stack .headline-twin {
-    padding-left: 12px; /* matches .ds-title's tick padding so glyphs align */
-    font-size: 22px;
-    letter-spacing: 3px;
-    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: -0.5px;
+    font-weight: 800;
     font-family: var(--font-heading);
 }
 
-/* Centered panels drop the tick — the twin's padding drops with it */
-.contact-panel .ds-title-stack .headline-twin {
-    padding-left: 0;
-}
-
 .ds-body {
-    font-size: 14px;
-    line-height: 1.8;
-    color: rgba(215, 255, 230, 0.9);
-    margin: 14px 0 18px;
-    opacity: 0;
-    transition: opacity 0.3s var(--ease-in-out);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.7;
+    color: rgba(220, 245, 230, 0.9);
+    margin: 16px 0 24px;
 }
 
-/* Typewriter reveal (journey.js) — each character is its own span, so
-   whitespace must not collapse (every space is a lone span; pre-wrap keeps
-   the exact original text). No motion — just layout preservation. */
-.ds-body.typer-active {
-    white-space: pre-wrap;
-}
-
-.ds-panel.panel-active .ds-body {
-    opacity: 1;
-    transition-delay: 0.15s;
-}
-
-.spec-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    margin-bottom: 4px;
-}
-
-.spec-table th,
-.spec-table td {
-    border: 1px solid rgba(236, 231, 216, 0.12);
-    padding: 8px 12px;
-    text-align: left;
-}
-
-.spec-table th {
-    color: rgba(200, 150, 12, 0.9);
-    width: 72px;
-    letter-spacing: 1px;
-    font-weight: 400;
-    background: rgba(201, 162, 75, 0.06);
-    border-left: 2px solid rgba(201, 162, 75, 0.5);
-}
-
-/* ─── Hero panel ────────────────────────────────────────── */
+/* ─── Hero Panel ────────────────────────────────────────── */
 .hero-panel {
     width: min(620px, calc(100vw - 40px));
     text-align: center;
-    border-color: rgba(236, 231, 216, 0.24);
-    /* background-color only — a background shorthand would reset the
-       daughterboard background-image stack from the .ds-panel base */
-    background-color: rgba(4, 15, 9, 0.92);
+}
+
+.hero-top-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--signal);
+    background: rgba(62, 230, 160, 0.12);
+    border: 1px solid rgba(62, 230, 160, 0.28);
+    border-radius: 999px;
+    padding: 6px 16px;
+    margin-bottom: 18px;
+}
+
+.badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--signal);
+    box-shadow: 0 0 8px var(--signal);
 }
 
 .hero-claim {
+    font-family: var(--font-body);
     font-size: 16px;
-    line-height: 1.6;
-    margin: 18px auto 6px;
-    max-width: 46ch;
+    line-height: 1.65;
+    margin: 18px auto 8px;
+    max-width: 48ch;
     color: var(--color-text-primary, #d7ffe6);
 }
 
-/* Hero claim signal words — the four proof points lifted into the board's
-   "live" green (--signal, the ONLY glow per the design doctrine) with a
-   hairline trace under the word: they read as marked live outputs on the
-   datasheet, not highlighted keywords. Static — no motion, safe under
-   reduced motion. Copy untouched (locked-content rule: markup only). */
 .hero-claim .sig-word {
     color: var(--signal);
-    font-weight: 500;
-    text-decoration: underline;
-    text-underline-offset: 4px;
-    text-decoration-thickness: 1px;
-    text-decoration-color: rgba(62, 230, 160, 0.45);
+    font-weight: 600;
 }
 
 .hero-panel .badge-row {
-    justify-content: center;
-    margin: 18px 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 24px 0;
 }
 
-/* Stat badges = header pins: gold top rail reads as a DIP pin row */
 .stat-badge {
-    border-color: rgba(236, 231, 216, 0.2);
-    border-top-color: rgba(201, 162, 75, 0.5);
-    background-color: rgba(30, 77, 51, 0.16);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(62, 230, 160, 0.18);
+    border-radius: 14px;
+    padding: 14px 10px;
+    text-align: center;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stat-badge:hover {
+    transform: translateY(-3px);
+    border-color: var(--signal);
+    background: rgba(62, 230, 160, 0.08);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.stat-badge .badge-val {
+    display: block;
+    font-size: 20px;
+    font-weight: 800;
+    color: #ffffff;
+    font-family: var(--font-heading);
+}
+
+.stat-badge .badge-lbl {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(180, 210, 190, 0.75);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
 }
 
 .hero-cta-row {
     display: flex;
     justify-content: center;
-    margin: 8px 0 14px;
+    margin: 12px 0 16px;
 }
 
 .scroll-hint {
     font-size: 11px;
+    font-weight: 600;
     letter-spacing: 2px;
-    color: var(--color-text-muted, #7fbf8f);
+    color: rgba(180, 220, 200, 0.6);
     animation: hint-pulse 2.2s ease-in-out infinite;
 }
 
-@keyframes hint-pulse {
-    0%, 100% { opacity: 0.45; }
-    50% { opacity: 1; }
-}
-
-/* ─── Projects grid ─────────────────────────────────────── */
-.ds-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 24px;
-    font-size: 11px;
-    letter-spacing: 1px;
-    margin: 0 0 18px;
-}
-
-.legend-soldered { 
-    color: var(--glow-green, #00ff88);
-    text-shadow: 0 0 6px rgba(0, 255, 136, 0.3);
-}
-.legend-breadboard { 
-    color: var(--pcb-gold, #c8960c);
-    text-shadow: 0 0 6px rgba(200, 150, 12, 0.3);
-}
-
-.projects-grid {
+/* ─── About Grid ────────────────────────────────────────── */
+.about-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
 }
 
-/* In split mode the datasheet sidebar is ~42vw, so the project grid compacts
-   to two columns (the old 980px-wide full-viewport grid would overflow). */
-body.full-journey .projects-grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 12px;
+.about-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(62, 230, 160, 0.16);
+    border-radius: 14px;
+    padding: 18px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Project filter bar — SMD DIP-switch pins above the grid (F6). Eight-pin
-   switch housing read: dark substrate strip, monospace labels, gold active
-   pin (the switch is ON). Click feedback is a Y-flip in sections.js (gated
-   by reduced motion); the CSS owns the rest state. */
+.about-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(62, 230, 160, 0.45);
+    background: rgba(62, 230, 160, 0.06);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.about-card-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.about-card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--signal);
+    font-weight: 700;
+}
+
+.about-card-val {
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 4px 0 2px;
+}
+
+.about-card-sub {
+    font-size: 12px;
+    color: rgba(180, 210, 190, 0.75);
+}
+
+/* ─── Projects Section ──────────────────────────────────── */
 .proj-filter-bar {
     display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 4px;
-    margin: 0 0 14px;
-    background:
-        repeating-linear-gradient(45deg, rgba(236, 231, 216, 0.012) 0 2px, transparent 2px 4px),
-        rgba(3, 14, 8, 0.9);
-    border: 1px solid rgba(236, 231, 216, 0.14);
-    border-radius: 2px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .proj-filter {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 1.2px;
-    padding: 4px 8px;
-    color: rgba(157, 180, 163, 0.7);
-    background: rgba(30, 77, 51, 0.2);
-    border: 1px solid rgba(236, 231, 216, 0.12);
-    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(62, 230, 160, 0.18);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(200, 230, 210, 0.85);
     cursor: pointer;
-    transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.proj-filter.active,
 .proj-filter:hover {
-    color: var(--silkscreen);
-    border-color: rgba(201, 162, 75, 0.45);
+    background: var(--signal);
+    color: #05140b;
+    font-weight: 700;
+    border-color: var(--signal);
+    box-shadow: 0 0 14px rgba(62, 230, 160, 0.4);
 }
 
-.proj-filter:active {
-    transform: translateY(1px);
-}
-
-.proj-filter:focus-visible {
-    outline: 2px solid var(--silkscreen);
-    outline-offset: 2px;
-}
-
-/* Active pin — gold like the nav-active pad: the switch is thrown. */
-.proj-filter.active {
-    color: var(--enig-gold);
-    background: rgba(201, 162, 75, 0.14);
-    border-color: rgba(201, 162, 75, 0.55);
-    box-shadow: 0 0 10px rgba(201, 162, 75, 0.2), inset 0 0 0 1px rgba(201, 162, 75, 0.2);
-}
-
-/* Per-category accent for the ACTIVE filter pin — the same three hues the
-   3D project-chip gems use (AI/ML rose, FULL-STACK cyan, SYSTEMS blue), so
-   the datasheet filter and the board agree on what a category looks like. */
-.proj-filter.active[data-filter="AI/ML"] {
-    color: #f43f5e;
-    background: rgba(244, 63, 94, 0.12);
-    border-color: rgba(244, 63, 94, 0.55);
-    box-shadow: 0 0 10px rgba(244, 63, 94, 0.2), inset 0 0 0 1px rgba(244, 63, 94, 0.2);
-}
-
-.proj-filter.active[data-filter="FULL-STACK"] {
-    color: #22d3ee;
-    background: rgba(34, 211, 238, 0.12);
-    border-color: rgba(34, 211, 238, 0.55);
-    box-shadow: 0 0 10px rgba(34, 211, 238, 0.2), inset 0 0 0 1px rgba(34, 211, 238, 0.2);
-}
-
-.proj-filter.active[data-filter="SYSTEMS"] {
-    color: #3b82f6;
-    background: rgba(59, 130, 246, 0.12);
-    border-color: rgba(59, 130, 246, 0.55);
-    box-shadow: 0 0 10px rgba(59, 130, 246, 0.2), inset 0 0 0 1px rgba(59, 130, 246, 0.2);
-}
-
-/* Filtered-out cards — pointer-events off (unclickable while hidden); the
-   opacity/transform are animated by sections.js (gsap, or a CSS snap under
-   reduced motion). This class is the STATE; the animation owns the values. */
-.proj-ds.proj-filtered {
-    pointer-events: none;
-}
-
-/* Project cards = BOM line items, not mini-PCBs. Each project is one row in
-   the board's bill of materials: a silk-stencil reference block (the ref as a
-   filled stencil square, like the silkscreen on the board), a status LED, two
-   labeled fabrication rows (PROBLEM / STATE), and a test-point link. The
-   earlier mini-PCB treatment (corner mounting hole, gold trace header,
-   edge-pad strip, dashed building borders) read as decorated cards and made
-   the single-column stack feel heavy — this is the same board language,
-   information-dense and calm. */
-.proj-ds {
-    position: relative;
-    border: 1px solid rgba(236, 231, 216, 0.12);
-    border-left: 2px solid rgba(201, 162, 75, 0.4);
-    padding: 12px 14px 14px 16px;
-    background:
-        repeating-linear-gradient(45deg, rgba(236, 231, 216, 0.011) 0 2px, transparent 2px 4px),
-        rgba(3, 14, 8, 0.72);
+.projects-grid {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.03);
-    transition: box-shadow var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), background var(--duration-base) var(--ease-out);
+    gap: 16px;
+}
+
+.proj-ds {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(62, 230, 160, 0.16);
+    border-radius: 16px;
+    padding: 22px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .proj-ds:hover {
-    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.05), 0 0 22px rgba(201, 162, 75, 0.12);
-    border-left-color: var(--enig-gold);
-    background:
-        repeating-linear-gradient(45deg, rgba(236, 231, 216, 0.011) 0 2px, transparent 2px 4px),
-        rgba(6, 24, 13, 0.8);
-}
-
-/* In-build line items: the ref block turns gold (a pad that's still being
-   soldered), the LED flickers — no dashed borders, which read as "broken". */
-.proj-ds.is-building {
-    border-left-color: rgba(200, 150, 12, 0.55);
-}
-
-.proj-ds.is-building:hover {
-    box-shadow: inset 0 0 0 1px rgba(236, 231, 216, 0.05), 0 0 22px rgba(200, 150, 12, 0.14);
-    border-left-color: #e8b339;
+    transform: translateY(-3px);
+    border-color: rgba(62, 230, 160, 0.5);
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.4);
+    background: rgba(62, 230, 160, 0.04);
 }
 
 .proj-ds-head {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 10px;
-}
-
-/* Expansion-module identity — each card is one subsystem on the board: a
-   theme row (module name + its own signal-color dot) above the title. The
-   dot's color is the module's signal (--sig, set inline from portfolio.js),
-   the same hex that tints its 3D chip LED on the board. */
-.proj-ds-title-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
+    gap: 12px;
 }
 
 .proj-ds-theme {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 9px;
-    letter-spacing: 1.6px;
-    color: rgba(157, 180, 163, 0.75);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--signal);
     text-transform: uppercase;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.proj-signal {
-    flex: none;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--sig, #3ee6a0);
-    box-shadow: 0 0 6px var(--sig, #3ee6a0);
-}
-
-/* Technical specification — the module's datasheet lines, as tiny silk
-   stencil tags (one per spec). Reads like the pins on the chip's package. */
-.proj-spec {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-.proj-spec li {
-    font-family: var(--font-mono);
-    font-size: 9px;
     letter-spacing: 1px;
-    color: rgba(157, 180, 163, 0.55);
-    border: 1px solid rgba(236, 231, 216, 0.1);
-    border-radius: 1px;
-    padding: 2px 6px;
-    white-space: nowrap;
-}
-
-/* Project detail (chip focus) — spec list keeps its own spacing in the
-   focused datasheet panel. */
-#panel-project-detail .proj-spec {
-    margin: 4px 0 12px;
 }
 
 .proj-ds-title {
-    font-size: 13px;
+    font-size: 17px;
     font-weight: 700;
-    letter-spacing: 0.4px;
-    line-height: 1.35;
-    color: var(--silkscreen);
+    color: #ffffff;
+    margin: 4px 0 0;
+    font-family: var(--font-heading);
 }
 
-/* The ref block — the component's reference designator as a filled silk
-   stencil square, exactly like the silkscreen boxes printed on the board.
-   Gold-filled with dark text (soldered), gold-outlined with gold text
-   (in-build): the same language as the legend below the title. */
-.proj-ds-ref {
-    align-self: flex-start;
+.status-tag {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-width: 34px;
-    height: 18px;
-    padding: 0 5px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    border-radius: 1px;
-    background: rgba(201, 162, 75, 0.9);
-    color: #06200f;
-    box-shadow: 0 0 10px rgba(201, 162, 75, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
 }
 
-.proj-ds.is-building .proj-ds-ref {
-    background: transparent;
-    color: #e8b339;
-    box-shadow: inset 0 0 0 1px rgba(200, 150, 12, 0.55);
+.status-tag.shipped {
+    background: rgba(62, 230, 160, 0.12);
+    color: #3ee6a0;
+    border: 1px solid rgba(62, 230, 160, 0.3);
 }
 
-/* Status = a labeled chip: LED dot + SOLDERED / BREADBOARD text, so the
-   shipped/in-build distinction reads at a glance without decoding the legend
-   (the old 8px dot alone was ambiguous). The LED keeps the signal-green/
-   gold language; only the dot flickers for in-build (the label must stay
-   readable — a whole-chip flicker would strobe the text). */
-.proj-ds-status {
-    flex: none;
+.status-tag.building {
+    background: rgba(251, 146, 60, 0.12);
+    color: #fb923c;
+    border: 1px solid rgba(251, 146, 60, 0.3);
+}
+
+.proj-summary {
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(215, 245, 230, 0.85);
+    margin: 0;
+}
+
+.proj-field {
+    font-family: var(--font-body);
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(180, 215, 195, 0.8);
+}
+
+.proj-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.proj-tag {
+    font-size: 11px;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 3px 8px;
+    color: rgba(200, 230, 210, 0.85);
+}
+
+.proj-footer {
+    margin-top: 6px;
+}
+
+.proj-ds-link {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 9px;
-    letter-spacing: 1.4px;
-    color: var(--glow-green, #00ff88);
-    border: 1px solid rgba(62, 230, 160, 0.35);
-    border-radius: 2px;
-    background: rgba(9, 20, 15, 0.6);
-    padding: 3px 8px;
-    text-transform: uppercase;
-}
-
-.proj-ds-status::before {
-    content: '';
-    flex: none;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: currentColor;
-    box-shadow: 0 0 8px currentColor;
-}
-
-.proj-ds-status::after {
-    content: 'SOLDERED';
-}
-
-.proj-ds-status.building {
-    color: var(--pcb-gold, #c8960c);
-    border-color: rgba(200, 150, 12, 0.4);
-    animation: none;
-}
-
-.proj-ds-status.building::after {
-    content: 'BREADBOARD';
-}
-
-.proj-ds-status.building::before {
-    animation: flicker 3.2s linear infinite;
-}
-
-@keyframes flicker {
-    0%, 100% { opacity: 1; }
-    88% { opacity: 1; }
-    90% { opacity: 0.35; }
-    92% { opacity: 1; }
-    95% { opacity: 0.55; }
-    97% { opacity: 1; }
-}
-
-/* Fabrication rows — label: value, the label silk-stenciled like a net name. */
-.proj-field {
-    font-size: 12px;
-    line-height: 1.55;
-    color: rgba(215, 255, 230, 0.78);
-}
-
-.proj-field b {
-    display: inline-block;
-    min-width: 42px;
-    color: rgba(201, 162, 75, 0.75);
-    font-weight: 400;
-    font-size: 10px;
-    letter-spacing: 1.4px;
-}
-
-/* Test-point link: a square probe pad marker before the label. */
-.proj-ds-link {
-    align-self: flex-start;
-    margin-top: 2px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 11.5px;
-    letter-spacing: 1px;
-    color: var(--glow-green, #00ff88);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--signal);
     text-decoration: none;
-    border-bottom: 1px solid rgba(0, 255, 136, 0.25);
-    padding-bottom: 2px;
-    transition: border-color var(--duration-fast) var(--ease-out), text-shadow var(--duration-fast) var(--ease-out);
-}
-
-.proj-ds-link::before {
-    content: '';
-    width: 9px;
-    height: 9px;
-    border: 1px solid rgba(0, 255, 136, 0.6);
-    border-radius: 1px;
-    background: rgba(0, 255, 136, 0.08);
-    transition: background var(--duration-fast) var(--ease-out);
+    transition: all 0.2s;
 }
 
 .proj-ds-link:hover {
-    text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
-    border-color: rgba(0, 255, 136, 0.8);
+    color: #ffffff;
+    transform: translateX(3px);
 }
 
-.proj-ds-link:hover::before {
-    background: rgba(0, 255, 136, 0.35);
-}
-
-/* ─── Skills groups ─────────────────────────────────────── */
+/* ─── Skills Section ────────────────────────────────────── */
 .skills-groups {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 16px;
+}
+
+.skill-group {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(62, 230, 160, 0.16);
+    border-radius: 16px;
+    padding: 20px;
 }
 
 .skill-group-label {
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: rgba(200, 150, 12, 0.8);
-    margin-bottom: 10px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 12px;
+    font-family: var(--font-heading);
 }
 
 .skill-pills {
@@ -1780,240 +1492,159 @@ body.full-journey .projects-grid {
     gap: 8px;
 }
 
-/* Skill pills = SMD components: a matte component body with silver
-   end-caps (like a chip's terminations) — the caps are the pseudo-elements. */
 .skill-pill {
+    background: rgba(62, 230, 160, 0.08);
+    border: 1px solid rgba(62, 230, 160, 0.22);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2f5eb;
+    transition: all 0.2s;
     position: relative;
-    font-size: 11.5px;
-    padding: 4px 12px;
-    border: 1px solid rgba(236, 231, 216, 0.16);
-    border-radius: 2px;
-    color: rgba(215, 255, 230, 0.9);
-    background: linear-gradient(180deg, rgba(30, 77, 51, 0.28), rgba(30, 77, 51, 0.12));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-    transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
-}
-
-.skill-pill::before,
-.skill-pill::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 4px;
-    height: 12px;
-    border-radius: 1px;
-    background: linear-gradient(180deg, #e9ecef 0%, #aeb4b9 45%, #7d8489 100%);
-}
-
-.skill-pill::before {
-    left: -2px;
-}
-
-.skill-pill::after {
-    right: -2px;
+    cursor: default;
 }
 
 .skill-pill:hover {
-    color: var(--silkscreen);
-    border-color: rgba(201, 162, 75, 0.55);
-    box-shadow: 0 0 14px rgba(201, 162, 75, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    background: var(--signal);
+    color: #06180d;
+    font-weight: 700;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(62, 230, 160, 0.3);
 }
 
-/* Visual weight — how many real projects actually use the skill. Heavy
-   (4+) skills carry the board's gold glow at rest; medium (2–3) get a quiet
-   signal-green edge; light (0–1) stay the plain solder look. The weight is
-   set as data-weight by sections.js from the projects' tags, so the grid
-   reads as proof instead of a flat label list. */
-.skill-pill[data-weight="heavy"] {
-    border-color: rgba(201, 162, 75, 0.4);
-    box-shadow: 0 0 10px rgba(201, 162, 75, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.skill-pill[data-weight="heavy"]:hover {
-    border-color: rgba(201, 162, 75, 0.75);
-    box-shadow: 0 0 18px rgba(201, 162, 75, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.skill-pill[data-weight="medium"] {
-    border-color: rgba(62, 230, 160, 0.28);
-}
-
-.skill-pill[data-weight="medium"]:hover {
-    border-color: rgba(62, 230, 160, 0.6);
-}
-
-/* USED IN — the proof line. Hidden at rest (opacity 0, clipped), revealed
-   on hover/focus as a compact second row inside the pill: "USED IN:
-   CrowdPulse, PRMxA". No motion under reduced-motion (instant flip). */
-.skill-pill .skill-used {
+.skill-used {
     display: block;
+    font-size: 9px;
     font-style: normal;
-    font-size: 8.5px;
-    letter-spacing: 0.6px;
-    line-height: 1.3;
-    color: rgba(62, 230, 160, 0.85);
-    margin-top: 3px;
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    transition: opacity var(--duration-fast) var(--ease-out), max-height var(--duration-fast) var(--ease-out);
-}
-
-@media (hover: hover) and (pointer: fine) {
-    .skill-pill:hover .skill-used,
-    .skill-pill:focus-visible .skill-used {
-        max-height: 40px;
-        opacity: 1;
-    }
-}
-
-/* Plan 004: lift gated (same rule — SMD skill pills) */
-@media (hover: hover) and (pointer: fine) {
-    .skill-pill:hover {
-        transform: translateY(-1px);
-    }
-}
-
-/* Component-class tag on each skill pill — the part it plays on the board
-   (MCU, AI ACCEL, COMM BUS...). A tiny gold silkscreen label under the
-   skill name: the library reads as parts, not a list. */
-.skill-pill em {
-    display: block;
-    font-style: normal;
-    font-size: 8px;
-    letter-spacing: 1.2px;
-    color: rgba(201, 162, 75, 0.8);
+    color: rgba(6, 24, 13, 0.9);
+    font-weight: 700;
     margin-top: 2px;
-    text-transform: uppercase;
-    text-align: center;
-    white-space: nowrap;
 }
 
-/* ─── Experience timeline ───────────────────────────────── */
+/* ─── Experience Timeline ───────────────────────────────── */
 .timeline-list {
     display: flex;
     flex-direction: column;
+    gap: 18px;
     position: relative;
-    padding-left: 26px;
-    gap: 20px;
-}
-
-.timeline-list::before {
-    content: '';
-    position: absolute;
-    left: 6px;
-    top: 6px;
-    bottom: 6px;
-    width: 2px;
-    background: linear-gradient(to bottom, rgba(200, 150, 12, 0.6), rgba(200, 150, 12, 0.1));
+    padding-left: 28px;
+    border-left: 2px solid rgba(62, 230, 160, 0.25);
 }
 
 .tl-item {
     position: relative;
 }
 
-.tl-item::before {
-    content: '';
+.tl-marker {
     position: absolute;
-    left: -26px;
-    top: 5px;
-    width: 14px;
-    height: 14px;
+    left: -34px;
+    top: 6px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    background: #04180a;
-    border: 2px solid rgba(200, 150, 12, 0.7);
-    box-shadow: 0 0 12px rgba(200, 150, 12, 0.4);
-    transition: box-shadow var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+    background: var(--signal);
+    box-shadow: 0 0 10px var(--signal);
 }
 
-/* Copper-plated via center */
-.tl-item::after {
-    content: '';
-    position: absolute;
-    left: -22.5px;
-    top: 8.5px;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--enig-gold);
-    box-shadow: 0 0 6px rgba(201, 162, 75, 0.6);
-    transition: box-shadow var(--duration-base) var(--ease-out);
+.tl-content {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(62, 230, 160, 0.15);
+    border-radius: 14px;
+    padding: 18px 20px;
+    transition: all 0.2s;
 }
 
-.tl-item:hover::before {
-    border-color: var(--enig-gold);
-    box-shadow: 0 0 18px rgba(201, 162, 75, 0.7);
-}
-
-.tl-item:hover::after {
-    box-shadow: 0 0 10px rgba(201, 162, 75, 0.9);
+.tl-content:hover {
+    border-color: rgba(62, 230, 160, 0.4);
+    background: rgba(62, 230, 160, 0.05);
+    transform: translateX(3px);
 }
 
 .tl-date {
     font-size: 11px;
-    letter-spacing: 2px;
-    color: rgba(200, 150, 12, 0.8);
+    font-weight: 700;
+    color: var(--signal);
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .tl-title {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
-    color: var(--silkscreen);
-    margin: 4px 0;
+    color: #ffffff;
+    margin: 4px 0 6px;
+    font-family: var(--font-heading);
 }
 
 .tl-detail {
-    font-size: 12.5px;
+    font-family: var(--font-body);
+    font-size: 14px;
     line-height: 1.6;
-    color: rgba(127, 191, 143, 0.8);
+    color: rgba(200, 230, 210, 0.85);
 }
 
-/* ─── Contact panel ─────────────────────────────────────── */
+/* ─── Contact Section ───────────────────────────────────── */
 .contact-panel {
     text-align: center;
-    width: min(560px, calc(100vw - 40px));
+    width: min(580px, calc(100vw - 40px));
 }
 
-.contact-secondary {
+.contact-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin: 24px 0;
+    text-align: left;
+}
+
+.contact-card {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    /* Three rows of identity (github · email · location) must never clip:
-       on narrow panels they wrap onto their own lines instead of the
-       rightmost item getting cut mid-glyph ("CH..."). */
-    flex-wrap: wrap;
-    row-gap: 8px;
-    gap: 16px;
-    margin: 12px 0 24px;
-}
-
-.secondary-link {
-    font-size: 12px;
-    color: rgba(127, 191, 143, 0.7);
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(62, 230, 160, 0.18);
+    border-radius: 14px;
+    padding: 20px;
     text-decoration: none;
-    border-bottom: 1px dotted rgba(127, 191, 143, 0.4);
-    transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.secondary-link:hover {
-    color: rgba(215, 255, 230, 0.9);
-    border-bottom-color: rgba(127, 191, 143, 0.8);
+.contact-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--signal);
+    background: rgba(62, 230, 160, 0.1);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
 }
 
-.secondary-sep { 
-    color: rgba(127, 191, 143, 0.3); 
+.contact-card-icon {
+    font-size: 26px;
+    margin-bottom: 10px;
+}
+
+.contact-card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    font-family: var(--font-heading);
+}
+
+.contact-card-sub {
+    font-size: 13px;
+    color: var(--signal);
+    margin-top: 4px;
+    font-weight: 500;
 }
 
 .contact-footer {
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    font-size: 10.5px;
-    letter-spacing: 1.5px;
-    color: rgba(127, 191, 143, 0.5);
-    border-top: 1px solid rgba(236, 231, 216, 0.1);
-    padding-top: 16px;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: rgba(160, 200, 180, 0.6);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 20px;
+    margin-top: 10px;
 }
 
 /* The connector line is a live signal trace — dashes march toward the

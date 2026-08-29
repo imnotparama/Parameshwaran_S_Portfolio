@@ -139,193 +139,170 @@
         <canvas id="threejs-canvas" role="img" aria-label="Interactive 3D printed circuit board — scroll to travel along its traces"></canvas>
     </div>
 
-    <!-- Fixed HUD: identity + nav + persistent LinkedIn CTA (reachable at every scroll position) -->
+    <!-- Fixed Header: Clean brand identity + modern nav + toolbar + LinkedIn CTA -->
     <header id="hud-bar" role="banner">
-        <a class="hud-name" href="#sec-hero" data-section="sec-hero">PARAMESHWARAN&nbsp;S</a>
-        <nav class="hud-nav" aria-label="Board sections">
-            <!-- Each nav button carries its board reference designator (U1, U2,
-                 C1–C4, J1, ANT1) — the same silkscreen refs printed on the
-                 panels — so the HUD reads as the board's pin map. The ref is
-                 aria-hidden: the button's aria-label keeps the clean name. -->
-            <button class="nav-btn" data-section="sec-about" aria-label="Go to Core Processor — About section"><span class="nav-ref" aria-hidden="true">U1</span>[CORE]<span class="nav-plain" aria-hidden="true">About</span></button>
-            <button class="nav-btn" data-section="sec-projects" aria-label="Go to Expansion Modules — Projects section"><span class="nav-ref" aria-hidden="true">U2</span>[MODULES]<span class="nav-plain" aria-hidden="true">Projects</span></button>
-            <button class="nav-btn" data-section="sec-skills" aria-label="Go to Component Library — Skills section"><span class="nav-ref" aria-hidden="true">C1–C4</span>[LIBRARY]<span class="nav-plain" aria-hidden="true">Skills</span></button>
-            <button class="nav-btn" data-section="sec-experience" aria-label="Go to Experience section"><span class="nav-ref" aria-hidden="true">J1</span>[EXPERIENCE]<span class="nav-plain" aria-hidden="true">Experience</span></button>
-            <button class="nav-btn" data-section="sec-contact" aria-label="Go to Transmission Interface — Contact section"><span class="nav-ref" aria-hidden="true">ANT1</span>[TX/RX]<span class="nav-plain" aria-hidden="true">Contact</span></button>
+        <div class="hud-brand">
+            <a class="hud-name" href="#sec-hero" data-section="sec-hero">PARAMESHWARAN&nbsp;S</a>
+            <span class="status-pill"><span class="pulse-dot"></span> Available</span>
+        </div>
+        <nav class="hud-nav" aria-label="Main Navigation">
+            <button class="nav-btn" data-section="sec-about" aria-label="About Me">About</button>
+            <button class="nav-btn" data-section="sec-projects" aria-label="Featured Projects">Projects</button>
+            <button class="nav-btn" data-section="sec-skills" aria-label="Technical Skills">Skills</button>
+            <button class="nav-btn" data-section="sec-experience" aria-label="Experience &amp; Milestones">Experience</button>
+            <button class="nav-btn" data-section="sec-contact" aria-label="Contact &amp; Connect">Contact</button>
         </nav>
         <div class="hud-legend">
-            <!-- Night bench — the PWR LED is the board's power switch: click
-                 it (or press P) to cut the bench lights so the board's
-                 emissive traces and LEDs become the only light source. -->
-            <button type="button" class="pwr-led" id="pwr-led" aria-label="Toggle night bench power (P)" title="Night bench — press P"></button>
-            <span class="pwr-lbl" aria-hidden="true">PWR</span>
-            <span class="sig-path" aria-hidden="true"><span class="sig-path-fill"></span></span>
-            <span class="sig-path-pct" aria-hidden="true">0%</span>
-            <span class="rev-mark" aria-hidden="true">REV&nbsp;1.0&nbsp;·&nbsp;2026</span>
-            <!-- Live scope readout — filled by hover.js when the probe is over
-                 a component: REF + voltage/frequency/state per part. Idle it
-                 reads SCOPE · AWAIT PROBE; the gold→signal border marks live.
-                 The CRT oscilloscope canvas (#hud-osc) renders per-component
-                 waveforms (oscilloscope.js) in retro phosphor green. -->
-            <span class="hud-scope" id="hud-scope" aria-hidden="true">
-                <canvas id="hud-osc" aria-hidden="true" title="Live oscilloscope waveform"></canvas>
-                <span class="hud-scope-ref" id="hud-scope-ref">SCOPE</span><span class="hud-scope-val" id="hud-scope-val">AWAIT PROBE</span>
+            <!-- Live mini CRT oscilloscope HUD -->
+            <span class="hud-scope" id="hud-scope" aria-hidden="true" title="Oscilloscope Waveform HUD">
+                <canvas id="hud-osc" aria-hidden="true"></canvas>
+                <span class="hud-scope-ref" id="hud-scope-ref">LIVE</span><span class="hud-scope-val" id="hud-scope-val">ACTIVE</span>
             </span>
-            <!-- Flying-probe hint — fades in after boot (hud-ready), fades out
-                 forever once the probe is first used (body.probe-used). The
-                 probe is additive: scroll stays the primary path. -->
-            <span class="hud-probe-hint" id="hud-probe-hint" aria-hidden="true">WASD&nbsp;·&nbsp;FLY&nbsp;PROBE&nbsp;—&nbsp;ENTER&nbsp;·&nbsp;MEASURE</span>
-            <!-- Keyboard section nav — permanent affordance for the 1–6 keys
-                 (handleSectionKey). Static on purpose: it's a utility hint,
-                 not a discovery moment (unlike the probe hint's pulse). -->
-            <span class="hud-keyhint" aria-hidden="true">KEYS&nbsp;1–6&nbsp;·&nbsp;JUMP</span>
-            <!-- Optional-extras confirmation — the WASD probe and the night
-                 bench (P) are explicitly OPTIONAL: nothing here is required
-                 to read any section or reach the LinkedIn CTA. Static and
-                 muted (a utility note, not a discovery pulse — the probe
-                 hint above already owns that). #/lcd is the LCD game's
-                 shareable deep link (focuses + replays the boot POST). -->
-            <span class="hud-extras-hint" aria-hidden="true">WASD&nbsp;PROBE&nbsp;·&nbsp;P&nbsp;NIGHT&nbsp;BENCH&nbsp;·&nbsp;LCD1&nbsp;GAME&nbsp;—&nbsp;OPTIONAL&nbsp;·&nbsp;#/lcd&nbsp;SHARE</span>
-            <!-- Master sound toggle — muted by default (sound.js); one flag
-                 gates the hover/click blips AND the buzzer horn. The toggle
-                 click is the user gesture that may build the AudioContext,
-                 so autoplay policy is never fought. Label mirrors state via
-                 body.sound-on. -->
-            <button type="button" class="hud-sound" id="sound-toggle" aria-pressed="false" aria-label="Toggle sound effects (muted by default)" title="Sound — muted by default">SND&nbsp;OFF</button>
-            <!-- 3D PCB Nano-Rover Drive Mode (R key shortcut) -->
-            <button type="button" class="hud-btn-sub" id="rover-toggle-btn" aria-pressed="false" aria-label="Toggle Nano-Rover Drive Mode (R)" title="Drive 3D Nano-Rover — press R">[ROVER]</button>
-            <!-- 3D Exploded Teardown mode (E key shortcut) -->
-            <button type="button" class="hud-btn-sub" id="teardown-toggle-btn" aria-pressed="false" aria-label="Toggle 3D Hardware Teardown (E)" title="3D Exploded Teardown — press E">[TEARDOWN]</button>
-            <!-- High-voltage Turbo Overclock (T key shortcut) -->
-            <button type="button" class="hud-btn-sub" id="turbo-toggle-btn" aria-pressed="false" aria-label="Toggle Turbo Overclock (T)" title="Turbo Overclock (100MHz / 5V) — press T">[TURBO]</button>
-            <!-- Hardware theme toggle -->
-            <button type="button" class="hud-btn-sub" id="theme-toggle-btn" aria-label="Cycle Board Theme" title="Cycle Theme (ENIG / 24K / Cyber / Stealth)">[THEME]</button>
-            <!-- BIOS command palette trigger — Ctrl+K or Cmd+K shortcut
-                 opens the retro terminal command palette for instant navigation. -->
-            <button type="button" class="hud-cmd" id="cmd-palette-btn" aria-label="Open command palette (Ctrl+K)" title="Command palette — Ctrl+K">[CMD]</button>
+            <!-- 3D Interactive Modes -->
+            <button type="button" class="hud-btn-sub" id="rover-toggle-btn" aria-pressed="false" aria-label="Drive 3D Nano-Rover (R)" title="Drive 3D Rover (R)">[ROVER]</button>
+            <button type="button" class="hud-btn-sub" id="teardown-toggle-btn" aria-pressed="false" aria-label="3D Teardown (E)" title="3D Exploded Teardown (E)">[TEARDOWN]</button>
+            <button type="button" class="hud-btn-sub" id="turbo-toggle-btn" aria-pressed="false" aria-label="Turbo Overclock (T)" title="Turbo Mode (T)">[TURBO]</button>
+            <button type="button" class="hud-btn-sub" id="theme-toggle-btn" aria-label="Cycle Board Theme" title="Theme Palette">[THEME]</button>
+            <button type="button" class="hud-cmd" id="cmd-palette-btn" aria-label="Command palette (Ctrl+K)" title="Terminal (Ctrl+K)">[CMD]</button>
+            <button type="button" class="hud-sound" id="sound-toggle" aria-pressed="false" aria-label="Toggle sound" title="Sound FX">SND&nbsp;OFF</button>
         </div>
-        <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
+        <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Connect on LinkedIn">CONNECT ON LINKEDIN →</a>
     </header>
 
     <!-- Scroll journey — each section is a stop on the camera path -->
     <main id="main-content" role="main">
 
-        <!-- HERO — board overview / establishing shot -->
+        <!-- HERO — clean modern portfolio landing -->
         <section class="journey-sec" id="sec-hero" data-panel="panel-hero">
             <div class="ds-panel hero-panel" id="panel-hero">
-                <div class="ece-label">// ECE + DATA SCIENCE @ SRM RAMAPURAM — CHENNAI, INDIA</div>
+                <div class="hero-top-badge"><span class="badge-dot"></span> Full-Stack &amp; AI/ML Engineer · SRM University</div>
                 <div class="headline-stack">
                     <h1 id="user-name">PARAMESHWARAN&nbsp;S</h1>
-                    <!-- Gradient twin for the boot sweep (gradient-text-sweep):
-                         same glyphs, stacked pixel-identically via grid; the
-                         gradient is masked INTO the type and only raised during
-                         the sweep, so the resting h1 stays solid silkscreen. -->
                     <span class="headline-twin" aria-hidden="true">PARAMESHWARAN&nbsp;S</span>
                 </div>
                 <div class="header-underline"></div>
                 <div class="subtitle-wrap">
                     <span id="typewriter-subtitle"></span><span class="terminal-cursor"></span>
                 </div>
-                <p class="hero-claim text-pretty">I ship real, working projects &mdash; <span class="sig-word">deployed ML APIs</span>, <span class="sig-word">live GPS tracking</span>, a <span class="sig-word">24-hour fully-local AI calling agent</span>, and <span class="sig-word">flyrank.ai</span>, my own startup, built solo from the ground up. Still figuring the rest out.</p>
-                <!-- Four hero stats — rendered from portfolioData.personalInfo.stats
-                     (sections.js renderHeroStats): GPA / PROJECTS / HACKATHONS /
-                     CERTS, one source of truth. -->
+                <p class="hero-claim text-pretty">I build real-world software and AI systems &mdash; from <span class="sig-word">production ML APIs</span> and <span class="sig-word">real-time computer vision</span> to <span class="sig-word">offline AI telephony</span> and <span class="sig-word">flyrank.ai</span>, my solo-founded startup.</p>
                 <div class="badge-row" id="hero-badges"></div>
                 <div class="hero-cta-row">
-                    <a class="cta-linkedin cta-primary js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
+                    <a class="cta-linkedin cta-primary js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile">CONNECT ON LINKEDIN →</a>
                 </div>
-                <div class="scroll-hint" aria-hidden="true">// SCROLL TO TRACE THE SIGNAL PATH ▼</div>
+                <div class="scroll-hint" aria-hidden="true">SCROLL TO EXPLORE PORTFOLIO ▼</div>
             </div>
         </section>
 
-        <!-- ABOUT — PARAMA-CORE IC datasheet -->
+        <!-- ABOUT — comprehensive background, education & achievements -->
         <section class="journey-sec" id="sec-about" data-panel="panel-about">
             <div class="ds-panel" id="panel-about">
-                <div class="ds-ref">U1 &mdash; "PARAMA-CORE" &middot; CORE PROCESSOR</div>
-                <!-- ds-title-stack: the gradient-text-sweep twin mechanism (same
-                     as the hero name) — a pixel-identical background-clip:text
-                     twin raised only during the one-shot sweep on panel
-                     activation, then the solid silkscreen title owns the rest. -->
+                <div class="panel-eyebrow">Profile &amp; Background</div>
                 <div class="headline-stack ds-title-stack">
-                    <h2 class="ds-title">// DATASHEET: CORE PROCESSOR</h2>
-                    <span class="headline-twin" aria-hidden="true">// DATASHEET: CORE PROCESSOR</span>
+                    <h2 class="ds-title">About Me</h2>
+                    <span class="headline-twin" aria-hidden="true">About Me</span>
                 </div>
-                <table class="spec-table">
-                    <tbody>
-                        <tr><th scope="row">CORE</th><td>B.Tech ECE &middot; Data Science specialization</td></tr>
-                        <tr><th scope="row">FAB</th><td>SRM IST &mdash; Ramapuram, Chennai</td></tr>
-                        <tr><th scope="row">CLK</th><td>Daily builds &mdash; ML &middot; DSA &middot; flyrank.ai</td></tr>
-                        <tr><th scope="row">VREF</th><td id="about-vref">GPA 9.48 / 10 &middot; 3.30V nominal</td></tr>
-                        <!-- REC — the LCD game's record, mirrored here by main.js
-                             (hidden until the machine has one; same no-sad-zero
-                             convention as the LCD's own BEST line). -->
-                        <tr id="about-rec-row" hidden><th scope="row">REC</th><td>SIGNAL RUNNER &middot; BEST <span id="about-rec-val">—</span></td></tr>
-                    </tbody>
-                </table>
-                <p class="ds-body text-pretty">Hi, I'm Parameshwaran &mdash; a 3rd-year ECE student specializing in Data Science at SRM Ramapuram. I'm still learning, and I don't pretend to have it all figured out &mdash; but I show up daily: working through ML and DSA problems, prepping for my Azure Data Fundamentals certification, and building flyrank.ai, my own startup project, from the ground up.<br><br>Outside of code, I'm teaching myself Blender because I like understanding how things work end to end, not just the parts I'm comfortable with. If you're looking for someone who's genuinely curious and puts in real effort, that's me.</p>
-                <a class="cta-linkedin js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
+                <div class="about-grid">
+                    <div class="about-card">
+                        <span class="about-card-icon">🎓</span>
+                        <div class="about-card-label">Education</div>
+                        <div class="about-card-val">B.Tech ECE (Data Science) @ SRM University</div>
+                        <div class="about-card-sub">GPA: <strong>9.48 / 10</strong> (Top 1%)</div>
+                    </div>
+                    <div class="about-card">
+                        <span class="about-card-icon">🚀</span>
+                        <div class="about-card-label">Startup</div>
+                        <div class="about-card-val">Founder &amp; Solo Architect @ flyrank.ai</div>
+                        <div class="about-card-sub">AI ranking &amp; discovery platform</div>
+                    </div>
+                    <div class="about-card">
+                        <span class="about-card-icon">⚡</span>
+                        <div class="about-card-label">Core Focus</div>
+                        <div class="about-card-val">Machine Learning, CV &amp; Full-Stack</div>
+                        <div class="about-card-sub">YOLOv8, FastAPI, React, PyTorch</div>
+                    </div>
+                    <div class="about-card">
+                        <span class="about-card-icon">🌐</span>
+                        <div class="about-card-label">Languages</div>
+                        <div class="about-card-val">English, Tamil, Hindi, Japanese</div>
+                        <div class="about-card-sub">Fluent &amp; multilingual communication</div>
+                    </div>
+                </div>
+                <p class="ds-body text-pretty">Hi, I'm Parameshwaran &mdash; a 3rd-year ECE student specializing in Data Science at SRM Ramapuram. I'm driven by building real, production software: tackling ML and algorithmic problems daily, preparing for my Azure Data Fundamentals certification, and architecting flyrank.ai from the ground up.<br><br>Beyond coding, I study 3D modeling in Blender to master complete end-to-end design and engineering. If you're looking for an engineer who is genuinely curious, ships fast, and solves hard problems, let's connect.</p>
+                <a class="cta-linkedin js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile">CONNECT ON LINKEDIN →</a>
             </div>
         </section>
 
-        <!-- PROJECTS — datasheets injected by JS from portfolio data -->
+        <!-- PROJECTS — modern interactive cards injected by JS -->
         <section class="journey-sec journey-sec-tall" id="sec-projects" data-panel="panel-projects">
             <div class="ds-panel ds-panel-wide" id="panel-projects">
-                <div class="ds-ref">U2 &mdash; EXPANSION MODULES</div>
+                <div class="panel-eyebrow">Production Systems &amp; Software</div>
                 <div class="headline-stack ds-title-stack">
-                    <h2 class="ds-title">// DATASHEET: EXPANSION MODULES</h2>
-                    <span class="headline-twin" aria-hidden="true">// DATASHEET: EXPANSION MODULES</span>
+                    <h2 class="ds-title">Featured Projects</h2>
+                    <span class="headline-twin" aria-hidden="true">Featured Projects</span>
                 </div>
-                <p class="ds-legend"><span class="legend-soldered">■ SOLDERED — SHIPPED & WORKING</span><span class="legend-breadboard">□ BREADBOARD — STILL BUILDING</span></p>
                 <div id="projects-grid" class="projects-grid"><!-- injected --></div>
             </div>
         </section>
 
-        <!-- SKILLS — resistor/capacitor cluster -->
+        <!-- SKILLS — modern categorized visual skill cards -->
         <section class="journey-sec" id="sec-skills" data-panel="panel-skills">
             <div class="ds-panel" id="panel-skills">
-                <div class="ds-ref">C1&ndash;C4 &mdash; COMPONENT LIBRARY</div>
+                <div class="panel-eyebrow">Technical Stack &amp; Tools</div>
                 <div class="headline-stack ds-title-stack">
-                    <h2 class="ds-title">// DATASHEET: COMPONENT LIBRARY</h2>
-                    <span class="headline-twin" aria-hidden="true">// DATASHEET: COMPONENT LIBRARY</span>
+                    <h2 class="ds-title">Technical Skills</h2>
+                    <span class="headline-twin" aria-hidden="true">Technical Skills</span>
                 </div>
                 <div id="skills-groups" class="skills-groups"><!-- injected --></div>
             </div>
         </section>
 
-        <!-- EXPERIENCE — copper timeline -->
+        <!-- EXPERIENCE — modern interactive vertical timeline -->
         <section class="journey-sec" id="sec-experience" data-panel="panel-experience">
             <div class="ds-panel" id="panel-experience">
-                <div class="ds-ref">J1 &mdash; SIGNAL HISTORY BUS</div>
+                <div class="panel-eyebrow">Hackathons &amp; Milestones</div>
                 <div class="headline-stack ds-title-stack">
-                    <h2 class="ds-title">// DATASHEET: EXPERIENCE</h2>
-                    <span class="headline-twin" aria-hidden="true">// DATASHEET: EXPERIENCE</span>
+                    <h2 class="ds-title">Experience &amp; Milestones</h2>
+                    <span class="headline-twin" aria-hidden="true">Experience &amp; Milestones</span>
                 </div>
                 <div id="timeline-list" class="timeline-list"><!-- injected --></div>
             </div>
         </section>
 
-        <!-- CONTACT — full board, fully lit -->
+        <!-- CONTACT — modern interactive contact grid -->
         <section class="journey-sec" id="sec-contact" data-panel="panel-contact">
             <div class="ds-panel contact-panel" id="panel-contact">
-                <div class="ds-ref">ANT1 &mdash; TX/RX</div>
+                <div class="panel-eyebrow">Let's Connect</div>
                 <div class="headline-stack ds-title-stack">
-                    <h2 class="ds-title">// TRANSMISSION INTERFACE</h2>
-                    <span class="headline-twin" aria-hidden="true">// TRANSMISSION INTERFACE</span>
+                    <h2 class="ds-title">Get In Touch</h2>
+                    <span class="headline-twin" aria-hidden="true">Get In Touch</span>
                 </div>
-                <p class="ds-body text-pretty">TRANSMISSION INTERFACE ACTIVE. Primary uplink: LinkedIn &mdash; I respond to every signal. GitHub carries the source. Email is the secondary channel.</p>
-                <a class="cta-linkedin cta-primary cta-contact js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile (opens in new tab)">CONNECT ON LINKEDIN →</a>
-                <div class="contact-secondary">
-                    <a class="secondary-link js-github" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my GitHub profile (opens in new tab)">github: imnotparama</a>
-                    <span class="secondary-sep" aria-hidden="true">·</span>
-                    <a class="secondary-link" href="mailto:pw2491@srmist.edu.in">pw2491@srmist.edu.in</a>
-                    <span class="secondary-sep" aria-hidden="true">·</span>
-                    <span class="secondary-link" aria-hidden="true">CHENNAI · INDIA</span>
+                <p class="ds-body text-pretty">I'm actively open to full-time engineering roles, AI/ML internships, and ambitious projects. Reach out via LinkedIn or Email &mdash; I respond promptly!</p>
+                <div class="contact-grid">
+                    <a class="contact-card js-linkedin" href="#" target="_blank" rel="noopener noreferrer">
+                        <span class="contact-card-icon">💼</span>
+                        <div class="contact-card-title">LinkedIn</div>
+                        <div class="contact-card-sub">Connect &amp; Message →</div>
+                    </a>
+                    <a class="contact-card js-github" href="#" target="_blank" rel="noopener noreferrer">
+                        <span class="contact-card-icon">🐙</span>
+                        <div class="contact-card-title">GitHub</div>
+                        <div class="contact-card-sub">github.com/imnotparama →</div>
+                    </a>
+                    <a class="contact-card" href="mailto:pw2491@srmist.edu.in">
+                        <span class="contact-card-icon">✉️</span>
+                        <div class="contact-card-title">Email</div>
+                        <div class="contact-card-sub">pw2491@srmist.edu.in →</div>
+                    </a>
+                    <div class="contact-card contact-card-static">
+                        <span class="contact-card-icon">📍</span>
+                        <div class="contact-card-title">Location</div>
+                        <div class="contact-card-sub">Chennai, Tamil Nadu, India</div>
+                    </div>
                 </div>
                 <div class="contact-footer">
                     <span>PARAMESHWARAN S &mdash; CHENNAI, INDIA</span>
-                    <span>Built with Three.js + GSAP + Vite</span>
-                    <span>SN PARAMA-2007-0401 &middot; FW 2007.0401<span id="contact-best"></span></span>
-                    <span>&copy; 2026 &mdash; ALL SYSTEMS SECURED</span>
+                    <span>Built with Three.js, GSAP &amp; Modern Web Standards</span>
+                    <span>&copy; 2026 &mdash; All Rights Reserved</span>
                 </div>
             </div>
         </section>
