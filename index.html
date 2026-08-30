@@ -164,7 +164,12 @@
             <button type="button" class="hud-btn-sub" id="turbo-toggle-btn" aria-pressed="false" aria-label="Turbo Overclock (T)" title="Turbo Mode (T)">[TURBO]</button>
             <button type="button" class="hud-btn-sub" id="theme-toggle-btn" aria-label="Cycle Board Theme" title="Theme Palette">[THEME]</button>
             <button type="button" class="hud-cmd" id="cmd-palette-btn" aria-label="Command palette (Ctrl+K)" title="Terminal (Ctrl+K)">[CMD]</button>
-            <button type="button" class="hud-sound" id="sound-toggle" aria-pressed="false" aria-label="Toggle sound" title="Sound FX">SND&nbsp;OFF</button>
+            <button type="button" class="hud-sound" id="sound-toggle" aria-pressed="false" aria-label="Toggle sound" title="Sound FX">
+                <span class="eq-bars" aria-hidden="true">
+                    <i class="eq-bar"></i><i class="eq-bar"></i><i class="eq-bar"></i>
+                </span>
+                <span id="sound-toggle-text">AUDIO&nbsp;OFF</span>
+            </button>
         </div>
         <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Connect on LinkedIn">CONNECT ON LINKEDIN →</a>
     </header>
@@ -186,6 +191,15 @@
                 </div>
                 <p class="hero-claim text-pretty">I build real-world software and AI systems &mdash; from <span class="sig-word">production ML APIs</span> and <span class="sig-word">real-time computer vision</span> to <span class="sig-word">offline AI telephony</span> and <span class="sig-word">flyrank.ai</span>, my solo-founded startup.</p>
                 <div class="badge-row" id="hero-badges"></div>
+                <div class="hero-quick-actions" aria-label="Interactive 3D modes">
+                    <span class="quick-actions-label">⚡ Interactive 3D Demos:</span>
+                    <div class="quick-action-pills">
+                        <button type="button" class="quick-action-btn" id="hero-rover-btn" title="Drive 3D PCB Rover (R)">🏎️ Drive Rover</button>
+                        <button type="button" class="quick-action-btn" id="hero-turbo-btn" title="Overclock 3D CPU (T)">⚡ Turbo Overclock</button>
+                        <button type="button" class="quick-action-btn" id="hero-teardown-btn" title="3D Exploded Teardown (E)">🔍 3D Explode</button>
+                        <button type="button" class="quick-action-btn" id="hero-theme-btn" title="Cycle Board Theme">🎨 Color Theme</button>
+                    </div>
+                </div>
                 <div class="hero-cta-row">
                     <a class="cta-linkedin cta-primary js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile">CONNECT ON LINKEDIN →</a>
                 </div>
@@ -351,6 +365,7 @@
         <span class="chip-tip-ref" id="chip-tip-ref"></span>
         <span class="chip-tip-theme"><i class="chip-tip-dot" id="chip-tip-dot"></i><span class="chip-tip-theme-text" id="chip-tip-theme-text"></span></span>
         <span class="chip-tip-title" id="chip-tip-title"></span>
+        <span class="chip-tip-hint">Click chip to inspect 🔍</span>
     </div>
 
     <!-- Secret developer notes — a one-shot reward for typing the hidden

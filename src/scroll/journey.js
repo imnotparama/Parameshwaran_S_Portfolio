@@ -12,7 +12,7 @@ import { cpuRadarRing, siliconDieMesh } from '../three/components.js';
 import { traceData, energizeTraceForSection } from '../three/traces.js';
 import { projectChips } from '../three/project-chips.js';
 import { LCD_LOCAL_POS, focusLcd, exitLcd, setLcdExitHandler } from '../three/lcd.js';
-import { getCanvasViewportSize } from '../three/scene.js';
+import { getCanvasViewportSize, setSectionRimColor } from '../three/scene.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
@@ -742,6 +742,20 @@ function setActivePanel(panelId) {
   // Power-on micro-moment for the section's component
   pulseArrival(secId);
 
+  // Dynamic Studio Rim Light tint per section
+  /** @type {Record<string, number>} */
+  const SECTION_RIM_COLORS = {
+    'sec-hero': 0x3ee6a0,
+    'sec-about': 0x22d3ee,
+    'sec-projects': 0x38bdf8,
+    'sec-skills': 0xf59e0b,
+    'sec-experience': 0xa855f7,
+    'sec-contact': 0x10b981
+  };
+  if (secId && SECTION_RIM_COLORS[secId]) {
+    setSectionRimColor(SECTION_RIM_COLORS[secId]);
+  }
+
   // Active trace routing: the section's copper energizes on arrival (surge
   // pulse) and the previous section's trace releases back to its base glow.
   // Hero has no trace ('' in SECTION_TRACE) so both calls no-op there.
@@ -1084,42 +1098,16 @@ export function scrollToSection(sectionId) {
 }
 
 // ─── Smooth scroll layer ──────────────────────────────────────
-// The journey used to be a pure pulley: the camera followed the scrollbar
-// 1:1 (scrub 0.6) and a wheel notch was a hard yank. This layer replaces
-// that feel with smooth, deliberate page-to-page motion:
-//   - Wheel (journey mode): deltas accumulate into section steps — a step
-//     needs WHEEL_STEP_PX of accumulated input (two standard mouse notches,
-//     or one trackpad flick), so a single notch does NOT jump a full page.
-//     Input below the threshold scrolls natively and follows the finger;
-//     once the threshold is crossed, the journey glides the rest of the way
-//     with the site's unified power2.inOut. Rapid input chains up to
-//     MAX_QUEUED_STEPS glides.
-//   - No settle-snap: native scrolls rest where they land — a small scroll
-//     never drags the page a full section on its own.
-// Skipped under reduced motion (native scroll, no hijack) and while wheeling
-// inside a nested scrollable (the fixed datasheet panel scrolls itself).
-const WHEEL_STEP_PX = 240;   // accumulated wheel px per section step
-// Bounds a whole burst (the in-flight glide counts too): a trackpad flick or
-// a fast wheel roll can chain at most 3 glides per gesture, then drops input
-// until the queue drains — 3 covers half the 6-section journey in one flick.
-const MAX_QUEUED_STEPS = 3;
-// Section-transition duration — the site's ONE page-to-page glide, shared by
-// the wheel/snap glides AND direct nav (scrollToSection) so every section
-// change moves at the same pace. Tuned 1.6s → 1.2s: still a slow-start/slow-
-// end power2.inOut (never a yank), but the chained page-to-page flow no
-// longer drags; revert is this single number.
-const SECTION_TRANSITION_DURATION = 1.2;
+export const WHEEL_STEP_PX = 240;
+export const MAX_QUEUED_STEPS = 3;
+// Section-transition duration — tuned to 0.85s for snappy, silky-smooth section transitions
+export const SECTION_TRANSITION_DURATION = 0.85;
 let wheelAccum = 0;
 let glideQueued = 0;
 let glideActive = false;
-// True only while a DIRECT-navigation glide (scrollToSection: nav buttons,
-// number keys, hash routing) is in flight. Wheel input is dropped outright
-// during that window — a nav glide is a destination command, so a stray
-// trackpad-momentum tick must not queue a step and push the page past the
-// section the user asked for. Wheel glides keep their burst-chaining (queue
-// + pump), which is the designed rapid-notch flow.
 let navGlideActive = false;
 let smoothScrollWired = false;
+let wheelCooldownUntil = 0;
 
 /** Document-scroll Y of every section stop, read live so resize/reflow is
  *  always current. */
@@ -1140,8 +1128,7 @@ function directionalStop(dir) {
 /** Pure direction math for the snap layer: the nearest stop strictly beyond
  *  the current scroll in `dir`, with a 2px tolerance so a glide that lands
  *  exactly ON a stop doesn't re-target itself. Clamped to the journey's
- *  ends. Exported for the headless smoke test (the DOM wheel path isn't
- *  headless-testable).
+ *  ends. Exported for the headless smoke test.
  *  @param {number[]} stops sorted section stop scroll-Ys
  *  @param {number} y current scroll position
  *  @param {number} dir +1 forward, −1 backward */
@@ -1181,132 +1168,212 @@ export function stepQueue(queue, dir, cap = MAX_QUEUED_STEPS) {
   return Math.max(-cap, Math.min(cap, queue + dir));
 }
 
-/** Queue one section step in a direction — shared by wheel and keyboard so
- *  both chain through the same burst-capped queue; if a glide is in flight
- *  the step runs when it completes.
+/** Queue one section step in a direction
  *  @param {number} dir */
-function queueStep(dir) {
+/** @param {number} dir */
+export function queueStep(dir) {
   glideQueued = stepQueue(glideQueued, dir);
   pumpGlide();
 }
 
-/** Glide the page to a scroll Y with the site's unified transition, then
- *  chain any queued step.
+/** Glide the page to a scroll Y with the site's unified transition
  *  @param {number} y */
 function glideToY(y) {
   if (Math.abs(window.scrollY - y) < 2) {
     glideActive = false;
-    // One gesture = one section advance: clear any residual queue so the
-    // page doesn't auto-chain past the target section.
     glideQueued = 0;
     wheelAccum = 0;
-    pumpGlide();
+    wheelCooldownUntil = Date.now() + 120;
     return;
   }
+  glideActive = true;
   gsap.to(window, {
-    scrollTo: { y },
+    scrollTo: { y, autoKill: false },
     duration: SECTION_TRANSITION_DURATION,
     ease: 'power2.inOut',
     overwrite: 'auto',
     onComplete: () => {
       glideActive = false;
-      // One gesture = one section: clear the queue on completion so
-      // trackpad flicks that queued 2–3 steps don't auto-chain past
-      // the target section. The user must make a fresh gesture to
-      // advance again.
       glideQueued = 0;
       wheelAccum = 0;
-      pumpGlide();
+      wheelCooldownUntil = Date.now() + 180; // short cooldown to soak up trackpad momentum
     }
   });
 }
 
-/** Consume queued steps one glide at a time so rapid input chains instead
- *  of stacking tweens. */
+/** Consume queued steps one glide at a time */
 function pumpGlide() {
   if (glideActive || glideQueued === 0 || !journeyReady) return;
   glideActive = true;
   glideToY(directionalStop(Math.sign(glideQueued)));
 }
 
-/** Wheel = one section per accumulated notch. Never fights the datasheet
- *  panel's own scroll, ctrl+wheel browser zoom, or chip-focus scroll release
- *  (focused → native scroll scrubs the camera and clears focus, exactly as
- *  before).
+/** Get current section index based on current scroll position or currentSectionId */
+function getCurrentSectionIndex() {
+  const currentId = currentSectionId || 'sec-hero';
+  const idx = stopOrder.indexOf(currentId);
+  if (idx !== -1) return idx;
+  const stops = getStopScrolls();
+  const y = window.scrollY;
+  let closestIdx = 0;
+  let minDiff = Infinity;
+  stops.forEach((s, i) => {
+    const diff = Math.abs(s - y);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestIdx = i;
+    }
+  });
+  return closestIdx;
+}
+
+/** Glide directly to target section index */
+/** @param {number} targetIdx */
+function glideToSectionIndex(targetIdx) {
+  const stops = getStopScrolls();
+  const clampedIdx = Math.max(0, Math.min(stops.length - 1, targetIdx));
+  const targetY = stops[clampedIdx];
+  glideToY(targetY);
+}
+
+/** Wheel = one deliberate scroll gesture smoothly navigates to the next/prev section.
+ *  Never gets stuck in between sections.
  *  @param {WheelEvent} e */
 function onJourneyWheel(e) {
   if (!journeyReady || motionPrefs.reduced || isFocusMode() || e.ctrlKey || e.metaKey) return;
-  // Drop wheel input while a direct-navigation glide is in flight: the click
-  // already named the destination, so residual trackpad momentum must not
-  // queue a step and carry the page past it — and it must not fall through
-  // to native scroll either, or the browser would fight the nav tween.
-  // (Wheel-during-wheel keeps its burst chaining via the queue — only nav
-  // glides drop.)
-  if (navGlideActive) { e.preventDefault(); return; }
-  let el = /** @type {HTMLElement | null} */ (e.target);
-  while (el && el !== document.body) {
-    if (el.scrollHeight > el.clientHeight + 4) return; // nested scrollable
-    el = el.parentElement;
+  
+  // While direct navigation is in flight or in momentum cooldown: swallow wheel events
+  if (navGlideActive || glideActive || Date.now() < wheelCooldownUntil) {
+    e.preventDefault();
+    return;
   }
+
   let d = e.deltaY;
-  if (e.deltaMode === 1) d *= 40;      // lines → px
+  if (e.deltaMode === 1) d *= 40;       // lines → px
   else if (e.deltaMode === 2) d *= 100; // pages → px
-  const r = wheelStepQueue(d, wheelAccum);
-  wheelAccum = r.accum;
-  if (r.queue !== 0) {
-    // Deliberate input (two notches, or one flick): glide to the section.
-    e.preventDefault();
-    queueStep(r.queue);
-  } else if (glideActive) {
-    // Mid-glide sub-threshold input: swallow it so the browser can't fight
-    // the running tween; the delta rides in the accumulator for a possible
-    // follow-up glide.
-    e.preventDefault();
+
+  if (Math.abs(d) < 8) return; // ignore micro-jitter
+
+  // Check if mouse is hovering over an active panel that has scrollable content (e.g. #panel-projects)
+  const activePanel = document.querySelector('.ds-panel.panel-active');
+  const isOverActivePanel = activePanel && (e.target === activePanel || activePanel.contains(/** @type {Node} */ (e.target)));
+
+  if (isOverActivePanel && activePanel.scrollHeight > activePanel.clientHeight + 10) {
+    const atTop = activePanel.scrollTop <= 6;
+    const atBottom = activePanel.scrollTop + activePanel.clientHeight >= activePanel.scrollHeight - 6;
+
+    if (d > 0 && !atBottom) {
+      // User is scrolling down inside panel and more content exists below:
+      // Allow the panel to scroll down naturally
+      return;
+    }
+    if (d < 0 && !atTop) {
+      // User is scrolling up inside panel and panel is scrolled down:
+      // Allow the panel to scroll up naturally
+      return;
+    }
   }
-  // Otherwise (sub-threshold, nothing gliding): leave the event alone — the
-  // browser scrolls natively, so a single notch or a light trackpad scroll
-  // follows the finger instead of jumping a full page.
+
+  // Otherwise, user wants to navigate cleanly between sections:
+  e.preventDefault();
+
+  const dir = d > 0 ? 1 : -1;
+  const curIdx = getCurrentSectionIndex();
+  const targetIdx = curIdx + dir;
+  
+  if (targetIdx >= 0 && targetIdx < stopOrder.length) {
+    glideToSectionIndex(targetIdx);
+  }
 }
 
-/** Keyboard section-stepping — ArrowDown/PageDown advance one section,
- *  ArrowUp/PageUp go back, glided with the same SECTION_TRANSITION_DURATION
- *  as the wheel (both share the snap queue, so a fast keypress chain behaves
- *  exactly like a wheel burst and holding the key keeps advancing). Never
- *  fires while the flying scope probe is active (arrows belong to the probe
- *  then — it flags itself with the `probe-flying` body class), while typing
- *  in a field, or under reduced motion (native scroll instead). Focus
- *  release matches the wheel: a step key while a chip is focused drops the
- *  focus view first.
+/** Touch swipe handling for mobile / touch devices */
+let touchStartY = 0;
+let touchStartX = 0;
+let touchStartTime = 0;
+
+/** @param {TouchEvent} e */
+function onJourneyTouchStart(e) {
+  if (!journeyReady || motionPrefs.reduced || isFocusMode() || e.touches.length !== 1) return;
+  touchStartY = e.touches[0].clientY;
+  touchStartX = e.touches[0].clientX;
+  touchStartTime = Date.now();
+}
+
+/** @param {TouchEvent} e */
+function onJourneyTouchEnd(e) {
+  if (!journeyReady || motionPrefs.reduced || isFocusMode() || e.changedTouches.length !== 1) return;
+  if (glideActive || navGlideActive || Date.now() < wheelCooldownUntil) return;
+
+  const dy = touchStartY - e.changedTouches[0].clientY;
+  const dx = touchStartX - e.changedTouches[0].clientX;
+  const dt = Date.now() - touchStartTime;
+
+  // Vertical swipe check: at least 35px delta, predominantly vertical, within 800ms
+  if (Math.abs(dy) > 35 && Math.abs(dy) > Math.abs(dx) * 1.1 && dt < 800) {
+    const activePanel = document.querySelector('.ds-panel.panel-active');
+    const isOverActivePanel = activePanel && (e.target === activePanel || activePanel.contains(/** @type {Node} */ (e.target)));
+
+    if (isOverActivePanel && activePanel.scrollHeight > activePanel.clientHeight + 10) {
+      const atTop = activePanel.scrollTop <= 6;
+      const atBottom = activePanel.scrollTop + activePanel.clientHeight >= activePanel.scrollHeight - 6;
+      if (dy > 0 && !atBottom) return;
+      if (dy < 0 && !atTop) return;
+    }
+
+    const dir = dy > 0 ? 1 : -1;
+    const curIdx = getCurrentSectionIndex();
+    const targetIdx = curIdx + dir;
+    if (targetIdx >= 0 && targetIdx < stopOrder.length) {
+      glideToSectionIndex(targetIdx);
+    }
+  }
+}
+
+/** Keyboard section-stepping — ArrowDown/PageDown/Space advance one section,
+ *  ArrowUp/PageUp go back, Home/End go to start/finish
  *  @param {KeyboardEvent} e */
 function onJourneyKeydown(e) {
   if (!journeyReady || motionPrefs.reduced) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (document.body.classList.contains('probe-flying')) return;
-  // LCD1's SIGNAL SNAKE owns arrows/WASD while its game is focused.
   if (document.body.classList.contains('lcd-active')) return;
+  if (document.body.classList.contains('rover-active')) return;
   const ae = /** @type {HTMLElement | null} */ (document.activeElement);
   const tag = (ae && ae.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || (ae && ae.isContentEditable)) return;
+
   let dir = 0;
-  if (e.key === 'ArrowDown' || e.key === 'PageDown') dir = 1;
+  if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') dir = 1;
   else if (e.key === 'ArrowUp' || e.key === 'PageUp') dir = -1;
-  else return;
+  else if (e.key === 'Home') {
+    e.preventDefault();
+    glideToSectionIndex(0);
+    return;
+  } else if (e.key === 'End') {
+    e.preventDefault();
+    glideToSectionIndex(stopOrder.length - 1);
+    return;
+  } else return;
+
   e.preventDefault();
   if (isFocusMode()) clearFocus(false);
-  queueStep(dir);
+  if (glideActive || navGlideActive) return;
+  
+  const curIdx = getCurrentSectionIndex();
+  const targetIdx = curIdx + dir;
+  if (targetIdx >= 0 && targetIdx < stopOrder.length) {
+    glideToSectionIndex(targetIdx);
+  }
 }
 
-/** Register the smooth-scroll listeners once (initJourney re-runs on HMR;
- *  the handlers read live module state, so re-wiring would double-fire). */
+/** Register the smooth-scroll listeners once */
 function wireSmoothScroll() {
   if (smoothScrollWired) return;
   smoothScrollWired = true;
   window.addEventListener('wheel', onJourneyWheel, { passive: false });
   window.addEventListener('keydown', onJourneyKeydown);
-  // Native-scroll guard: when the user scrolls via scrollbar, touch drag,
-  // or any path that isn't our glide system, clear the queue so stale
-  // wheel steps don't fire after the native scroll lands.  The listener
-  // is passive (no preventDefault) — it only cleans up state.
+  window.addEventListener('touchstart', onJourneyTouchStart, { passive: true });
+  window.addEventListener('touchend', onJourneyTouchEnd, { passive: true });
   window.addEventListener('scroll', () => {
     if (!glideActive && !navGlideActive && (glideQueued !== 0 || wheelAccum !== 0)) {
       glideQueued = 0;

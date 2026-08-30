@@ -1,5 +1,6 @@
 // @ts-check
 import * as THREE from 'three';
+import gsap from 'gsap';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -14,6 +15,8 @@ export let camera = null;
 export let renderer = null;
 /** @type {EffectComposer | null} */
 export let composer = null;
+/** @type {THREE.PointLight | null} */
+export let sectionRimLight = null;
 
 // Glowing traces via bloom post-processing. Tuned conservatively so
 // frame rate holds on mid-range hardware; skipped entirely in lite mode.
@@ -269,6 +272,19 @@ export function setBloomBoost(v) {
     }
 }
 
+/** Set section rim tint
+ *  @param {number} hexColor */
+export function setSectionRimColor(hexColor) {
+    if (!sectionRimLight) return;
+    gsap.to(sectionRimLight.color, {
+        r: ((hexColor >> 16) & 255) / 255,
+        g: ((hexColor >> 8) & 255) / 255,
+        b: (hexColor & 255) / 255,
+        duration: 0.8,
+        ease: 'power2.out'
+    });
+}
+
 /** The canvas's CSS viewport size — the split layout pins #canvas-container to
  *  the left 58% on desktop (full-journey) and full-width at 48vh on mobile
  *  (lite mode). Measuring the container keeps renderer size, camera aspect,
@@ -396,6 +412,12 @@ export function initScene(canvasElement) {
     pcbBacklight.position.set(0, 0, -1);
     scene.add(pcbBacklight);
     benchLights.push({ light: pcbBacklight, base: 1.4 });
+
+    // Dynamic Section Rim Light — casts a subtle colored sheen across the 3D board
+    sectionRimLight = new THREE.PointLight(0x3ee6a0, 2.2, 28);
+    sectionRimLight.position.set(-6, 8, 8);
+    scene.add(sectionRimLight);
+    benchLights.push({ light: sectionRimLight, base: 2.2 });
 
     // Shadow catcher — a transparent "bench" plane below the board that
     // receives the already-cast shadows (board + components all cast).

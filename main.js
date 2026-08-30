@@ -543,7 +543,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const soundBtn = document.getElementById('sound-toggle');
     if (soundBtn) {
         const syncSoundBtn = () => {
-            soundBtn.textContent = isSoundEnabled() ? 'SND\u00A0ON' : 'SND\u00A0OFF';
+            const txt = document.getElementById('sound-toggle-text');
+            if (txt) txt.textContent = isSoundEnabled() ? 'AUDIO\u00A0ON' : 'AUDIO\u00A0OFF';
             soundBtn.setAttribute('aria-pressed', String(isSoundEnabled()));
             document.body.classList.toggle('sound-on', isSoundEnabled());
             if (!isSoundEnabled()) {
@@ -561,6 +562,32 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!wasOn && isSoundEnabled()) powerUpBeep();
         });
         syncSoundBtn();
+    }
+
+    // Hero quick-action buttons
+    const heroRoverBtn = document.getElementById('hero-rover-btn');
+    if (heroRoverBtn) {
+        heroRoverBtn.addEventListener('click', () => {
+            toggleRover(() => scrollToSection(getActiveSectionId()));
+        });
+    }
+    const heroTurboBtn = document.getElementById('hero-turbo-btn');
+    if (heroTurboBtn) {
+        heroTurboBtn.addEventListener('click', () => {
+            toggleOverclock();
+        });
+    }
+    const heroTeardownBtn = document.getElementById('hero-teardown-btn');
+    if (heroTeardownBtn) {
+        heroTeardownBtn.addEventListener('click', () => {
+            toggleTeardown(() => scrollToSection(getActiveSectionId()));
+        });
+    }
+    const heroThemeBtn = document.getElementById('hero-theme-btn');
+    if (heroThemeBtn) {
+        heroThemeBtn.addEventListener('click', () => {
+            cycleTheme();
+        });
     }
 
     // 18b. BIOS terminal command palette (Ctrl+K / Cmd+K or the [CMD] HUD
