@@ -11,10 +11,11 @@
 - **Theme**: An ultra-premium, photo-realistic **3D Hardware Development Board (`PARAMA-DEV-BOARD-v2.0`)** running live in WebGL.
 - **Aesthetic**: Retro-futuristic cyberpunk hardware laboratory — ENIG gold contacts, matte green solder mask, glowing copper traces, CRT phosphor oscilloscopes, glassmorphic HUD datasheets, and 8-bit chiptune sound design.
 - **Identity Standards**:
-  - Serial Number: `PARAMA-2007-0401`
-  - Firmware Build: `v2007.0401`
+  - Serial Number: `PRM-2026-DEV-001` (Dynamically generated hardware serial)
+  - Motherboard Revision: `R2.0` | Firmware: `v2.3.1` | Build: `2026.08`
+  - Manufacturing Plate: `PARAMA LABS PRM-DEV-BOARD V2.0`
   - Name Branding: `PARAMESHWARAN S` (must remain on a single line on desktop headers)
-  - Secret Easter Egg Code: `parama`
+  - Terminal Hotkeys: `sudo`, `help`, `matrix`, `konami`, `parama`
 
 ---
 

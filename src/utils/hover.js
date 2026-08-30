@@ -59,6 +59,8 @@ let buzzerHandler = null;
 let switchHandler = null;
 /** @type {(() => void) | null} */
 let lcdHandler = null;
+/** @type {((sectionId: string) => void) | null} */
+let subsystemInspectHandler = null;
 // Hover is a fine-pointer concept — touch has no hover state, so the per-frame
 // raycast would burn cost for nothing and leave a glow stuck at the last tap
 // point. The flag is live (same listener pattern as motionPrefs): a device
@@ -382,36 +384,48 @@ export function initHover(camera, scene) {
             raycaster.setFromCamera(ndc, activeCamera);
             const targets = interactiveObjects.filter((obj) => obj.userData && obj.userData.isInteractive);
             const hits = raycaster.intersectObjects(targets, false);
+
             if (hits.length > 0) {
                 const obj = hits[0].object;
                 if (obj.userData && obj.userData.type === 'PROJECT' && obj.name && clickHandler) {
-                    // Picked — the instrument tick. (The buzzer branch plays
-                    // its own horn via pulseBuzzer, so no double blip.)
                     clickBlip();
                     clickHandler(obj.name);
+                } else if (obj.name === 'U1' || (obj.userData && obj.userData.type === 'CPU')) {
+                    clickBlip();
+                    if (subsystemInspectHandler) subsystemInspectHandler('sec-about');
+                } else if (obj.name === 'U2' || (obj.userData && obj.userData.type === 'GPU')) {
+                    clickBlip();
+                    if (subsystemInspectHandler) subsystemInspectHandler('sec-projects');
+                } else if ((obj.name && obj.name.startsWith('C')) || (obj.userData && obj.userData.type === 'CAPACITOR')) {
+                    clickBlip();
+                    if (subsystemInspectHandler) subsystemInspectHandler('sec-skills');
+                } else if (obj.name === 'Y1' || (obj.userData && obj.userData.type === 'OSC')) {
+                    clickBlip();
+                    if (subsystemInspectHandler) subsystemInspectHandler('sec-experience');
+                } else if (obj.name === 'J1' || obj.name === 'ANT1' || (obj.userData && (obj.userData.type === 'USB' || obj.userData.type === 'ANTENNA'))) {
+                    clickBlip();
+                    if (subsystemInspectHandler) subsystemInspectHandler('sec-contact');
                 } else if (obj.userData && obj.userData.type === 'BUZZER' && buzzerHandler) {
                     buzzerHandler();
                 } else if (obj.userData && obj.userData.type === 'SWITCH' && obj.name) {
-                    // Tactile switch — the cap dips and springs back, with a
-                    // blip: a mechanical button press. The registered
-                    // switchHandler then fires the switch's behavior (night
-                    // bench / horn / nearest-chip focus — wired in main.js).
                     pressTactile(obj.name);
                     clickBlip();
                     if (switchHandler) switchHandler(obj.name);
                 } else if (obj.userData && obj.userData.type === 'LCD' && lcdHandler) {
-                    // LCD1 — the display powers up: camera glides over and
-                    // the SIGNAL SNAKE game takes the keyboard (main.js
-                    // wires focusLcdCamera).
                     clickBlip();
                     lcdHandler();
                 } else if (obj.userData && (obj.userData.type === 'TRIMPOT' || obj.name === 'RV1')) {
-                    // RV1 Trimmer Potentiometer — rotate screw and tune clock frequency
                     rotatePotentiometer(0.08);
                 }
             }
         });
     }
+}
+
+/** Register callback for inspecting major board subsystems (U1, C1-C4, Y1, J1)
+ *  @param {(sectionId: string) => void} fn */
+export function setSubsystemInspectHandler(fn) {
+    subsystemInspectHandler = fn;
 }
 
 /** Register the callback fired when a project chip is clicked on the board.

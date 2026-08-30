@@ -1,41 +1,44 @@
 // Portfolio Data Schema - Source of truth for personal information and content
 import { LINKEDIN_URL, GITHUB_URL } from '../config.js';
 
-// Single source of truth for the GPA value — every display (hero badge, About
-// VREF row, education, timeline) derives from this one literal. Never write
-// '9.48' anywhere else.
+// Single source of truth for the GPA value
 const GPA = '9.48/10';
 
 export const portfolioData = {
     personalInfo: {
         name: "PARAMESHWARAN S",
-        tagline: "ECE + Data Science · Builds Real, Working Projects",
+        tagline: "ECE + Data Science · AI Hardware & Systems Developer",
         institution: "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, RAMAPURAM",
-        location: "Chennai, Tamilnadu",
+        location: "Chennai, Tamil Nadu, India",
         email: "pw2491@srmist.edu.in",
         phone: "+91 9176020504",
-        // Board identity — easter-egg telemetry (command palette → SYSTEM
-        // TELEMETRY) and the contact footer. Same silicon, same serial.
-        // Both identifiers encode the operator's birth date (1 April 2007):
-        // serial = PARAMA-YYYY-MMDD, firmware = date-based build number.
-        boardSerial: "PARAMA-2007-0401",
-        firmwareVersion: "FW 2007.0401",
+        // Board Identity — Motherboard Serial & Build Specifications
+        boardSerial: "PRM-2026-DEV-001",
+        boardModel: "PRM-DEV-BOARD V2.0",
+        boardRevision: "R2.0",
+        firmwareVersion: "v2.3.1",
+        buildDate: "2026.08",
+        manufacturingLabel: {
+            brand: "PARAMA LABS",
+            model: "PRM-DEV-BOARD V2.0",
+            revision: "R2.0",
+            serial: "PRM-2026-DEV-001",
+            assembled: "Chennai, India",
+            status: "ENGINEERING SAMPLE"
+        },
         socials: {
             github: GITHUB_URL,
             linkedin: LINKEDIN_URL
         },
-        // The four hero stats — derived, not hand-typed: projects = length of
-        // the projects array, hackathons = the two timeline entries (ORIGIN 26
-        // + Google Agentic Wars), certs = certifications.length. GPA is the
-        // single GPA literal above.
+        // Motherboard BIOS Diagnostics Stats
         stats: [
-            { label: "GPA", value: GPA },
-            { label: "PROJECTS", value: "9" },
-            { label: "HACKATHONS", value: "2" },
-            { label: "CERTS", value: "7" }
+            { label: "CORE", value: "ONLINE" },
+            { label: "MODULES", value: "9 ONLINE" },
+            { label: "UPTIME", value: "100%" },
+            { label: "BUILD", value: "2026.08" }
         ],
-        heroLine: "I ship real, working projects — deployed ML APIs, live GPS tracking, a 24-hour fully-local AI calling agent, and flyrank.ai, my own startup, built solo from the ground up. Still figuring the rest out.",
-        bio: "Hi, I'm Parameshwaran — a 3rd-year ECE student specializing in Data Science at SRM Ramapuram. I'm still learning, and I don't pretend to have it all figured out — but I show up daily: working through ML and DSA problems, prepping for my Azure Data Fundamentals certification, and building flyrank.ai, my own startup project, from the ground up.\n\nOutside of code, I'm teaching myself Blender because I like understanding how things work end to end, not just the parts I'm comfortable with. If you're looking for someone who's genuinely curious and puts in real effort, that's me.",
+        heroLine: "ECE student and systems developer specializing in computer vision, backend engineering, and high-performance interactive software.",
+        bio: "ECE student specializing in Data Science at SRM Institute of Science and Technology, Ramapuram.\n\nInterested in AI systems, computer vision, backend engineering, and interactive web experiences. I enjoy building software that people actually use, from machine-learning APIs to immersive browser experiences.",
         languages: [
             { name: "English", level: "Fluent" },
             { name: "Tamil", level: "Native" },
@@ -43,96 +46,64 @@ export const portfolioData = {
             { name: "Japanese", level: "Beginner" }
         ]
     },
-    // Projects — each is a distinct component on the board.
-    // status: 'shipped' (soldered, steady glow) | 'building' (breadboard patch, flickering)
-    // Datasheet fields: problem / state / link — exactly three, no more.
+    // Installed Hardware Modules — each is a distinct physical component on the board
     projects: [
         {
             id: "flyrank",
             ref: "FR1",
             category: "AI/ML",
-            theme: "RANKING CORE",
-            signal: "#f43f5e",
-            spec: ["AI RANKING PIPELINE", "SOLO-FOUNDED · NO RUNWAY", "ARCHITECTURE IN DEV"],
-            title: "flyrank.ai",
+            theme: "AI ACCELERATOR IC",
+            signal: "#a855f7",
+            spec: ["ML SEARCH & RANKING", "DATA PIPELINES", "MODEL INTEGRATION"],
+            title: "FlyRank — Search & Ranking Engine",
             status: "building",
-            problem: "My own startup — an AI-powered ranking and visibility engine, built solo from the ground up.",
-            state: "Core build in active development; architecture and matching logic in progress — not publicly launched yet.",
+            problem: "Machine learning ranking features and search indexing infrastructure.",
+            state: "Contributed to machine-learning search and ranking features, supporting data pipelines, backend services, and model integration as part of the engineering team.",
             link: LINKEDIN_URL,
             linkLabel: "ASK ME ABOUT IT →",
-            tags: ["Startup", "AI", "In Build"]
+            tags: ["Python", "FastAPI", "ML Pipelines"]
         },
         {
             id: "crowd-pulse",
             ref: "CP1",
             category: "AI/ML",
-            theme: "SENSOR GRID",
-            signal: "#fb923c",
-            spec: ["YOLOv8 · 60FPS DETECTION", "BYTETRACK MULTI-OBJECT", "FASTAPI + REACT LIVE"],
+            theme: "VISION PROCESSING UNIT",
+            signal: "#38bdf8",
+            spec: ["YOLOv8 60FPS DETECTION", "REAL-TIME TRACKING", "FASTAPI STREAMING"],
             title: "CrowdPulse — AI Crowd Safety",
             status: "shipped",
             problem: "Real-time crowd density monitoring and safety alerts for public spaces.",
-            state: "Working end-to-end: YOLOv8 detection, ByteTrack tracking, and density alerts run live on video streams via FastAPI + React.",
+            state: "Working end-to-end: YOLOv8 video frame detection and density alerts running live via FastAPI + OpenCV.",
             link: "https://github.com/imnotparama/CrowdPulse",
             linkLabel: "VIEW REPO →",
-            tags: ["Python", "YOLOv8", "OpenCV", "FastAPI", "React"]
+            tags: ["Python", "YOLOv8", "OpenCV", "FastAPI"]
         },
         {
             id: "dialora",
             ref: "DL1",
             category: "AI/ML",
-            theme: "VOICE PROCESSING UNIT",
-            signal: "#a78bfa",
-            spec: ["LLM VOICE AGENT", "100% LOCAL · ZERO CLOUD", "24H BUILD · ORIGIN 26"],
-            title: "Dialora — AI Tele-Calling Agent",
+            theme: "VOICE DSP",
+            signal: "#f97316",
+            spec: ["LOCAL VOICE AGENT", "100% OFFLINE INFERENCE", "ORIGIN 26 BUILD"],
+            title: "Dialora — Local Voice Agent",
             status: "shipped",
-            problem: "A fully local AI calling agent — LLM-driven voice calls with zero cloud dependency.",
-            state: "Built and demoed in 24 hours at ORIGIN 26 hackathon; runs fully offline via Ollama (llama3.2) + pyttsx3.",
+            problem: "A fully local AI calling agent with zero cloud dependency.",
+            state: "Built and demoed in 24 hours at ORIGIN 26; runs fully offline with local LLM models and Python audio synthesis.",
             link: GITHUB_URL,
             linkLabel: "VIEW GITHUB →",
-            tags: ["FastAPI", "Ollama", "React", "SQLite"]
-        },
-        {
-            id: "eco-mentor",
-            ref: "EM1",
-            category: "AI/ML",
-            theme: "ECO ANALYTICS MODULE",
-            signal: "#4ade80",
-            spec: ["AGENTIC SUSTAINABILITY", "REACT 19 + FASTAPI", "LIVE · VERCEL + RENDER"],
-            title: "EcoMentor AI",
-            status: "shipped",
-            problem: "Agentic AI sustainability advisor that turns habits into actionable eco plans.",
-            state: "Deployed live on Vercel + Render — built for the Google Agentic Wars hackathon with React 19, FastAPI, and Claude API.",
-            link: GITHUB_URL,
-            linkLabel: "VIEW GITHUB →",
-            tags: ["React", "FastAPI", "Claude API", "Vercel"]
-        },
-        {
-            id: "prmxa",
-            ref: "PX1",
-            category: "FULL-STACK",
-            theme: "MEDIA STREAMING CHIP",
-            signal: "#22d3ee",
-            spec: ["PWA · OFFLINE READY", "TRAKT + JIKAN + FANART", "PERSONAL MEDIA HUB"],
-            title: "PRMxA — Streaming Hub",
-            status: "shipped",
-            problem: "A personal streaming platform for movies, TV, anime, and sports with rich metadata.",
-            state: "PWA live for personal use — Trakt, Fanart.tv, and Jikan API integrations working; new sources added incrementally.",
-            link: GITHUB_URL,
-            linkLabel: "VIEW GITHUB →",
-            tags: ["React", "Vite", "Tailwind", "PWA"]
+            tags: ["Python", "FastAPI", "Local AI", "SQLite"]
         },
         {
             id: "smart-parking",
             ref: "SP1",
             category: "FULL-STACK",
-            theme: "NAVIGATION CONTROLLER",
-            signal: "#facc15",
-            spec: ["AUTO SLOT ALLOCATION", "LIVE BOOKING FLOW", "DJANGO + SQL"],
+            theme: "PARKING CONTROLLER IC",
+            signal: "#eab308",
+            spec: ["SLOT ALLOCATION", "LIVE BOOKING FLOW", "DJANGO + SQL"],
             title: "Smart Parking System",
             status: "shipped",
             problem: "Automated parking slot allocation with real-time booking availability.",
-            state: "Working Django web app — vehicle-slot mapping and live booking flows complete.",
+            state: "Working Django web app with vehicle-slot allocation and database transaction management.",
             link: GITHUB_URL,
             linkLabel: "VIEW GITHUB →",
             tags: ["Django", "Python", "SQL"]
@@ -141,53 +112,95 @@ export const portfolioData = {
             id: "bus-it",
             ref: "BT1",
             category: "SYSTEMS",
-            theme: "GPS RECEIVER",
-            signal: "#3b82f6",
+            theme: "GPS RECEIVER MODULE",
+            signal: "#22c55e",
             spec: ["LIVE GPS STREAM", "ETA PIPELINE", "DJANGO SERVICE"],
-            title: "BusIT — Live Bus Tracking",
+            title: "BusIT — Live Transit Tracking",
             status: "shipped",
-            problem: "Live campus bus tracking from GPS sensor streams with ETA calculation for students.",
-            state: "Tracking + ETA pipeline functional on live GPS data; built as a Django service.",
+            problem: "Live campus transit tracking from GPS sensor streams with ETA calculation.",
+            state: "Tracking and ETA calculation pipeline functional on live GPS data; built as a Django service.",
             link: GITHUB_URL,
             linkLabel: "VIEW GITHUB →",
-            tags: ["Django", "Python", "GPS APIs"]
+            tags: ["Django", "Python", "GPS Telemetry"]
         },
         {
             id: "aqua-dot",
             ref: "AQD1",
             category: "SYSTEMS",
-            theme: "WATER MONITORING MODULE",
-            signal: "#2dd4bf",
-            spec: ["ESP32 SENSOR NODE", "LIVE QUALITY DASHBOARD", "THRESHOLD ALERTS"],
-            title: "AquaDot — Water Monitoring",
+            theme: "WATER MONITORING IC",
+            signal: "#06b6d4",
+            spec: ["ESP32 SENSOR NODE", "LIVE METRICS DASHBOARD", "THRESHOLD ALERTS"],
+            title: "AquaDot — IoT Sensor Node",
             status: "shipped",
-            problem: "Real-time water quality and level monitoring for tanks and streams — sensor to dashboard.",
-            state: "ESP32 node streaming readings to a live dashboard with threshold breach alerts.",
+            problem: "Real-time water quality and level monitoring for tanks and streams.",
+            state: "ESP32 microcontroller node streaming readings to a live dashboard with threshold breach alerts.",
             link: GITHUB_URL,
             linkLabel: "VIEW GITHUB →",
             tags: ["ESP32", "IoT", "Sensors", "C"]
         },
         {
+            id: "prmxa",
+            ref: "PX1",
+            category: "FULL-STACK",
+            theme: "STREAMING MEDIA PROCESSOR",
+            signal: "#6366f1",
+            spec: ["PWA OFFLINE READY", "METADATA PIPELINE", "MEDIA HUB"],
+            title: "PRMxA — Streaming Media Hub",
+            status: "shipped",
+            problem: "A personal media platform for video and animation with rich metadata aggregation.",
+            state: "Progressive Web App with live third-party metadata API integrations and offline caching.",
+            link: GITHUB_URL,
+            linkLabel: "VIEW GITHUB →",
+            tags: ["JavaScript", "Vite", "PWA", "APIs"]
+        },
+        {
+            id: "eco-mentor",
+            ref: "EM1",
+            category: "AI/ML",
+            theme: "ECO ANALYTICS MODULE",
+            signal: "#4ade80",
+            spec: ["SUSTAINABILITY AI", "FASTAPI + REACT", "LIVE DEPLOYMENT"],
+            title: "EcoMentor AI",
+            status: "shipped",
+            problem: "Agentic AI sustainability advisor turning habits into actionable eco plans.",
+            state: "Deployed live web application built for the Google Agentic Wars hackathon with FastAPI and React.",
+            link: GITHUB_URL,
+            linkLabel: "VIEW GITHUB →",
+            tags: ["FastAPI", "React", "AI APIs"]
+        },
+        {
             id: "ml-dsa",
             ref: "ML1",
             category: "AI/ML",
-            theme: "TRAINING REGIMEN",
+            theme: "CORE ML CO-PROCESSOR",
             signal: "#a3e635",
-            spec: ["DAILY ML REPS", "DSA + DP-900 PREP", "STREAK LIVE"],
-            title: "ML + DSA Daily Reps",
+            spec: ["DAILY ML REPS", "ALGORITHMS PRACTICE", "ACTIVE STREAK"],
+            title: "ML & Systems Daily Reps",
             status: "building",
-            problem: "Daily practice: ML problem sets and DSA fundamentals — plus prep for the Azure Data Fundamentals certification.",
-            state: "Ongoing daily — practice streak live; Azure DP-900 exam not yet scheduled.",
+            problem: "Daily engineering practice in machine learning problem sets, data structures, and algorithms.",
+            state: "Ongoing daily problem-solving streak in algorithmic efficiency and machine learning fundamentals.",
             link: GITHUB_URL + "?tab=repositories",
             linkLabel: "PUBLIC COMMITS →",
-            tags: ["ML", "DSA", "Azure DP-900"]
+            tags: ["ML", "Algorithms", "Python"]
         }
     ],
+    // Truthful Capabilities Stack
     skills: {
-        ai_ml: ["Python", "Machine Learning", "OpenCV", "YOLO", "Pandas", "NumPy", "Scikit-learn"],
-        web: ["Django", "FastAPI", "React", "JavaScript", "HTML", "CSS", "Vite", "Tailwind"],
-        data: ["SQL", "Power BI", "Data Analysis", "Excel"],
-        hardware: ["Arduino", "IoT", "IR Sensors", "ESP32", "C", "Git"]
+        ai_vision: [
+            { capability: "AI & Computer Vision", techs: ["YOLOv8", "OpenCV", "Video Frame Detection", "Object Tracking"] }
+        ],
+        backend: [
+            { capability: "Backend Engineering", techs: ["FastAPI", "Django", "REST APIs", "Python", "SQL Databases"] }
+        ],
+        webgl_ui: [
+            { capability: "Interactive Web & Graphics", techs: ["Three.js (WebGL)", "GSAP", "Vanilla JavaScript", "Modern CSS", "HTML5"] }
+        ],
+        embedded_iot: [
+            { capability: "Embedded & IoT Systems", techs: ["ESP32", "Arduino", "IR Sensors", "UART Serial", "C/C++", "Git"] }
+        ],
+        data_analytics: [
+            { capability: "Data Analytics & Modeling", techs: ["Pandas", "NumPy", "SQL", "Power BI", "Data Modeling"] }
+        ]
     },
     education: [
         {
@@ -197,37 +210,31 @@ export const portfolioData = {
             grade: `GPA: ${GPA}`
         }
     ],
-    // Experience — timeline etched into copper. Time-stamped junctions.
+    // Experience — Structured as Firmware Updates
     timeline: [
         {
-            date: "2024",
-            title: "B.Tech ECE (Data Science) — SRM Ramapuram",
-            detail: `Enrolled; currently 3rd year. GPA ${GPA}.`
+            version: "FW UPDATE 1.3",
+            date: "2025 – PRESENT",
+            title: "ML Engineering Intern — FlyRank.ai",
+            detail: "Contributed to machine-learning search and ranking features, supporting data pipelines, backend services, and model integration as part of the engineering team."
         },
         {
-            date: "2025",
-            title: "Certification Stack — 7 earned",
-            detail: "NPTEL Data Analytics with Python (Elite) · Infosys Springboard Data Science · Maiyyam Data Analytics, Full Stack, UI/UX (ISO) · Accenture Digital Skills: AI · IBM SkillsBuild AI."
-        },
-        {
-            date: "MAY–JUN 2025",
+            version: "FW UPDATE 1.2",
+            date: "MAY – JUN 2025",
             title: "Backend Intern — Beau Roi, Chennai",
-            detail: "Python + Django backend work: debugging, feature implementation, engineering team collaboration."
+            detail: "Python + Django backend engineering: REST API development, feature implementation, and collaborative debugging within the engineering team."
         },
         {
+            version: "FW UPDATE 1.1",
             date: "2025",
-            title: "ORIGIN 26 Hackathon — Dialora",
-            detail: "Built a fully local AI tele-calling agent in 24 hours. It worked."
+            title: "Systems Deployments — Dialora & EcoMentor",
+            detail: "Engineered Dialora offline voice agent at ORIGIN 26 (24-hour sprint) and deployed EcoMentor AI sustainability service."
         },
         {
-            date: "2025",
-            title: "Google Agentic Wars Hackathon — EcoMentor AI",
-            detail: "Agentic sustainability advisor, deployed live on Vercel + Render."
-        },
-        {
-            date: "NOW",
-            title: "Building flyrank.ai · Azure DP-900 prep",
-            detail: "flyrank.ai — my own solo-founded startup: an AI-powered ranking and visibility engine, built from the ground up. Core build in active development; architecture and matching logic in progress — not publicly launched yet. Alongside it: daily ML/DSA reps, Azure DP-900 prep, and Blender on the side."
+            version: "FW UPDATE 1.0",
+            date: "2024 – 2028",
+            title: "B.Tech ECE (Data Science) — SRM Ramapuram",
+            detail: `Foundational engineering curriculum in electronic circuits, digital signal processing, microcontrollers, and statistical machine learning. GPA: ${GPA}.`
         }
     ],
     certifications: [
@@ -241,39 +248,31 @@ export const portfolioData = {
     ]
 };
 
-// Component Library roles — every skill is a PCB component on the board, so
-// each one carries its component class (the part it plays in a system):
-// Python = MCU, Machine Learning = AI ACCEL, React = DISPLAY CTRL, etc.
-// sections.js renders these as tiny component tags under the pill label.
 /** @type {Record<string, string>} */
 export const skillRoles = {
-    // C1 — AI ACCELERATOR BANK
-    "Python": "MCU",
-    "Machine Learning": "AI ACCEL",
+    "YOLOv8": "DETECT NET",
     "OpenCV": "VISION DSP",
-    "YOLO": "DETECT NET",
+    "Video Frame Detection": "FRAME BUFFER",
+    "Object Tracking": "TRACK LATCH",
+    "FastAPI": "COMM BUS",
+    "Django": "WEB CORE",
+    "REST APIs": "RPC GATE",
+    "Python": "MCU",
+    "SQL Databases": "STORAGE CTRL",
+    "Three.js (WebGL)": "3D PIPELINE",
+    "GSAP": "MOTION FPU",
+    "Vanilla JavaScript": "SCRIPT ENG",
+    "Modern CSS": "STYLE LYR",
+    "HTML5": "MARKUP LYR",
+    "ESP32": "RF MODULE",
+    "Arduino": "MCU",
+    "IR Sensors": "SENSOR IN",
+    "UART Serial": "BUS COMM",
+    "C/C++": "KERNEL",
+    "Git": "VERSION REG",
     "Pandas": "DATA LATCH",
     "NumPy": "MATH FPU",
-    "Scikit-learn": "AI ACCEL",
-    // C2 — DISPLAY & I/O BANK
-    "Django": "WEB CORE",
-    "FastAPI": "COMM BUS",
-    "React": "DISPLAY CTRL",
-    "JavaScript": "SCRIPT ENG",
-    "HTML": "MARKUP LYR",
-    "CSS": "STYLE LYR",
-    "Vite": "BUILD BUS",
-    "Tailwind": "STYLE LYR",
-    // C3 — STORAGE CONTROLLER BANK
     "SQL": "STORAGE CTRL",
     "Power BI": "DISPLAY CTRL",
-    "Data Analysis": "DATA LATCH",
-    "Excel": "DATA LATCH",
-    "Git": "VERSION REG",
-    // C4 — FIRMWARE & RF MODULES
-    "Arduino": "MCU",
-    "IoT": "NET NODE",
-    "IR Sensors": "SENSOR IN",
-    "ESP32": "RF MODULE",
-    "C": "KERNEL"
+    "Data Modeling": "SCHEMA CTRL"
 };

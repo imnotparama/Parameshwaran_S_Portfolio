@@ -9,7 +9,7 @@ import { createProjectChips, updateProjectChips, projectChips } from './src/thre
 import { createLcd, updateLcdScreen, isLcdActive, getBestScore, setBestListener, getBoardFx } from './src/three/lcd.js';
 import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
-import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler, setLcdHandler } from './src/utils/hover.js';
+import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler, setLcdHandler, setSubsystemInspectHandler } from './src/utils/hover.js';
 import { isSoundEnabled, toggleSound, switchClack, electricalHum, stopElectricalHum, powerUpBeep } from './src/utils/sound.js';
 import { noteInteraction, updateIdleDrift, updateIdleSelfTest, selfTestPostLine, updateIdleHeartbeat } from './src/three/idle.js';
 // The HUD scope's value line — the board's live readout. Cached once so the
@@ -20,7 +20,7 @@ import { initPower, togglePower } from './src/three/power.js';
 import { initCursor } from './src/ui/cursor.js';
 import { initOscilloscope, updateOscilloscope } from './src/ui/oscilloscope.js';
 import { initCommandPalette, openCommandPalette } from './src/ui/command-palette.js';
-import { initTelemetry, toggleSysinfo, toggleDebug, showDevNotes, updateTelemetry } from './src/ui/telemetry.js';
+import { initTelemetry, toggleSysinfo, toggleDebug, showDevNotes, updateTelemetry, markChipVerified, emitUartLog, emitSystemEvent } from './src/ui/telemetry.js';
 import { initTeardown, toggleTeardown, isTeardownActive } from './src/three/teardown.js';
 import { cycleTheme } from './src/three/potentiometer.js';
 import { initOverclock, updateOverclock, toggleOverclock } from './src/three/overclock.js';
@@ -270,10 +270,16 @@ document.addEventListener('DOMContentLoaded', () => {
         initCursor();
     }
 
-    // 8b. Click-to-component: clicking a project chip on the board glides the
-    // camera to it and opens its focused datasheet (journey.focusProject).
-    // The close button releases the same way Esc does.
-    setBoardClickHandler((ref) => focusProject(ref));
+    // 8b. Physical Board Inspection: clicking any component on the board glides
+    // the camera with weighted physics and opens its corresponding datasheet.
+    setBoardClickHandler((ref) => {
+        markChipVerified(ref);
+        emitUartLog('INSPECT', `${ref} Module Activated · EEPROM Signature Verified`);
+        focusProject(ref);
+    });
+    setSubsystemInspectHandler((sectionId) => {
+        scrollToSection(sectionId);
+    });
     // BZ1 — the horn: clicking the piezo on the board pulses it, fires an
     // expanding sound ring, and beeps via WebAudio (user gesture required).
     setBuzzerHandler(pulseBuzzer);
@@ -692,6 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleDebug();
         }
     });
+
     window.addEventListener('keyup', (e) => {
         if (isRoverModeActive()) {
             handleRoverKeyUp(e.key);
@@ -700,32 +707,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 20. Hidden cheat-code: typing 'parama' (the board's name) fires the
-    // operator-notes easter egg — a one-shot gold chip that thanks the
-    // curious (and tips the T/D shortcuts). Silent unless typed: the buffer
-    // rolls a fixed window and resets on any non-letter or modifier key, so
-    // normal typing never trips it. Ignored inside form fields.
-    const CHEAT = 'parama';
-    let cheatBuf = '';
+    // 20. Disciplined Terminal Commands: typing 'sudo', 'help', 'matrix', 'konami', or 'parama'
+    // directly on the board triggers authentic hardware responses.
+    let cmdBuffer = '';
+    const COMMANDS = ['sudo', 'help', 'matrix', 'konami', 'parama'];
+    const MAX_BUF = 10;
+
     window.addEventListener('keydown', (e) => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         if (document.body.classList.contains('lcd-active')) {
-            cheatBuf = '';
+            cmdBuffer = '';
             return;
         }
         if (e.key.length !== 1 || !/[a-z]/i.test(e.key)) {
-            cheatBuf = '';
+            cmdBuffer = '';
             return;
         }
         const tag = (document.activeElement && document.activeElement.tagName) || '';
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) {
-            cheatBuf = '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && /** @type {HTMLElement} */ (document.activeElement).isContentEditable)) {
+            cmdBuffer = '';
             return;
         }
-        cheatBuf = (cheatBuf + e.key.toLowerCase()).slice(-CHEAT.length);
-        if (cheatBuf === CHEAT) {
-            cheatBuf = '';
-            showDevNotes();
+
+        cmdBuffer = (cmdBuffer + e.key.toLowerCase()).slice(-MAX_BUF);
+
+        for (const cmd of COMMANDS) {
+            if (cmdBuffer.endsWith(cmd)) {
+                cmdBuffer = '';
+                if (cmd === 'sudo' || cmd === 'help') {
+                    openCommandPalette();
+                    emitUartLog('AUTH', 'Terminal Shell Opened');
+                    emitSystemEvent('Terminal Access', 'BIOS Command Palette Armed');
+                } else if (cmd === 'matrix') {
+                    emitUartLog('SYS', 'CRT Phosphor Matrix Stream Active');
+                    emitSystemEvent('Matrix Mode', 'CRT Phosphor Diagnostic Test');
+                    document.body.classList.toggle('matrix-rain');
+                } else if (cmd === 'konami') {
+                    toggleOverclock();
+                    emitUartLog('SYS', 'DEVELOPER OVERLOAD ENGAGED');
+                    emitSystemEvent('God Mode', '100MHz Turbo Overclock Active');
+                } else if (cmd === 'parama') {
+                    showDevNotes();
+                }
+                break;
+            }
         }
     });
 });

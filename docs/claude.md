@@ -9,6 +9,15 @@ Hi! This file is the primary reference prompt and technical transfer guide for a
 **Status: The portfolio features full-page smooth section-by-section snap scrolling (Hero ➔ About ➔ Projects ➔ Skills ➔ Experience ➔ Contact), interactive 3D hero quick actions (Nano-Rover, Turbo Overclock, 3D Teardown, Color Themes), animated retro audio equalizer, and dynamic section rim lighting. See `CLAUDE.md` in the project root for the master AI developer reference.**
 
 ### Shipped in recent sessions (commit order, newest first)
+- `2026-08` — **Living Hardware Operating System Transformation (`MASTER PLAN COMPLETE`)**:
+  1. **Hardware State Machine**: Formal state tracking (`OFF` ➔ `BOOTING` ➔ `IDLE` ➔ `INSPECTING` ➔ `ACTIVE` ➔ `OVERCLOCK` ➔ `SLEEP` ➔ `SHUTDOWN`) with live state dispatching across all subsystems.
+  2. **Live UART Serial Console Ribbon**: Fixed bottom streaming terminal with aligned microsecond hardware logs (`[09:14:02.118] BOOT Initializing PARAMA-DEV-BOARD v2.0...`), live flickering on inspection events.
+  3. **Live Hardware Telemetry HUD**: Top-right DIE temperature (`41.2°C` ➔ `78.5°C` in Turbo Overclock) and VCC voltage rails (`3.30V STABLE` with occasional simulated rail dip + recovery).
+  4. **Physical Board Inspection Navigation**: Raycast-clicking `U1` (CPU), `U2` (GPU), `C1-C4` (Caps), `Y1` (Oscillator), `J1`/`ANT1` (Ports), or project IC chips glides the 3D camera and opens the corresponding subsystem datasheet with live UART inspection logs.
+  5. **Motherboard Manufacturing Silkscreen Label**: Authentic hardware plate in About panel (`PARAMA LABS PRM-DEV-BOARD V2.0`, `REVISION: R2.0`, `FIRMWARE: v2.3.1`, `SERIAL: PRM-2026-DEV-001`, `STATUS: VERIFIED`).
+  6. **Truthful Content & Capabilities Architecture**: Accurate FlyRank engineering role description, grouped capability blocks with IC role badges, and `FW UPDATE 1.0 - 1.3` timeline.
+  7. **Persistent EEPROM Board Memory**: Saves inspected chip signatures to `localStorage`, rendering authentic soft `[VERIFIED]` pilot badges.
+  8. **Disciplined Terminal Commands**: Direct keyboard triggers (`sudo`, `help`, `matrix`, `konami`, `parama`) with authentic `[SYSTEM EVENT]` diagnostic toasts.
 - `2026-08` — **Full-Page Smooth Section Snap & Interactive Hero Toolbar (`0ac0e2c`)**:
   1. **One-Time Smooth Section Scrolling**: Each deliberate scroll gesture (mouse wheel, trackpad flick, touch swipe, or arrow keys) smoothly glides from one section directly to the next/previous section with 0 intermediate stuck states.
   2. **Smart Panel Overflow Handling**: Inside `#panel-projects`, scrolling down scrolls the project cards until reaching the bottom, where the next scroll down smoothly navigates to the next section.

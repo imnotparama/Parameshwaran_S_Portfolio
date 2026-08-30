@@ -3,9 +3,10 @@
 // Section content renderer — injects datasheet content from
 // portfolio data, and wires every LinkedIn/GitHub link.
 // ============================================================
-import { portfolioData } from '../data/portfolio.js';
+import { portfolioData, skillRoles } from '../data/portfolio.js';
 import { LINKEDIN_URL, GITHUB_URL } from '../config.js';
 import { setProjectFilter } from '../three/project-chips.js';
+import { isChipVerified } from './telemetry.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 import gsap from 'gsap';
 
@@ -23,9 +24,10 @@ export function renderSections() {
     renderProjects();
     renderSkills();
     renderTimeline();
+    renderManufacturingLabel();
 }
 
-// Hero stat badges — GPA / PROJECTS / HACKATHONS / CERTS
+// Hero stat badges — CORE / MODULES / UPTIME / BUILD
 function renderHeroStats() {
     const row = document.getElementById('hero-badges');
     if (!row) return;
@@ -42,8 +44,27 @@ function renderHeroStats() {
 function renderAboutVref() {
     const td = document.getElementById('about-vref');
     if (!td) return;
-    const gpa = (portfolioData.personalInfo.stats[0] || {}).value || '9.48/10';
+    const gpa = '9.48/10';
     td.textContent = `GPA ${gpa}`;
+}
+
+// Motherboard Manufacturing Silkscreen Label in About panel
+function renderManufacturingLabel() {
+    const labelContainer = document.getElementById('mfg-label-card');
+    if (!labelContainer) return;
+    const mfg = portfolioData.personalInfo.manufacturingLabel;
+    labelContainer.innerHTML = `
+        <div class="mfg-silkscreen-label">
+            <div class="mfg-header">${esc(mfg.brand)}</div>
+            <div class="mfg-grid">
+                <span class="mfg-k">MODEL</span><span class="mfg-v">${esc(mfg.model)}</span>
+                <span class="mfg-k">REVISION</span><span class="mfg-v">${esc(mfg.revision)}</span>
+                <span class="mfg-k">SERIAL</span><span class="mfg-v">${esc(mfg.serial)}</span>
+                <span class="mfg-k">ASSEMBLED</span><span class="mfg-v">${esc(mfg.assembled)}</span>
+                <span class="mfg-k">STATUS</span><span class="mfg-v mfg-status">${esc(mfg.status)}</span>
+            </div>
+        </div>
+    `;
 }
 
 // The LinkedIn CTA is the primary contact action
@@ -64,7 +85,7 @@ function wireProfileLinks() {
 
 // Projects Filter definitions
 const PROJECT_FILTERS = [
-    { id: 'ALL', label: 'All Projects' },
+    { id: 'ALL', label: 'All Modules' },
     { id: 'AI/ML', label: 'AI & Machine Learning' },
     { id: 'FULL-STACK', label: 'Full-Stack Web' },
     { id: 'SYSTEMS', label: 'Systems & IoT' }
@@ -79,7 +100,7 @@ function renderProjects() {
     if (!panel.querySelector('.proj-filter-bar')) {
         const bar = document.createElement('div');
         bar.className = 'proj-filter-bar';
-        bar.setAttribute('aria-label', 'Filter projects by category');
+        bar.setAttribute('aria-label', 'Filter installed modules by category');
         PROJECT_FILTERS.forEach((f, i) => {
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -96,21 +117,25 @@ function renderProjects() {
     grid.innerHTML = portfolioData.projects
         .map((p) => {
             const building = p.status === 'building';
+            const verified = isChipVerified(p.ref);
             const tags = (p.tags || []).map((t) => `<span class="proj-tag">${esc(t)}</span>`).join('');
             return `
-        <article class="proj-ds ${building ? 'is-building' : ''}" data-category="${esc(p.category || '')}" data-ref="${esc(p.ref)}">
+        <article class="proj-ds ${building ? 'is-building' : ''} ${verified ? 'chip-verified' : ''}" data-category="${esc(p.category || '')}" data-ref="${esc(p.ref)}">
             <div class="proj-ds-head">
                 <div class="proj-ds-title-wrap">
-                    <span class="proj-ds-theme">${esc(p.category || 'Software')}</span>
+                    <span class="proj-ds-theme" style="color: ${esc(p.signal || '#3ee6a0')}">IC // ${esc(p.ref)} · ${esc(p.theme || p.category)}</span>
                     <h3 class="proj-ds-title">${esc(p.title)}</h3>
                 </div>
-                <span class="status-tag ${building ? 'building' : 'shipped'}">${building ? '⚡ In Active Build' : '🚀 Shipped &amp; Live'}</span>
+                <div class="proj-status-cluster">
+                    ${verified ? '<span class="status-tag verified">✓ VERIFIED</span>' : ''}
+                    <span class="status-tag ${building ? 'building' : 'shipped'}">${building ? '⚡ In Build' : '🚀 Online'}</span>
+                </div>
             </div>
             <p class="proj-summary">${esc(p.problem)}</p>
-            <div class="proj-field"><strong>Highlights:</strong> ${esc(p.state)}</div>
+            <div class="proj-field"><strong>Specifications:</strong> ${esc(p.state)}</div>
             ${tags ? `<div class="proj-tags">${tags}</div>` : ''}
             <div class="proj-footer">
-                <a class="proj-ds-link" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">${esc(p.linkLabel || 'View Details →')}</a>
+                <a class="proj-ds-link" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">${esc(p.linkLabel || 'Inspect Repository →')}</a>
             </div>
         </article>`;
         })
@@ -158,50 +183,42 @@ function applyProjectFilter(filter, clickedBtn) {
     setProjectFilter(filter);
 }
 
-// Skills — modern visual categories
+// Skills — Capabilities First, Supported by Technologies
 function renderSkills() {
     const wrap = document.getElementById('skills-groups');
     if (!wrap) return;
 
-    /** @type {Record<string, string[]>} */
-    const usedIn = {};
-    for (const p of portfolioData.projects) {
-        const short = p.title.split(/\s*[—-]\s*/)[0];
-        for (const tag of p.tags || []) {
-            (usedIn[tag] = usedIn[tag] || []).push(short);
-        }
-    }
-    const shortName = (/** @type {string} */ s) => {
-        const hits = usedIn[s] || [];
-        return hits.length ? hits.slice(0, 4).join(', ') : '';
-    };
-
-    const groups = [
-        { label: '🧠 AI & Machine Learning', items: portfolioData.skills.ai_ml },
-        { label: '💻 Full-Stack & Web Development', items: portfolioData.skills.web },
-        { label: '📊 Data Science & Analytics', items: portfolioData.skills.data },
-        { label: '⚡ Embedded Systems & IoT', items: portfolioData.skills.hardware }
+    const skillCategories = [
+        { label: '🧠 AI & Computer Vision', group: portfolioData.skills.ai_vision },
+        { label: '⚙️ Backend Engineering', group: portfolioData.skills.backend },
+        { label: '🎨 Interactive Web & Graphics', group: portfolioData.skills.webgl_ui },
+        { label: '⚡ Embedded & IoT Systems', group: portfolioData.skills.embedded_iot },
+        { label: '📊 Data Analytics & Modeling', group: portfolioData.skills.data_analytics }
     ];
 
-    wrap.innerHTML = groups
-        .map(
-            (g) => `
-        <div class="skill-group">
-            <div class="skill-group-label">${esc(g.label)}</div>
-            <div class="skill-pills">${g.items
-                .map(
-                    (s) => {
-                        const used = shortName(s);
-                        return `<span class="skill-pill"${used ? ` data-used="${esc(used)}"` : ''} tabindex="0">${esc(s)}${used ? `<i class="skill-used" aria-hidden="true">Used in: ${esc(used)}</i>` : ''}</span>`;
-                    }
-                )
-                .join('')}</div>
-        </div>`
-        )
+    wrap.innerHTML = skillCategories
+        .map((cat) => {
+            const items = cat.group || [];
+            return `
+            <div class="skill-group">
+                <div class="skill-group-label">${esc(cat.label)}</div>
+                ${items.map((item) => `
+                    <div class="capability-block">
+                        <div class="capability-title">${esc(item.capability)}</div>
+                        <div class="skill-pills">
+                            ${item.techs.map((tech) => {
+                                const role = skillRoles[tech] || 'BUS';
+                                return `<span class="skill-pill" tabindex="0">${esc(tech)}<span class="skill-role">${esc(role)}</span></span>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>`;
+        })
         .join('');
 }
 
-// Experience — modern interactive vertical timeline
+// Experience — FW UPDATE Timeline
 function renderTimeline() {
     const list = document.getElementById('timeline-list');
     if (!list) return;
@@ -212,7 +229,10 @@ function renderTimeline() {
         <div class="tl-item">
             <div class="tl-marker"><span class="tl-pulse"></span></div>
             <div class="tl-content">
-                <div class="tl-date">${esc(t.date)}</div>
+                <div class="tl-head-row">
+                    <span class="fw-badge">${esc(t.version || 'FW UPDATE')}</span>
+                    <span class="tl-date">${esc(t.date)}</span>
+                </div>
                 <h3 class="tl-title">${esc(t.title)}</h3>
                 <div class="tl-detail">${esc(t.detail)}</div>
             </div>

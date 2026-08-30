@@ -2114,3 +2114,229 @@ body.lcd-game-focus .lcd-game-minicta:hover {
     border-color: #fff;
     color: #fff;
 }
+
+/* ─── PARAMA-DEV-BOARD Hardware OS Extensions ──────────────── */
+
+/* Live UART Serial Console Ribbon */
+.uart-console-ribbon {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    background: rgba(1, 8, 4, 0.95);
+    border-top: 1px solid rgba(62, 230, 160, 0.22);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    z-index: 50;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.uart-prefix {
+    color: var(--signal, #3ee6a0);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    opacity: 0.8;
+}
+
+.uart-log-text {
+    color: rgba(215, 255, 230, 0.9);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uart-flicker {
+    animation: uart-pulse 0.2s ease-out;
+}
+
+@keyframes uart-pulse {
+    0% { color: #fff; text-shadow: 0 0 8px rgba(62, 230, 160, 0.8); }
+    100% { color: rgba(215, 255, 230, 0.9); text-shadow: none; }
+}
+
+/* Top-Right HUD Hardware Monitor */
+.hud-hardware-mon {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    background: rgba(3, 16, 9, 0.75);
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    color: rgba(215, 255, 230, 0.8);
+}
+
+.hud-mon-item strong {
+    color: var(--signal, #3ee6a0);
+    font-weight: 600;
+}
+
+.hud-mon-item strong.rail-fault {
+    color: #f43f5e !important;
+    text-shadow: 0 0 6px rgba(244, 63, 94, 0.8);
+}
+
+/* System Event Diagnostic Toasts */
+.system-events-container {
+    position: fixed;
+    top: 64px;
+    right: 24px;
+    z-index: 80;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.sys-event-toast {
+    background: rgba(3, 14, 8, 0.95);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-left: 3px solid var(--signal, #3ee6a0);
+    border-radius: 4px;
+    padding: 8px 12px;
+    min-width: 240px;
+    max-width: 320px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(62, 230, 160, 0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-family: var(--font-mono);
+}
+
+.toast-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+}
+
+.toast-tag {
+    color: var(--signal, #3ee6a0);
+    font-weight: 700;
+}
+
+.toast-title {
+    color: #fff;
+    font-weight: 600;
+}
+
+.toast-body {
+    font-size: 10px;
+    color: rgba(215, 255, 230, 0.7);
+    margin-top: 3px;
+    line-height: 1.3;
+}
+
+/* Motherboard Manufacturing Silkscreen Label */
+.mfg-silkscreen-label {
+    margin: 18px 0;
+    background: rgba(2, 10, 5, 0.85);
+    border: 1px dashed rgba(201, 162, 75, 0.4);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    color: #c9a24b;
+}
+
+.mfg-header {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    border-bottom: 1px solid rgba(201, 162, 75, 0.25);
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.mfg-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 14px;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+}
+
+.mfg-k {
+    color: rgba(201, 162, 75, 0.7);
+}
+
+.mfg-v {
+    color: #d7ffe6;
+    font-weight: 500;
+}
+
+.mfg-status {
+    color: var(--signal, #3ee6a0);
+}
+
+/* Capabilities Blocks in Skills Section */
+.capability-block {
+    margin-bottom: 12px;
+}
+
+.capability-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--signal, #3ee6a0);
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+}
+
+.skill-role {
+    display: block;
+    font-size: 8px;
+    color: rgba(201, 162, 75, 0.85);
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+    text-transform: uppercase;
+}
+
+/* Firmware Update Badges */
+.tl-head-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.fw-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    background: rgba(62, 230, 160, 0.12);
+    border: 1px solid var(--signal, #3ee6a0);
+    color: var(--signal, #3ee6a0);
+    border-radius: 3px;
+    padding: 1px 6px;
+}
+
+/* Verified Chip Pilot Glow */
+.proj-ds.chip-verified {
+    border-color: rgba(62, 230, 160, 0.35);
+}
+
+.proj-ds.chip-verified .status-tag.verified {
+    background: rgba(62, 230, 160, 0.15);
+    border: 1px solid var(--signal, #3ee6a0);
+    color: var(--signal, #3ee6a0);
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    margin-right: 4px;
+}
