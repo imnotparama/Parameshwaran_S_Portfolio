@@ -145,3 +145,13 @@ export function updateAudioPeak(delta) {
     }
     return currentAudioPeak;
 }
+
+let buzzerMelodyIdx = 0;
+/**
+ * Play sequential pentatonic piano notes from clicking the buzzer.
+ */
+export function playBuzzerPianoNote() {
+    const freq = PENTATONIC_SCALE[buzzerMelodyIdx % PENTATONIC_SCALE.length];
+    buzzerMelodyIdx++;
+    playSynthNote(freq, 0.25, 0.12);
+}

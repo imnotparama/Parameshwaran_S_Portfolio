@@ -11,7 +11,13 @@ import { initProjectHolograms, showProjectVisual, hideProjectVisuals, updateProj
 import { initThermalMode, updateThermal, setThermalLoad } from './thermal.js';
 import { initRfWavefront, updateRfWavefront, triggerRfBurst } from './rf-wavefront.js';
 import { initLaserScanner, triggerLaserScan } from './laser-scan.js';
+import { initWaterDroplets, updateWaterDroplets, disturbDroplets } from './water-droplets.js';
+import { initInspectionDrone, setDroneTarget, updateInspectionDrone } from './drone.js';
+import { initPaperAirplane, launchPaperAirplane } from './paper-airplane.js';
+import { initCornerSparks, triggerCornerSparks, updateCornerSparks } from './corner-sparks.js';
 import { projectChips } from './project-chips.js';
+
+export { disturbDroplets, setDroneTarget, launchPaperAirplane, triggerCornerSparks };
 
 let currentSection = '';
 
@@ -25,6 +31,10 @@ export function initHardwareOrchestrator(boardGroup) {
     initThermalMode(boardGroup);
     initRfWavefront(boardGroup);
     initLaserScanner(boardGroup);
+    initWaterDroplets(boardGroup);
+    initInspectionDrone(boardGroup);
+    initPaperAirplane(boardGroup);
+    initCornerSparks(boardGroup);
 }
 
 /**
@@ -48,10 +58,11 @@ export function onSectionChanged(sectionId) {
         setThermalLoad(60);
         inspectFirstProject();
     } else if (sectionId === 'sec-contact') {
-        // Antenna wakes up with natural RF microwave waves
+        // Antenna wakes up with natural RF microwave waves + corner celebration sparks
         setThermalLoad(42);
         hideProjectVisuals();
         triggerRfBurst();
+        triggerCornerSparks();
     } else {
         // Hero / Skills / Experience: quiet steady state
         setThermalLoad(40);
@@ -69,6 +80,7 @@ export function inspectProject(ref) {
     const chip = projectChips[ref];
     if (chip && chip.pos) {
         flyProbeTo(chip.pos.x);
+        setDroneTarget(chip.pos.x, chip.pos.y);
         const projectId = (chip.data && chip.data.id) || ref;
         showProjectVisual(projectId, chip.pos);
         setThermalLoad(62);
@@ -95,4 +107,7 @@ export function updateHardwareOrchestrator(elapsed, delta) {
     updateProjectHolograms(elapsed);
     updateThermal(elapsed, delta);
     updateRfWavefront(elapsed, delta);
+    updateWaterDroplets(elapsed);
+    updateInspectionDrone(elapsed, delta);
+    updateCornerSparks(delta);
 }

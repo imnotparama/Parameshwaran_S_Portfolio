@@ -579,6 +579,14 @@ function handleHoverEnter(mesh) {
         { x: 1.05, y: 1.05, z: 1.05, duration: 0.4, ease: 'back.out(3)', overwrite: 'auto' }
     );
 
+    // Magnetic Chip Levitation: chip lifts gently 2.5mm along Z with spring compliance
+    const isChip = (mesh.userData && (mesh.userData.type === 'PROJECT' || mesh.userData.type === 'CPU' || mesh.userData.type === 'GPU')) || (mesh.name && mesh.name.startsWith('U'));
+    if (isChip && !motionPrefs.reduced) {
+        if (mesh.userData._baseZ === undefined) mesh.userData._baseZ = mesh.position.z;
+        gsap.killTweensOf(mesh.position);
+        gsap.to(mesh.position, { z: mesh.userData._baseZ + 0.08, duration: 0.25, ease: 'back.out(2)', overwrite: 'auto' });
+    }
+
     // Sonar contact ping — an expanding ring at the component (the board
     // "answers" the probe). One-shot per enter, gated on reduced motion.
     if (hoverPing && !motionPrefs.reduced) {
@@ -665,4 +673,10 @@ function resetHoverMesh(obj) {
 
     gsap.killTweensOf(obj.scale);
     gsap.to(obj.scale, { x: 1, y: 1, z: 1, duration: 0.25, overwrite: 'auto' });
+
+    // Reset magnetic levitation
+    if (obj.userData && obj.userData._baseZ !== undefined) {
+        gsap.killTweensOf(obj.position);
+        gsap.to(obj.position, { z: obj.userData._baseZ, duration: 0.35, ease: 'power2.out', overwrite: 'auto' });
+    }
 }

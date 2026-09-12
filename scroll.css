@@ -943,6 +943,28 @@ body.theme-stealth-dark {
     box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 24px rgba(201, 162, 75, 0.35);
 }
 
+.hero-cta-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.cta-secondary {
+    background: rgba(201, 162, 75, 0.12);
+    color: var(--enig-gold);
+    border: 1px solid rgba(201, 162, 75, 0.4);
+    cursor: pointer;
+}
+
+.cta-secondary:hover,
+.cta-secondary:focus-visible {
+    background: rgba(201, 162, 75, 0.28);
+    color: #ffffff;
+    border-color: var(--enig-gold);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 20px rgba(201, 162, 75, 0.3);
+}
+
 /* Plan 004: lift gated — the :focus-visible half stays fully ungated (keyboard
    users on touch laptops still need it). */
 @media (hover: hover) and (pointer: fine) {

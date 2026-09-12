@@ -72,18 +72,21 @@ export function createBoard(scene) {
     if (mctx) {
         mctx.fillStyle = '#808080';
         mctx.fillRect(0, 0, 256, 256);
-        // Microscopic FR-4 fiberglass weave pattern
-        for (let ix = 0; ix < 256; ix += 4) {
-            for (let iy = 0; iy < 256; iy += 4) {
-                const noise = Math.floor(120 + Math.sin(ix * 0.4) * 8 + Math.cos(iy * 0.4) * 8 + Math.random() * 6);
+        // Ultra-detailed microscopic FR-4 fiberglass weave pattern (warp & weft cloth)
+        for (let ix = 0; ix < 256; ix += 2) {
+            for (let iy = 0; iy < 256; iy += 2) {
+                const warp = Math.sin(ix * 0.785) * 12;
+                const weft = Math.cos(iy * 0.785) * 12;
+                const weave = ((ix >> 2) + (iy >> 2)) % 2 === 0 ? warp : weft;
+                const noise = Math.floor(128 + weave + (Math.random() - 0.5) * 4);
                 mctx.fillStyle = `rgb(${noise},${noise},${noise})`;
-                mctx.fillRect(ix, iy, 3, 3);
+                mctx.fillRect(ix, iy, 2, 2);
             }
         }
         bumpTex = new THREE.CanvasTexture(maskCanvas);
         bumpTex.wrapS = THREE.RepeatWrapping;
         bumpTex.wrapT = THREE.RepeatWrapping;
-        bumpTex.repeat.set(16, 22);
+        bumpTex.repeat.set(24, 32);
         disposableResources.textures.add(bumpTex);
     }
 
@@ -97,7 +100,7 @@ export function createBoard(scene) {
     };
     if (bumpTex) {
         maskMatParams.bumpMap = bumpTex;
-        maskMatParams.bumpScale = 0.0015;
+        maskMatParams.bumpScale = 0.0022;
     }
     const maskMat = new THREE.MeshStandardMaterial(maskMatParams);
     disposableResources.materials.add(maskMat);

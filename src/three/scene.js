@@ -43,6 +43,37 @@ let qualityLevel = 0;
 // map size when the quality budget steps down.
 /** @type {THREE.DirectionalLight | null} */
 let keyLight = null;
+/** @type {THREE.AmbientLight | null} */
+let ambientLight = null;
+/** @type {THREE.HemisphereLight | null} */
+let hemiLight = null;
+/** @type {THREE.DirectionalLight | null} */
+let fillLight = null;
+
+/**
+ * Computes time-of-day desk environment lighting based on visitor's local hour.
+ * Day (6am - 6pm): Warm sunbeam lighting with high dynamic glints on gold tracks.
+ * Night (6pm - 6am): Cozy moody desk-lamp atmosphere with rich warm contrast.
+ * @param {Date} [date]
+ */
+export function updateTimeOfDayLighting(date = new Date()) {
+    if (!ambientLight || !keyLight || !fillLight) return;
+    const hours = date.getHours() + date.getMinutes() / 60;
+    const dayFactor = Math.sin(((hours - 6) / 12) * Math.PI);
+    const sunlight = Math.max(0, dayFactor);
+
+    if (sunlight > 0.05) {
+        // Daylight: crisp warm sunbeam + sky fill
+        keyLight.color.setHex(0xfff8ed);
+        ambientLight.color.setHex(0xdcfce7);
+        fillLight.color.setHex(0xe0f2fe);
+    } else {
+        // Cozy evening / night: warm amber desk lamp + moody indigo ambient
+        keyLight.color.setHex(0xffaa55);
+        ambientLight.color.setHex(0x1e1b4b);
+        fillLight.color.setHex(0x38bdf8);
+    }
+}
 
 // Night-bench bloom multiplier — power.js scales UnrealBloomPass strength so
 // the emissive traces/LEDs bloom harder against the darkened bench. Applied
@@ -365,13 +396,13 @@ export function initScene(canvasElement) {
 
     // 4. Set up Lights
     // Ambient light - soft tint of green matching solder mask glow
-    const ambientLight = new THREE.AmbientLight(0xdcfce7, 0.45);
+    ambientLight = new THREE.AmbientLight(0xdcfce7, 0.45);
     scene.add(ambientLight);
     benchLights.push({ light: ambientLight, base: 0.45 });
 
     // Hemisphere light — sky/soldermask color gradient gives materials depth
     // (chips stop reading as flat black boxes under the single ambient)
-    const hemiLight = new THREE.HemisphereLight(0xe9f5ee, 0x1e4d33, 0.7);
+    hemiLight = new THREE.HemisphereLight(0xe9f5ee, 0x1e4d33, 0.7);
     scene.add(hemiLight);
     benchLights.push({ light: hemiLight, base: 0.7 });
 
@@ -401,10 +432,13 @@ export function initScene(canvasElement) {
     scene.add(dirLight1);
 
     // Secondary soft warm fill light
-    const fillLight = new THREE.DirectionalLight(0xffeedd, 0.4);
+    fillLight = new THREE.DirectionalLight(0xffeedd, 0.4);
     fillLight.position.set(-6, -4, 5);
     scene.add(fillLight);
     benchLights.push({ light: fillLight, base: 0.4 });
+
+    // Apply real-world local time of day lighting
+    updateTimeOfDayLighting();
 
     // Soft soldermask-green backlight behind PCB — a matte fabrication wash,
     // not the neon arcade glow. Matches --mask-green in the fab-shop palette.

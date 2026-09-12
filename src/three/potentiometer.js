@@ -26,7 +26,7 @@ let currentClockFreq = 27.0;
 let currentPotAngle = 0.45; // 0..1 normalized (approx 27MHz at 0.1)
 
 // Theme Palettes
-/** @type {Record<string, { name: string, boardColor: number, soldermaskColor: number, traceColor: number, glowColor: number, metalRoughness: number, metalness: number }>} */
+/** @type {Record<string, { name: string, boardColor: number, soldermaskColor: number, traceColor: number, glowColor: number, metalRoughness: number, metalness: number, opacity?: number }>} */
 export const THEMES = {
     ENIG_GOLD: {
         name: 'ENIG Gold',
@@ -63,6 +63,16 @@ export const THEMES = {
         glowColor: 0xa855f7,
         metalRoughness: 0.5,
         metalness: 0.6
+    },
+    GLASS_CORE: {
+        name: 'Crystal Glass',
+        boardColor: 0x051d18,
+        soldermaskColor: 0x0a2e23,
+        traceColor: 0xffd700,
+        glowColor: 0x38bdf8,
+        metalRoughness: 0.1,
+        metalness: 0.9,
+        opacity: 0.72
     }
 };
 
@@ -151,6 +161,7 @@ export function setTheme(themeKey) {
     activeThemeKey = themeKey;
     const t = THEMES[themeKey];
 
+    const isGlass = themeKey === 'GLASS_CORE';
     // Animate material color shifts smoothly
     themeMaterials.forEach(({ mat, type, prop }) => {
         let targetColor = t.boardColor;
@@ -166,6 +177,14 @@ export function setTheme(themeKey) {
                 duration: 0.8,
                 overwrite: 'auto'
             });
+            if (type === 'soldermask' || type === 'board') {
+                if (isGlass) {
+                    mat.transparent = true;
+                    gsap.to(mat, { opacity: 0.72, roughness: 0.12, duration: 0.8, overwrite: 'auto' });
+                } else {
+                    gsap.to(mat, { opacity: 1.0, roughness: t.metalRoughness || 0.38, duration: 0.8, overwrite: 'auto' });
+                }
+            }
         } else if (prop === 'emissive' && 'emissive' in mat) {
             gsap.to(mat.emissive, {
                 r: ((targetColor >> 16) & 255) / 255,

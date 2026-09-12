@@ -24,14 +24,14 @@ import { initTelemetry, toggleSysinfo, toggleDebug, showDevNotes, updateTelemetr
 import { initTeardown, toggleTeardown, isTeardownActive } from './src/three/teardown.js';
 import { cycleTheme, getClockFrequency } from './src/three/potentiometer.js';
 import { initOverclock, updateOverclock, toggleOverclock } from './src/three/overclock.js';
-import { updateAudioPeak } from './src/utils/synth.js';
+import { updateAudioPeak, playBuzzerPianoNote } from './src/utils/synth.js';
 import { createRover } from './src/three/rover.js';
 import { initPlaygroundProps } from './src/three/playground-props.js';
 import { activateRover, deactivateRover, toggleRover, isRoverModeActive, handleRoverKeyDown, handleRoverKeyUp, updateRoverPhysics } from './src/three/rover-physics.js';
-import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
+import { LINKEDIN_URL, GITHUB_URL, RESUME_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
-import { initHardwareOrchestrator, onSectionChanged, inspectProject, updateHardwareOrchestrator } from './src/three/hardware-orchestrator.js';
+import { initHardwareOrchestrator, onSectionChanged, inspectProject, updateHardwareOrchestrator, disturbDroplets, launchPaperAirplane } from './src/three/hardware-orchestrator.js';
 import { triggerRfBurst } from './src/three/rf-wavefront.js';
 import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode, focusLcdCamera } from './src/scroll/journey.js';
 import { SECTION_HASHES, hashToSectionId } from './src/utils/hash-nav.js';
@@ -147,6 +147,15 @@ function handleSectionKey(e) {
     if (document.body.classList.contains('lcd-active')) return;
     const tag = (document.activeElement && document.activeElement.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement && document.activeElement.isContentEditable) return;
+
+    // Slow-motion Spacebar wave: disturbs droplets and sends an acoustic chime
+    if (e.code === 'Space') {
+        e.preventDefault();
+        disturbDroplets();
+        switchClack();
+        return;
+    }
+
     const idx = parseInt(e.key, 10) - 1;
     if (idx >= 0 && idx < SECTION_KEYS.length) {
         e.preventDefault();
@@ -264,6 +273,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.querySelectorAll('.js-github').forEach(a => { a.href = GITHUB_URL; });
 
+    // 7bb. Wire Paper Airplane Resume Delivery flight
+    document.querySelectorAll('.js-resume-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            launchPaperAirplane(RESUME_URL);
+        });
+    });
+
     // 7c. LinkedIn CTA click tracking — one named goal, separate from
     // pageviews; no-op (no script, no beacon) unless configured via
     // VITE_PLAUSIBLE_DOMAIN / VITE_CTA_TRACKING_ENDPOINT (analytics.js).
@@ -289,9 +306,11 @@ document.addEventListener('DOMContentLoaded', () => {
     setSubsystemInspectHandler((sectionId) => {
         scrollToSection(sectionId);
     });
-    // BZ1 — the horn: clicking the piezo on the board pulses it, fires an
-    // expanding sound ring, and beeps via WebAudio (user gesture required).
-    setBuzzerHandler(pulseBuzzer);
+    // BZ1 — the musical buzzer piano: clicking plays pentatonic notes & rings
+    setBuzzerHandler(() => {
+        pulseBuzzer();
+        playBuzzerPianoNote();
+    });
     // SW1-3 — the board's front-panel switches. Each press dips the cap and
     // blips (hover.js), then fires a behavior: SW1 toggles the night bench,
     // SW2 sounds the horn, SW3 glides to the project chip nearest to it.

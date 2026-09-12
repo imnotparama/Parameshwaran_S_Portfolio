@@ -13,6 +13,7 @@ export const GITHUB_URL =
 
 export const EMAIL = 'hunterparama@gmail.com';
 export const PHONE = '+91 9176020504';
+export const RESUME_URL = (import.meta.env && import.meta.env.VITE_RESUME_URL) || '/resume.pdf';
 
 // LinkedIn CTA click tracking (analytics.js) — both providers OFF by default:
 // no script loads and nothing is sent unless one of these env vars is set.
