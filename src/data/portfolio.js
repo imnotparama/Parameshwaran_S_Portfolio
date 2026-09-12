@@ -33,7 +33,7 @@ export const portfolioData = {
         // Motherboard BIOS Diagnostics Stats
         stats: [
             { label: "CORE", value: "ONLINE" },
-            { label: "MODULES", value: "9 ONLINE" },
+            { label: "MODULES", value: "8 ONLINE" },
             { label: "UPTIME", value: "100%" },
             { label: "BUILD", value: "2026.08" }
         ],
@@ -48,27 +48,6 @@ export const portfolioData = {
     },
     // Installed Hardware Modules — each is a distinct physical component on the board
     projects: [
-        {
-            id: "flyrank",
-            ref: "FR1",
-            category: "AI/ML",
-            theme: "AI ACCELERATOR IC",
-            function: "Search & Ranking ML Accelerator",
-            inputs: "Search Queries · Unstructured Datasets",
-            outputs: "Fine-Tuned Predictions · Relevance Scores",
-            rail: "+3.3V Core",
-            bus: "PCIe Gen3 / DMA",
-            signal: "#a855f7",
-            spec: ["ML MODEL FINE-TUNING", "FEATURE ENGINEERING", "MODEL OPTIMIZATION"],
-            title: "FlyRank.ai — ML Search & Ranking",
-            status: "building",
-            statusText: "IN BUILD / PROTOTYPE",
-            problem: "Machine Learning Intern at Flyrank.ai (Chicago, IL, USA): developed and fine-tuned machine learning models for real-world AI applications.",
-            state: "Preprocessed datasets, evaluated model performance, collaborated with engineering teams, and performed feature engineering to enhance prediction accuracy.",
-            link: LINKEDIN_URL,
-            linkLabel: "EXPERIENCE LOG →",
-            tags: ["Python", "TensorFlow", "Scikit-learn", "Machine Learning"]
-        },
         {
             id: "crowd-pulse",
             ref: "CP1",

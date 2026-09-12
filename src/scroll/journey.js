@@ -15,6 +15,8 @@ import { LCD_LOCAL_POS, focusLcd, exitLcd, setLcdExitHandler } from '../three/lc
 import { getCanvasViewportSize, setSectionRimColor, disposableResources } from '../three/scene.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 import { currentSurgeTone, moduleTouchdown, relayClick, clickBlip } from '../utils/sound.js';
+import { onSectionChanged, inspectProject } from '../three/hardware-orchestrator.js';
+import { hideProjectVisuals } from '../three/project-holograms.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
@@ -854,6 +856,11 @@ function clearFocus(glideBack = false) {
     const cfg = getCameraConfigForStop(currentSectionId);
     glideCameraTo(cfg.pos, cfg.look, 0.65);
   }
+  if (currentSectionId === 'sec-projects') {
+    inspectProject('CP1');
+  } else {
+    hideProjectVisuals();
+  }
 }
 
 /** Click-to-component entry: glide the camera to the clicked chip, flash
@@ -878,6 +885,7 @@ export function focusProject(ref) {
 
   fillProjectDetailPanel(chip.data);
   setActivePanel('panel-project-detail');
+  inspectProject(ref);
   // Switching chips while the detail panel is ALREADY active: setActivePanel
   // early-returns (same id), so the fresh problem/state text types explicitly.
   // Idempotent — reset-then-type — so the normal path is unaffected.
@@ -967,6 +975,7 @@ const ARRIVAL_TRACE = { 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experienc
 /** @param {string} secId */
 export function pulseArrival(secId) {
     if (!secId) return;
+    onSectionChanged(secId);
     if (secId === 'sec-about') {
         // U1: radar sweep + silicon die flash bright, then settle
         if (cpuRadarRing && cpuRadarRing.material) {

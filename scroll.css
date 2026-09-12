@@ -3798,3 +3798,95 @@ body.bench-mode-dim .vignette-overlay {
     background: rgba(14, 28, 20, 0.95);
 }
 
+/* 3D Project Diorama Live Badges */
+.proj-live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-family: var(--font-mono, monospace);
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    border-radius: 3px;
+    margin: 6px 0 2px 0;
+    text-transform: uppercase;
+    width: fit-content;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.proj-live-badge .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    animation: badge-pulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes badge-pulse {
+    0% { transform: scale(0.85); opacity: 0.6; }
+    100% { transform: scale(1.35); opacity: 1; }
+}
+
+.proj-ds:hover .proj-live-badge {
+    transform: translateX(2px);
+    box-shadow: 0 0 10px currentColor;
+}
+
+.live-cv {
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+}
+.live-cv .badge-dot { background: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
+
+.live-voice {
+    background: rgba(249, 115, 22, 0.12);
+    border: 1px solid rgba(249, 115, 22, 0.4);
+    color: #f97316;
+}
+.live-voice .badge-dot { background: #f97316; box-shadow: 0 0 6px #f97316; }
+
+.live-parking {
+    background: rgba(234, 179, 8, 0.12);
+    border: 1px solid rgba(234, 179, 8, 0.4);
+    color: #eab308;
+}
+.live-parking .badge-dot { background: #eab308; box-shadow: 0 0 6px #eab308; }
+
+.live-transit {
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #22c55e;
+}
+.live-transit .badge-dot { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+
+.live-solar {
+    background: rgba(2, 132, 199, 0.12);
+    border: 1px solid rgba(2, 132, 199, 0.4);
+    color: #38bdf8;
+}
+.live-solar .badge-dot { background: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
+
+.live-pet {
+    background: rgba(168, 85, 247, 0.12);
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    color: #c084fc;
+}
+.live-pet .badge-dot { background: #c084fc; box-shadow: 0 0 6px #c084fc; }
+
+.live-eco {
+    background: rgba(74, 222, 128, 0.12);
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    color: #4ade80;
+}
+.live-eco .badge-dot { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+
+.live-algo {
+    background: rgba(163, 230, 53, 0.12);
+    border: 1px solid rgba(163, 230, 53, 0.4);
+    color: #a3e635;
+}
+.live-algo .badge-dot { background: #a3e635; box-shadow: 0 0 6px #a3e635; }
+
+

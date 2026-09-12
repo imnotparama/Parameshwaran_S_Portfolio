@@ -10,6 +10,7 @@ import { isChipVerified } from './telemetry.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 import { clickBlip } from '../utils/sound.js';
 import { focusProject } from '../scroll/journey.js';
+import { inspectProject } from '../three/hardware-orchestrator.js';
 import gsap from 'gsap';
 
 /** @param {string} str */
@@ -122,6 +123,7 @@ function renderProjects() {
             const building = p.status === 'building';
             const verified = isChipVerified(p.ref);
             const tags = (p.tags || []).map((t) => `<span class="proj-tag">${esc(t)}</span>`).join('');
+            const badge = getProjectLiveBadge(p.ref);
             return `
         <article class="proj-ds ${building ? 'is-building' : ''} ${verified ? 'chip-verified' : ''}" data-category="${esc(p.category || '')}" data-ref="${esc(p.ref)}">
             <div class="proj-ds-header">
@@ -132,6 +134,7 @@ function renderProjects() {
                     </span>
                     <span class="proj-ds-rail">${esc(p.rail || '+3.3V')}</span>
                 </div>
+                ${badge}
                 <h3 class="proj-ds-title">${esc(p.title)}</h3>
                 <div class="proj-ds-func">${esc(p.function || p.theme)}</div>
             </div>
@@ -151,15 +154,48 @@ function renderProjects() {
         })
         .join('');
 
-    // Wire click triggers for direct 3D inspection of the hardware IC
+    // Wire hover and click triggers for direct 3D diorama inspection
     grid.querySelectorAll('.proj-ds').forEach((card) => {
+        const ref = card.getAttribute('data-ref');
+        card.addEventListener('mouseenter', () => {
+            if (ref) inspectProject(ref);
+        });
         card.addEventListener('click', (e) => {
             const target = /** @type {HTMLElement} */ (e.target);
             if (target.closest('.proj-ds-link')) return; // let external link clicks pass through
-            const ref = card.getAttribute('data-ref');
-            if (ref) focusProject(ref);
+            if (ref) {
+                inspectProject(ref);
+                focusProject(ref);
+            }
         });
     });
+}
+
+/**
+ * Returns a live 3D diorama badge for each hardware module.
+ * @param {string} ref
+ */
+function getProjectLiveBadge(ref) {
+    switch (ref) {
+        case 'CP1':
+            return `<div class="proj-live-badge live-cv"><span class="badge-dot"></span><span>3D CV TRACKING DIORAMA</span></div>`;
+        case 'DL1':
+            return `<div class="proj-live-badge live-voice"><span class="badge-dot"></span><span>3D VOICE ORB DIORAMA</span></div>`;
+        case 'SP1':
+            return `<div class="proj-live-badge live-parking"><span class="badge-dot"></span><span>3D DOCKING GARAGE DIORAMA</span></div>`;
+        case 'BT1':
+            return `<div class="proj-live-badge live-transit"><span class="badge-dot"></span><span>3D GPS HIGHWAY DIORAMA</span></div>`;
+        case 'AQD1':
+            return `<div class="proj-live-badge live-solar"><span class="badge-dot"></span><span>3D SOLAR PURIFIER DIORAMA</span></div>`;
+        case 'PX1':
+            return `<div class="proj-live-badge live-pet"><span class="badge-dot"></span><span>3D ROBOPET VITAL DIORAMA</span></div>`;
+        case 'EM1':
+            return `<div class="proj-live-badge live-eco"><span class="badge-dot"></span><span>3D EARTH & TURBINE DIORAMA</span></div>`;
+        case 'ML1':
+            return `<div class="proj-live-badge live-algo"><span class="badge-dot"></span><span>3D BINARY TREE BFS DIORAMA</span></div>`;
+        default:
+            return '';
+    }
 }
 
 /**
