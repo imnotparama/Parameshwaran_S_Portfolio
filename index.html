@@ -142,14 +142,9 @@
                 <span class="hud-scope-ref" id="hud-scope-ref">LIVE</span><span class="hud-scope-val" id="hud-scope-val">ACTIVE</span>
             </span>
             <!-- 3D Interactive Controls -->
-            <button type="button" class="hud-btn-sub" id="btn-thermal-toggle" aria-pressed="false" aria-label="FLIR Infrared Thermal Vision Mode (Shortcut: H)" title="Thermal Camera (H)">[THERMAL]</button>
-            <button type="button" class="hud-btn-sub" id="btn-laser-scan" aria-label="Laser Surface Profiling Scan (Shortcut: L)" title="Laser Scan (L)">[SCAN]</button>
-            <button type="button" class="hud-btn-sub" id="arch-toggle-btn" aria-label="Architecture &amp; Engineering Specs" title="Engineering Architecture">[ARCH]</button>
-            <button type="button" class="hud-btn-sub" id="rover-toggle-btn" aria-pressed="false" aria-label="Drive 3D Nano-Rover" title="Drive Rover">[ROVER]</button>
-            <button type="button" class="hud-btn-sub" id="teardown-toggle-btn" aria-pressed="false" aria-label="3D Hardware Teardown" title="Teardown View">[TEARDOWN]</button>
-            <button type="button" class="hud-btn-sub" id="turbo-toggle-btn" aria-pressed="false" aria-label="Turbo Overclock (100MHz)" title="Turbo Mode">[TURBO]</button>
-            <button type="button" class="hud-btn-sub" id="theme-toggle-btn" aria-label="Cycle Board Theme" title="Theme Palette">[THEME]</button>
-            <button type="button" class="hud-cmd" id="cmd-palette-btn" aria-label="Command palette (Ctrl+K)" title="Terminal (Ctrl+K)">[CMD]</button>
+            <button type="button" class="hud-btn-sub" id="teardown-toggle-btn" aria-pressed="false" aria-label="3D Layer View" title="View Board Layers">[LAYERS]</button>
+            <button type="button" class="hud-btn-sub" id="theme-toggle-btn" aria-label="Change Color Theme" title="Color Theme">[THEME]</button>
+            <button type="button" class="hud-cmd" id="cmd-palette-btn" aria-label="Quick Search / Menu (Ctrl+K)" title="Menu (Ctrl+K)">[MENU]</button>
             <button type="button" class="hud-sound" id="sound-toggle" aria-pressed="false" aria-label="Toggle audio" title="Hardware Audio">
                 <span class="eq-bars" aria-hidden="true">
                     <i class="eq-bar"></i><i class="eq-bar"></i><i class="eq-bar"></i>
@@ -187,27 +182,23 @@
                 <p class="hero-claim text-pretty">ECE student and systems developer specializing in <span class="sig-word">computer vision</span>, <span class="sig-word">backend systems</span>, and <span class="sig-word">high-performance interactive software</span>.</p>
                 <div class="badge-row" id="hero-badges"></div>
                 <div class="hero-quick-actions" aria-label="Interactive 3D hardware modes">
-                    <span class="quick-actions-label">HARDWARE CONTROLS //</span>
+                    <span class="quick-actions-label">INTERACTIVE 3D FEATURES //</span>
                     <div class="quick-action-pills">
-                        <button type="button" class="quick-action-btn" id="hero-arch-btn" title="Engineering Architecture Specification">
-                            <span class="btn-tag">SPEC</span>
-                            <span class="btn-title">About Project</span>
+                        <button type="button" class="quick-action-btn" id="hero-teardown-btn" title="View 3D Board Layers">
+                            <span class="btn-tag">3D</span>
+                            <span class="btn-title">View Layers</span>
                         </button>
-                        <button type="button" class="quick-action-btn" id="hero-rover-btn" title="Drive 3D PCB Rover">
+                        <button type="button" class="quick-action-btn" id="hero-rover-btn" title="Drive Miniature 3D Rover">
                             <span class="btn-tag">ROVER</span>
-                            <span class="btn-title">Drive Unit</span>
+                            <span class="btn-title">Drive Rover</span>
                         </button>
-                        <button type="button" class="quick-action-btn" id="hero-turbo-btn" title="Overclock 3D CPU">
-                            <span class="btn-tag">CLK</span>
-                            <span class="btn-title">Turbo 100MHz</span>
+                        <button type="button" class="quick-action-btn" id="hero-arch-btn" title="System Architecture & Design">
+                            <span class="btn-tag">INFO</span>
+                            <span class="btn-title">Architecture</span>
                         </button>
-                        <button type="button" class="quick-action-btn" id="hero-teardown-btn" title="3D Exploded Teardown">
-                            <span class="btn-tag">EXPLODE</span>
-                            <span class="btn-title">3D Teardown</span>
-                        </button>
-                        <button type="button" class="quick-action-btn" id="hero-theme-btn" title="Cycle Board Theme">
-                            <span class="btn-tag">THEME</span>
-                            <span class="btn-title">Mask Finish</span>
+                        <button type="button" class="quick-action-btn" id="hero-theme-btn" title="Change Board Color Theme">
+                            <span class="btn-tag">STYLE</span>
+                            <span class="btn-title">Color Theme</span>
                         </button>
                     </div>
                 </div>

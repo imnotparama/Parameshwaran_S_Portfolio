@@ -31,9 +31,8 @@ import { activateRover, deactivateRover, toggleRover, isRoverModeActive, handleR
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
-import { initThermalMode, toggleThermalMode, updateThermal, setThermalLoad } from './src/three/thermal.js';
-import { initRfWavefront, updateRfWavefront, triggerRfBurst } from './src/three/rf-wavefront.js';
-import { initLaserScanner, triggerLaserScan } from './src/three/laser-scan.js';
+import { initHardwareOrchestrator, onSectionChanged, inspectProject, updateHardwareOrchestrator } from './src/three/hardware-orchestrator.js';
+import { triggerRfBurst } from './src/three/rf-wavefront.js';
 import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode, focusLcdCamera } from './src/scroll/journey.js';
 import { SECTION_HASHES, hashToSectionId } from './src/utils/hash-nav.js';
 
@@ -255,10 +254,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 7. Render section datasheet content from portfolio data
     renderSections();
 
-    // 7a. Initialize 3D Hardware Physics & Realistic Visualization Engines
-    initThermalMode(boardGroup);
-    initRfWavefront(boardGroup);
-    initLaserScanner(boardGroup);
+    // 7a. Initialize Unified 3D Hardware Orchestrator (Probe, Project Visuals, Waves)
+    initHardwareOrchestrator(boardGroup);
 
     // 7b. Wire LinkedIn and GitHub links from config
     document.querySelectorAll('.js-linkedin, #cta-linkedin-hud, #lcd-game-minicta').forEach(a => { 
@@ -286,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setBoardClickHandler((ref) => {
         markChipVerified(ref);
         emitUartLog('INSPECT', `${ref} Module Activated · EEPROM Signature Verified`);
+        inspectProject(ref);
         focusProject(ref);
     });
     setSubsystemInspectHandler((sectionId) => {
@@ -408,20 +406,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 8e. FLIR Thermal Infrared Vision & Laser Surface Scanner HUD buttons
-    const thermalBtn = document.getElementById('btn-thermal-toggle');
-    if (thermalBtn) {
-        thermalBtn.addEventListener('click', () => {
-            toggleThermalMode();
-        });
-    }
-    const laserBtn = document.getElementById('btn-laser-scan');
-    if (laserBtn) {
-        laserBtn.addEventListener('click', () => {
-            triggerLaserScan();
-        });
-    }
-
     // 9. Set up body class for mode detection
     if (isLiteMode()) {
         document.body.classList.add('lite-mode');
@@ -482,13 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
     onTick(CRITICAL, (elapsed, delta) => {
         _activeSectionId = getActiveSectionId();
         if (_activeSectionId && _activeSectionId !== _lastSectionScan) {
-            if (_lastSectionScan !== '') {
-                triggerLaserScan();
-                if (_activeSectionId === 'sec-contact') triggerRfBurst();
-                if (_activeSectionId === 'sec-projects') setThermalLoad(64);
-                else if (_activeSectionId === 'sec-about') setThermalLoad(50);
-                else setThermalLoad(42);
-            }
+            onSectionChanged(_activeSectionId);
             _lastSectionScan = _activeSectionId;
         }
         _boardFx = getBoardFx();
@@ -547,8 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     onTick(STANDARD, (elapsed, delta) => {
         updateOverclock(elapsed, delta);
-        updateThermal(elapsed, delta);
-        updateRfWavefront(elapsed, delta);
+        updateHardwareOrchestrator(elapsed, delta);
         // Synchronize oscilloscope to hovered chip, focused chip, or active section component
         const activeRef = document.body.dataset.hoverRef || (isFocusMode() ? 'U2' : null) || SECTION_COMPONENT_MAP[_activeSectionId] || 'U1';
         updateOscilloscope(elapsed, activeRef);
