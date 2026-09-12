@@ -8,6 +8,8 @@ import { LINKEDIN_URL, GITHUB_URL } from '../config.js';
 import { setProjectFilter } from '../three/project-chips.js';
 import { isChipVerified } from './telemetry.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
+import { clickBlip } from '../utils/sound.js';
+import { focusProject } from '../scroll/journey.js';
 import gsap from 'gsap';
 
 /** @param {string} str */
@@ -25,6 +27,7 @@ export function renderSections() {
     renderSkills();
     renderTimeline();
     renderManufacturingLabel();
+    renderCertifications();
 }
 
 // Hero stat badges — CORE / MODULES / UPTIME / BUILD
@@ -59,7 +62,7 @@ function renderManufacturingLabel() {
             <div class="mfg-grid">
                 <span class="mfg-k">MODEL</span><span class="mfg-v">${esc(mfg.model)}</span>
                 <span class="mfg-k">REVISION</span><span class="mfg-v">${esc(mfg.revision)}</span>
-                <span class="mfg-k">SERIAL</span><span class="mfg-v">${esc(mfg.serial)}</span>
+                <span class="mfg-k">SERIAL</span><span class="mfg-v board-serial-copy" title="Click to copy serial number" style="cursor:pointer;" aria-label="Copy serial number">${esc(mfg.serial)} <span class="copy-badge">📋</span></span>
                 <span class="mfg-k">ASSEMBLED</span><span class="mfg-v">${esc(mfg.assembled)}</span>
                 <span class="mfg-k">STATUS</span><span class="mfg-v mfg-status">${esc(mfg.status)}</span>
             </div>
@@ -121,25 +124,42 @@ function renderProjects() {
             const tags = (p.tags || []).map((t) => `<span class="proj-tag">${esc(t)}</span>`).join('');
             return `
         <article class="proj-ds ${building ? 'is-building' : ''} ${verified ? 'chip-verified' : ''}" data-category="${esc(p.category || '')}" data-ref="${esc(p.ref)}">
-            <div class="proj-ds-head">
-                <div class="proj-ds-title-wrap">
-                    <span class="proj-ds-theme" style="color: ${esc(p.signal || '#3ee6a0')}">IC // ${esc(p.ref)} · ${esc(p.theme || p.category)}</span>
-                    <h3 class="proj-ds-title">${esc(p.title)}</h3>
+            <div class="proj-ds-header">
+                <div class="proj-ds-id-row">
+                    <span class="proj-ds-ref">MODULE // ${esc(p.ref)}</span>
+                    <span class="proj-ds-status ${building ? 'building' : 'online'}">
+                        <span class="status-dot"></span>${esc(p.statusText || (building ? 'IN BUILD' : 'ONLINE'))}
+                    </span>
+                    <span class="proj-ds-rail">${esc(p.rail || '+3.3V')}</span>
                 </div>
-                <div class="proj-status-cluster">
-                    ${verified ? '<span class="status-tag verified">✓ VERIFIED</span>' : ''}
-                    <span class="status-tag ${building ? 'building' : 'shipped'}">${building ? '⚡ In Build' : '🚀 Online'}</span>
-                </div>
+                <h3 class="proj-ds-title">${esc(p.title)}</h3>
+                <div class="proj-ds-func">${esc(p.function || p.theme)}</div>
             </div>
-            <p class="proj-summary">${esc(p.problem)}</p>
-            <div class="proj-field"><strong>Specifications:</strong> ${esc(p.state)}</div>
-            ${tags ? `<div class="proj-tags">${tags}</div>` : ''}
+            <div class="proj-ds-body">
+                <p class="proj-summary">${esc(p.problem)}</p>
+                <div class="proj-io-snippet">
+                    <div class="io-line"><span class="io-lbl">IN:</span> <span class="io-val">${esc(p.inputs || 'Bus Inputs')}</span></div>
+                    <div class="io-line"><span class="io-lbl">OUT:</span> <span class="io-val">${esc(p.outputs || 'Data Streams')}</span></div>
+                </div>
+                ${tags ? `<div class="proj-tags">${tags}</div>` : ''}
+            </div>
             <div class="proj-footer">
-                <a class="proj-ds-link" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">${esc(p.linkLabel || 'Inspect Repository →')}</a>
+                <button type="button" class="proj-inspect-btn" data-ref="${esc(p.ref)}">INSPECT IC [3D] →</button>
+                <a class="proj-ds-link" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">${esc(p.linkLabel || 'REPOSITORY →')}</a>
             </div>
         </article>`;
         })
         .join('');
+
+    // Wire click triggers for direct 3D inspection of the hardware IC
+    grid.querySelectorAll('.proj-ds').forEach((card) => {
+        card.addEventListener('click', (e) => {
+            const target = /** @type {HTMLElement} */ (e.target);
+            if (target.closest('.proj-ds-link')) return; // let external link clicks pass through
+            const ref = card.getAttribute('data-ref');
+            if (ref) focusProject(ref);
+        });
+    });
 }
 
 /**
@@ -148,6 +168,7 @@ function renderProjects() {
  * @param {HTMLButtonElement} clickedBtn
  */
 function applyProjectFilter(filter, clickedBtn) {
+    clickBlip();
     const bar = clickedBtn.closest('.proj-filter-bar');
     if (bar) {
         bar.querySelectorAll('.proj-filter').forEach((b) => {
@@ -172,10 +193,9 @@ function applyProjectFilter(filter, clickedBtn) {
         gsap.killTweensOf(card);
         gsap.to(card, {
             opacity: match ? 1 : 0,
-            scale: match ? 1 : 0.95,
-            duration: 0.3,
-            ease: 'power2.out',
-            clearProps: match ? 'opacity,transform,visibility' : 'visibility',
+            duration: 0.22,
+            ease: 'power1.out',
+            clearProps: match ? 'opacity,visibility' : 'visibility',
             overwrite: 'auto'
         });
     });
@@ -189,11 +209,11 @@ function renderSkills() {
     if (!wrap) return;
 
     const skillCategories = [
-        { label: '🧠 AI & Computer Vision', group: portfolioData.skills.ai_vision },
-        { label: '⚙️ Backend Engineering', group: portfolioData.skills.backend },
-        { label: '🎨 Interactive Web & Graphics', group: portfolioData.skills.webgl_ui },
-        { label: '⚡ Embedded & IoT Systems', group: portfolioData.skills.embedded_iot },
-        { label: '📊 Data Analytics & Modeling', group: portfolioData.skills.data_analytics }
+        { code: 'BANK C1', label: 'AI & Computer Vision Architecture', group: portfolioData.skills.ai_vision },
+        { code: 'BANK C2', label: 'Distributed Backend Engineering', group: portfolioData.skills.backend },
+        { code: 'BANK C3', label: 'Interactive WebGL & Engine Systems', group: portfolioData.skills.webgl_ui },
+        { code: 'BANK C4', label: 'Embedded Systems & IoT Hardware', group: portfolioData.skills.embedded_iot },
+        { code: 'BANK C5', label: 'Data Science & Analytical Pipelines', group: portfolioData.skills.data_analytics }
     ];
 
     wrap.innerHTML = skillCategories
@@ -201,14 +221,17 @@ function renderSkills() {
             const items = cat.group || [];
             return `
             <div class="skill-group">
-                <div class="skill-group-label">${esc(cat.label)}</div>
+                <div class="skill-group-head">
+                    <span class="skill-group-code">${esc(cat.code)}</span>
+                    <h3 class="skill-group-label">${esc(cat.label)}</h3>
+                </div>
                 ${items.map((item) => `
                     <div class="capability-block">
                         <div class="capability-title">${esc(item.capability)}</div>
                         <div class="skill-pills">
                             ${item.techs.map((tech) => {
                                 const role = skillRoles[tech] || 'BUS';
-                                return `<span class="skill-pill" tabindex="0">${esc(tech)}<span class="skill-role">${esc(role)}</span></span>`;
+                                return `<span class="skill-pill" tabindex="0"><span class="pill-pad"></span>${esc(tech)}<span class="skill-role">${esc(role)}</span></span>`;
                             }).join('')}
                         </div>
                     </div>
@@ -240,3 +263,29 @@ function renderTimeline() {
         )
         .join('');
 }
+
+// Certifications — D1-D7 LED Array Hardware Registers
+function renderCertifications() {
+    const grid = document.getElementById('cert-grid');
+    if (!grid) return;
+
+    grid.innerHTML = (portfolioData.certifications || [])
+        .map((c) => {
+            const isObj = typeof c === 'object' && c !== null;
+            const title = isObj ? c.title : String(c);
+            const issuer = isObj ? c.issuer : 'Verified Credential';
+            const year = isObj ? c.year : '';
+            const badge = isObj ? c.badge : 'REG_CERT';
+            return `
+        <div class="cert-card">
+            <div class="cert-card-top">
+                <span class="cert-reg">${esc(badge)}</span>
+                ${year ? `<span class="cert-year">${esc(year)}</span>` : ''}
+            </div>
+            <div class="cert-name">${esc(title)}</div>
+            <div class="cert-org">${esc(issuer)}</div>
+        </div>`;
+        })
+        .join('');
+}
+

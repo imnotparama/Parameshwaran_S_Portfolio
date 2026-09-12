@@ -10,7 +10,7 @@ export const portfolioData = {
         tagline: "ECE + Data Science · AI Hardware & Systems Developer",
         institution: "SRM INSTITUTE OF SCIENCE AND TECHNOLOGY, RAMAPURAM",
         location: "Chennai, Tamil Nadu, India",
-        email: "pw2491@srmist.edu.in",
+        email: "hunterparama@gmail.com",
         phone: "+91 9176020504",
         // Board Identity — Motherboard Serial & Build Specifications
         boardSerial: "PRM-2026-DEV-001",
@@ -37,8 +37,8 @@ export const portfolioData = {
             { label: "UPTIME", value: "100%" },
             { label: "BUILD", value: "2026.08" }
         ],
-        heroLine: "ECE student and systems developer specializing in computer vision, backend engineering, and high-performance interactive software.",
-        bio: "ECE student specializing in Data Science at SRM Institute of Science and Technology, Ramapuram.\n\nInterested in AI systems, computer vision, backend engineering, and interactive web experiences. I enjoy building software that people actually use, from machine-learning APIs to immersive browser experiences.",
+        heroLine: "ECE student specializing in Data Science with practical experience in Full Stack Development and Machine Learning.",
+        bio: "Electronics and Communication Engineering student specializing in Data Science at SRM Institute of Science and Technology, Ramapuram, with practical experience in Full Stack Development and Machine Learning.\n\nSkilled in Python, Django, React.js, TensorFlow, and Scikit-learn, with hands-on experience building scalable web applications and AI-powered solutions through industry internships. Eager to apply software engineering and machine learning expertise to develop impactful, real-world technologies.",
         languages: [
             { name: "English", level: "Fluent" },
             { name: "Tamil", level: "Native" },
@@ -53,226 +53,367 @@ export const portfolioData = {
             ref: "FR1",
             category: "AI/ML",
             theme: "AI ACCELERATOR IC",
+            function: "Search & Ranking ML Accelerator",
+            inputs: "Search Queries · Unstructured Datasets",
+            outputs: "Fine-Tuned Predictions · Relevance Scores",
+            rail: "+3.3V Core",
+            bus: "PCIe Gen3 / DMA",
             signal: "#a855f7",
-            spec: ["ML SEARCH & RANKING", "DATA PIPELINES", "MODEL INTEGRATION"],
-            title: "FlyRank — Search & Ranking Engine",
+            spec: ["ML MODEL FINE-TUNING", "FEATURE ENGINEERING", "MODEL OPTIMIZATION"],
+            title: "FlyRank.ai — ML Search & Ranking",
             status: "building",
-            problem: "Machine learning ranking features and search indexing infrastructure.",
-            state: "Contributed to machine-learning search and ranking features, supporting data pipelines, backend services, and model integration as part of the engineering team.",
+            statusText: "IN BUILD / PROTOTYPE",
+            problem: "Machine Learning Intern at Flyrank.ai (Chicago, IL, USA): developed and fine-tuned machine learning models for real-world AI applications.",
+            state: "Preprocessed datasets, evaluated model performance, collaborated with engineering teams, and performed feature engineering to enhance prediction accuracy.",
             link: LINKEDIN_URL,
-            linkLabel: "ASK ME ABOUT IT →",
-            tags: ["Python", "FastAPI", "ML Pipelines"]
+            linkLabel: "EXPERIENCE LOG →",
+            tags: ["Python", "TensorFlow", "Scikit-learn", "Machine Learning"]
         },
         {
             id: "crowd-pulse",
             ref: "CP1",
             category: "AI/ML",
             theme: "VISION PROCESSING UNIT",
+            function: "Real-Time Crowd Analytics VPU",
+            inputs: "Video Stream · RTSP Frames",
+            outputs: "Density Heatmaps · Pedestrian Analytics",
+            rail: "+3.3V Core",
+            bus: "REST / WebSocket Stream",
             signal: "#38bdf8",
-            spec: ["YOLOv8 60FPS DETECTION", "REAL-TIME TRACKING", "FASTAPI STREAMING"],
-            title: "CrowdPulse — AI Crowd Safety",
+            spec: ["REAL-TIME CROWD ANALYTICS", "COMPUTER VISION DENSITY ESTIMATION", "INTERACTIVE ALERT DASHBOARD"],
+            title: "CrowdPulse — AI Crowd Analytics",
             status: "shipped",
-            problem: "Real-time crowd density monitoring and safety alerts for public spaces.",
-            state: "Working end-to-end: YOLOv8 video frame detection and density alerts running live via FastAPI + OpenCV.",
+            statusText: "ONLINE / VERIFIED",
+            problem: "Real-time crowd analytics platform using computer vision to estimate crowd density and analyze pedestrian movement.",
+            state: "Building an interactive dashboard for live visualization, density heatmaps, and threshold-based alerts with scalable architecture for smart cities.",
             link: "https://github.com/imnotparama/CrowdPulse",
-            linkLabel: "VIEW REPO →",
-            tags: ["Python", "YOLOv8", "OpenCV", "FastAPI"]
+            linkLabel: "INSPECT REPOSITORY →",
+            tags: ["Python", "Computer Vision", "OpenCV", "FastAPI"]
         },
         {
             id: "dialora",
             ref: "DL1",
             category: "AI/ML",
             theme: "VOICE DSP",
+            function: "Local Voice DSP & Edge Agent",
+            inputs: "Audio Ingest · Speech Commands",
+            outputs: "Low-Latency Synthesized Audio Response",
+            rail: "+3.3V Core",
+            bus: "Local Loopback / DMA",
             signal: "#f97316",
             spec: ["LOCAL VOICE AGENT", "100% OFFLINE INFERENCE", "ORIGIN 26 BUILD"],
             title: "Dialora — Local Voice Agent",
             status: "shipped",
-            problem: "A fully local AI calling agent with zero cloud dependency.",
-            state: "Built and demoed in 24 hours at ORIGIN 26; runs fully offline with local LLM models and Python audio synthesis.",
+            statusText: "ONLINE / VERIFIED",
+            problem: "Fully local AI calling agent with zero cloud dependency built in 24 hours at ORIGIN 26.",
+            state: "Runs 100% offline with local LLM models, Python audio synthesis, and FastAPI endpoint orchestration.",
             link: GITHUB_URL,
-            linkLabel: "VIEW GITHUB →",
-            tags: ["Python", "FastAPI", "Local AI", "SQLite"]
+            linkLabel: "INSPECT GITHUB →",
+            tags: ["Python", "FastAPI", "Local AI", "NLP"]
         },
         {
             id: "smart-parking",
             ref: "SP1",
             category: "FULL-STACK",
             theme: "PARKING CONTROLLER IC",
+            function: "Telemetry & Allocation Controller",
+            inputs: "Vehicle Ingress Events · Sensor Status",
+            outputs: "Real-Time Slot Allocations · Transaction Ledger",
+            rail: "+5.0V Bus",
+            bus: "HTTP / PostgreSQL Wire",
             signal: "#eab308",
-            spec: ["SLOT ALLOCATION", "LIVE BOOKING FLOW", "DJANGO + SQL"],
-            title: "Smart Parking System",
+            spec: ["DJANGO + POSTGRESQL", "DATABASE RESERVATIONS", "AI DETECTION ARCHITECTURE"],
+            title: "Smart Parking — Beau Roi Pvt Ltd",
             status: "shipped",
-            problem: "Automated parking slot allocation with real-time booking availability.",
-            state: "Working Django web app with vehicle-slot allocation and database transaction management.",
-            link: GITHUB_URL,
-            linkLabel: "VIEW GITHUB →",
-            tags: ["Django", "Python", "SQL"]
+            statusText: "ONLINE / VERIFIED",
+            problem: "Full-stack smart parking application using Django and PostgreSQL for automated slot management and reservations.",
+            state: "Deployed application with authentication and database-driven parking reservation management; designed architecture for future AI-powered parking detection.",
+            link: "https://github.com/imnotparama/smart_parking",
+            linkLabel: "INSPECT REPOSITORY →",
+            tags: ["Django", "PostgreSQL", "Python", "RESTful APIs"]
         },
         {
             id: "bus-it",
             ref: "BT1",
             category: "SYSTEMS",
             theme: "GPS RECEIVER MODULE",
+            function: "Telemetry & Geolocation Processor",
+            inputs: "Live GPS Coordinates · Transit Pings",
+            outputs: "Dynamic ETA Streams · Route Vector Map",
+            rail: "+5.0V Bus",
+            bus: "UART / Telemetry Stream",
             signal: "#22c55e",
-            spec: ["LIVE GPS STREAM", "ETA PIPELINE", "DJANGO SERVICE"],
+            spec: ["LIVE GPS STREAM", "DYNAMIC ETA PIPELINE", "DJANGO SERVICE"],
             title: "BusIT — Live Transit Tracking",
             status: "shipped",
-            problem: "Live campus transit tracking from GPS sensor streams with ETA calculation.",
-            state: "Tracking and ETA calculation pipeline functional on live GPS data; built as a Django service.",
+            statusText: "ONLINE / VERIFIED",
+            problem: "Live campus transit tracking from GPS sensor streams with real-time ETA calculation.",
+            state: "Tracking and dynamic ETA calculation pipeline functional on live GPS data; built as a Django telemetry service.",
             link: GITHUB_URL,
-            linkLabel: "VIEW GITHUB →",
-            tags: ["Django", "Python", "GPS Telemetry"]
+            linkLabel: "INSPECT GITHUB →",
+            tags: ["Django", "Python", "GPS Telemetry", "IoT"]
         },
         {
-            id: "aqua-dot",
+            id: "blue-ground",
             ref: "AQD1",
             category: "SYSTEMS",
             theme: "WATER MONITORING IC",
+            function: "Autonomous Solar IoT & Digital Twin",
+            inputs: "5 Water-Quality ADC Probes · Solar Telemetry",
+            outputs: "3D Digital Twin Stream · Automated Valves",
+            rail: "+3.3V / +5.0V Dual",
+            bus: "ESP32 Firmware / Next.js Twin",
             signal: "#06b6d4",
-            spec: ["ESP32 SENSOR NODE", "LIVE METRICS DASHBOARD", "THRESHOLD ALERTS"],
-            title: "AquaDot — IoT Sensor Node",
+            spec: ["ESP32 FIRMWARE", "5 WATER-QUALITY SENSORS", "3D DIGITAL TWIN (THREE.JS)"],
+            title: "Blue_Ground — Solar IoT Purification",
             status: "shipped",
-            problem: "Real-time water quality and level monitoring for tanks and streams.",
-            state: "ESP32 microcontroller node streaming readings to a live dashboard with threshold breach alerts.",
-            link: GITHUB_URL,
-            linkLabel: "VIEW GITHUB →",
-            tags: ["ESP32", "IoT", "Sensors", "C"]
+            statusText: "ONLINE / VERIFIED",
+            problem: "Autonomous solar-powered IoT water purification system using ESP32 with multi-stage filtration and 5 water-quality sensors.",
+            state: "Automated pump and valve operations through embedded firmware, paired with a real-time 3D Digital Twin dashboard built using React, Next.js, and Three.js.",
+            link: "https://blue-ground.vercel.app",
+            linkLabel: "LIVE DIGITAL TWIN →",
+            tags: ["ESP32", "Three.js", "React.js", "Next.js", "C++", "IoT"]
         },
         {
-            id: "prmxa",
+            id: "pawpal",
             ref: "PX1",
             category: "FULL-STACK",
-            theme: "STREAMING MEDIA PROCESSOR",
+            theme: "AI HEALTH CO-PROCESSOR",
+            function: "AI Pet Health Assistant & 3D Dashboard",
+            inputs: "Symptom Logs · Health Records · Vitals",
+            outputs: "Gemini Clinical Analysis · 3D Pet Profiles",
+            rail: "+3.3V Logic",
+            bus: "Google Gemini API / Supabase",
             signal: "#6366f1",
-            spec: ["PWA OFFLINE READY", "METADATA PIPELINE", "MEDIA HUB"],
-            title: "PRMxA — Streaming Media Hub",
+            spec: ["GOOGLE GEMINI AI", "3D DASHBOARD (THREE.JS)", "SUPABASE AUTH & BACKEND"],
+            title: "PawPal — AI Pet Health Assistant",
             status: "shipped",
-            problem: "A personal media platform for video and animation with rich metadata aggregation.",
-            state: "Progressive Web App with live third-party metadata API integrations and offline caching.",
-            link: GITHUB_URL,
-            linkLabel: "VIEW GITHUB →",
-            tags: ["JavaScript", "Vite", "PWA", "APIs"]
+            statusText: "ONLINE / VERIFIED",
+            problem: "AI-powered pet health assistant using Google Gemini for symptom analysis and health record management.",
+            state: "Built for Hack the Kitty 2026: features a 3D dashboard using React, Three.js, and Supabase for pet profile management with scalable secure backend architecture.",
+            link: "https://pawpal-wheat.vercel.app/",
+            linkLabel: "LIVE DEPLOYMENT →",
+            tags: ["React.js", "Three.js", "Supabase", "Google Gemini", "FastAPI"]
         },
         {
             id: "eco-mentor",
             ref: "EM1",
             category: "AI/ML",
             theme: "ECO ANALYTICS MODULE",
+            function: "Agentic Sustainability Coach",
+            inputs: "User Consumption & Activity Telemetry",
+            outputs: "Personalized Carbon Footprint Insights",
+            rail: "+3.3V Logic",
+            bus: "Claude AI Agentic Bus",
             signal: "#4ade80",
-            spec: ["SUSTAINABILITY AI", "FASTAPI + REACT", "LIVE DEPLOYMENT"],
-            title: "EcoMentor AI",
+            spec: ["AGENTIC AI COACH", "FASTAPI + POSTGRESQL", "40+ AUTOMATED TESTS"],
+            title: "EcoMentor AI — Sustainability Coach",
             status: "shipped",
-            problem: "Agentic AI sustainability advisor turning habits into actionable eco plans.",
-            state: "Deployed live web application built for the Google Agentic Wars hackathon with FastAPI and React.",
-            link: GITHUB_URL,
-            linkLabel: "VIEW GITHUB →",
-            tags: ["FastAPI", "React", "AI APIs"]
+            statusText: "ONLINE / VERIFIED",
+            problem: "Agentic AI sustainability coach using Claude for personalized carbon footprint analysis.",
+            state: "Google Agentic Wars Hackathon project: FastAPI backend with PostgreSQL, React frontend, 40+ automated tests, and AI-driven recommendation workflows.",
+            link: "https://eco-mentor-nu.vercel.app/",
+            linkLabel: "LIVE DEPLOYMENT →",
+            tags: ["FastAPI", "React.js", "PostgreSQL", "Claude AI", "LLMs"]
         },
         {
             id: "ml-dsa",
             ref: "ML1",
             category: "AI/ML",
             theme: "CORE ML CO-PROCESSOR",
+            function: "Algorithmic Verification Co-Processor",
+            inputs: "DSA & ML Benchmark Problem Sets",
+            outputs: "Optimal Computational Complexity Proofs",
+            rail: "+1.8V VCCIO",
+            bus: "Systems Benchmark Suite",
             signal: "#a3e635",
             spec: ["DAILY ML REPS", "ALGORITHMS PRACTICE", "ACTIVE STREAK"],
             title: "ML & Systems Daily Reps",
             status: "building",
+            statusText: "IN BUILD / CONTINUOUS",
             problem: "Daily engineering practice in machine learning problem sets, data structures, and algorithms.",
-            state: "Ongoing daily problem-solving streak in algorithmic efficiency and machine learning fundamentals.",
+            state: "Ongoing daily problem-solving streak in algorithmic efficiency, TensorFlow, Scikit-learn, and machine learning fundamentals.",
             link: GITHUB_URL + "?tab=repositories",
             linkLabel: "PUBLIC COMMITS →",
-            tags: ["ML", "Algorithms", "Python"]
+            tags: ["Machine Learning", "Algorithms", "Python", "TensorFlow"]
         }
     ],
     // Truthful Capabilities Stack
     skills: {
         ai_vision: [
-            { capability: "AI & Computer Vision", techs: ["YOLOv8", "OpenCV", "Video Frame Detection", "Object Tracking"] }
+            {
+                capability: "Machine Learning & Computer Vision",
+                techs: ["TensorFlow", "Scikit-learn", "OpenCV", "Computer Vision", "Deep Learning", "Model Fine-tuning"]
+            },
+            {
+                capability: "Generative AI & Agentic Systems",
+                techs: ["Google Gemini", "Claude AI", "LLMs", "RAG", "Prompt Engineering", "NLP"]
+            }
         ],
         backend: [
-            { capability: "Backend Engineering", techs: ["FastAPI", "Django", "REST APIs", "Python", "SQL Databases"] }
+            {
+                capability: "Backend Engineering & REST APIs",
+                techs: ["Django", "FastAPI", "Node.js", "RESTful APIs", "Python"]
+            },
+            {
+                capability: "Databases & Persistence Engines",
+                techs: ["PostgreSQL", "MongoDB", "MySQL", "Supabase", "SQL"]
+            }
         ],
         webgl_ui: [
-            { capability: "Interactive Web & Graphics", techs: ["Three.js (WebGL)", "GSAP", "Vanilla JavaScript", "Modern CSS", "HTML5"] }
+            {
+                capability: "Interactive Web & 3D Systems",
+                techs: ["Three.js", "React.js", "Next.js", "JavaScript", "HTML5", "CSS3"]
+            }
         ],
         embedded_iot: [
-            { capability: "Embedded & IoT Systems", techs: ["ESP32", "Arduino", "IR Sensors", "UART Serial", "C/C++", "Git"] }
+            {
+                capability: "Embedded Systems & Firmware",
+                techs: ["ESP32", "Arduino", "C++", "Sensors", "UART Serial"]
+            },
+            {
+                capability: "Version Control & Toolchain",
+                techs: ["Git", "GitHub"]
+            }
         ],
         data_analytics: [
-            { capability: "Data Analytics & Modeling", techs: ["Pandas", "NumPy", "SQL", "Power BI", "Data Modeling"] }
+            {
+                capability: "Data Science & Analytics",
+                techs: ["Pandas", "NumPy", "Data Modeling", "Power BI"]
+            }
         ]
     },
     education: [
         {
-            degree: "B.Tech ECE with Specialization in Data Science",
+            degree: "Bachelor of Technology in Electronics and Communication Engineering with Specialization in Data Science",
             institution: "SRM Institute of Science and Technology, Ramapuram, Chennai",
             duration: "2024 – 2028",
-            grade: `GPA: ${GPA}`
+            grade: `CGPA: ${GPA} (Honors)`
+        },
+        {
+            degree: "Higher Secondary Certificate (Class XII)",
+            institution: "Vivekananda Vidyalaya, Chennai, Tamil Nadu",
+            duration: "2024",
+            grade: "Score: 82%"
+        },
+        {
+            degree: "Secondary School Examination (Class X)",
+            institution: "Vivekananda Vidyalaya, Chennai, Tamil Nadu",
+            duration: "2022",
+            grade: "Score: 92%"
         }
     ],
     // Experience — Structured as Firmware Updates
     timeline: [
         {
-            version: "FW UPDATE 1.3",
-            date: "2025 – PRESENT",
-            title: "ML Engineering Intern — FlyRank.ai",
-            detail: "Contributed to machine-learning search and ranking features, supporting data pipelines, backend services, and model integration as part of the engineering team."
+            version: "FW UPDATE 2.3",
+            date: "JUN 2026 – SEP 2026",
+            title: "Machine Learning Intern — Flyrank.ai (Chicago, IL, USA)",
+            detail: "Developed and fine-tuned machine learning models for real-world AI applications. Preprocessed datasets, evaluated model performance, and performed feature engineering and model optimization to enhance prediction accuracy."
         },
         {
-            version: "FW UPDATE 1.2",
-            date: "MAY – JUN 2025",
-            title: "Backend Intern — Beau Roi, Chennai",
-            detail: "Python + Django backend engineering: REST API development, feature implementation, and collaborative debugging within the engineering team."
+            version: "FW UPDATE 2.1",
+            date: "JUN 2025 – JUL 2025",
+            title: "Full stack Engineering Intern — Beau Roi Pvt Ltd (Chennai)",
+            detail: "Developed and maintained full-stack web application features using modern web technologies. Collaborated with the engineering team to debug, test, deploy scalable solutions, and integrated REST APIs to optimize database interactions."
         },
         {
-            version: "FW UPDATE 1.1",
-            date: "2025",
-            title: "Systems Deployments — Dialora & EcoMentor",
-            detail: "Engineered Dialora offline voice agent at ORIGIN 26 (24-hour sprint) and deployed EcoMentor AI sustainability service."
+            version: "FW UPDATE 1.5",
+            date: "MAY 2026 – JUL 2026",
+            title: "Hackathons & Systems Deployments",
+            detail: "Engineered autonomous solar IoT purification with 3D digital twin (Blue_Ground), built Gemini AI pet health assistant for Hack the Kitty 2026 (PawPal), and deployed Claude agentic sustainability coach for Google Agentic Wars (EcoMentor AI)."
         },
         {
             version: "FW UPDATE 1.0",
             date: "2024 – 2028",
             title: "B.Tech ECE (Data Science) — SRM Ramapuram",
-            detail: `Foundational engineering curriculum in electronic circuits, digital signal processing, microcontrollers, and statistical machine learning. GPA: ${GPA}.`
+            detail: `Foundational engineering curriculum in electronic circuits, microcontrollers, statistical machine learning, and computer vision. CGPA: ${GPA} (Honors).`
         }
     ],
     certifications: [
-        "Data Analytics with Python – NPTEL (Elite, 2025)",
-        "Foundation of Data Science – Infosys Springboard",
-        "Data Analytics (Power BI, SQL, Excel) – Maiyyam (ISO Certified)",
-        "Full Stack Web Development – Maiyyam (ISO Certified)",
-        "UI/UX Design (Figma, Wireframing) – Maiyyam (ISO Certified)",
-        "Digital Skills: AI – Accenture",
-        "Getting Started with AI – IBM SkillsBuild"
+        {
+            title: "Python for Generative AI and Machine Learning",
+            issuer: "IIMB (Indian Institute of Management Bangalore)",
+            year: "2026",
+            badge: "REG_D1"
+        },
+        {
+            title: "Data Analytics with Python",
+            issuer: "NPTEL (Elite Certification)",
+            year: "2025",
+            badge: "REG_D2"
+        },
+        {
+            title: "Full Stack (MERN) Development, Data Analytics",
+            issuer: "Maiyyam (ISO-Certified)",
+            year: "2025",
+            badge: "REG_D3"
+        },
+        {
+            title: "Foundation of Data Science",
+            issuer: "Infosys Springboard",
+            year: "2024",
+            badge: "REG_D4"
+        }
     ]
 };
 
 /** @type {Record<string, string>} */
 export const skillRoles = {
-    "YOLOv8": "DETECT NET",
+    "TensorFlow": "TENSOR CORE",
+    "Scikit-learn": "MATH FPU",
     "OpenCV": "VISION DSP",
-    "Video Frame Detection": "FRAME BUFFER",
-    "Object Tracking": "TRACK LATCH",
+    "Computer Vision": "SPATIAL VPU",
+    "Deep Learning": "NEURAL NET",
+    "Model Fine-tuning": "PARAM TUNER",
+    "Google Gemini": "GEMINI BUS",
+    "Claude AI": "AGENT CORE",
+    "LLMs": "INFERENCE ENG",
+    "RAG": "VECTOR LATCH",
+    "Prompt Engineering": "CONTEXT REG",
+    "NLP": "TOKEN PARSER",
     "FastAPI": "COMM BUS",
     "Django": "WEB CORE",
+    "Node.js": "ASYNC ENGINE",
+    "RESTful APIs": "RPC GATE",
     "REST APIs": "RPC GATE",
-    "Python": "MCU",
+    "Python": "SYS MCU",
+    "PostgreSQL": "ACID STORAGE",
+    "MongoDB": "DOC STORE",
+    "MySQL": "RELATIONAL DB",
+    "Supabase": "BAAS GATE",
+    "SQL": "STORAGE CTRL",
     "SQL Databases": "STORAGE CTRL",
+    "Three.js": "3D PIPELINE",
     "Three.js (WebGL)": "3D PIPELINE",
-    "GSAP": "MOTION FPU",
+    "React.js": "REACTIVE UI",
+    "React": "REACTIVE UI",
+    "Next.js": "SSR ENGINE",
+    "JavaScript": "SCRIPT ENG",
     "Vanilla JavaScript": "SCRIPT ENG",
-    "Modern CSS": "STYLE LYR",
     "HTML5": "MARKUP LYR",
+    "CSS3": "STYLE LYR",
+    "Modern CSS": "STYLE LYR",
+    "GSAP": "MOTION FPU",
     "ESP32": "RF MODULE",
     "Arduino": "MCU",
+    "Sensors": "ADC SENSOR",
     "IR Sensors": "SENSOR IN",
     "UART Serial": "BUS COMM",
+    "C++": "KERNEL",
     "C/C++": "KERNEL",
     "Git": "VERSION REG",
+    "GitHub": "REMOTE REPO",
     "Pandas": "DATA LATCH",
     "NumPy": "MATH FPU",
-    "SQL": "STORAGE CTRL",
+    "Data Modeling": "SCHEMA CTRL",
     "Power BI": "DISPLAY CTRL",
-    "Data Modeling": "SCHEMA CTRL"
+    "YOLOv8": "DETECT NET",
+    "Video Frame Detection": "FRAME BUFFER",
+    "Object Tracking": "TRACK LATCH",
+    "Machine Learning": "ML ENGINE",
+    "Algorithms": "ALGO CORE",
+    "GPS Telemetry": "GPS TELEM",
+    "IoT": "IOT GATEWAY",
+    "Local AI": "EDGE INFER"
 };

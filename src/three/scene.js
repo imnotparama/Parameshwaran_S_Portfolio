@@ -344,8 +344,8 @@ export function initScene(canvasElement) {
     // not the window — the board must frame correctly inside the region.
     const { w: viewW, h: viewH } = getCanvasViewportSize();
     camera = new THREE.PerspectiveCamera(45, viewW / viewH, 0.1, 1000);
-    camera.position.set(0, -2, 17);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(0, -1.8, 5.8);
+    camera.lookAt(0, 0.4, 0.085);
     scene.add(camera);
 
     // 3. Initialize WebGL Renderer

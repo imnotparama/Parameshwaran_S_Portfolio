@@ -512,3 +512,62 @@ export function energizeTraceForSection(sectionId, on) {
         }
     }
 }
+
+/**
+ * Helper: Squared distance from 2D point (px, py) to line segment (ax, ay) -> (bx, by).
+ * @param {number} px @param {number} py
+ * @param {number} ax @param {number} ay
+ * @param {number} bx @param {number} by
+ * @returns {number}
+ */
+function distToSegmentSq(px, py, ax, ay, bx, by) {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) {
+        const ex = px - ax;
+        const ey = py - ay;
+        return ex * ex + ey * ey;
+    }
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+    const projX = ax + t * dx;
+    const projY = ay + t * dy;
+    const qx = px - projX;
+    const qy = py - projY;
+    return qx * qx + qy * qy;
+}
+
+/**
+ * Energize copper segments in the immediate vicinity of the traveling current wavefront.
+ * As the current races along the copper bus, this progressively illuminates the copper
+ * underneath and behind it, leaving a live, glowing conduction trail.
+ * @param {THREE.Vector3} surfacePos Current position in board-local coordinates
+ * @param {number} [radius]
+ */
+export function energizeTraceAtPoint(surfacePos, radius = 0.85) {
+    if (motionPrefs.reduced) return;
+    const rSq = radius * radius;
+    for (const route of traceData) {
+        for (let i = 0; i < route.points.length - 1; i++) {
+            const pA = route.points[i];
+            const pB = route.points[i + 1];
+            const dSq = distToSegmentSq(surfacePos.x, surfacePos.y, pA.x, pA.y, pB.x, pB.y);
+            if (dSq < rSq) {
+                const mesh = route.meshes[i];
+                if (mesh && mesh.material instanceof THREE.MeshStandardMaterial) {
+                    const mat = mesh.material;
+                    if (highlightedTraceMats.has(mat)) continue;
+                    if (!gsap.isTweening(mat)) {
+                        mat.emissiveIntensity = 2.4;
+                        gsap.to(mat, {
+                            emissiveIntensity: TRACE_BASE_INTENSITY,
+                            duration: 0.45,
+                            ease: 'power2.out',
+                            overwrite: 'auto'
+                        });
+                    }
+                }
+            }
+        }
+    }
+}

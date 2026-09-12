@@ -1,5 +1,5 @@
 import { detectWebGL, showFallbackUI, setupCleanup } from './src/ui/fallback.js';
-import { initScene, scene, camera, renderer, enableBloom, syncCanvasSize } from './src/three/scene.js';
+import { initScene, scene, camera, renderer, enableBloom, syncCanvasSize, setBloomBoost } from './src/three/scene.js';
 import { onTick, CRITICAL, STANDARD, DEFERRED } from './src/three/tick-scheduler.js';
 import { createBoard, boardGroup, updateBoardParallax, updateBenchSweep, updateHoverShadow } from './src/three/board.js';
 import { createComponents, updateLedArray, SWITCH_POS } from './src/three/components.js';
@@ -9,8 +9,8 @@ import { createProjectChips, updateProjectChips, projectChips } from './src/thre
 import { createLcd, updateLcdScreen, isLcdActive, getBestScore, setBestListener, getBoardFx } from './src/three/lcd.js';
 import { updateRadarRing, pulseBuzzer } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
-import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler, setLcdHandler, setSubsystemInspectHandler } from './src/utils/hover.js';
-import { isSoundEnabled, toggleSound, switchClack, electricalHum, stopElectricalHum, powerUpBeep } from './src/utils/sound.js';
+import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler, setLcdHandler, setSubsystemInspectHandler, setTestpointHandler, setTrimpotHandler, setHeaderHandler, setRfHandler, setInductorHandler } from './src/utils/hover.js';
+import { isSoundEnabled, toggleSound, switchClack, clickBlip, electricalHum, stopElectricalHum, powerUpBeep } from './src/utils/sound.js';
 import { noteInteraction, updateIdleDrift, updateIdleSelfTest, selfTestPostLine, updateIdleHeartbeat } from './src/three/idle.js';
 // The HUD scope's value line — the board's live readout. Cached once so the
 // idle self-test's POST replay doesn't do a DOM lookup per frame.
@@ -22,7 +22,7 @@ import { initOscilloscope, updateOscilloscope } from './src/ui/oscilloscope.js';
 import { initCommandPalette, openCommandPalette } from './src/ui/command-palette.js';
 import { initTelemetry, toggleSysinfo, toggleDebug, showDevNotes, updateTelemetry, markChipVerified, emitUartLog, emitSystemEvent } from './src/ui/telemetry.js';
 import { initTeardown, toggleTeardown, isTeardownActive } from './src/three/teardown.js';
-import { cycleTheme } from './src/three/potentiometer.js';
+import { cycleTheme, getClockFrequency } from './src/three/potentiometer.js';
 import { initOverclock, updateOverclock, toggleOverclock } from './src/three/overclock.js';
 import { updateAudioPeak } from './src/utils/synth.js';
 import { createRover } from './src/three/rover.js';
@@ -31,6 +31,9 @@ import { activateRover, deactivateRover, toggleRover, isRoverModeActive, handleR
 import { LINKEDIN_URL, GITHUB_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
+import { initThermalMode, toggleThermalMode, updateThermal, setThermalLoad } from './src/three/thermal.js';
+import { initRfWavefront, updateRfWavefront, triggerRfBurst } from './src/three/rf-wavefront.js';
+import { initLaserScanner, triggerLaserScan } from './src/three/laser-scan.js';
 import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode, focusLcdCamera } from './src/scroll/journey.js';
 import { SECTION_HASHES, hashToSectionId } from './src/utils/hash-nav.js';
 
@@ -252,8 +255,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // 7. Render section datasheet content from portfolio data
     renderSections();
 
+    // 7a. Initialize 3D Hardware Physics & Realistic Visualization Engines
+    initThermalMode(boardGroup);
+    initRfWavefront(boardGroup);
+    initLaserScanner(boardGroup);
+
     // 7b. Wire LinkedIn and GitHub links from config
-    document.querySelectorAll('.js-linkedin, #cta-linkedin-hud, #lcd-game-minicta').forEach(a => { a.href = LINKEDIN_URL; });
+    document.querySelectorAll('.js-linkedin, #cta-linkedin-hud, #lcd-game-minicta').forEach(a => { 
+        a.href = LINKEDIN_URL;
+        a.addEventListener('click', () => triggerRfBurst());
+    });
     document.querySelectorAll('.js-github').forEach(a => { a.href = GITHUB_URL; });
 
     // 7c. LinkedIn CTA click tracking — one named goal, separate from
@@ -291,32 +302,68 @@ document.addEventListener('DOMContentLoaded', () => {
     // LCD1 — clicking the display on the board glides the camera to it and
     // hands the keyboard to SIGNAL RUNNER (journey.focusLcdCamera).
     setLcdHandler(() => focusLcdCamera());
+    let moduleStepIndex = -1;
     setSwitchHandler((switchName) => {
         if (switchName === 'SW1') {
             togglePower();
+            emitUartLog('PWR', 'Front Panel SW1 Pressed · System Power Mode Toggled');
+            emitSystemEvent('POWER MODE TOGGLE', 'Night bench power rail state switched');
         } else if (switchName === 'SW2') {
             pulseBuzzer();
+            emitUartLog('DIAG', 'Front Panel SW2 Pressed · Piezo Audio Beacon Test Initiated');
+            emitSystemEvent('PIEZO TRANSDUCER TEST', '2.7kHz resonant transducer pulse emitted');
         } else if (switchName === 'SW3') {
-            // Nearest chip by board-local distance — projectChips stores each
-            // chip's position in the same space as SWITCH_POS, so plain 2D
-            // distance is exact (no world-matrix math needed).
-            const [sx, sy] = SWITCH_POS[2];
-            let nearest = null;
-            let bestD = Infinity;
-            for (const ref of Object.keys(projectChips)) {
-                const p = projectChips[ref].pos;
-                const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
-                if (d < bestD) {
-                    bestD = d;
-                    nearest = ref;
-                }
+            // Hardware Module Stepper: cycle sequentially through all installed project chips
+            const chipRefs = Object.keys(projectChips);
+            if (chipRefs.length > 0) {
+                moduleStepIndex = (moduleStepIndex + 1) % chipRefs.length;
+                const nextRef = chipRefs[moduleStepIndex];
+                markChipVerified(nextRef);
+                const title = projectChips[nextRef]?.data?.title || nextRef;
+                emitUartLog('STEPPER', `SW3 Pressed · Stepping to Module ${nextRef} (${title})`);
+                emitSystemEvent('EXPANSION MODULE STEPPER', `Active Module: ${nextRef} — ${title}`);
+                focusProject(nextRef);
             }
-            if (nearest) focusProject(nearest);
         }
     });
+
+    setTestpointHandler((tpName) => {
+        if (tpName === 'TP1') {
+            emitUartLog('DMM', 'Probe Contact TP1: +5.02V VCC Rail (Nominal, Ripple 7.4mV)');
+            emitSystemEvent('TEST POINT TP1: +5.00V', 'Primary DC rail voltage nominal · Ripple 7.4mV');
+        } else if (tpName === 'TP2') {
+            emitUartLog('DMM', 'Probe Contact TP2: 0.00V Ground Reference (Impedance 0.02Ω)');
+            emitSystemEvent('TEST POINT TP2: GND', 'System ground reference stable · Impedance 0.02Ω');
+        }
+    });
+
+    setTrimpotHandler(() => {
+        const freq = getClockFrequency();
+        emitUartLog('CLK', `RV1 Trimmer Rotated · Bus Frequency Tuned to ${freq.toFixed(1)}MHz`);
+        emitSystemEvent('TRIMMER RV1 ADJUST', `Master clock modulated to ${freq.toFixed(1)}MHz`);
+    });
+
+    setHeaderHandler(() => {
+        emitUartLog('UART', 'Debug Header HDR1 Pins 1-6 Sampled · 115200 Baud · Signal Stable');
+        emitSystemEvent('DEBUG HEADER HDR1', 'Logic analyzer probe active on 6-pin breakout');
+    });
+
+    setRfHandler(() => {
+        emitUartLog('RF1', 'RF Transceiver Ping · 2.4GHz IEEE 802.15.4 · RSSI -42dBm');
+        emitSystemEvent('RF1 SHIELD TELEMETRY', '2.4GHz RF module telemetry verified');
+    });
+
+    setInductorHandler(() => {
+        emitUartLog('PWR', 'Choke Inductor L1: DC-DC Buck Filter Stage · 1.2MHz Switch Rate Nominal');
+        emitSystemEvent('INDUCTOR L1 STAGE', 'Power supply filter choke operational');
+    });
+
     const projectCloseBtn = document.getElementById('btn-project-close');
     if (projectCloseBtn) {
-        projectCloseBtn.addEventListener('click', () => exitFocusMode());
+        projectCloseBtn.addEventListener('click', () => {
+            clickBlip();
+            exitFocusMode();
+        });
     }
     // 8c. Night bench — the PWR LED is the board's power switch: clicking it
     // (or pressing P) cuts the bench lights so the board's emissive traces
@@ -324,25 +371,55 @@ document.addEventListener('DOMContentLoaded', () => {
     // prefers-reduced-motion inside power.js.
     const pwrBtn = document.getElementById('pwr-led');
     if (pwrBtn) {
-        pwrBtn.addEventListener('click', () => togglePower());
+        pwrBtn.addEventListener('click', () => {
+            clickBlip();
+            togglePower();
+        });
     }
 
     // 8d. Teardown, Rover & Theme HUD buttons
     const roverBtn = document.getElementById('rover-toggle-btn');
     if (roverBtn) {
-        roverBtn.addEventListener('click', () => toggleRover(() => scrollToSection(getActiveSectionId())));
+        roverBtn.addEventListener('click', () => {
+            clickBlip();
+            toggleRover(() => scrollToSection(getActiveSectionId()));
+        });
     }
     const teardownBtn = document.getElementById('teardown-toggle-btn');
     if (teardownBtn) {
-        teardownBtn.addEventListener('click', () => toggleTeardown(() => scrollToSection(getActiveSectionId())));
+        teardownBtn.addEventListener('click', () => {
+            clickBlip();
+            toggleTeardown(() => scrollToSection(getActiveSectionId()));
+        });
     }
     const turboBtn = document.getElementById('turbo-toggle-btn');
     if (turboBtn) {
-        turboBtn.addEventListener('click', () => toggleOverclock());
+        turboBtn.addEventListener('click', () => {
+            clickBlip();
+            toggleOverclock();
+            setThermalLoad(document.body.classList.contains('overclock-active') ? 74 : 42);
+        });
     }
     const themeBtn = document.getElementById('theme-toggle-btn');
     if (themeBtn) {
-        themeBtn.addEventListener('click', () => cycleTheme());
+        themeBtn.addEventListener('click', () => {
+            clickBlip();
+            cycleTheme();
+        });
+    }
+
+    // 8e. FLIR Thermal Infrared Vision & Laser Surface Scanner HUD buttons
+    const thermalBtn = document.getElementById('btn-thermal-toggle');
+    if (thermalBtn) {
+        thermalBtn.addEventListener('click', () => {
+            toggleThermalMode();
+        });
+    }
+    const laserBtn = document.getElementById('btn-laser-scan');
+    if (laserBtn) {
+        laserBtn.addEventListener('click', () => {
+            triggerLaserScan();
+        });
     }
 
     // 9. Set up body class for mode detection
@@ -385,15 +462,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // so STANDARD callbacks that need them read the module-scoped
     // snapshot (set by the preamble) rather than recomputing.
 
-    // Shared per-frame reads (CRITICAL preamble — computed once).
     let _activeSectionId = '';
     let _boardFx = null;
     let _selfTest = /** @type {{ active: boolean, frac: number }} */ ({ active: false, frac: 0 });
     let _heartbeatFrac = 0;
     let _distScale = 1;
+    let _telemetryHeartbeatTimer = 0;
 
+    const SECTION_COMPONENT_MAP = {
+        'sec-hero': 'U1',
+        'sec-about': 'U1',
+        'sec-projects': 'U2',
+        'sec-skills': 'C1',
+        'sec-experience': 'Y1',
+        'sec-contact': 'ANT1'
+    };
+
+    let _lastSectionScan = '';
     onTick(CRITICAL, (elapsed, delta) => {
         _activeSectionId = getActiveSectionId();
+        if (_activeSectionId && _activeSectionId !== _lastSectionScan) {
+            if (_lastSectionScan !== '') {
+                triggerLaserScan();
+                if (_activeSectionId === 'sec-contact') triggerRfBurst();
+                if (_activeSectionId === 'sec-projects') setThermalLoad(64);
+                else if (_activeSectionId === 'sec-about') setThermalLoad(50);
+                else setThermalLoad(42);
+            }
+            _lastSectionScan = _activeSectionId;
+        }
         _boardFx = getBoardFx();
         _selfTest = updateIdleSelfTest(delta);
         _heartbeatFrac = updateIdleHeartbeat(delta).frac;
@@ -450,7 +547,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     onTick(STANDARD, (elapsed, delta) => {
         updateOverclock(elapsed, delta);
-        updateOscilloscope(elapsed, document.body.dataset.hoverRef);
+        updateThermal(elapsed, delta);
+        updateRfWavefront(elapsed, delta);
+        // Synchronize oscilloscope to hovered chip, focused chip, or active section component
+        const activeRef = document.body.dataset.hoverRef || (isFocusMode() ? 'U2' : null) || SECTION_COMPONENT_MAP[_activeSectionId] || 'U1';
+        updateOscilloscope(elapsed, activeRef);
         updateProjectChips(elapsed);
         updateHoverShadow();
         updateAmbientDust(elapsed, _activeSectionId);
@@ -463,6 +564,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     onTick(DEFERRED, (elapsed, delta) => {
         updateTelemetry(elapsed, delta);
+        if (archModalOpen) {
+            updateArchTelemetry(elapsed, delta);
+        }
+        // Periodic authentic diagnostics heartbeat derived from genuine WebGL/application state
+        _telemetryHeartbeatTimer += delta;
+        if (_telemetryHeartbeatTimer >= 7.5) {
+            _telemetryHeartbeatTimer = 0;
+            if (renderer && renderer.info) {
+                const fps = delta > 0 ? (1 / delta).toFixed(0) : '60';
+                const calls = renderer.info.render.calls;
+                const tris = (renderer.info.render.triangles / 1000).toFixed(1);
+                const geos = renderer.info.memory.geometries;
+                const subsys = (_activeSectionId || 'sec-hero').replace('sec-', '').toUpperCase();
+                emitUartLog('SYS', `FPS: ${fps} · Calls: ${calls} · Tris: ${tris}k · Geos: ${geos} · Subsystem: ${subsys}`);
+            }
+        }
         if (typeof updateJourneyEffects === 'function' && !isLiteMode()) {
             updateJourneyEffects(camera, boardGroup);
         }
@@ -474,7 +591,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Init scroll journey after boot animation completes (camera is ready)
         if (shouldInitJourney) {
-            initJourney(camera);
+            initJourney(camera, boardGroup);
         }
         // Journey is live: the board's boot arrival tween has finished, so the
         // levitation float may take over position (gated on this flag).
@@ -492,17 +609,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const navButtons = document.querySelectorAll('.nav-btn');
     navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
+            switchClack();
             const section = btn.getAttribute('data-section');
             if (section && document.getElementById(section)) {
                 // Scroll-journey navigation + shareable hash URL
                 navigateToSection(section);
             }
         });
-    });    // 15. Hero section nav button for the HUD name/brand link
+    });
+
+    // 15. Hero section nav button for the HUD name/brand link
     const brandLink = document.querySelector('.hud-name');
     if (brandLink) {
         brandLink.addEventListener('click', (e) => {
             e.preventDefault();
+            switchClack();
             navigateToSection('sec-hero');
         });
     }
@@ -574,29 +695,219 @@ document.addEventListener('DOMContentLoaded', () => {
     const heroRoverBtn = document.getElementById('hero-rover-btn');
     if (heroRoverBtn) {
         heroRoverBtn.addEventListener('click', () => {
+            clickBlip();
             toggleRover(() => scrollToSection(getActiveSectionId()));
         });
     }
     const heroTurboBtn = document.getElementById('hero-turbo-btn');
     if (heroTurboBtn) {
         heroTurboBtn.addEventListener('click', () => {
+            clickBlip();
             toggleOverclock();
         });
     }
     const heroTeardownBtn = document.getElementById('hero-teardown-btn');
     if (heroTeardownBtn) {
         heroTeardownBtn.addEventListener('click', () => {
+            clickBlip();
             toggleTeardown(() => scrollToSection(getActiveSectionId()));
         });
     }
     const heroThemeBtn = document.getElementById('hero-theme-btn');
     if (heroThemeBtn) {
         heroThemeBtn.addEventListener('click', () => {
+            clickBlip();
             cycleTheme();
         });
     }
 
-    // 18b. BIOS terminal command palette (Ctrl+K / Cmd+K or the [CMD] HUD
+    // 18b. Dedicated Engineering Architecture Specification Modal
+    const archModal = document.getElementById('modal-architecture');
+    let archModalOpen = false;
+    let toastTimer = null;
+
+    /** Universal floating PCB notification toast */
+    function showPcbToast(msg, durationMs = 2600) {
+        const toast = document.getElementById('pcb-toast');
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.hidden = false;
+        toast.classList.add('toast-show');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+            toast.classList.remove('toast-show');
+            setTimeout(() => { toast.hidden = true; }, 300);
+        }, durationMs);
+    }
+
+    /** Universal board serial copy handler */
+    function copyBoardSerial(e) {
+        if (e) e.stopPropagation();
+        const sn = 'PRM-2026-DEV-001';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(sn).catch(() => {});
+        }
+        clickBlip();
+        emitUartLog('SYS', `Board Serial Copied: ${sn}`);
+        showPcbToast(`📋 COPIED TO CLIPBOARD: ${sn}`);
+        emitSystemEvent('Clipboard', `Serial Number ${sn} Copied`);
+    }
+
+    document.addEventListener('click', (e) => {
+        const target = /** @type {HTMLElement | null} */ (e.target);
+        if (target && target.closest('.board-serial-copy')) {
+            copyBoardSerial(e);
+        }
+    });
+
+    /** Detect genuine WebGL & host hardware capabilities */
+    function populateHardwareDiagnostics() {
+        if (!renderer) return;
+        const gl = renderer.getContext();
+        if (!gl) return;
+
+        const webglVerEl = document.getElementById('arch-val-webgl-ver');
+        if (webglVerEl) {
+            webglVerEl.textContent = (typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext) ? 'WebGL 2.0 (Active)' : 'WebGL 1.0 (Fallback)';
+        }
+
+        const gpuEl = document.getElementById('arch-val-gpu');
+        if (gpuEl) {
+            let rendererName = 'WebGL2 Hardware Rasterizer';
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+                const unmasked = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                if (unmasked) rendererName = String(unmasked);
+            }
+            if (rendererName.length > 30) {
+                rendererName = rendererName.replace(/ANGLE \((.*?), (.*?),.*?\)/, '$1 $2').slice(0, 28);
+            }
+            gpuEl.textContent = rendererName;
+        }
+
+        const maxTexEl = document.getElementById('arch-val-max-tex');
+        if (maxTexEl) {
+            const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+            maxTexEl.textContent = maxTex ? `${maxTex}px` : '4096px';
+        }
+
+        const coresEl = document.getElementById('arch-val-cores');
+        if (coresEl) {
+            const cores = navigator.hardwareConcurrency || 8;
+            coresEl.textContent = `${cores} Cores`;
+        }
+    }
+
+    /** Low-Glare Bench Mode (reduced bloom for long sessions) */
+    let benchModeActive = false;
+    function toggleBenchMode() {
+        benchModeActive = !benchModeActive;
+        document.body.classList.toggle('bench-mode-dim', benchModeActive);
+        setBloomBoost(benchModeActive ? 0.35 : 1.0);
+        clickBlip();
+        const statusEl = document.getElementById('arch-bench-status');
+        const toggleBtn = document.getElementById('arch-bench-toggle');
+        if (statusEl) statusEl.textContent = benchModeActive ? 'ACTIVE (DIM)' : 'OFF';
+        if (toggleBtn) toggleBtn.classList.toggle('active', benchModeActive);
+        emitUartLog('SYS', `Bench Mode: ${benchModeActive ? 'LOW-GLARE DIMMED (0.35x BLOOM)' : 'NORMAL (1.0x BLOOM)'}`);
+        showPcbToast(benchModeActive ? 'BENCH MODE: Low-Glare Dimming Active' : 'BENCH MODE: Normal Luminance Restored');
+    }
+
+    function openArchModal() {
+        if (!archModal) return;
+        archModalOpen = true;
+        archModal.hidden = false;
+        clickBlip();
+        populateHardwareDiagnostics();
+        emitUartLog('SYS', 'Engineering Architecture Panel Opened');
+        emitSystemEvent('System Architecture', 'PARAMA-DEV-BOARD v2.0 Specification Active');
+    }
+
+    function closeArchModal() {
+        if (!archModal) return;
+        archModalOpen = false;
+        archModal.hidden = true;
+        clickBlip();
+    }
+
+    function toggleArchModal() {
+        if (archModalOpen) closeArchModal();
+        else openArchModal();
+    }
+
+    /** Update genuine WebGL runtime telemetry in the Architecture panel */
+    function updateArchTelemetry(elapsed, delta) {
+        if (!archModalOpen || !renderer || !renderer.info) return;
+        const fpsVal = delta > 0 ? (1 / delta).toFixed(1) : '60.0';
+        const fpsEl = document.getElementById('arch-val-fps');
+        if (fpsEl) fpsEl.textContent = fpsVal;
+
+        const callsEl = document.getElementById('arch-val-calls');
+        if (callsEl) callsEl.textContent = String(renderer.info.render.calls);
+
+        const trisEl = document.getElementById('arch-val-triangles');
+        if (trisEl) trisEl.textContent = renderer.info.render.triangles.toLocaleString();
+
+        const geosEl = document.getElementById('arch-val-geometries');
+        if (geosEl) geosEl.textContent = String(renderer.info.memory.geometries);
+
+        const texsEl = document.getElementById('arch-val-textures');
+        if (texsEl) texsEl.textContent = String(renderer.info.memory.textures);
+
+        const modEl = document.getElementById('arch-val-module');
+        if (modEl) {
+            const curSec = getActiveSectionId();
+            modEl.textContent = curSec ? curSec.replace('sec-', '').toUpperCase() : 'U1 (CORE)';
+        }
+
+        const resEl = document.getElementById('arch-val-resolution');
+        if (resEl) {
+            resEl.textContent = `${window.innerWidth}×${window.innerHeight} (${(window.devicePixelRatio || 1).toFixed(1)}x)`;
+        }
+
+        const uptimeEl = document.getElementById('arch-val-uptime');
+        if (uptimeEl) {
+            const h = Math.floor(elapsed / 3600);
+            const m = Math.floor((elapsed % 3600) / 60);
+            const s = Math.floor(elapsed % 60);
+            const p = (/** @type {number} */ n) => String(n).padStart(2, '0');
+            uptimeEl.textContent = `${p(h)}:${p(m)}:${p(s)}`;
+        }
+
+        // Synchronize performance budget table in Card 2
+        const budgetFps = document.getElementById('budget-val-fps');
+        if (budgetFps) budgetFps.textContent = `${fpsVal} FPS`;
+
+        const budgetCalls = document.getElementById('budget-val-calls');
+        if (budgetCalls) budgetCalls.textContent = `${renderer.info.render.calls} calls`;
+    }
+
+    const archToggleBtn = document.getElementById('arch-toggle-btn');
+    if (archToggleBtn) archToggleBtn.addEventListener('click', toggleArchModal);
+
+    const heroArchBtn = document.getElementById('hero-arch-btn');
+    if (heroArchBtn) heroArchBtn.addEventListener('click', openArchModal);
+
+    const archBenchToggle = document.getElementById('arch-bench-toggle');
+    if (archBenchToggle) archBenchToggle.addEventListener('click', toggleBenchMode);
+
+    const archModalClose = document.getElementById('arch-modal-close');
+    if (archModalClose) archModalClose.addEventListener('click', closeArchModal);
+
+    const archDismissBtn = document.getElementById('arch-dismiss-btn');
+    if (archDismissBtn) archDismissBtn.addEventListener('click', closeArchModal);
+
+    const archBackdrop = document.getElementById('arch-modal-backdrop');
+    if (archBackdrop) archBackdrop.addEventListener('click', closeArchModal);
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && archModalOpen) {
+            e.preventDefault();
+            closeArchModal();
+        }
+    });
+
+    // 18c. BIOS terminal command palette (Ctrl+K / Cmd+K or the [CMD] HUD
     // button). Wired once after DOM ready: the palette's commands reuse the
     // app's real entry points (scrollToSection / togglePower / toggleSound /
     // activateProbe) plus the profile links from config. The sound command
@@ -622,6 +933,8 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleOverclock: () => toggleOverclock(),
         toggleRover: () => toggleRover(() => scrollToSection(getActiveSectionId())),
         cycleTheme: () => cycleTheme(),
+        toggleArch: () => toggleArchModal(),
+        toggleBench: () => toggleBenchMode(),
         linkedinUrl: LINKEDIN_URL,
         githubUrl: GITHUB_URL
     });
@@ -692,6 +1005,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Turbo Overclock mode (T key)
             e.preventDefault();
             toggleOverclock();
+            setThermalLoad(document.body.classList.contains('overclock-active') ? 74 : 42);
+        } else if (!isProbeModeActive() && key === 'h') {
+            // FLIR Thermal Infrared Camera mode (H key)
+            e.preventDefault();
+            toggleThermalMode();
+        } else if (!isProbeModeActive() && key === 'l') {
+            // Laser Surface Profiling Scan (L key)
+            e.preventDefault();
+            triggerLaserScan();
         } else if (!isProbeModeActive() && key === 'd') {
             // Hidden shortcut: D = debug overlay (FPS/frame).
             e.preventDefault();
@@ -707,10 +1029,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 20. Disciplined Terminal Commands: typing 'sudo', 'help', 'matrix', 'konami', or 'parama'
-    // directly on the board triggers authentic hardware responses.
+    // 20. Disciplined Terminal Commands: typing 'sudo', 'help', 'matrix', or 'konami'
+    // directly on the board triggers authentic hardware responses. Restricted to authentic 4 commands.
     let cmdBuffer = '';
-    const COMMANDS = ['sudo', 'help', 'matrix', 'konami', 'parama'];
+    const COMMANDS = ['sudo', 'help', 'matrix', 'konami'];
     const MAX_BUF = 10;
 
     window.addEventListener('keydown', (e) => {
@@ -746,11 +1068,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     toggleOverclock();
                     emitUartLog('SYS', 'DEVELOPER OVERLOAD ENGAGED');
                     emitSystemEvent('God Mode', '100MHz Turbo Overclock Active');
-                } else if (cmd === 'parama') {
-                    showDevNotes();
                 }
                 break;
             }
         }
     });
+
+    // 21. Universal tactile click acoustic feedback for all UI interactives
+    document.addEventListener('click', (e) => {
+        const target = /** @type {HTMLElement | null} */ (e.target);
+        if (!target) return;
+        if (target.closest('.nav-btn, .hud-name')) return;
+        const interactive = target.closest('button, a, .quick-action-btn, .proj-ds-link, .panel-close, .proj-filter, .stat-badge');
+        if (interactive) {
+            clickBlip();
+        }
+    }, { passive: true });
 });

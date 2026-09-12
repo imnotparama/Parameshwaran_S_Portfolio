@@ -9,11 +9,12 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import { cpuRadarRing, siliconDieMesh } from '../three/components.js';
-import { traceData, energizeTraceForSection } from '../three/traces.js';
+import { traceData, energizeTraceForSection, energizeTraceAtPoint } from '../three/traces.js';
 import { projectChips } from '../three/project-chips.js';
 import { LCD_LOCAL_POS, focusLcd, exitLcd, setLcdExitHandler } from '../three/lcd.js';
-import { getCanvasViewportSize, setSectionRimColor } from '../three/scene.js';
+import { getCanvasViewportSize, setSectionRimColor, disposableResources } from '../three/scene.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
+import { currentSurgeTone, moduleTouchdown, relayClick, clickBlip } from '../utils/sound.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
@@ -44,17 +45,15 @@ const CHIP_FOCUS_OFFSET = new THREE.Vector3(0, 1.5, 2.8);
 const ARRIVAL_GLIDE_DURATION = 1.0;
 
 // Fixed camera configurations for non-component sections (hero, contact).
-// The z here is a placeholder — on the split layout the canvas is the left
-// 58% (a NARROWER aspect than full-screen), so full-board framing must fit
-// the 15-unit board in BOTH the 45° vertical FOV and the aspect-dependent
-// horizontal FOV. getHeroFramingZ() computes the binding z at build/glide
-// time and getCameraConfigForStop applies it. Camera sits below the lookAt
-// for the same 3/4 upward angle the component stops use.
+// Hero starts in an intimate, dramatic macro surface perspective (z ≈ 5.8),
+// viewing glowing traces and central core up close without exposing the outer
+// board boundaries. Contact (the grand finale) pulls all the way back to
+// getFullBoardFramingZ() (z ≈ 23) to reveal the entire motherboard operating as one.
 /** @type {Record<string, { pos: THREE.Vector3, look: THREE.Vector3 }>} */
 const FIXED_CAMERAS = {
   'sec-hero': {
-    pos: new THREE.Vector3(0, -5.4, 23),
-    look: new THREE.Vector3(0, 0.2, 0)
+    pos: new THREE.Vector3(0, -1.8, 5.8),
+    look: new THREE.Vector3(0, 0.4, 0.085)
   },
   'sec-contact': {
     pos: new THREE.Vector3(0, -5.2, 23),
@@ -96,9 +95,8 @@ const CUSTOM_CAMERAS = {
 /** @type {Array<{ stop?: string, via?: boolean, pos?: [number, number, number], look?: [number, number, number] }>} */
 const PATH = [
   { stop: 'sec-hero' },
-  // Via points now sit at the same z depth as the elevated component stops
-  // (~4.2) so travel speed is consistent instead of zooming in/out per leg.
-  { via: true, pos: [0, -2.6, 8.5], look: [0.5, 0.9, 0] },
+  // Smooth macro-to-component via point: glides along the board surface directly into U1
+  { via: true, pos: [0, 0.6, 4.8], look: [0, 0.7, 0.085] },
   { stop: 'sec-about' },
   { via: true, pos: [-1.6, 5.4, 4.2], look: [-2.0, 4.2, 0.05] },
   { stop: 'sec-projects' },
@@ -106,7 +104,8 @@ const PATH = [
   { stop: 'sec-skills' },
   { via: true, pos: [1.6, 1.2, 4.6], look: [0.5, -3.2, 0.05] },
   { stop: 'sec-experience' },
-  { via: true, pos: [-1.5, -4.8, 8.5], look: [-0.3, -2.0, 0] },
+  // Grand finale pull-back via point: sweeps up and back into full-board reveal
+  { via: true, pos: [-0.8, -4.8, 15.0], look: [-0.1, -1.5, 0.05] },
   { stop: 'sec-contact' }
 ];
 
@@ -119,20 +118,31 @@ let stopTs = {};
 /** @type {string[]} */
 let stopOrder = [];
 
-// ─── Ride-the-trace legs ─────────────────────────────────────
-// Component→component legs travel along the ACTUAL copper (traceData
-// polylines, elevated to the stops' cruise altitude) instead of the straight
-// glide — navigation is the wiring. Hero/contact legs have no trace and keep
-// the glide. ridePosCurves[i] / rideLookCurves[i] are per-leg (1-based, same
-// index as the ScrollTrigger loop), null when the leg glides.
+// ─── Ride-the-trace legs & Current Wavefront ──────────────────
+// Every transition moves along the physical copper trace on the board surface (z = 0.088).
+// legSurfaceCurves[i] = board-surface trace polyline (current wavefront travels here)
+// ridePosCurves[i]    = camera flight trajectory elevated above the current
+// rideLookCurves[i]   = camera look-at trajectory tracking the current on the board
 /** @type {Array<THREE.CatmullRomCurve3 | null>} */
 let ridePosCurves = [];
 /** @type {Array<THREE.CatmullRomCurve3 | null>} */
 let rideLookCurves = [];
+/** @type {Array<THREE.CatmullRomCurve3 | null>} */
+let legSurfaceCurves = [];
+/** @type {THREE.Group | null} */
+let currentWavefrontGroup = null;
 /** @type {THREE.Mesh | null} */
-let rideGlow = null;
-/** How far ahead of the camera the current-flow glow rides (in leg t). */
-const RIDE_GLOW_LEAD = 0.06;
+let wavefrontCore = null;
+/** @type {THREE.Mesh | null} */
+let wavefrontHalo = null;
+/** @type {THREE.Mesh | null} */
+let wavefrontContact = null;
+/** @type {THREE.Mesh[]} */
+let wavefrontSparks = [];
+/** @type {THREE.PointLight | null} */
+let wavefrontLight = null;
+/** @type {number} */
+let lastTouchdownLeg = -1;
 /** @type {string | null} */
 let activePanelId = null;
 /** @type {THREE.PerspectiveCamera | null} */
@@ -146,6 +156,12 @@ let arrivalGlide = null;
 const curLook = new THREE.Vector3();
 const worldPos = new THREE.Vector3();
 const screenPos = new THREE.Vector3();
+
+// Module-scoped scratch vectors designed to avoid unnecessary allocations during render/scroll loop
+const _sparkTarget = new THREE.Vector3();
+const _surfacePosTarget = new THREE.Vector3();
+const _tangentTarget = new THREE.Vector3();
+const _camPosTarget = new THREE.Vector3();
 
 // ─── Scroll-leg state — the source of truth for panel activation ──
 // The camera position is a pure function of scroll progress inside the
@@ -206,70 +222,148 @@ function buildCurves() {
     }
   });
 
-  // Ride-the-trace: resolve a copper route for each component→component leg.
-  // Every traceData route is U1→X (the board is a star around the CPU), so a
-  // non-U1 pair rides back to U1 then out to the next component — the camera
-  // literally follows the bus. Hero/contact legs (no component) keep the glide.
-  /** @type {Record<string, string>} */
-  const SECTION_COMPONENT = {
-    'sec-about': 'U1', 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experience': 'J1'
-  };
+  // ─── Physical Circuit Current Wavefront & Ride-the-trace Curves ─────
+  // Every journey transition travels along the physical copper traces on the board surface (z = 0.088).
+  // legSurfaceCurves[i] = board-surface trace polyline (current wavefront travels here)
+  // ridePosCurves[i]    = camera flight trajectory following the current at inspection altitude
+  // rideLookCurves[i]   = camera look-at trajectory tracking the current on the board
   ridePosCurves = [];
   rideLookCurves = [];
-  const tracePolyline = (/** @type {string} */ ref) => {
-    const route = traceData.find((r) => r.component === ref);
-    return route ? route.points : null;
-  };
+  legSurfaceCurves = [];
+
   for (let i = 1; i < stopOrder.length; i++) {
     const fromSec = stopOrder[i - 1];
     const toSec = stopOrder[i];
-    ridePosCurves[i] = null;
-    rideLookCurves[i] = null;
-    const fromComp = SECTION_COMPONENT[fromSec];
-    const toComp = SECTION_COMPONENT[toSec];
-    if (!fromComp || !toComp) continue; // hero/contact legs glide
-    const traceTo = tracePolyline(toComp);
-    const traceFrom = fromComp !== 'U1' ? tracePolyline(fromComp) : null;
-    if (!traceTo) continue;
-    // Concatenate: (U1→fromComp reversed = fromComp→U1) + (U1→toComp)
-    /** @type {THREE.Vector3[]} */
-    const pts = [];
-    if (traceFrom) {
-      for (const p of traceFrom.slice().reverse()) pts.push(p);
-    }
-    for (const p of traceTo) pts.push(p);
-    // Ride pose: source stop → copper (elevated to the stops' cruise z, same
-    // altitude as every component stop) → dest stop. The look follows the
-    // copper at board level, snapping to the stops' look targets at both ends.
     const srcCfg = getCameraConfigForStop(fromSec);
     const dstCfg = getCameraConfigForStop(toSec);
-    const cruiseZ = srcCfg.pos.z;
-    const lookZ = COMPONENT_WORLD[fromSec].z + LOOK_AT_OFFSET.z;
-    const posPts = [new THREE.Vector3(srcCfg.pos.x, srcCfg.pos.y, cruiseZ)];
-    const lookPts = [srcCfg.look.clone()];
-    for (const p of pts) {
-      posPts.push(new THREE.Vector3(p.x, p.y, cruiseZ));
-      lookPts.push(new THREE.Vector3(p.x, p.y, lookZ));
+
+    /** @type {THREE.Vector3[]} */
+    let surfacePts = [];
+    /** @type {THREE.Vector3[]} */
+    let posPts = [];
+    /** @type {THREE.Vector3[]} */
+    let lookPts = [];
+
+    if (fromSec === 'sec-hero' && toSec === 'sec-about') {
+      // Leg 1: Hero Macro Power Rail -> Central Processing Core U1
+      surfacePts = [
+        new THREE.Vector3(0, -1.8, 0.088),
+        new THREE.Vector3(0, -0.8, 0.088),
+        new THREE.Vector3(0, 0.2, 0.088),
+        new THREE.Vector3(0, 1.0, 0.088)
+      ];
+      posPts = [
+        srcCfg.pos.clone(),
+        new THREE.Vector3(0, 0.6, 4.8),
+        dstCfg.pos.clone()
+      ];
+      lookPts = [
+        srcCfg.look.clone(),
+        new THREE.Vector3(0, 0.7, 0.085),
+        dstCfg.look.clone()
+      ];
+    } else if (fromSec === 'sec-about' && toSec === 'sec-projects') {
+      // Leg 2: Central Core U1 -> Hardware AI / GPU Array U2 & Project Bus
+      surfacePts = [
+        new THREE.Vector3(0, 1.0, 0.088),
+        new THREE.Vector3(-0.6, 2.2, 0.088),
+        new THREE.Vector3(-0.6, 3.2, 0.088),
+        new THREE.Vector3(-1.9, 3.2, 0.088),
+        new THREE.Vector3(-3.2, 4.5, 0.088)
+      ];
+      posPts = [srcCfg.pos.clone()];
+      lookPts = [srcCfg.look.clone()];
+      for (const p of surfacePts) {
+        posPts.push(new THREE.Vector3(p.x, p.y + 2.6, 4.2));
+        lookPts.push(new THREE.Vector3(p.x, p.y + 0.15, 0.085));
+      }
+      posPts.push(dstCfg.pos.clone());
+      lookPts.push(dstCfg.look.clone());
+    } else if (fromSec === 'sec-projects' && toSec === 'sec-skills') {
+      // Leg 3: Projects Array -> Tantalum Capacitor Bank C1-C4
+      surfacePts = [
+        new THREE.Vector3(-3.2, 4.5, 0.088),
+        new THREE.Vector3(-1.9, 3.2, 0.088),
+        new THREE.Vector3(-0.6, 3.2, 0.088),
+        new THREE.Vector3(0.2, 3.0, 0.088),
+        new THREE.Vector3(1.0, 3.8, 0.088),
+        new THREE.Vector3(2.3, 3.8, 0.088),
+        new THREE.Vector3(3.2, 4.5, 0.088)
+      ];
+      posPts = [srcCfg.pos.clone()];
+      lookPts = [srcCfg.look.clone()];
+      for (const p of surfacePts) {
+        posPts.push(new THREE.Vector3(p.x, p.y + 2.6, 4.2));
+        lookPts.push(new THREE.Vector3(p.x, p.y + 0.15, 0.085));
+      }
+      posPts.push(dstCfg.pos.clone());
+      lookPts.push(dstCfg.look.clone());
+    } else if (fromSec === 'sec-skills' && toSec === 'sec-experience') {
+      // Leg 4: Capacitor Bank C1-C4 -> I/O & Telemetry Bus J1
+      surfacePts = [
+        new THREE.Vector3(3.2, 4.5, 0.088),
+        new THREE.Vector3(2.3, 3.8, 0.088),
+        new THREE.Vector3(1.0, 3.8, 0.088),
+        new THREE.Vector3(0.2, 2.2, 0.088),
+        new THREE.Vector3(0, 1.0, 0.088),
+        new THREE.Vector3(0, -0.2, 0.088),
+        new THREE.Vector3(0, -3.5, 0.088),
+        new THREE.Vector3(0, -5.5, 0.088),
+        new THREE.Vector3(0, -7.0, 0.088)
+      ];
+      posPts = [srcCfg.pos.clone()];
+      lookPts = [srcCfg.look.clone()];
+      const n4 = surfacePts.length;
+      for (let k = 0; k < n4; k++) {
+        const p = surfacePts[k];
+        const frac = k / (n4 - 1);
+        const zAlt = THREE.MathUtils.lerp(4.2, 8.5, frac);
+        posPts.push(new THREE.Vector3(p.x, p.y + THREE.MathUtils.lerp(2.6, 1.2, frac), zAlt));
+        lookPts.push(new THREE.Vector3(p.x, THREE.MathUtils.lerp(p.y + 0.15, -4.5, frac), 0.085));
+      }
+      posPts.push(dstCfg.pos.clone());
+      lookPts.push(dstCfg.look.clone());
+    } else if (fromSec === 'sec-experience' && toSec === 'sec-contact') {
+      // Leg 5: Telemetry Port J1 -> Circumferential Antenna Bus & Full Board Grand Reveal
+      surfacePts = [
+        new THREE.Vector3(0, -7.0, 0.088),
+        new THREE.Vector3(0.6, -6.9, 0.088),
+        new THREE.Vector3(1.9, -5.8, 0.088),
+        new THREE.Vector3(3.5, -4.5, 0.088),
+        new THREE.Vector3(3.0, 0.5, 0.088),
+        new THREE.Vector3(4.5, 0.5, 0.088),
+        new THREE.Vector3(4.5, 5.5, 0.088),
+        new THREE.Vector3(2.0, 6.6, 0.088),
+        new THREE.Vector3(-2.0, 6.6, 0.088),
+        new THREE.Vector3(-4.5, 5.5, 0.088)
+      ];
+      posPts = [
+        srcCfg.pos.clone(),
+        new THREE.Vector3(-0.8, -4.8, 15.0),
+        dstCfg.pos.clone()
+      ];
+      lookPts = [
+        srcCfg.look.clone(),
+        new THREE.Vector3(-0.1, -1.5, 0.05),
+        dstCfg.look.clone()
+      ];
     }
-    // The destination's OWN z wins (not the source's cruiseZ): a custom
-    // camera stop (CUSTOM_CAMERAS — Experience/J1 sits close at z 2.4 vs
-    // the standard 4.2 cruise) must keep its framing altitude or the ride
-    // would discard it and arrive too far out. Every other stop's z equals
-    // cruiseZ, so this only changes the custom stop.
-    posPts.push(new THREE.Vector3(dstCfg.pos.x, dstCfg.pos.y, dstCfg.pos.z));
-    lookPts.push(dstCfg.look.clone());
-    ridePosCurves[i] = new THREE.CatmullRomCurve3(posPts, false, 'catmullrom', 0.4);
-    rideLookCurves[i] = new THREE.CatmullRomCurve3(lookPts, false, 'catmullrom', 0.4);
+
+    if (surfacePts.length > 1 && posPts.length > 1 && lookPts.length > 1) {
+      legSurfaceCurves[i] = new THREE.CatmullRomCurve3(surfacePts, false, 'catmullrom', 0.35);
+      ridePosCurves[i] = new THREE.CatmullRomCurve3(posPts, false, 'catmullrom', 0.35);
+      rideLookCurves[i] = new THREE.CatmullRomCurve3(lookPts, false, 'catmullrom', 0.35);
+    }
   }
 }
 
 // Full-board framing z: fit the 15-unit board in BOTH the 45° vertical FOV
 // and the (narrower, aspect-dependent) horizontal FOV of the left-58% canvas.
+// Used for the grand finale reveal at sec-contact.
 // halfExtent = 7.5 (board half-height, y ∈ ±7.5) + 2 units of margin; the
 // vertical axis alone needs z ≈ 23, but on the split layout the horizontal
-// axis is usually the binding constraint (the old hardcoded z=23 clipped the
-// board's sides once the canvas narrowed to 58%).
-function getHeroFramingZ() {
+// axis is usually the binding constraint.
+function getFullBoardFramingZ() {
   const { w, h } = getCanvasViewportSize();
   const aspect = h > 0 ? w / h : 1.6;
   const tanHalfV = Math.tan(THREE.MathUtils.degToRad(45) / 2);
@@ -295,14 +389,17 @@ export function getCameraConfigForStop(sectionId) {
       look: compPos.clone().add(LOOK_AT_OFFSET)
     };
   }
-  // Fallback to fixed configurations (hero, contact) — hero/contact z is
-  // aspect-aware so the whole board fits the narrower left-region canvas.
+  // Fallback to fixed configurations (hero, contact)
   const cfg = FIXED_CAMERAS[sectionId];
   if (!cfg) return { pos: new THREE.Vector3(0, 0, 0), look: new THREE.Vector3(0, 0, 0) };
   const pos = cfg.pos.clone();
   const look = cfg.look.clone();
-  if (sectionId === 'sec-hero' || sectionId === 'sec-contact') {
-    pos.z = getHeroFramingZ();
+  if (sectionId === 'sec-contact') {
+    // Grand Finale: Camera pulls back to fit the entire operating motherboard
+    pos.z = getFullBoardFramingZ();
+    alignHeroToPanel(pos, look);
+  } else if (sectionId === 'sec-hero') {
+    // Macro opening: Fine vertical alignment to hero text panel
     alignHeroToPanel(pos, look);
   }
   return { pos, look };
@@ -348,33 +445,194 @@ function setCameraAtT(t) {
   if (focusedChip) clearFocus(false);
   killArrivalGlide();
   const clamped = Math.min(Math.max(t, 0), 1);
-  const p = posCurve.getPoint(clamped);
+  posCurve.getPoint(clamped, _camPosTarget);
   lookCurve.getPoint(clamped, curLook);
-  cameraRef.position.copy(p);
+  cameraRef.position.copy(_camPosTarget);
   cameraRef.lookAt(curLook);
 }
 
-// ─── Ride-the-trace camera ───────────────────────────────────
-// Sample a component leg's copper-ride curve (source stop → trace → dest
-// stop) and push the current-flow glow ahead of the camera along the same
-// curve. Returns false when the leg has no ride (hero/contact) so the caller
-// falls back to the straight glide. The glow hides at the leg's extremes
-// (progress 0/1 — the stops own the frame there).
+/**
+ * Construct the board-surface Current Wavefront (plasma core + additive halo + trailing spark motes + localized point light).
+ * Added to boardGroup so it automatically rides board transforms/float at z = 0.088.
+ * @param {THREE.Group} boardGroup
+ */
+function initCurrentWavefront(boardGroup) {
+  if (currentWavefrontGroup) return;
+
+  currentWavefrontGroup = new THREE.Group();
+  currentWavefrontGroup.name = 'current-wavefront';
+  currentWavefrontGroup.visible = false;
+
+  // 1. High-intensity emissive plasma core
+  const coreGeo = new THREE.SphereGeometry(0.09, 16, 16);
+  const coreMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0x3ee6a0,
+    emissiveIntensity: 3.8,
+    roughness: 0.1,
+    metalness: 0.8
+  });
+  wavefrontCore = new THREE.Mesh(coreGeo, coreMat);
+  currentWavefrontGroup.add(wavefrontCore);
+
+  // 2. Additive corona / bloom halo
+  const haloGeo = new THREE.SphereGeometry(0.24, 16, 16);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: 0x00ff88,
+    transparent: true,
+    opacity: 0.65,
+    blending: THREE.AdditiveBlending
+  });
+  wavefrontHalo = new THREE.Mesh(haloGeo, haloMat);
+  currentWavefrontGroup.add(wavefrontHalo);
+
+  // 3. Solder-trace contact patch ring (luminous footprint on the copper line)
+  const patchGeo = new THREE.RingGeometry(0.04, 0.16, 24);
+  const patchMat = new THREE.MeshBasicMaterial({
+    color: 0x66ffcc,
+    transparent: true,
+    opacity: 0.75,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  wavefrontContact = new THREE.Mesh(patchGeo, patchMat);
+  wavefrontContact.position.z = 0.002;
+  currentWavefrontGroup.add(wavefrontContact);
+
+  // 4. Trailing electron spark motes
+  wavefrontSparks = [];
+  const sparkGeo = new THREE.SphereGeometry(0.045, 8, 8);
+  for (let k = 0; k < 4; k++) {
+    const sparkMat = new THREE.MeshBasicMaterial({
+      color: 0x3ee6a0,
+      transparent: true,
+      opacity: 0.8 - k * 0.16,
+      blending: THREE.AdditiveBlending
+    });
+    const sparkMesh = new THREE.Mesh(sparkGeo, sparkMat);
+    sparkMesh.name = `wavefront-spark-${k}`;
+    currentWavefrontGroup.add(sparkMesh);
+    wavefrontSparks.push(sparkMesh);
+    disposableResources.materials.add(sparkMat);
+  }
+
+  // 5. Dynamic local point light casting real-time sheen on board components
+  wavefrontLight = new THREE.PointLight(0x3ee6a0, 2.2, 3.2, 2);
+  currentWavefrontGroup.add(wavefrontLight);
+
+  disposableResources.geometries.add(coreGeo);
+  disposableResources.geometries.add(haloGeo);
+  disposableResources.geometries.add(patchGeo);
+  disposableResources.geometries.add(sparkGeo);
+  disposableResources.materials.add(coreMat);
+  disposableResources.materials.add(haloMat);
+  disposableResources.materials.add(patchMat);
+
+  boardGroup.add(currentWavefrontGroup);
+}
+
+/**
+ * Update positions of the trailing spark motes behind the wavefront core.
+ * @param {THREE.CatmullRomCurve3} curve
+ * @param {number} p
+ * @param {THREE.Vector3} currentPos
+ */
+function updateWavefrontSparks(curve, p, currentPos) {
+  const tNow = (typeof performance !== 'undefined' ? performance.now() : Date.now()) * 0.006;
+  curve.getTangent(p, _tangentTarget);
+  for (let k = 0; k < wavefrontSparks.length; k++) {
+    const lagP = Math.max(0, p - (k + 1) * 0.016);
+    curve.getPoint(lagP, _sparkTarget);
+    const jitterX = Math.sin(tNow + k * 1.7) * 0.028;
+    const jitterY = Math.cos(tNow + k * 2.3) * 0.028;
+    wavefrontSparks[k].position.set(
+      _sparkTarget.x - currentPos.x + jitterX,
+      _sparkTarget.y - currentPos.y + jitterY,
+      _sparkTarget.z - currentPos.z
+    );
+  }
+}
+
+/**
+ * Power-up event upon current touchdown at module solder pads.
+ * @param {string} secId
+ */
+function triggerModuleTouchdown(secId) {
+  moduleTouchdown();
+  pulseArrival(secId);
+  if (wavefrontCore) {
+    gsap.fromTo(wavefrontCore.scale, { x: 1, y: 1, z: 1 }, {
+      x: 2.8, y: 2.8, z: 2.8,
+      duration: 0.28,
+      ease: 'power2.out',
+      yoyo: true,
+      repeat: 1
+    });
+  }
+  if (wavefrontHalo) {
+    gsap.fromTo(wavefrontHalo.scale, { x: 1, y: 1, z: 1 }, {
+      x: 3.2, y: 3.2, z: 3.2,
+      duration: 0.32,
+      ease: 'power2.out',
+      yoyo: true,
+      repeat: 1
+    });
+  }
+  if (wavefrontContact) {
+    gsap.fromTo(wavefrontContact.scale, { x: 1, y: 1, z: 1 }, {
+      x: 3.8, y: 3.8, z: 1,
+      duration: 0.38,
+      ease: 'power2.out',
+      yoyo: true,
+      repeat: 1
+    });
+  }
+  if (wavefrontLight) {
+    gsap.fromTo(wavefrontLight, { intensity: 4.8 }, {
+      intensity: 2.2,
+      duration: 0.4,
+      ease: 'power2.out'
+    });
+  }
+}
+
+// ─── Ride-the-trace camera & Current Wavefront ────────────────
+// Guides the camera along the trace trajectory while driving the physical
+// Current Wavefront along the copper surface (z = 0.088).
 /** @param {number} legIndex @param {number} p leg progress 0..1 (eased) */
 function rideCamera(legIndex, p) {
   const posCurve = ridePosCurves[legIndex];
   const lookCurve = rideLookCurves[legIndex];
+  const surfaceCurve = legSurfaceCurves[legIndex];
   if (!posCurve || !lookCurve || !cameraRef) return false;
-  const pos = posCurve.getPoint(p);
+
+  posCurve.getPoint(p, _camPosTarget);
   lookCurve.getPoint(p, curLook);
-  cameraRef.position.copy(pos);
+  cameraRef.position.copy(_camPosTarget);
   cameraRef.lookAt(curLook);
-  if (rideGlow) {
-    rideGlow.visible = p > 0.001 && p < 0.999;
-    if (rideGlow.visible) {
-      posCurve.getPoint(Math.min(p + RIDE_GLOW_LEAD, 1), rideGlow.position);
+
+  // Surface Current Wavefront on the board copper
+  if (currentWavefrontGroup && surfaceCurve) {
+    const isTraversing = p > 0.005 && p < 0.995;
+    currentWavefrontGroup.visible = isTraversing && !motionPrefs.reduced;
+    if (isTraversing) {
+      surfaceCurve.getPoint(p, _surfacePosTarget);
+      currentWavefrontGroup.position.copy(_surfacePosTarget);
+      updateWavefrontSparks(surfaceCurve, p, _surfacePosTarget);
+      energizeTraceAtPoint(_surfacePosTarget, 0.85);
+      currentSurgeTone(p);
     }
   }
+
+  // Arrival touchdown event at destination component
+  if (p >= 0.99 && lastTouchdownLeg !== legIndex) {
+    lastTouchdownLeg = legIndex;
+    triggerModuleTouchdown(stopOrder[legIndex]);
+  } else if (p < 0.90 && lastTouchdownLeg === legIndex) {
+    lastTouchdownLeg = -1;
+  }
+
   return true;
 }
 
@@ -431,25 +689,89 @@ function glideToHero() {
 }
 
 // ─── Focus mode: chip click → camera glide + detail datasheet ──
+
+/** @type {ReturnType<typeof setTimeout>[]} */
+let handshakeTimers = [];
+
+/** Clear any in-flight handshake timers */
+function clearHandshakeTimers() {
+  handshakeTimers.forEach((t) => clearTimeout(t));
+  handshakeTimers = [];
+}
+
+/** Stagger reveal of datasheet sections (Header ➔ Meta ➔ Overview ➔ I/O ➔ Specs ➔ Tech ➔ Footer)
+ *  @param {HTMLElement} panel */
+function staggerDatasheetFields(panel) {
+  const blocks = panel.querySelectorAll('.ds-header-block, .ds-divider, .ds-section-block, .ds-footer-bar');
+  if (motionPrefs.reduced) {
+    blocks.forEach((el) => {
+      const htmlEl = /** @type {HTMLElement} */ (el);
+      htmlEl.style.opacity = '1';
+      htmlEl.style.transform = 'none';
+    });
+    return;
+  }
+  gsap.killTweensOf(blocks);
+  gsap.fromTo(blocks,
+    { opacity: 0, y: 8 },
+    {
+      opacity: 1,
+      y: 0,
+      duration: 0.28,
+      stagger: 0.08,
+      ease: 'power2.out',
+      clearProps: 'transform'
+    }
+  );
+}
+
 /** Fill the focused-project panel from portfolio data (textContent only —
  *  no HTML injection). @param {any} proj */
 function fillProjectDetailPanel(proj) {
   const q = (/** @type {string} */ id) => document.getElementById(id);
+  const panel = q('panel-project-detail');
+  if (!panel) return;
+
   const refEl = q('pdetail-ref');
+  const statusLed = q('pdetail-status-led');
+  const statusText = q('pdetail-status-text');
+  const railBusEl = q('pdetail-rail-bus');
   const titleEl = q('pdetail-title');
   const titleTwinEl = q('pdetail-title-twin');
+  const functionEl = q('pdetail-function');
   const problemEl = q('pdetail-problem');
   const stateEl = q('pdetail-state');
+  const inputsEl = q('pdetail-inputs');
+  const outputsEl = q('pdetail-outputs');
   const tagsEl = q('pdetail-tags');
   const linkEl = /** @type {HTMLAnchorElement | null} */ (q('pdetail-link'));
-  if (refEl) refEl.textContent = `${proj.ref} — ${proj.theme || ''} · ${proj.status === 'building' ? 'BREADBOARD (IN BUILD)' : 'SOLDERED (SHIPPED)'}`;
-  const title = `// PROJECT: ${proj.title}`;
-  // The sweep twin mirrors the title glyphs — fill it with the same text.
+  const specEl = q('pdetail-spec');
+
+  const stepEl = q('pdetail-handshake-step');
+  const progEl = q('pdetail-handshake-progress');
+  const dividerScan = q('pdetail-divider-scan');
+
+  if (refEl) refEl.textContent = `MODULE // ${proj.ref}`;
+  const isOnline = proj.status !== 'building';
+  if (statusLed) {
+    statusLed.className = 'ds-status-led ' + (isOnline ? 'status-online' : 'status-building');
+  }
+  if (statusText) {
+    statusText.textContent = proj.statusText || (isOnline ? 'ONLINE' : 'IN BUILD / LAB');
+  }
+  if (railBusEl) {
+    railBusEl.textContent = `${proj.rail || '+3.3V CORE'} · ${proj.bus || 'PCIe BUS'}`;
+  }
+
+  const title = `// ${proj.title}`;
   if (titleEl) titleEl.textContent = title;
   if (titleTwinEl) titleTwinEl.textContent = title;
+  if (functionEl) functionEl.textContent = proj.function || proj.theme || 'HARDWARE SUBSYSTEM';
   if (problemEl) problemEl.textContent = proj.problem;
   if (stateEl) stateEl.textContent = proj.state;
-  const specEl = q('pdetail-spec');
+  if (inputsEl) inputsEl.textContent = proj.inputs || 'System Bus Commands';
+  if (outputsEl) outputsEl.textContent = proj.outputs || 'Telemetry Stream';
+
   if (specEl) {
     specEl.textContent = '';
     (proj.spec || []).forEach((/** @type {string} */ s) => {
@@ -458,6 +780,7 @@ function fillProjectDetailPanel(proj) {
       specEl.appendChild(li);
     });
   }
+
   if (tagsEl) {
     tagsEl.textContent = '';
     (proj.tags || []).forEach((/** @type {string} */ t) => {
@@ -467,10 +790,54 @@ function fillProjectDetailPanel(proj) {
       tagsEl.appendChild(pill);
     });
   }
+
   if (linkEl) {
     linkEl.href = proj.link || '#';
-    linkEl.textContent = proj.linkLabel || 'VIEW PROJECT →';
+    linkEl.textContent = proj.linkLabel || 'INSPECT REPOSITORY →';
   }
+
+  // Trigger one-shot hairline divider scan
+  if (dividerScan) {
+    dividerScan.classList.remove('active');
+    void dividerScan.offsetWidth; // force DOM reflow
+    dividerScan.classList.add('active');
+  }
+
+  // Progressive engineering handshake sequence
+  clearHandshakeTimers();
+  if (stepEl && progEl) {
+    stepEl.textContent = `INIT // MODULE SELECTED [${proj.ref}]`;
+    progEl.textContent = '[░░░░░░░░░░░░]';
+
+    if (!motionPrefs.reduced) {
+      handshakeTimers.push(setTimeout(() => {
+        if (stepEl && progEl) {
+          stepEl.textContent = 'AUTHENTICATING EEPROM SIGNATURE...';
+          progEl.textContent = '[████░░░░░░░░]';
+        }
+      }, 70));
+
+      handshakeTimers.push(setTimeout(() => {
+        if (stepEl && progEl) {
+          stepEl.textContent = 'LOADING SUBSYSTEM TELEMETRY...';
+          progEl.textContent = '[████████░░░░]';
+        }
+      }, 140));
+
+      handshakeTimers.push(setTimeout(() => {
+        if (stepEl && progEl) {
+          stepEl.textContent = `DATASHEET COMPILED · STATUS ${isOnline ? 'ONLINE' : 'ACTIVE'}`;
+          progEl.textContent = '[████████████]';
+        }
+      }, 210));
+    } else {
+      stepEl.textContent = `DATASHEET COMPILED · STATUS ${isOnline ? 'ONLINE' : 'ACTIVE'}`;
+      progEl.textContent = '[████████████]';
+    }
+  }
+
+  // Stagger element reveals
+  staggerDatasheetFields(panel);
 }
 
 /** Release focus. With glideBack, the camera returns to the current
@@ -478,13 +845,14 @@ function fillProjectDetailPanel(proj) {
  *  camera instead, so no glide. @param {boolean} [glideBack] */
 function clearFocus(glideBack = false) {
   if (!focusedChip) return;
+  clearHandshakeTimers();
   // LCD1's game owns the keyboard while focused — releasing the focus
   // (Esc, re-click, scroll, or a chip click) must hand the keys back.
   if (focusedChip.ref === 'LCD1') exitLcd();
   focusedChip = null;
   if (glideBack && cameraRef) {
     const cfg = getCameraConfigForStop(currentSectionId);
-    glideCameraTo(cfg.pos, cfg.look, 0.7);
+    glideCameraTo(cfg.pos, cfg.look, 0.65);
   }
 }
 
@@ -503,6 +871,10 @@ export function focusProject(ref) {
   // A focused LCD1 game yields its keyboard + camera to the chip click.
   if (focusedChip && focusedChip.ref === 'LCD1') exitLcd();
   focusedChip = { ref, localPos: chip.pos, data: chip.data };
+
+  // Tactile acoustic feedback: crisp relay throw + instrument tick
+  relayClick();
+  clickBlip();
 
   fillProjectDetailPanel(chip.data);
   setActivePanel('panel-project-detail');
@@ -538,9 +910,12 @@ export function focusProject(ref) {
     });
   }
 
+  // Conduct trace power directly to chip on arrival
+  energizeTraceAtPoint(chip.pos, 1.2);
+
   const look = chip.pos.clone().add(new THREE.Vector3(0, 0.05, 0));
   const pos = chip.pos.clone().add(CHIP_FOCUS_OFFSET);
-  glideCameraTo(pos, look, 1.2);
+  glideCameraTo(pos, look, 0.65);
 }
 
 /** Public release (close button / Esc wiring). */
@@ -563,7 +938,7 @@ export function focusLcdCamera(replayBoot = false) {
   focusedChip = { ref: 'LCD1', localPos: LCD_LOCAL_POS.clone(), data: null };
   const look = LCD_LOCAL_POS.clone().add(new THREE.Vector3(0, 0.05, 0));
   const pos = LCD_LOCAL_POS.clone().add(CHIP_FOCUS_OFFSET);
-  glideCameraTo(pos, look, 1.2);
+  glideCameraTo(pos, look, 0.65);
   // The #/lcd deep link passes replayBoot so the display powers on with a
   // fresh POST; the plain click path (no arg) shows the ready screen.
   focusLcd(replayBoot);
@@ -588,9 +963,9 @@ function setLegState(destination, source, progress) {
 // lights up when the camera reaches its section. Same language as
 // the boot sequence's trace flash — "if it glows, it's live".
 /** @type {Record<string, string>} */
-const ARRIVAL_TRACE = { 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experience': 'J1' };
+const ARRIVAL_TRACE = { 'sec-projects': 'U2', 'sec-skills': 'C1', 'sec-experience': 'J1', 'sec-contact': 'ANT1' };
 /** @param {string} secId */
-function pulseArrival(secId) {
+export function pulseArrival(secId) {
     if (!secId) return;
     if (secId === 'sec-about') {
         // U1: radar sweep + silicon die flash bright, then settle
@@ -601,6 +976,21 @@ function pulseArrival(secId) {
             gsap.fromTo(siliconDieMesh.material, { opacity: 0.65 }, { opacity: 1, duration: 0.4, yoyo: true, repeat: 1, ease: 'power1.out', overwrite: 'auto' });
         }
         return;
+    }
+    if (secId === 'sec-projects') {
+        // Energize expansion bus: flash socket LEDs across installed hardware modules
+        Object.values(projectChips).forEach((chip) => {
+            if (chip.ledMat) {
+                gsap.fromTo(chip.ledMat, { emissiveIntensity: chip.ledBase }, {
+                    emissiveIntensity: chip.ledBase * 1.8,
+                    duration: 0.35,
+                    yoyo: true,
+                    repeat: 1,
+                    ease: 'power1.out',
+                    overwrite: 'auto'
+                });
+            }
+        });
     }
     const ref = ARRIVAL_TRACE[secId];
     if (!ref) return;
@@ -833,6 +1223,10 @@ function createConnector() {
  *  @param {number} cx @param {number} cy */
 function drawConnector(cx, cy) {
   if (!connectorLine) return;
+  if (window.innerWidth < 900 || document.body.classList.contains('lite-mode')) {
+    connectorLine.style.display = 'none';
+    return;
+  }
   const line = connectorLine.querySelector('line');
   const dot = connectorLine.querySelector('circle');
   if (!line || !dot) return;
@@ -856,10 +1250,14 @@ function drawConnector(cx, cy) {
 export function updateJourneyEffects(camera, boardGroup) {
   if (!camera || !boardGroup || !journeyReady) return;
 
+  if (!currentWavefrontGroup) {
+    initCurrentWavefront(boardGroup);
+  }
+
   // 1. Apply the leg-derived panel state (idempotent thanks to the
   //    activePanelId early-return in setActivePanel). Skipped while a chip
   //    is focused — the detail panel owns activation until release.
-  if (focusedChip && rideGlow) rideGlow.visible = false;
+  if (focusedChip && currentWavefrontGroup) currentWavefrontGroup.visible = false;
   if (!focusedChip) {
     const panelId = currentSectionId ? currentSectionId.replace('sec-', 'panel-') : null;
     if (panelId && activePanelId !== panelId) {
@@ -911,11 +1309,15 @@ export function updateJourneyEffects(camera, boardGroup) {
 }
 
 // ─── Init ───────────────────────────────────────────────────
-/** @param {THREE.PerspectiveCamera} camera */
-export function initJourney(camera) {
+/** @param {THREE.PerspectiveCamera} camera @param {THREE.Group} [boardGroup] */
+export function initJourney(camera, boardGroup) {
   cameraRef = camera;
   buildCurves();
   createConnector();
+
+  if (boardGroup) {
+    initCurrentWavefront(boardGroup);
+  }
 
   const sections = /** @type {HTMLElement[]} */ (stopOrder
     .map((id) => document.getElementById(id))
@@ -924,19 +1326,6 @@ export function initJourney(camera) {
   if (sections.length < 2) {
     console.warn('Journey: not enough sections found for scroll path');
     return;
-  }
-
-  // Ride-the-trace glow: the current-flow dot that runs ahead of the camera
-  // during copper legs. The camera is a direct child of the scene (initScene
-  // does scene.add(camera)), so camera.parent IS the scene — no new wiring.
-  if (!rideGlow && cameraRef && cameraRef.parent) {
-    rideGlow = new THREE.Mesh(
-      new THREE.SphereGeometry(0.08, 12, 12),
-      new THREE.MeshStandardMaterial({ color: 0x03160d, emissive: 0x3ee6a0, emissiveIntensity: 2.5 })
-    );
-    rideGlow.name = 'ride-glow';
-    rideGlow.visible = false;
-    cameraRef.parent.add(rideGlow);
   }
 
   // Glide from the boot pose into the hero framing — replacing the old
@@ -965,20 +1354,17 @@ export function initJourney(camera) {
       trigger: sections[i],
       start: 'top bottom',
       end: 'top top',
-      scrub: 0.6,
+      scrub: 0.5,
       onUpdate: (self) => {
         // ANY user scroll releases chip/LCD focus — the scrub owns the
         // camera from here (and LCD1's exclusive keyboard must hand back
-        // before the page keeps scrolling). Cleared here, before the leg
-        // camera write, so copper-ride legs release too — the old clear
-        // lived only in setCameraAtT, so ride legs silently kept focus.
+        // before the page keeps scrolling).
         if (focusedChip) clearFocus(false);
-        const eased = gsap.parseEase('power2.out')(self.progress);
-        // Component legs ride the actual copper (rideCamera returns false for
-        // hero/contact legs, which keep the straight glide). The ride ends at
-        // the stop pose by leg end — same invariant as the glide.
-        if (!rideCamera(i, eased)) {
-          setCameraAtT(prevT + (thisT - prevT) * eased);
+        // Using self.progress directly eliminates double-compounding ease distortion,
+        // so the camera flight is 1-to-1 smoothly governed by the window scroll ease.
+        const progress = self.progress;
+        if (!rideCamera(i, progress)) {
+          setCameraAtT(prevT + (thisT - prevT) * progress);
         }
         // Panel activation follows the scroll, not camera distance
         setLegState(stopOrder[i], stopOrder[i - 1], self.progress);
@@ -1079,6 +1465,7 @@ export function scrollToSection(sectionId) {
   navGlideActive = true;
   glideQueued = 0;
   wheelAccum = 0;
+  wheelCooldownUntil = Date.now() + Math.round(SECTION_TRANSITION_DURATION * 1000) + 180;
   gsap.to(window, {
     scrollTo: { y },
     duration: SECTION_TRANSITION_DURATION,
@@ -1092,6 +1479,7 @@ export function scrollToSection(sectionId) {
       // target. The user must make a fresh gesture to advance again.
       glideQueued = 0;
       wheelAccum = 0;
+      wheelCooldownUntil = Date.now() + 180;
       pumpGlide();
     }
   });
@@ -1100,7 +1488,7 @@ export function scrollToSection(sectionId) {
 // ─── Smooth scroll layer ──────────────────────────────────────
 export const WHEEL_STEP_PX = 240;
 export const MAX_QUEUED_STEPS = 3;
-// Section-transition duration — tuned to 0.85s for snappy, silky-smooth section transitions
+// Section-transition duration — tuned to snappy 0.85s (user never waits)
 export const SECTION_TRANSITION_DURATION = 0.85;
 let wheelAccum = 0;
 let glideQueued = 0;
@@ -1108,6 +1496,7 @@ let glideActive = false;
 let navGlideActive = false;
 let smoothScrollWired = false;
 let wheelCooldownUntil = 0;
+let lastWheelTime = 0;
 
 /** Document-scroll Y of every section stop, read live so resize/reflow is
  *  always current. */
@@ -1183,7 +1572,7 @@ function glideToY(y) {
     glideActive = false;
     glideQueued = 0;
     wheelAccum = 0;
-    wheelCooldownUntil = Date.now() + 120;
+    wheelCooldownUntil = Date.now() + 150;
     return;
   }
   glideActive = true;
@@ -1196,7 +1585,7 @@ function glideToY(y) {
       glideActive = false;
       glideQueued = 0;
       wheelAccum = 0;
-      wheelCooldownUntil = Date.now() + 180; // short cooldown to soak up trackpad momentum
+      wheelCooldownUntil = Date.now() + 180; // soak up trackpad momentum
     }
   });
 }
@@ -1237,13 +1626,24 @@ function glideToSectionIndex(targetIdx) {
 }
 
 /** Wheel = one deliberate scroll gesture smoothly navigates to the next/prev section.
- *  Never gets stuck in between sections.
+ *  Never gets stuck in between sections, and never skips modules on trackpad inertia.
  *  @param {WheelEvent} e */
 function onJourneyWheel(e) {
   if (!journeyReady || motionPrefs.reduced || isFocusMode() || e.ctrlKey || e.metaKey) return;
-  
-  // While direct navigation is in flight or in momentum cooldown: swallow wheel events
-  if (navGlideActive || glideActive || Date.now() < wheelCooldownUntil) {
+
+  const now = Date.now();
+  const timeSinceLast = now - lastWheelTime;
+  lastWheelTime = now;
+
+  // While a section glide is actively in flight or in post-glide cooldown, swallow all wheel events
+  if (navGlideActive || glideActive || now < wheelCooldownUntil) {
+    e.preventDefault();
+    return;
+  }
+
+  // If events arrive in a continuous rapid stream (<200ms apart), this is residual inertia
+  // from the preceding scroll stroke. Require a brief rest before initiating another section step.
+  if (timeSinceLast < 200) {
     e.preventDefault();
     return;
   }
@@ -1252,7 +1652,8 @@ function onJourneyWheel(e) {
   if (e.deltaMode === 1) d *= 40;       // lines → px
   else if (e.deltaMode === 2) d *= 100; // pages → px
 
-  if (Math.abs(d) < 8) return; // ignore micro-jitter
+  // Require an intentional scroll notch or deliberate trackpad flick (ignore hairline micro-jitters)
+  if (Math.abs(d) < 16) return;
 
   // Check if mouse is hovering over an active panel that has scrollable content (e.g. #panel-projects)
   const activePanel = document.querySelector('.ds-panel.panel-active');
@@ -1274,7 +1675,7 @@ function onJourneyWheel(e) {
     }
   }
 
-  // Otherwise, user wants to navigate cleanly between sections:
+  // Otherwise, user wants to navigate cleanly to the next/previous section:
   e.preventDefault();
 
   const dir = d > 0 ? 1 : -1;
@@ -1282,6 +1683,7 @@ function onJourneyWheel(e) {
   const targetIdx = curIdx + dir;
   
   if (targetIdx >= 0 && targetIdx < stopOrder.length) {
+    wheelCooldownUntil = now + Math.round(SECTION_TRANSITION_DURATION * 1000) + 180;
     glideToSectionIndex(targetIdx);
   }
 }
@@ -1324,6 +1726,7 @@ function onJourneyTouchEnd(e) {
     const curIdx = getCurrentSectionIndex();
     const targetIdx = curIdx + dir;
     if (targetIdx >= 0 && targetIdx < stopOrder.length) {
+      wheelCooldownUntil = Date.now() + Math.round(SECTION_TRANSITION_DURATION * 1000) + 180;
       glideToSectionIndex(targetIdx);
     }
   }
@@ -1362,6 +1765,7 @@ function onJourneyKeydown(e) {
   const curIdx = getCurrentSectionIndex();
   const targetIdx = curIdx + dir;
   if (targetIdx >= 0 && targetIdx < stopOrder.length) {
+    wheelCooldownUntil = Date.now() + Math.round(SECTION_TRANSITION_DURATION * 1000) + 180;
     glideToSectionIndex(targetIdx);
   }
 }

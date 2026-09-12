@@ -48,11 +48,11 @@ export function createBoard(scene) {
     boardGeometry.center();
     disposableResources.geometries.add(boardGeometry);
 
-    // Matte dark-green board core material
+    // FR-4 laminate board core material
     const boardMaterial = new THREE.MeshStandardMaterial({
-        color: 0x0a2b0a,
-        roughness: 0.8,
-        metalness: 0.15
+        color: 0x071b08,
+        roughness: 0.65,
+        metalness: 0.12
     });
     disposableResources.materials.add(boardMaterial);
     registerThemeMaterial(boardMaterial, 'board');
@@ -63,14 +63,43 @@ export function createBoard(scene) {
     boardGroup.add(boardMesh);
     registerTeardownObject(boardMesh, LAYER_OFFSETS.CORE);
 
-    // Lighter soldermask top overlay layer
+    // Realistic semi-gloss soldermask top overlay layer with woven FR4 glass-epoxy stipple
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = 256;
+    maskCanvas.height = 256;
+    const mctx = maskCanvas.getContext('2d');
+    let bumpTex = null;
+    if (mctx) {
+        mctx.fillStyle = '#808080';
+        mctx.fillRect(0, 0, 256, 256);
+        // Microscopic FR-4 fiberglass weave pattern
+        for (let ix = 0; ix < 256; ix += 4) {
+            for (let iy = 0; iy < 256; iy += 4) {
+                const noise = Math.floor(120 + Math.sin(ix * 0.4) * 8 + Math.cos(iy * 0.4) * 8 + Math.random() * 6);
+                mctx.fillStyle = `rgb(${noise},${noise},${noise})`;
+                mctx.fillRect(ix, iy, 3, 3);
+            }
+        }
+        bumpTex = new THREE.CanvasTexture(maskCanvas);
+        bumpTex.wrapS = THREE.RepeatWrapping;
+        bumpTex.wrapT = THREE.RepeatWrapping;
+        bumpTex.repeat.set(16, 22);
+        disposableResources.textures.add(bumpTex);
+    }
+
     const maskGeom = new THREE.PlaneGeometry(width - 0.1, height - 0.1);
     disposableResources.geometries.add(maskGeom);
-    const maskMat = new THREE.MeshStandardMaterial({
-        color: 0x1e4d33,
-        roughness: 0.7,
-        metalness: 0.2
-    });
+    /** @type {THREE.MeshStandardMaterialParameters} */
+    const maskMatParams = {
+        color: 0x123f26,
+        roughness: 0.38,
+        metalness: 0.12
+    };
+    if (bumpTex) {
+        maskMatParams.bumpMap = bumpTex;
+        maskMatParams.bumpScale = 0.0015;
+    }
+    const maskMat = new THREE.MeshStandardMaterial(maskMatParams);
     disposableResources.materials.add(maskMat);
     registerThemeMaterial(maskMat, 'soldermask');
 
@@ -228,17 +257,143 @@ export function createBoard(scene) {
             // E. Silkscreen Labels & Text Markings
             ctx.fillStyle = '#ece7d8';
 
-            ctx.font = 'bold 100px monospace';
-            ctx.fillText('PARAMA-DEV-BOARD-v1.0', 120, 3960);
+            ctx.font = 'bold 90px monospace';
+            ctx.fillText('PARAMA-DEV-BOARD-v2.0', 120, 3960);
             ctx.font = '67px monospace';
-            ctx.fillText('REV A', 1800, 160);
+            ctx.fillText('REV 2.0', 1740, 160);
             ctx.fillText('DESIGNED BY: PARAMESHWARAN S', 1120, 3880);
-            ctx.fillText('CHENNAI, INDIA 2025', 1320, 3960);
+            ctx.fillText('CHENNAI, INDIA 2026', 1320, 3960);
 
             // Lot code for U1 and U2
             ctx.font = '40px monospace';
-            ctx.fillText('PARAMA-MCU-2026-REV1', 1024 - 100, 2048 - 272 - 100); // near U1
-            ctx.fillText('PARAMA-MCU-2026-REV1', 428 - 100, 1092 - 100); // near U2
+            ctx.fillText('PARAMA-MCU-2026-REV2', 1024 - 100, 2048 - 272 - 100); // near U1
+            ctx.fillText('PARAMA-NPU-2026-REV2', 428 - 100, 1092 - 100); // near U2
+
+            // Optical Fiducials (Pick-and-place optical registration targets)
+            /** @param {number} fx @param {number} fy */
+            const drawFiducial = (fx, fy) => {
+                ctx.save();
+                ctx.strokeStyle = '#ece7d8';
+                ctx.fillStyle = '#c9a24b';
+                ctx.lineWidth = 4;
+                // outer clearance ring
+                ctx.beginPath();
+                ctx.arc(fx, fy, 26, 0, Math.PI * 2);
+                ctx.stroke();
+                // inner solid gold pad
+                ctx.beginPath();
+                ctx.arc(fx, fy, 13, 0, Math.PI * 2);
+                ctx.fill();
+                // crosshairs
+                ctx.beginPath();
+                ctx.moveTo(fx - 40, fy); ctx.lineTo(fx - 28, fy);
+                ctx.moveTo(fx + 28, fy); ctx.lineTo(fx + 40, fy);
+                ctx.moveTo(fx, fy - 40); ctx.lineTo(fx, fy - 28);
+                ctx.moveTo(fx, fy + 28); ctx.lineTo(fx, fy + 40);
+                ctx.stroke();
+                ctx.restore();
+            };
+            drawFiducial(140, 180);   // Top-left
+            drawFiducial(1900, 180);  // Top-right
+            drawFiducial(140, 3840);  // Bottom-left
+
+            // Pin 1 Index Indicators (filled silkscreen dots)
+            ctx.fillStyle = '#ece7d8';
+            ctx.beginPath();
+            ctx.arc(1024 - 240 + 26, 2048 - 272 - 240 + 26, 10, 0, Math.PI * 2);
+            ctx.arc(428 - 168 + 24, 1092 - 168 + 24, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Compliance, Fabrication Stackup & Manufacturing Specs
+            ctx.font = 'bold 30px monospace';
+            ctx.fillText('Pb-FREE / RoHS COMPLIANT · 94V-0', 120, 3830);
+            ctx.font = '26px monospace';
+            ctx.fillText('STACKUP: 4-LAYER FR4-TG170 · 50Ω IMPEDANCE · 1.6mm · ENIG 24K', 120, 3865);
+            ctx.fillText('IPC-A-610 CLASS 2 · HIGH RELIABILITY HARDWARE INSTRUMENT', 120, 3900);
+
+            // ESD Caution Symbol & Banner
+            ctx.save();
+            ctx.strokeStyle = '#eab308';
+            ctx.fillStyle = '#eab308';
+            ctx.lineWidth = 4;
+            // Yellow warning triangle
+            ctx.beginPath();
+            ctx.moveTo(1500, 3840);
+            ctx.lineTo(1540, 3910);
+            ctx.lineTo(1460, 3910);
+            ctx.closePath();
+            ctx.stroke();
+            // Exclamation mark
+            ctx.fillRect(1498, 3862, 4, 26);
+            ctx.fillRect(1498, 3894, 4, 5);
+            ctx.font = 'bold 22px monospace';
+            ctx.fillText('ATTENTION: STATIC SENSITIVE', 1555, 3875);
+            ctx.font = '18px monospace';
+            ctx.fillText('HANDLE ONLY AT ESD BENCH', 1555, 3902);
+            ctx.restore();
+
+            // Factory Quality Inspection Stamp (QC PASSED)
+            ctx.save();
+            ctx.translate(330, 880);
+            ctx.rotate(-0.14);
+            ctx.strokeStyle = 'rgba(234, 179, 8, 0.75)';
+            ctx.fillStyle = 'rgba(234, 179, 8, 0.75)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, 68, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, 0, 60, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.font = 'bold 24px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('QC PASSED', 0, -8);
+            ctx.font = '16px monospace';
+            ctx.fillText('PARAMA TECH', 0, 15);
+            ctx.fillText('LINE 04 // 2026', 0, 35);
+            ctx.restore();
+
+            // S/N Barcode Label Sticker
+            ctx.save();
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(1380, 220, 480, 110);
+            ctx.strokeStyle = '#000000';
+            ctx.fillStyle = '#000000';
+            ctx.lineWidth = 3;
+            // Simulated 1D barcode stripes
+            const barStartX = 1400;
+            const barW = [3, 6, 2, 8, 4, 3, 7, 2, 5, 4, 6, 3, 8, 2, 4, 7, 3, 5, 2, 8, 4, 6, 3, 7, 2, 5, 8, 3];
+            let curBx = barStartX;
+            for (let b = 0; b < barW.length; b++) {
+                ctx.fillRect(curBx, 235, barW[b], 55);
+                curBx += barW[b] + ((b % 3 === 0) ? 9 : 5);
+            }
+            ctx.font = 'bold 20px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('REV 2.4B · S/N: PRM-2026-X8', 1620, 318);
+            ctx.restore();
+
+            // Passive Resistor & Capacitor Silkscreen Grid Labels
+            ctx.font = '22px monospace';
+            ctx.fillStyle = 'rgba(236, 231, 216, 0.85)';
+            // U1 Core Surroundings
+            const passiveLabels = [
+                ['R1', 880, 1720], ['R2', 910, 1720], ['R3', 940, 1720], ['R4', 970, 1720],
+                ['C1', 770, 1860], ['C2', 770, 1900], ['C3', 770, 1940], ['C4', 770, 1980],
+                ['FB1', 1290, 1860], ['FB2', 1290, 1920],
+                ['TP1 +5V', 660, 1150], ['TP2 GND', 1340, 2890],
+                ['R5', 1080, 1720], ['R6', 1110, 1720], ['R7', 1140, 1720], ['R8', 1170, 1720],
+                // U2 Expansion Surroundings
+                ['R9', 320, 940], ['R10', 350, 940], ['C5', 320, 1260], ['C6', 360, 1260],
+                ['R11', 540, 940], ['R12', 570, 940], ['C7', 540, 1260], ['C8', 580, 1260],
+                // J1 Telemetry Port Surroundings
+                ['D1', 940, 3950], ['D2', 970, 3950], ['R13', 1080, 3950], ['R14', 1110, 3950],
+                // C1-C4 Tantalum Capacitor Bank Polarity & Value
+                ['+ 100uF', 1380, 1030], ['+ 100uF', 1520, 1030], ['+ 100uF', 1660, 1030], ['+ 100uF', 1800, 1030]
+            ];
+            passiveLabels.forEach(([lbl, lx, ly]) => {
+                ctx.fillText(String(lbl), Number(lx), Number(ly));
+            });
 
             // F. SRM Institute marking near Y1 Crystal
             ctx.save();
@@ -657,20 +812,22 @@ export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyL
 /** Create plated vias (gold ENIG rings with dark drill holes)
  *  @param {THREE.Group} boardGroup */
 export function createViaArray(boardGroup) {
-    const ringGeo = new THREE.RingGeometry(0.18, 0.22, 32);
+    const ringGeo = new THREE.RingGeometry(0.065, 0.13, 20);
+    disposableResources.geometries.add(ringGeo);
     const ringMat = new THREE.MeshStandardMaterial({
-        color: 0xc9a24b, // ENIG gold
-        roughness: 0.2,
-        metalness: 0.8,
-        emissive: 0xc9a24b,
-        emissiveIntensity: 0.5
+        color: 0xd4af37, // ENIG gold plating
+        roughness: 0.22,
+        metalness: 0.88
     });
-    const drillGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.16, 16);
-    const drillMat = new THREE.MeshStandardMaterial({
-        color: 0x0a2b0a, // dark green
-        roughness: 0.9,
-        metalness: 0.1
+    disposableResources.materials.add(ringMat);
+
+    const drillGeo = new THREE.CylinderGeometry(0.062, 0.062, 0.165, 16);
+    drillGeo.rotateX(Math.PI / 2); // axis along Z
+    disposableResources.geometries.add(drillGeo);
+    const drillMat = new THREE.MeshBasicMaterial({
+        color: 0x050e06 // dark through-hole cavity
     });
+    disposableResources.materials.add(drillMat);
 
     // Via positions clustered around component pads
     const viaPositions = [
@@ -695,17 +852,25 @@ export function createViaArray(boardGroup) {
         [-4.2, -3.5], [-4.2, -4.2]
     ];
 
+    // Perimeter ground via shielding array (Faraday ring stitching)
+    for (let py = -6.4; py <= 6.4; py += 1.6) {
+        viaPositions.push([-4.9, py]);
+        viaPositions.push([4.9, py]);
+    }
+    for (let px = -3.8; px <= 3.8; px += 1.9) {
+        viaPositions.push([px, -7.0]);
+        viaPositions.push([px, 7.0]);
+    }
+
     viaPositions.forEach(([x, y]) => {
-        // Ring
+        // Ring lies flat on board surface (XY plane, z just above soldermask)
         const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.position.set(x, y, 0);
-        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(x, y, 0.082);
         boardGroup.add(ring);
 
-        // Drill hole
+        // Drill hole centered through the board
         const drill = new THREE.Mesh(drillGeo, drillMat);
         drill.position.set(x, y, 0);
-        drill.rotation.x = -Math.PI / 2;
         boardGroup.add(drill);
     });
 }

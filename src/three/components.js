@@ -7,6 +7,7 @@ import { motionPrefs } from '../utils/motion-prefs.js';
 import { getSectionAmbient } from './ambient-tunings.js';
 import { registerTeardownObject, LAYER_OFFSETS } from './teardown.js';
 import { registerRvScrew } from './potentiometer.js';
+import { switchClack } from '../utils/sound.js';
 
 /** @type {THREE.Mesh[]} */
 export const interactiveObjects = [];
@@ -50,6 +51,11 @@ export function updateRadarRing(elapsed, fx = null) {
     const mat = cpuRadarRing.material;
     if (mat instanceof THREE.MeshBasicMaterial) {
         mat.opacity = 0.45 + Math.sin(elapsed * 2.2) * 0.15;
+    }
+
+    // Subtle thermal breathing pulse on U1 silicon die
+    if (siliconDieMesh && siliconDieMesh.material instanceof THREE.MeshBasicMaterial) {
+        siliconDieMesh.material.opacity = 0.65 + Math.sin(elapsed * 2.8) * 0.12;
     }
 }
 
@@ -264,6 +270,15 @@ export function createComponents(boardGroup) {
     ];
     const cpuFrame = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(cpuFramePts), goldFrameMat);
     cpuGroup.add(cpuFrame);
+
+    // Pin 1 index dot on U1 package top
+    const u1DotGeo = new THREE.CircleGeometry(0.06, 16);
+    const u1DotMat = new THREE.MeshBasicMaterial({ color: 0xd4af37 });
+    disposableResources.geometries.add(u1DotGeo);
+    disposableResources.materials.add(u1DotMat);
+    const u1Dot = new THREE.Mesh(u1DotGeo, u1DotMat);
+    u1Dot.position.set(-0.95, 0.95, 0.113);
+    cpuGroup.add(u1Dot);
 
     disposableResources.geometries.add(cpuGeo);
 
@@ -731,16 +746,27 @@ export function createComponents(boardGroup) {
     // writes) so they never fight the ambient layers.
     // -------------------------------------------------------------
 
-    // Tactile push buttons — a row of three along the right edge.
+    // Tactile push buttons — a row of three 6x6mm SMT buttons along the right edge.
     // The CAP is the interactive part (it's what you'd press).
-    const btnBaseMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1f, roughness: 0.7, metalness: 0.25 });
-    const btnCapMat = new THREE.MeshStandardMaterial({ color: 0xd7dbe0, roughness: 0.35, metalness: 0.5 });
-    const btnBaseGeo = new THREE.BoxGeometry(0.42, 0.42, 0.12);
-    const btnCapGeo = new THREE.BoxGeometry(0.26, 0.26, 0.045);
+    const btnBaseMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.75, metalness: 0.15 });
+    const btnBracketMat = new THREE.MeshStandardMaterial({ color: 0xd8dde4, roughness: 0.28, metalness: 0.9 });
+    const btnCapMats = [
+        new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.35, metalness: 0.15 }), // SW1: Ruby Red (PWR / Sleep)
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35, metalness: 0.15 }), // SW2: Amber Gold (Diagnostics)
+        new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35, metalness: 0.15 })  // SW3: Cobalt Cyan (Module Stepper)
+    ];
+    const btnBaseGeo = new THREE.BoxGeometry(0.46, 0.46, 0.10);
+    const btnBracketGeo = new THREE.BoxGeometry(0.44, 0.44, 0.015);
+    const btnLegGeo = new THREE.BoxGeometry(0.08, 0.08, 0.02);
+    const btnCapGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.05, 18);
+    btnCapGeo.rotateX(Math.PI / 2);
     disposableResources.geometries.add(btnBaseGeo);
+    disposableResources.geometries.add(btnBracketGeo);
+    disposableResources.geometries.add(btnLegGeo);
     disposableResources.geometries.add(btnCapGeo);
     disposableResources.materials.add(btnBaseMat);
-    disposableResources.materials.add(btnCapMat);
+    disposableResources.materials.add(btnBracketMat);
+    btnCapMats.forEach(m => disposableResources.materials.add(m));
 
     // RF shield can — RF1 top-right (WiFi/BLE module can with embossed
     // top frame + vent slots).
@@ -803,17 +829,35 @@ export function createComponents(boardGroup) {
     disposableResources.materials.add(rvBodyMat);
 
     SWITCH_POS.forEach(([sx, sy], i) => {
+        // High-temp nylon housing
         const base = new THREE.Mesh(btnBaseGeo, btnBaseMat);
-        base.position.set(sx, sy, surfaceZ + 0.06);
+        base.position.set(sx, sy, surfaceZ + 0.05);
         base.castShadow = true;
         boardGroup.add(base);
-        const cap = new THREE.Mesh(btnCapGeo, btnCapMat);
-        cap.position.set(sx, sy, surfaceZ + 0.1425);
+
+        // Stamped stainless steel retaining top bracket
+        const bracket = new THREE.Mesh(btnBracketGeo, btnBracketMat);
+        bracket.position.set(sx, sy, surfaceZ + 0.105);
+        boardGroup.add(bracket);
+
+        // 4 corner SMT solder tabs
+        for (const dx of [-0.22, 0.22]) {
+            for (const dy of [-0.22, 0.22]) {
+                const leg = new THREE.Mesh(btnLegGeo, metalMaterial);
+                leg.position.set(sx + dx, sy + dy, surfaceZ + 0.01);
+                boardGroup.add(leg);
+            }
+        }
+
+        // Mechanical actuator cap
+        const cap = new THREE.Mesh(btnCapGeo, btnCapMats[i]);
+        const capZ = surfaceZ + 0.135;
+        cap.position.set(sx, sy, capZ);
         cap.castShadow = true;
         cap.name = `SW${i + 1}`;
         cap.userData = { componentName: `Tactile Switch SW${i + 1} (Front Panel)`, type: 'SWITCH' };
         boardGroup.add(cap);
-        tactileButtons.push({ cap });
+        tactileButtons.push({ cap, baseZ: capZ });
         interactiveObjects.push(cap);
     });
 
@@ -978,20 +1022,27 @@ export function pulseBuzzer() {
 // Clicking SW1-3 dips the cap and springs it back (hover.js routes SWITCH
 // clicks here, alongside the instrument blip). Purely visual — the buttons
 // are front-panel dressing that feels mechanical.
-/** @type {Array<{ cap: THREE.Mesh }>} */
+/** @type {Array<{ cap: THREE.Mesh, baseZ?: number }>} */
 const tactileButtons = [];
 
 /** @param {string} name */
 export function pressTactile(name) {
     const btn = tactileButtons.find((b) => b.cap.name === name);
     if (!btn) return;
+    const baseZ = btn.baseZ !== undefined ? btn.baseZ : btn.cap.position.z;
+    if (btn.baseZ === undefined) btn.baseZ = baseZ;
     gsap.killTweensOf(btn.cap.position);
+    btn.cap.position.z = baseZ;
+    switchClack();
     gsap.to(btn.cap.position, {
-        z: btn.cap.position.z - 0.055,
-        duration: 0.09,
+        z: baseZ - 0.045,
+        duration: 0.08,
         ease: 'power2.in',
         yoyo: true,
         repeat: 1,
-        overwrite: 'auto'
+        overwrite: 'auto',
+        onComplete: () => {
+            btn.cap.position.z = baseZ;
+        }
     });
 }

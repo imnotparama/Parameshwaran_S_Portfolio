@@ -14,50 +14,43 @@ import { isLiteMode } from '../config.js';
 // that setTimeout-driven text caused under slow renderers (the OG-capture
 // bug class). Text stepping uses proxy tweens with onUpdate textContent
 // writes — no setTimeout anywhere in the sequence.
-const CPS = 33.3; // typewriter chars/second (matches the original 30ms/char feel)
+const CPS = 60; // crisp typewriter chars/second
 
 /**
  * Boot terminal lines. Plain strings type uniformly (one char per tick).
- * An entry with a `sequence` uses the discrete-text-sequence pattern — a
- * sparse {t, text} schedule (keystroke clusters → typo → backspace to the
- * fork → corrected bulk paste) so that line reads as typed by a human,
- * identical on every run. The driver tween is ease:'none' — a pure function
- * of timeline time, no timers, seek-safe.
  * @typedef {{ text: string, sequence?: Array<{ t: number, text: string }>, total?: number }} BootLine
  */
 const BOOT_LINES = /** @type {Array<string | BootLine>} */ ([
   {
     text: '> INITIALIZING PARAMA-DEV-BOARD...',
-    total: 1.4,
-    // deterministic typo + backspace correction: 'INITILIZING' drops the 'A',
-    // backspaces to the fork ('> INITI'), then pastes the corrected line.
+    total: 0.7,
     sequence: [
       { t: 0.0, text: '' },
-      { t: 0.3, text: '> INI' },
-      { t: 0.5, text: '> INITI' },
-      { t: 0.75, text: '> INITILIZING' },                       // typo — dropped 'A' in INITIALIZING
-      { t: 1.05, text: '> INITI' },                             // backspace to the fork
-      { t: 1.25, text: '> INITIALIZING PARAMA-DEV-BOARD...' }   // corrected bulk paste
+      { t: 0.15, text: '> INI' },
+      { t: 0.25, text: '> INITI' },
+      { t: 0.38, text: '> INITILIZING' },
+      { t: 0.52, text: '> INITI' },
+      { t: 0.65, text: '> INITIALIZING PARAMA-DEV-BOARD...' }
     ]
   },
   '> LOADING GEOMETRY...',
   '> ALL PCB SYSTEMS OPERATIONAL'
 ]);
 const SCHEDULE = {
-  scanline: 0.3,      // scanline sweep (0.85s)
-  terminal: 1.25,     // boot terminal typing starts (parallel track)
-  hud: 1.75,          // HUD bar fade (0.4s)
-  heroPanel: 2.35,    // hero panel reveal (tl.set + clearProps)
-  subtitle: 2.65,     // subtitle typewriter
-  badges: 2.8,        // stat badges pop in (stagger 0.1)
-  canvas: 3.45,       // canvas fade (0.8s)
-  board: 3.45,        // board float-up (1.2s) + underline draw (1.0s)
-  traces: 4.85,       // copper traces light up
-  pins: 5.05,         // CPU pins flash gold
-  leds: 5.25,         // LED diagnostics blink
-  cores: 5.55,        // particles online + silicon die pulse
-  statusFinal: 5.85,  // "ALL SYSTEMS OPERATIONAL"
-  overlayFade: 6.25   // overlay fades out (0.6s) — boot ends ~6.85s
+  scanline: 0.1,      // scanline sweep (0.55s)
+  terminal: 0.25,     // boot terminal typing starts (parallel track)
+  hud: 0.5,           // HUD bar fade (0.3s)
+  canvas: 0.65,       // canvas fade (0.5s)
+  board: 0.65,        // board float-up (0.8s) + underline draw (0.7s)
+  heroPanel: 0.95,    // hero panel reveal
+  subtitle: 1.05,     // subtitle typewriter (1.0s)
+  traces: 1.25,       // copper traces light up
+  badges: 1.35,       // stat badges pop in
+  pins: 1.55,         // CPU pins flash gold
+  leds: 1.75,         // LED diagnostics blink
+  cores: 1.95,        // particles online + silicon die pulse
+  statusFinal: 2.15,  // "ALL SYSTEMS OPERATIONAL"
+  overlayFade: 2.35   // overlay fades out (0.45s) — boot ends ~2.80s
 };
 
 /** @param {() => void} [onCompleteCallback] */
@@ -67,19 +60,14 @@ export function runBootSequence(onCompleteCallback) {
     // (and at software-rendered FPS never blocks) a capture.
     const isOgCapture = new URLSearchParams(window.location.search).get('og') === '1';
 
-    // Return visitors in the same tab skip the boot ceremony (sessionStorage
+    // Return visitors skip the boot ceremony (localStorage/sessionStorage
     // flag). Wrapped in try/catch — storage can throw in hardened privacy modes.
     let skipBoot = false;
     try {
-        skipBoot = isOgCapture || sessionStorage.getItem('psb-booted') === '1';
+        skipBoot = isOgCapture || localStorage.getItem('psb-booted') === '1' || sessionStorage.getItem('psb-booted') === '1';
+        localStorage.setItem('psb-booted', '1');
         sessionStorage.setItem('psb-booted', '1');
     } catch { /* storage unavailable — always run the full boot */ }
-
-    const tl = gsap.timeline({
-        onComplete: () => {
-            if (onCompleteCallback) onCompleteCallback();
-        }
-    });
 
     const overlay = document.getElementById('boot-overlay');
     const scanline = document.getElementById('scanline');
@@ -89,6 +77,39 @@ export function runBootSequence(onCompleteCallback) {
     const badges = document.querySelectorAll('.stat-badge');
     const terminalStatus = document.getElementById('terminal-status-text');
     const canvasContainer = document.getElementById('canvas-container');
+
+    const tl = gsap.timeline({
+        onComplete: () => {
+            if (overlay) overlay.style.display = 'none';
+            if (onCompleteCallback) onCompleteCallback();
+        }
+    });
+
+    // Instant [ESC] or Skip button click affordance
+    const fastForwardBoot = () => {
+        try {
+            localStorage.setItem('psb-booted', '1');
+            sessionStorage.setItem('psb-booted', '1');
+        } catch {}
+        tl.progress(1);
+    };
+    const skipBtn = document.getElementById('boot-skip-btn');
+    if (skipBtn) {
+        skipBtn.addEventListener('click', fastForwardBoot, { once: true });
+    }
+    const onBootKeydown = (/** @type {KeyboardEvent} */ e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            window.removeEventListener('keydown', onBootKeydown);
+            fastForwardBoot();
+        }
+    };
+    window.addEventListener('keydown', onBootKeydown);
+    tl.eventCallback('onComplete', () => {
+        window.removeEventListener('keydown', onBootKeydown);
+        if (overlay) overlay.style.display = 'none';
+        if (onCompleteCallback) onCompleteCallback();
+    });
 
     // Skip animations for reduced-motion/small viewport (lite mode) OR a
     // return visit in this tab (skipBoot) — same instant "already on" state.
@@ -133,7 +154,7 @@ export function runBootSequence(onCompleteCallback) {
     gsap.set(badges, { opacity: 0, y: 10 });
     gsap.set(canvasContainer, { opacity: 0 });
     if (boardGroup) {
-        gsap.set(boardGroup.position, { y: -15, z: -5 });
+        gsap.set(boardGroup.position, { y: -8, z: -3 });
         gsap.set(boardGroup.rotation, { x: 0, y: 0 });
     }
 
@@ -144,7 +165,7 @@ export function runBootSequence(onCompleteCallback) {
     const scanlineTravel = overlay ? overlay.clientHeight : window.innerHeight;
     tl.to(scanline, {
         y: scanlineTravel,
-        duration: 0.85,
+        duration: 0.55,
         ease: 'power1.inOut'
     }, SCHEDULE.scanline);
 
@@ -214,10 +235,10 @@ export function runBootSequence(onCompleteCallback) {
         }, [], typePos);
     }
 
-    // Step 3 (0.6s): HUD bar fades in — only add hud-ready here once during boot
+    // Step 3: HUD bar fades in
     if (hudBar) {
         hudBar.classList.add('hud-ready');
-        tl.to(hudBar, { opacity: 1, duration: 0.4 }, SCHEDULE.hud);
+        tl.to(hudBar, { opacity: 1, duration: 0.3 }, SCHEDULE.hud);
     }
 
     // Hero panel reveals
@@ -239,16 +260,14 @@ export function runBootSequence(onCompleteCallback) {
         /** @type {Array<{ t: number, text: string }>} */
         const SEQUENCE = [
             { t: 0.0, text: '' },
-            { t: 0.35, text: 'ECE' },
-            { t: 0.55, text: 'ECE +' },
-            { t: 0.75, text: 'ECE + Data' },
-            { t: 0.95, text: 'ECE + Data Sience' },          // typo — dropped 'c'
-            { t: 1.25, text: 'ECE + Data S' },               // backspace to the fork
-            { t: 1.45, text: 'ECE + Data Science' },         // corrected bulk paste
-            { t: 1.75, text: 'ECE + Data Science ·' },
-            { t: 2.05, text: 'ECE + Data Science · Builds Real, Working Projects' }
+            { t: 0.15, text: 'ECE' },
+            { t: 0.3, text: 'ECE + Data' },
+            { t: 0.45, text: 'ECE + Data Sience' },
+            { t: 0.6, text: 'ECE + Data S' },
+            { t: 0.75, text: 'ECE + Data Science' },
+            { t: 0.9, text: 'ECE + Data Science · Builds Real, Working Projects' }
         ];
-        const TOTAL = 2.15;
+        const TOTAL = 1.0;
         const driver = { t: 0 };
         /** @param {number} time */
         const textAt = (time) => {
@@ -263,8 +282,6 @@ export function runBootSequence(onCompleteCallback) {
             ease: 'none',
             onUpdate: () => { subtitleEl.textContent = textAt(driver.t); }
         }, SCHEDULE.subtitle);
-        // Final-state safety: whatever the reverse search renders, the last
-        // schedule entry is the full corrected phrase — the text ends exact.
         tl.call(() => {
             if (subtitleEl) subtitleEl.textContent = FINAL_TEXT;
         }, [], SCHEDULE.subtitle + TOTAL);
@@ -274,20 +291,12 @@ export function runBootSequence(onCompleteCallback) {
     tl.to(badges, {
         opacity: 1,
         y: 0,
-        stagger: 0.1,
-        duration: 0.35,
+        stagger: 0.05,
+        duration: 0.25,
         ease: 'back.out(1.7)'
     }, SCHEDULE.badges);
 
-    // Stat badge count-up (counting-dynamic-scale): the four hero readouts
-    // count from 0 to their final value on the pop beat, and each badge
-    // swells with its value (peak ~2-3% mid-count) before settling to rest
-    // — the "instrument just reported" beat. One proxy tween per badge at
-    // the SAME absolute position as the pop (matching its 0.1 stagger), so
-    // the count is a pure function of timeline time: no timers, no random,
-    // seek-safe both directions. Values ending in a suffix ("9.48/10")
-    // keep it through the count; non-numeric values are left untouched.
-    const BADGE_COUNT_SEC = 0.9;
+    const BADGE_COUNT_SEC = 0.6;
     Array.from(badges).forEach((badge, i) => {
         const valEl = badge.querySelector('.badge-val');
         if (!valEl) return;
@@ -298,18 +307,15 @@ export function runBootSequence(onCompleteCallback) {
         const suffix = match[2];
         const decimals = (match[1].split('.')[1] || '').length;
         const proxy = { n: 0 };
-        const at = SCHEDULE.badges + i * 0.1; // same stagger as the pop
+        const at = SCHEDULE.badges + i * 0.05;
         tl.to(proxy, {
             n: target,
             duration: BADGE_COUNT_SEC,
             ease: 'power2.out',
             onUpdate: () => {
                 if (valEl) valEl.textContent = proxy.n.toFixed(decimals) + suffix;
-                // Swell with the value, settle to exactly 1: the (1-linear)
-                // term pulls the scale back to rest by the end, so the
-                // badge's settled transform never drifts from CSS.
                 const linear = Math.min(1, Math.max(0, (tl.time() - at) / BADGE_COUNT_SEC));
-                gsap.set(badge, { scale: 1 + 0.06 * (proxy.n / target) * (1 - linear) });
+                gsap.set(badge, { scale: 1 + 0.04 * (proxy.n / target) * (1 - linear) });
             }
         }, at);
     });
@@ -317,35 +323,30 @@ export function runBootSequence(onCompleteCallback) {
     // Step 4: PCB board fades in from below, floats up to position
     tl.to(canvasContainer, {
         opacity: 1,
-        duration: 0.8
+        duration: 0.5
     }, SCHEDULE.canvas);
 
     if (boardGroup) {
-        // power3.out = the house entrance settle (easing doctrine) — the board
-        // float-up is the hero entrance, so it gets the confident long-tail
-        // landing, not the gentler power2 used for secondary motion.
         tl.to(boardGroup.position, {
             y: 0,
             z: 0,
-            duration: 1.2,
-            ease: 'power3.out'
+            duration: 0.8,
+            ease: 'power2.out'
         }, SCHEDULE.board);
 
         tl.to(boardGroup.rotation, {
             x: -Math.PI / 10,
             y: -Math.PI / 20,
-            duration: 1.2,
-            ease: 'power3.out'
+            duration: 0.8,
+            ease: 'power2.out'
         }, SCHEDULE.board);
 
         const underline = document.querySelector('.header-underline');
         if (underline) {
-            // scaleX draw (transform-only) — the old width tween forced layout
-            // every frame; CSS now owns the 280px width and starts at scaleX(0).
             tl.to(underline, {
                 scaleX: 1,
-                duration: 1.0,
-                ease: 'power3.out'
+                duration: 0.7,
+                ease: 'power2.out'
             }, SCHEDULE.board);
         }
     }
@@ -362,31 +363,29 @@ export function runBootSequence(onCompleteCallback) {
         tl.set(headlineTwin, { opacity: 1 }, SCHEDULE.board + 0.05);
         tl.fromTo(headlineTwin,
             { backgroundPosition: '100% 50%' },
-            { backgroundPosition: '0% 50%', duration: 1.6, ease: 'none' },
-            SCHEDULE.board + 0.1
+            { backgroundPosition: '0% 50%', duration: 1.0, ease: 'none' },
+            SCHEDULE.board + 0.05
         );
         tl.to(headlineTwin, {
             opacity: 0,
-            duration: 0.4,
+            duration: 0.3,
             ease: 'power1.out'
-        }, SCHEDULE.board + 1.75);
+        }, SCHEDULE.board + 1.05);
     }
 
-    // Step 5 (1.8s): Traces light up one by one (left to right)
+    // Step 5: Traces light up
     tl.call(() => updateTerminalText('// SYSTEM STATUS: ROUTING COPPER TRACES...'), [], SCHEDULE.traces);
     traceData.forEach((trace, index) => {
-        // Flash traces using GSAP emissive controls — one timeline tween per
-        // mesh at a stagger of 0.05s per trace, all finite (repeat: 1).
         trace.meshes.forEach(mesh => {
             tl.fromTo(mesh.material,
                 { emissiveIntensity: 0.05 },
-                { emissiveIntensity: 0.8, duration: 0.3, yoyo: true, repeat: 1 },
-                SCHEDULE.traces + index * 0.05
+                { emissiveIntensity: 0.8, duration: 0.2, yoyo: true, repeat: 1 },
+                SCHEDULE.traces + index * 0.02
             );
         });
     });
 
-    // Step 6 (2.4s): CPU pins flash gold one by one (signal propagation)
+    // Step 6: CPU pins flash gold
     tl.call(() => updateTerminalText('// SYSTEM STATUS: INITIALIZING MCU SIGNAL PATHS...'), [], SCHEDULE.pins);
     if (cpuPins.length > 0) {
         cpuPins.forEach((pin, idx) => {
@@ -394,27 +393,27 @@ export function runBootSequence(onCompleteCallback) {
                 { emissiveIntensity: 0.05 },
                 {
                     emissiveIntensity: 1.3,
-                    duration: 0.08,
+                    duration: 0.05,
                     yoyo: true,
                     repeat: 1
                 },
-                SCHEDULE.pins + idx * 0.015
+                SCHEDULE.pins + idx * 0.01
             );
         });
     }
 
-    // Step 7 (3.0s): LEDs blink on sequentially
+    // Step 7: LEDs blink on sequentially
     tl.call(() => updateTerminalText('// SYSTEM STATUS: REGISTERING LED DIAGNOSTIC CHANNELS...'), [], SCHEDULE.leds);
     ledMeshes.forEach((led, idx) => {
         tl.to(led.material, {
             emissiveIntensity: 0.75,
-            duration: 0.15,
+            duration: 0.1,
             yoyo: true,
-            repeat: 3
-        }, SCHEDULE.leds + idx * 0.1);
+            repeat: 2
+        }, SCHEDULE.leds + idx * 0.05);
     });
 
-    // Step 8 (3.5s): Electricity particles begin flowing
+    // Step 8: Electricity particles begin flowing
     tl.call(() => {
         updateTerminalText('// SYSTEM STATUS: BOOTING CORES. ELECTRON CHANNELS ONLINE.');
         particles.forEach(p => {
@@ -422,19 +421,14 @@ export function runBootSequence(onCompleteCallback) {
         });
     }, [], SCHEDULE.cores);
 
-    // Silicon die pulse — fixed-delay FINITE tween (repeat: 7), started at the
-    // same beat but detached from the timeline so it can never stretch the boot
-    // duration. Deterministic: fixed delay, fixed repeat count, fixed values.
     if (siliconDieMesh) {
         gsap.to(siliconDieMesh.material, {
             opacity: 0.4,
-            duration: 0.8,
+            duration: 0.4,
             yoyo: true,
-            repeat: 7,
+            repeat: 3,
             delay: SCHEDULE.cores,
             onComplete: () => {
-                // Settle at a steady glow after boot — the die material is a
-                // MeshBasicMaterial (components.js), narrow to make the write safe.
                 if (siliconDieMesh && siliconDieMesh.material instanceof THREE.MeshBasicMaterial) {
                     siliconDieMesh.material.opacity = 0.65;
                 }
@@ -442,7 +436,7 @@ export function runBootSequence(onCompleteCallback) {
         });
     }
 
-    // Step 9 (4.0s): Small text bottom: "// ALL SYSTEMS OPERATIONAL"
+    // Step 9: Small text bottom: "// ALL SYSTEMS OPERATIONAL"
     tl.call(() => {
         updateTerminalText('// ALL SYSTEMS OPERATIONAL - RECENT TELEMETRY SYNCED');
         if (terminalStatus) {
@@ -450,10 +444,10 @@ export function runBootSequence(onCompleteCallback) {
         }
     }, [], SCHEDULE.statusFinal);
 
-    // Step 10 (4.2s): Boot overlay fades out, portfolio interactive
+    // Step 10: Boot overlay fades out, portfolio interactive (~2.8s total)
     tl.to(overlay, {
         opacity: 0,
-        duration: 0.6,
+        duration: 0.45,
         onComplete: () => {
             if (overlay) overlay.style.display = 'none';
         }

@@ -9,7 +9,7 @@ import gsap from 'gsap';
 import { interactiveObjects, pressTactile } from '../three/components.js';
 import { highlightTrace } from '../three/traces.js';
 import { simView } from '../three/lcd-sim.js';
-import { hoverBlip, clickBlip } from './sound.js';
+import { hoverBlip, clickBlip, probeTone } from './sound.js';
 import { motionPrefs } from './motion-prefs.js';
 import { rotatePotentiometer } from '../three/potentiometer.js';
 import { playComponentTone } from './synth.js';
@@ -61,6 +61,16 @@ let switchHandler = null;
 let lcdHandler = null;
 /** @type {((sectionId: string) => void) | null} */
 let subsystemInspectHandler = null;
+/** @type {((tpName: string) => void) | null} */
+let testpointHandler = null;
+/** @type {(() => void) | null} */
+let trimpotHandler = null;
+/** @type {(() => void) | null} */
+let headerHandler = null;
+/** @type {(() => void) | null} */
+let rfHandler = null;
+/** @type {(() => void) | null} */
+let inductorHandler = null;
 // Hover is a fine-pointer concept — touch has no hover state, so the per-frame
 // raycast would burn cost for nothing and leave a glow stuck at the last tap
 // point. The flag is live (same listener pattern as motionPrefs): a device
@@ -414,8 +424,21 @@ export function initHover(camera, scene) {
                 } else if (obj.userData && obj.userData.type === 'LCD' && lcdHandler) {
                     clickBlip();
                     lcdHandler();
+                } else if (obj.userData && (obj.userData.type === 'TESTPOINT' || obj.name === 'TP1' || obj.name === 'TP2')) {
+                    probeTone();
+                    if (testpointHandler) testpointHandler(obj.name);
                 } else if (obj.userData && (obj.userData.type === 'TRIMPOT' || obj.name === 'RV1')) {
-                    rotatePotentiometer(0.08);
+                    rotatePotentiometer(0.12);
+                    if (trimpotHandler) trimpotHandler();
+                } else if (obj.userData && (obj.userData.type === 'HDR' || obj.name === 'HDR1')) {
+                    clickBlip();
+                    if (headerHandler) headerHandler();
+                } else if (obj.userData && (obj.userData.type === 'RF' || obj.name === 'RF1')) {
+                    clickBlip();
+                    if (rfHandler) rfHandler();
+                } else if (obj.userData && (obj.userData.type === 'IND' || obj.name === 'L1')) {
+                    clickBlip();
+                    if (inductorHandler) inductorHandler();
                 }
             }
         });
@@ -451,6 +474,36 @@ export function setSwitchHandler(fn) {
  * @param {() => void} fn */
 export function setLcdHandler(fn) {
     lcdHandler = fn;
+}
+
+/** Register the callback fired when a testpoint (TP1/TP2) is clicked.
+ * @param {(tpName: string) => void} fn */
+export function setTestpointHandler(fn) {
+    testpointHandler = fn;
+}
+
+/** Register the callback fired when trimmer RV1 is rotated.
+ * @param {() => void} fn */
+export function setTrimpotHandler(fn) {
+    trimpotHandler = fn;
+}
+
+/** Register the callback fired when debug pin header HDR1 is clicked.
+ * @param {() => void} fn */
+export function setHeaderHandler(fn) {
+    headerHandler = fn;
+}
+
+/** Register the callback fired when RF shield can RF1 is clicked.
+ * @param {() => void} fn */
+export function setRfHandler(fn) {
+    rfHandler = fn;
+}
+
+/** Register the callback fired when buck inductor L1 is clicked.
+ * @param {() => void} fn */
+export function setInductorHandler(fn) {
+    inductorHandler = fn;
 }
 
 // ─── Per-frame Raycast Check ────────────────────────────

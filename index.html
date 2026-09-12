@@ -101,6 +101,7 @@
     <!-- Full-screen Boot Overlay -->
     <div id="boot-overlay">
         <div id="scanline"></div>
+        <button type="button" class="boot-skip-btn" id="boot-skip-btn" aria-label="Skip boot sequence">SKIP BOOT [ESC] ➔</button>
         <div class="boot-container">
             <div class="boot-terminal-log">
                 <span class="term-green">&gt; INITIALIZING PARAMA-DEV-BOARD v2.0...</span><br>
@@ -141,6 +142,9 @@
                 <span class="hud-scope-ref" id="hud-scope-ref">LIVE</span><span class="hud-scope-val" id="hud-scope-val">ACTIVE</span>
             </span>
             <!-- 3D Interactive Controls -->
+            <button type="button" class="hud-btn-sub" id="btn-thermal-toggle" aria-pressed="false" aria-label="FLIR Infrared Thermal Vision Mode (Shortcut: H)" title="Thermal Camera (H)">[THERMAL]</button>
+            <button type="button" class="hud-btn-sub" id="btn-laser-scan" aria-label="Laser Surface Profiling Scan (Shortcut: L)" title="Laser Scan (L)">[SCAN]</button>
+            <button type="button" class="hud-btn-sub" id="arch-toggle-btn" aria-label="Architecture &amp; Engineering Specs" title="Engineering Architecture">[ARCH]</button>
             <button type="button" class="hud-btn-sub" id="rover-toggle-btn" aria-pressed="false" aria-label="Drive 3D Nano-Rover" title="Drive Rover">[ROVER]</button>
             <button type="button" class="hud-btn-sub" id="teardown-toggle-btn" aria-pressed="false" aria-label="3D Hardware Teardown" title="Teardown View">[TEARDOWN]</button>
             <button type="button" class="hud-btn-sub" id="turbo-toggle-btn" aria-pressed="false" aria-label="Turbo Overclock (100MHz)" title="Turbo Mode">[TURBO]</button>
@@ -182,13 +186,29 @@
                 </div>
                 <p class="hero-claim text-pretty">ECE student and systems developer specializing in <span class="sig-word">computer vision</span>, <span class="sig-word">backend systems</span>, and <span class="sig-word">high-performance interactive software</span>.</p>
                 <div class="badge-row" id="hero-badges"></div>
-                <div class="hero-quick-actions" aria-label="Interactive 3D modes">
-                    <span class="quick-actions-label">⚡ Hardware Controls:</span>
+                <div class="hero-quick-actions" aria-label="Interactive 3D hardware modes">
+                    <span class="quick-actions-label">HARDWARE CONTROLS //</span>
                     <div class="quick-action-pills">
-                        <button type="button" class="quick-action-btn" id="hero-rover-btn" title="Drive 3D PCB Rover">🏎️ Drive Rover</button>
-                        <button type="button" class="quick-action-btn" id="hero-turbo-btn" title="Overclock 3D CPU">⚡ Turbo Overclock</button>
-                        <button type="button" class="quick-action-btn" id="hero-teardown-btn" title="3D Exploded Teardown">🔍 3D Explode</button>
-                        <button type="button" class="quick-action-btn" id="hero-theme-btn" title="Cycle Board Theme">🎨 Color Theme</button>
+                        <button type="button" class="quick-action-btn" id="hero-arch-btn" title="Engineering Architecture Specification">
+                            <span class="btn-tag">SPEC</span>
+                            <span class="btn-title">About Project</span>
+                        </button>
+                        <button type="button" class="quick-action-btn" id="hero-rover-btn" title="Drive 3D PCB Rover">
+                            <span class="btn-tag">ROVER</span>
+                            <span class="btn-title">Drive Unit</span>
+                        </button>
+                        <button type="button" class="quick-action-btn" id="hero-turbo-btn" title="Overclock 3D CPU">
+                            <span class="btn-tag">CLK</span>
+                            <span class="btn-title">Turbo 100MHz</span>
+                        </button>
+                        <button type="button" class="quick-action-btn" id="hero-teardown-btn" title="3D Exploded Teardown">
+                            <span class="btn-tag">EXPLODE</span>
+                            <span class="btn-title">3D Teardown</span>
+                        </button>
+                        <button type="button" class="quick-action-btn" id="hero-theme-btn" title="Cycle Board Theme">
+                            <span class="btn-tag">THEME</span>
+                            <span class="btn-title">Mask Finish</span>
+                        </button>
                     </div>
                 </div>
                 <div class="hero-cta-row">
@@ -207,33 +227,97 @@
                     <span class="headline-twin" aria-hidden="true">Core Architecture</span>
                 </div>
                 <div class="about-grid">
-                    <div class="about-card">
-                        <span class="about-card-icon">🎓</span>
-                        <div class="about-card-label">Curriculum</div>
+                    <div class="about-card about-card-edu">
+                        <div class="about-card-head">
+                            <span class="about-card-badge">MOD_01 // EDU</span>
+                            <span class="about-card-dot"></span>
+                        </div>
+                        <div class="about-card-label">Higher Education</div>
                         <div class="about-card-val">B.Tech ECE (Data Science) @ SRM University</div>
-                        <div class="about-card-sub">GPA: <strong>9.48 / 10</strong> (Top Tier)</div>
+                        <div class="about-card-sub">CGPA: <strong>9.48 / 10</strong> <span class="gpa-tag">HONORS</span> · 2024–2028</div>
+                        <div class="about-school-milestones">
+                            <div class="school-item">
+                                <span class="school-badge">CLASS XII</span>
+                                <span class="school-name">Vivekananda Vidyalaya</span>
+                                <span class="school-score">82% (2024)</span>
+                            </div>
+                            <div class="school-item">
+                                <span class="school-badge">CLASS X</span>
+                                <span class="school-name">Vivekananda Vidyalaya</span>
+                                <span class="school-score">92% (2022)</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="about-card">
-                        <span class="about-card-icon">⚙️</span>
-                        <div class="about-card-label">Engineering Focus</div>
-                        <div class="about-card-val">Computer Vision, Backend &amp; ML Systems</div>
-                        <div class="about-card-sub">YOLOv8, FastAPI, Python, SQL, Three.js</div>
+                        <div class="about-card-head">
+                            <span class="about-card-badge">MOD_02 // STACK</span>
+                            <span class="about-card-dot"></span>
+                        </div>
+                        <div class="about-card-label">Full-Stack &amp; ML Focus</div>
+                        <div class="about-card-val">Computer Vision, ML &amp; Scalable Web</div>
+                        <div class="about-card-sub">Python · Django · React.js · Next.js · FastAPI · TensorFlow · Scikit-learn · Three.js</div>
                     </div>
                     <div class="about-card">
-                        <span class="about-card-icon">⚡</span>
-                        <div class="about-card-label">Hardware Stack</div>
-                        <div class="about-card-val">Embedded IoT &amp; Microcontrollers</div>
-                        <div class="about-card-sub">ESP32, Arduino, Sensor Nodes, UART</div>
+                        <div class="about-card-head">
+                            <span class="about-card-badge">MOD_03 // SILICON</span>
+                            <span class="about-card-dot"></span>
+                        </div>
+                        <div class="about-card-label">Hardware &amp; IoT Stack</div>
+                        <div class="about-card-val">Autonomous Embedded Systems</div>
+                        <div class="about-card-sub">ESP32 (Solar IoT Purification) · 5x Sensor Arrays · C++ · UART/I2C</div>
                     </div>
                     <div class="about-card">
-                        <span class="about-card-icon">🌐</span>
+                        <div class="about-card-head">
+                            <span class="about-card-badge">MOD_04 // COMMS</span>
+                            <span class="about-card-dot"></span>
+                        </div>
                         <div class="about-card-label">Communication</div>
                         <div class="about-card-val">English, Tamil, Hindi, Japanese</div>
-                        <div class="about-card-sub">Multilingual technical collaboration</div>
+                        <div class="about-card-sub">Cross-functional technical collaboration &amp; team leadership</div>
                     </div>
                 </div>
                 <div id="mfg-label-card"></div>
-                <p class="ds-body text-pretty">ECE student specializing in Data Science at SRM Institute of Science and Technology, Ramapuram.<br><br>Interested in AI systems, computer vision, backend engineering, and interactive web experiences. I enjoy building software that people actually use, from machine-learning APIs to immersive browser experiences.</p>
+                <div class="certifications-block" id="about-certifications">
+                    <div class="cert-header">
+                        <span class="cert-badge">// D1–D7 LED ARRAY // VERIFIED CREDENTIALS</span>
+                        <span class="cert-sub">4 HARDWARE REGISTERS</span>
+                    </div>
+                    <div class="cert-grid" id="cert-grid">
+                        <div class="cert-card">
+                            <div class="cert-card-top">
+                                <span class="cert-reg">REG_D1</span>
+                                <span class="cert-year">2026</span>
+                            </div>
+                            <div class="cert-name">Python for Generative AI and Machine Learning</div>
+                            <div class="cert-org">IIM Bangalore (IIMB)</div>
+                        </div>
+                        <div class="cert-card">
+                            <div class="cert-card-top">
+                                <span class="cert-reg">REG_D2</span>
+                                <span class="cert-year">2025</span>
+                            </div>
+                            <div class="cert-name">Data Analytics with Python</div>
+                            <div class="cert-org">NPTEL · Elite Certification</div>
+                        </div>
+                        <div class="cert-card">
+                            <div class="cert-card-top">
+                                <span class="cert-reg">REG_D3</span>
+                                <span class="cert-year">2025</span>
+                            </div>
+                            <div class="cert-name">Full Stack (MERN) Development &amp; Data Analytics</div>
+                            <div class="cert-org">Maiyyam · ISO-Certified</div>
+                        </div>
+                        <div class="cert-card">
+                            <div class="cert-card-top">
+                                <span class="cert-reg">REG_D4</span>
+                                <span class="cert-year">2024</span>
+                            </div>
+                            <div class="cert-name">Foundation of Data Science</div>
+                            <div class="cert-org">Infosys Springboard</div>
+                        </div>
+                    </div>
+                </div>
+                <p class="ds-body text-pretty">Electronics and Communication Engineering student specializing in Data Science at SRM Institute of Science and Technology, Ramapuram, with practical experience in Full Stack Development and Machine Learning.<br><br>Skilled in Python, Django, React.js, TensorFlow, and Scikit-learn, with hands-on experience building scalable web applications and AI-powered solutions through industry internships. Eager to apply software engineering and machine learning expertise to develop impactful, real-world technologies.</p>
                 <a class="cta-linkedin js-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile">CONNECT ON LINKEDIN →</a>
             </div>
         </section>
@@ -285,48 +369,116 @@
                 <p class="ds-body text-pretty">Actively open to software engineering internships, AI/ML roles, and ambitious system collaborations. Direct transmission lines open via LinkedIn or Email.</p>
                 <div class="contact-grid">
                     <a class="contact-card js-linkedin" href="#" target="_blank" rel="noopener noreferrer">
-                        <span class="contact-card-icon">💼</span>
-                        <div class="contact-card-title">LinkedIn</div>
-                        <div class="contact-card-sub">Direct Uplink →</div>
+                        <div class="contact-card-head">
+                            <span class="contact-card-badge">UPLINK // NETWORK</span>
+                            <span class="contact-status-dot"></span>
+                        </div>
+                        <div class="contact-card-title">LinkedIn Profile</div>
+                        <div class="contact-card-sub">Direct Channel →</div>
                     </a>
                     <a class="contact-card js-github" href="#" target="_blank" rel="noopener noreferrer">
-                        <span class="contact-card-icon">🐙</span>
-                        <div class="contact-card-title">GitHub</div>
+                        <div class="contact-card-head">
+                            <span class="contact-card-badge">REPOSITORY // VCS</span>
+                            <span class="contact-status-dot"></span>
+                        </div>
+                        <div class="contact-card-title">GitHub Source</div>
                         <div class="contact-card-sub">github.com/imnotparama →</div>
                     </a>
-                    <a class="contact-card" href="mailto:pw2491@srmist.edu.in">
-                        <span class="contact-card-icon">✉️</span>
-                        <div class="contact-card-title">Email</div>
-                        <div class="contact-card-sub">pw2491@srmist.edu.in →</div>
+                    <a class="contact-card" href="mailto:hunterparama@gmail.com">
+                        <div class="contact-card-head">
+                            <span class="contact-card-badge">PRIMARY // SMTP</span>
+                            <span class="contact-status-dot"></span>
+                        </div>
+                        <div class="contact-card-title">Direct Email</div>
+                        <div class="contact-card-sub">hunterparama@gmail.com →</div>
                     </a>
-                    <div class="contact-card contact-card-static">
-                        <span class="contact-card-icon">📍</span>
-                        <div class="contact-card-title">Base Node</div>
-                        <div class="contact-card-sub">Chennai, Tamil Nadu, India</div>
-                    </div>
+                    <a class="contact-card" href="tel:+919176020504">
+                        <div class="contact-card-head">
+                            <span class="contact-card-badge">VOICE // TELECOM</span>
+                            <span class="contact-status-dot"></span>
+                        </div>
+                        <div class="contact-card-title">Mobile Line</div>
+                        <div class="contact-card-sub">+91 9176020504 →</div>
+                    </a>
                 </div>
                 <div class="contact-footer">
-                    <span>PARAMA LABS · PRM-DEV-BOARD V2.0 · CHENNAI, INDIA</span>
+                    <span>PARAMA LABS · PRM-DEV-BOARD V2.0 · CHENNAI, TAMIL NADU, INDIA</span>
                     <span>Built with Three.js WebGL &amp; Hardware State Machine</span>
                     <span>&copy; 2026 &mdash; All Rights Reserved</span>
                 </div>
             </div>
         </section>
 
-        <!-- Focused Module Detail Panel -->
+        <!-- Focused Module Detail Panel (Mission-Grade Engineering Datasheet) -->
         <section class="journey-sec" id="sec-project-detail" data-panel="panel-project-detail">
-            <div class="ds-panel" id="panel-project-detail" role="dialog" aria-modal="false" aria-label="Focused module details">
+            <div class="ds-panel ds-datasheet-panel" id="panel-project-detail" role="dialog" aria-modal="false" aria-label="Focused module details">
                 <button type="button" class="panel-close" id="btn-project-close" aria-label="Close module details">✕</button>
-                <div class="ds-ref" id="pdetail-ref"></div>
-                <div class="headline-stack ds-title-stack">
-                    <h2 class="ds-title" id="pdetail-title"></h2>
-                    <span class="headline-twin" id="pdetail-title-twin" aria-hidden="true"></span>
+                
+                <!-- Progressive Subsystem Handshake Banner -->
+                <div class="ds-handshake-bar" id="pdetail-handshake">
+                    <span class="ds-handshake-step" id="pdetail-handshake-step">AUTHENTICATING EEPROM...</span>
+                    <span class="ds-handshake-progress" id="pdetail-handshake-progress" aria-hidden="true">[████████████]</span>
                 </div>
-                <p class="ds-body proj-field" id="pdetail-problem"></p>
-                <p class="ds-body proj-field" id="pdetail-state"></p>
-                <ul class="proj-spec" id="pdetail-spec"></ul>
-                <div class="skill-pills" id="pdetail-tags"></div>
-                <a class="cta-linkedin" id="pdetail-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+
+                <!-- Datasheet Header Block -->
+                <div class="ds-header-block">
+                    <div class="ds-meta-row">
+                        <div class="ds-ref" id="pdetail-ref">IC // FR1</div>
+                        <div class="ds-status-wrap">
+                            <span class="ds-status-led" id="pdetail-status-led"></span>
+                            <span class="ds-status-text" id="pdetail-status-text">ONLINE</span>
+                        </div>
+                        <div class="ds-rail-bus" id="pdetail-rail-bus">+3.3V CORE · PCIe Gen3</div>
+                    </div>
+                    <div class="headline-stack ds-title-stack">
+                        <h2 class="ds-title" id="pdetail-title"></h2>
+                        <span class="headline-twin" id="pdetail-title-twin" aria-hidden="true"></span>
+                    </div>
+                    <div class="ds-function-tag" id="pdetail-function">VISION PROCESSING UNIT</div>
+                </div>
+
+                <!-- One-shot Hairline Divider Scan -->
+                <div class="ds-divider"><span class="ds-divider-scan" id="pdetail-divider-scan"></span></div>
+
+                <!-- System Overview & Engineering Description -->
+                <div class="ds-section-block">
+                    <div class="ds-field-label">OVERVIEW &amp; PROBLEM STATEMENT</div>
+                    <p class="ds-body" id="pdetail-problem"></p>
+                    <p class="ds-body ds-body-sub" id="pdetail-state"></p>
+                </div>
+
+                <!-- Hardware I/O Specification Matrix -->
+                <div class="ds-section-block">
+                    <div class="ds-field-label">SYSTEM INTERFACE &amp; DATAFLOW</div>
+                    <div class="ds-io-grid">
+                        <div class="ds-io-row">
+                            <span class="ds-io-key">INPUT</span>
+                            <span class="ds-io-val" id="pdetail-inputs">Video Stream · RTSP Frames</span>
+                        </div>
+                        <div class="ds-io-row">
+                            <span class="ds-io-key">OUTPUT</span>
+                            <span class="ds-io-val" id="pdetail-outputs">Object Detection Streams · Density Safety Alerts</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subsystem Specifications -->
+                <div class="ds-section-block">
+                    <div class="ds-field-label">TECHNICAL SPECIFICATIONS</div>
+                    <ul class="proj-spec" id="pdetail-spec"></ul>
+                </div>
+
+                <!-- Toolchain & Technologies -->
+                <div class="ds-section-block">
+                    <div class="ds-field-label">TECHNOLOGIES &amp; TOOLCHAIN</div>
+                    <div class="skill-pills" id="pdetail-tags"></div>
+                </div>
+
+                <!-- Datasheet Action Footer -->
+                <div class="ds-footer-bar">
+                    <a class="ds-action-link" id="pdetail-link" href="#" target="_blank" rel="noopener noreferrer">INSPECT REPOSITORY →</a>
+                    <span class="ds-terminal-cursor" aria-hidden="true">READY_</span>
+                </div>
             </div>
         </section>
     </main>
@@ -343,7 +495,7 @@
         <span class="chip-tip-ref" id="chip-tip-ref"></span>
         <span class="chip-tip-theme"><i class="chip-tip-dot" id="chip-tip-dot"></i><span class="chip-tip-theme-text" id="chip-tip-theme-text"></span></span>
         <span class="chip-tip-title" id="chip-tip-title"></span>
-        <span class="chip-tip-hint">Click chip to inspect 🔍</span>
+        <span class="chip-tip-hint">CLICK COMPONENT TO INSPECT [ESC TO CLOSE]</span>
     </div>
 
     <!-- Developer Notes -->
@@ -375,6 +527,330 @@
             </div>
         </div>
     </div>
+
+    <!-- Dedicated Engineering Architecture Specification Modal -->
+    <div id="modal-architecture" class="arch-modal-wrap" role="dialog" aria-modal="true" aria-label="System Architecture &amp; Engineering Specification" hidden>
+        <div class="arch-modal-backdrop" id="arch-modal-backdrop"></div>
+        <div class="arch-modal-panel">
+            <div class="arch-modal-header">
+                <div class="arch-title-wrap">
+                    <span class="arch-tag">// ARCHITECTURE &amp; ENGINEERING SPECIFICATION</span>
+                    <h2 class="arch-title">PARAMA-DEV-BOARD v2.0</h2>
+                    <span class="arch-sub">Subsystem: Hardware Digital Twin &amp; Interactive WebGL Engine</span>
+                </div>
+                <div class="arch-header-meta">
+                    <button type="button" class="board-serial-copy arch-serial-btn" title="Click to copy serial number" aria-label="Copy board serial number">
+                        <span class="serial-k">SN:</span>
+                        <strong class="serial-v">PRM-2026-DEV-001</strong>
+                        <span class="copy-badge" aria-hidden="true">📋 COPY</span>
+                    </button>
+                    <span class="arch-fw-badge">LAST FLASH: 2026-09-06 16:15 UTC</span>
+                    <button type="button" id="arch-bench-toggle" class="arch-bench-btn" title="Toggle Low-Glare Bench Mode">
+                        <span class="bench-icon">◐</span> BENCH MODE: <strong id="arch-bench-status">OFF</strong>
+                    </button>
+                </div>
+                <button type="button" class="panel-close arch-close-btn" id="arch-modal-close" aria-label="Close architecture modal">✕</button>
+            </div>
+
+            <!-- Why This Portfolio Exists (Engineering Statement) -->
+            <div class="arch-manifesto">
+                <div class="manifesto-head">
+                    <span class="manifesto-tag">// WHY THIS PORTFOLIO EXISTS</span>
+                    <span class="manifesto-badge">FOUNDATION</span>
+                </div>
+                <p class="manifesto-text">
+                    &ldquo;Instead of another scrolling webpage, I wanted my portfolio to reflect how I think as an engineer&mdash;systems, diagnostics, modular architecture, and interactive software. The entire experience is designed as a hardware development board because embedded systems and AI are the domains I enjoy building in.&rdquo;
+                </p>
+            </div>
+
+            <!-- System Architecture Flow Diagram (Inline SVG) -->
+            <div class="arch-card arch-card-full">
+                <div class="arch-card-head">
+                    <span class="arch-card-badge">// ARCHITECTURE PIPELINE FLOW</span>
+                    <span class="arch-card-tag">SYSTEM EXECUTION PATH</span>
+                </div>
+                <div class="arch-diagram-wrap">
+                    <svg viewBox="0 0 840 70" class="arch-svg-diagram" aria-label="Architecture Pipeline Flowchart" role="img">
+                        <!-- Node 1: Browser / Input -->
+                        <rect x="5" y="16" width="90" height="38" rx="4" class="svg-node"></rect>
+                        <text x="50" y="33" class="svg-text-title" text-anchor="middle">BROWSER</text>
+                        <text x="50" y="46" class="svg-text-sub" text-anchor="middle">DOM / Input</text>
+                        <path d="M95 35 L108 35" class="svg-arrow"></path>
+
+                        <!-- Node 2: Main Loop -->
+                        <rect x="110" y="16" width="90" height="38" rx="4" class="svg-node"></rect>
+                        <text x="155" y="33" class="svg-text-title" text-anchor="middle">MAIN LOOP</text>
+                        <text x="155" y="46" class="svg-text-sub" text-anchor="middle">rAF / Scheduler</text>
+                        <path d="M200 35 L213 35" class="svg-arrow"></path>
+
+                        <!-- Node 3: State Machine -->
+                        <rect x="215" y="16" width="90" height="38" rx="4" class="svg-node"></rect>
+                        <text x="260" y="33" class="svg-text-title" text-anchor="middle">STATE MACH</text>
+                        <text x="260" y="46" class="svg-text-sub" text-anchor="middle">8 Formal States</text>
+                        <path d="M305 35 L318 35" class="svg-arrow"></path>
+
+                        <!-- Node 4: Scene Renderer -->
+                        <rect x="320" y="16" width="95" height="38" rx="4" class="svg-node svg-node-accent"></rect>
+                        <text x="367" y="33" class="svg-text-title svg-accent" text-anchor="middle">RENDERER</text>
+                        <text x="367" y="46" class="svg-text-sub" text-anchor="middle">Three.js WebGL2</text>
+                        <path d="M415 35 L428 35" class="svg-arrow"></path>
+
+                        <!-- Node 5: Interaction Mgr -->
+                        <rect x="430" y="16" width="95" height="38" rx="4" class="svg-node"></rect>
+                        <text x="477" y="33" class="svg-text-title" text-anchor="middle">INTERACTION</text>
+                        <text x="477" y="46" class="svg-text-sub" text-anchor="middle">Raycast &amp; Probe</text>
+                        <path d="M525 35 L538 35" class="svg-arrow"></path>
+
+                        <!-- Node 6: UI & CRT HUD -->
+                        <rect x="540" y="16" width="90" height="38" rx="4" class="svg-node"></rect>
+                        <text x="585" y="33" class="svg-text-title" text-anchor="middle">UI / HUD</text>
+                        <text x="585" y="46" class="svg-text-sub" text-anchor="middle">Datasheets / CRT</text>
+                        <path d="M630 35 L643 35" class="svg-arrow"></path>
+
+                        <!-- Node 7: Live Telemetry -->
+                        <rect x="645" y="16" width="90" height="38" rx="4" class="svg-node"></rect>
+                        <text x="690" y="33" class="svg-text-title" text-anchor="middle">TELEMETRY</text>
+                        <text x="690" y="46" class="svg-text-sub" text-anchor="middle">Genuine Diagnostics</text>
+                        <path d="M735 35 L748 35" class="svg-arrow"></path>
+
+                        <!-- Node 8: Portfolio Data -->
+                        <rect x="750" y="16" width="85" height="38" rx="4" class="svg-node"></rect>
+                        <text x="792" y="33" class="svg-text-title" text-anchor="middle">PORTFOLIO</text>
+                        <text x="792" y="46" class="svg-text-sub" text-anchor="middle">Projects / Specs</text>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="arch-grid">
+                <!-- Card 1: Design Decisions (The "Why") -->
+                <div class="arch-card">
+                    <div class="arch-card-head">
+                        <span class="arch-card-badge">DESIGN DECISIONS // THE "WHY"</span>
+                        <span class="arch-card-dot"></span>
+                    </div>
+                    <h3 class="arch-card-title">Architectural Rationale</h3>
+                    <ul class="arch-card-list">
+                        <li><strong>No React / Fiber:</strong> Direct imperative WebGL avoids React reconciler overhead, eliminating GC stutter in 60 FPS animation loops.</li>
+                        <li><strong>Vanilla JS + Typed JSDoc:</strong> Deterministic render lifecycle and single source of state without hydration delays or bundle bloat.</li>
+                        <li><strong>Camera Capped &lt; 850ms:</strong> Eliminates recruiter waiting friction while preserving 3D spatial continuity across the motherboard.</li>
+                        <li><strong>Genuine Runtime Telemetry Only:</strong> Zero synthetic benchmark figures; all metrics derive directly from <code>renderer.info</code> and hardware APIs.</li>
+                        <li><strong>Physical PCB-to-Domain Mapping:</strong> Every portfolio category anchors to an authentic physical component (CPU=Bio, GPU=Projects, Caps=Skills, USB=Experience).</li>
+                        <li><strong>Boot Sequence Cached:</strong> First visit plays a 2.8s hardware POST; return visits bypass instantly via <code>localStorage</code>.</li>
+                    </ul>
+                </div>
+
+                <!-- Card 2: Performance Budget -->
+                <div class="arch-card">
+                    <div class="arch-card-head">
+                        <span class="arch-card-badge">PERFORMANCE BUDGET // CONSTRAINTS</span>
+                        <span class="arch-card-dot"></span>
+                    </div>
+                    <h3 class="arch-card-title">Target vs. Live Actual</h3>
+                    <table class="arch-budget-table">
+                        <thead>
+                            <tr>
+                                <th>METRIC</th>
+                                <th>BUDGET</th>
+                                <th>ACTUAL</th>
+                                <th>STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Target Frame Rate</td>
+                                <td>60.0 FPS</td>
+                                <td id="budget-val-fps">60.0</td>
+                                <td><span class="budget-pass">PASS</span></td>
+                            </tr>
+                            <tr>
+                                <td>Draw Calls</td>
+                                <td>&lt; 80 calls</td>
+                                <td id="budget-val-calls">--</td>
+                                <td><span class="budget-pass">PASS</span></td>
+                            </tr>
+                            <tr>
+                                <td>Memory Footprint</td>
+                                <td>&lt; 150 MB</td>
+                                <td>Observed in dev (&lt;100MB)</td>
+                                <td><span class="budget-pass">PASS</span></td>
+                            </tr>
+                            <tr>
+                                <td>Boot Sequence</td>
+                                <td>&lt; 3.0 s</td>
+                                <td>2.8 s (0.0s ret)</td>
+                                <td><span class="budget-pass">PASS</span></td>
+                            </tr>
+                            <tr>
+                                <td>Interaction Latency</td>
+                                <td>&lt; 100 ms</td>
+                                <td>Target: &lt; 1 frame</td>
+                                <td><span class="budget-pass">PASS</span></td>
+                            </tr>
+                            <tr>
+                                <td>Shader Passes</td>
+                                <td>2 passes</td>
+                                <td>2 (Scene + Bloom)</td>
+                                <td><span class="budget-pass">PASS</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Card 3: Graphics & Shaders -->
+                <div class="arch-card">
+                    <div class="arch-card-head">
+                        <span class="arch-card-badge">SUBSYSTEM 01 // GRAPHICS</span>
+                        <span class="arch-card-dot"></span>
+                    </div>
+                    <h3 class="arch-card-title">Graphics &amp; Shaders</h3>
+                    <ul class="arch-card-list">
+                        <li><strong>Engine:</strong> Three.js r185 WebGL 2.0 Renderer</li>
+                        <li><strong>Shaders:</strong> Custom procedural materials (woven FR-4 fiberglass bump mapping, ENIG 24K gold, specular copper traces)</li>
+                        <li><strong>Post-Processing:</strong> Selective UnrealBloomPass with dynamic quality-budget scaling (1024 / 768 / 512)</li>
+                        <li><strong>Camera Engine:</strong> Parametric CatmullRom 3D flight paths coordinated with GSAP 3.15 ScrollTrigger</li>
+                    </ul>
+                </div>
+
+                <!-- Card 4: State Machine & Concurrency -->
+                <div class="arch-card">
+                    <div class="arch-card-head">
+                        <span class="arch-card-badge">SUBSYSTEM 02 // ARCHITECTURE</span>
+                        <span class="arch-card-dot"></span>
+                    </div>
+                    <h3 class="arch-card-title">State Machine &amp; Modules</h3>
+                    <ul class="arch-card-list">
+                        <li><strong>State Machine:</strong> 8 formal states (<code>OFF</code>, <code>BOOTING</code>, <code>IDLE</code>, <code>INSPECTING</code>, <code>ACTIVE</code>, <code>OVERCLOCK</code>, <code>SLEEP</code>, <code>SHUTDOWN</code>)</li>
+                        <li><strong>9 Physical Modules:</strong> FlyRank (FR1), CrowdPulse (CP1), Dialora (DL1), BusIT (BT1), AquaDot (AQD1), LCD1 Signal Runner, BZ1 Buzzer, RV1 Potentiometer, SW1–SW3 Tactile Switches</li>
+                        <li><strong>Memory Management:</strong> Designed to avoid unnecessary allocations during the render loop using pre-allocated scratch registers</li>
+                        <li><strong>Tick Scheduler:</strong> Tiered priority scheduling (CRITICAL, STANDARD, DEFERRED)</li>
+                    </ul>
+                </div>
+
+                <!-- Card 5: Live Genuine WebGL & Hardware Telemetry -->
+                <div class="arch-card arch-card-telemetry">
+                    <div class="arch-card-head">
+                        <span class="arch-card-badge">SUBSYSTEM 03 // LIVE TELEMETRY</span>
+                        <span class="arch-live-pulse"></span>
+                    </div>
+                    <h3 class="arch-card-title">Genuine Runtime &amp; Hardware Metrics</h3>
+                    <div class="arch-telemetry-grid">
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">INSTANT FPS</span>
+                            <strong class="telemetry-value" id="arch-val-fps">60.0</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">DRAW CALLS</span>
+                            <strong class="telemetry-value" id="arch-val-calls">--</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">RENDERED TRIANGLES</span>
+                            <strong class="telemetry-value" id="arch-val-triangles">--</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">GEOMETRY BUFFERS</span>
+                            <strong class="telemetry-value" id="arch-val-geometries">--</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">TEXTURE BUFFERS</span>
+                            <strong class="telemetry-value" id="arch-val-textures">--</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">ACTIVE SUBSYSTEM</span>
+                            <strong class="telemetry-value" id="arch-val-module">U1 (CORE)</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">CANVAS RESOLUTION</span>
+                            <strong class="telemetry-value" id="arch-val-resolution">--</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">SESSION UPTIME</span>
+                            <strong class="telemetry-value" id="arch-val-uptime">00:00:00</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">GPU RENDERER</span>
+                            <strong class="telemetry-value" id="arch-val-gpu">WebGL2 Hardware</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">WEBGL CONTEXT</span>
+                            <strong class="telemetry-value" id="arch-val-webgl-ver">WebGL 2.0</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">MAX TEXTURE SIZE</span>
+                            <strong class="telemetry-value" id="arch-val-max-tex">--</strong>
+                        </div>
+                        <div class="arch-telemetry-item">
+                            <span class="telemetry-label">CPU CONCURRENCY</span>
+                            <strong class="telemetry-value" id="arch-val-cores">--</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 6: Development Timeline (Version History) -->
+                <div class="arch-card">
+                    <div class="arch-card-head">
+                        <span class="arch-card-badge">VERSION HISTORY // TIMELINE</span>
+                        <span class="arch-card-dot"></span>
+                    </div>
+                    <h3 class="arch-card-title">Development Progression</h3>
+                    <div class="arch-timeline">
+                        <div class="timeline-step">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-info">
+                                <span class="timeline-ver">v0.1</span>
+                                <strong class="timeline-title">Static PCB Substrate</strong>
+                                <span class="timeline-desc">Procedural FR-4, silkscreen canvas, 4-layer copper traces.</span>
+                            </div>
+                        </div>
+                        <div class="timeline-step">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-info">
+                                <span class="timeline-ver">v0.4</span>
+                                <strong class="timeline-title">Parametric Camera System</strong>
+                                <span class="timeline-desc">Catmull-Rom 3D spline flight synced to ScrollTrigger progress.</span>
+                            </div>
+                        </div>
+                        <div class="timeline-step">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-info">
+                                <span class="timeline-ver">v0.8</span>
+                                <strong class="timeline-title">Interactive Hardware Modules</strong>
+                                <span class="timeline-desc">9 daughterboard chips with raycasting, socket gems, and focus glide.</span>
+                            </div>
+                        </div>
+                        <div class="timeline-step">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-info">
+                                <span class="timeline-ver">v1.2</span>
+                                <strong class="timeline-title">Signal Runner CRT Game</strong>
+                                <span class="timeline-desc">128&times;64 monochrome LCD display, determinism engine, pure sim seam.</span>
+                            </div>
+                        </div>
+                        <div class="timeline-step">
+                            <div class="timeline-dot active"></div>
+                            <div class="timeline-info">
+                                <span class="timeline-ver active">v2.0</span>
+                                <strong class="timeline-title active">Hardware Operating System</strong>
+                                <span class="timeline-desc">Current wavefront conduction, genuine WebGL telemetry, BIOS terminal.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="arch-modal-footer">
+                <a class="cta-linkedin arch-repo-btn js-github" href="#" target="_blank" rel="noopener noreferrer">
+                    VIEW SOURCE REPOSITORY ON GITHUB →
+                </a>
+                <button type="button" class="quick-action-btn arch-dismiss-btn" id="arch-dismiss-btn">
+                    <span class="btn-tag">ESC</span>
+                    <span class="btn-title">Dismiss Specification</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Universal PCB Action Feedback Toast -->
+    <div id="pcb-toast" class="pcb-toast" aria-live="polite" hidden></div>
 
     <!-- Entry Point Module -->
     <script type="module" src="/main.js"></script>

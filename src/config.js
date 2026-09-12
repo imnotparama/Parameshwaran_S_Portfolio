@@ -11,6 +11,9 @@ export const LINKEDIN_URL =
 export const GITHUB_URL =
     (import.meta.env && import.meta.env.VITE_GITHUB_URL) || 'https://github.com/imnotparama';
 
+export const EMAIL = 'hunterparama@gmail.com';
+export const PHONE = '+91 9176020504';
+
 // LinkedIn CTA click tracking (analytics.js) — both providers OFF by default:
 // no script loads and nothing is sent unless one of these env vars is set.
 // PLAUSIBLE_DOMAIN enables the Plausible script + a named 'LinkedIn CTA Click'

@@ -81,8 +81,15 @@ export function hoverBlip() {
     blip(720, 0.045, 0.025);
 }
 
-/** Click blip — a touch brighter/higher than hover, the "picked" tick. */
+let lastClickBlipAt = 0;
+
+/** Click blip — a touch brighter/higher than hover, the "picked" tick.
+ *  Rate-limited to 35ms to eliminate double-triggering on bubbled event handlers. */
 export function clickBlip() {
+    if (!enabled) return;
+    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+    if (now - lastClickBlipAt < 35) return;
+    lastClickBlipAt = now;
     blip(980, 0.06, 0.04, 'triangle');
 }
 
@@ -248,3 +255,33 @@ export function stopElectricalHum() {
     const ctx = getCtx();
     if (ctx) humGain.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
 }
+
+/** Multimeter continuity / probe tone — a high, clean 2.1kHz chirp. */
+export function probeTone() {
+    blip(2100, 0.05, 0.04, 'sine');
+}
+
+let lastSurgeToneAt = 0;
+
+/** Current surge flight tone — subtle rising inductive pitch while charge is traveling.
+ *  Rate-limited to 65ms so rapid scroll updates never saturate audio context with oscillators.
+ *  @param {number} progress 0..1 along leg */
+export function currentSurgeTone(progress) {
+    if (!enabled) return;
+    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+    if (now - lastSurgeToneAt < 65) return;
+    lastSurgeToneAt = now;
+    const freq = Math.round(520 + Math.min(Math.max(progress, 0), 1) * 680);
+    blip(freq, 0.028, 0.014, 'sine');
+}
+
+/** Module arrival touchdown sound — relay seat click + rich dual harmonic power rail chime (C6 + E6). */
+export function moduleTouchdown() {
+    if (!enabled) return;
+    switchClack();
+    blip(1046, 0.09, 0.038, 'triangle'); // C6 rail pitch
+    setTimeout(() => {
+        blip(1318, 0.11, 0.032, 'triangle'); // E6 major harmonic
+    }, 45);
+}
+

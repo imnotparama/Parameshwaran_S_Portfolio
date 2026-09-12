@@ -29,7 +29,7 @@ export function showFallbackUI() {
     container.innerHTML = `
         <div class="webgl-fallback">
             <div class="fallback-content">
-                <div class="fallback-icon">⚡</div>
+                <div class="fallback-icon">[SYS: NO_WEBGL]</div>
                 <h2 class="fallback-title">WebGL Not Available</h2>
                 <p class="fallback-text">
                     Your browser does not support WebGL, which is required to render the 3D PCB portfolio.

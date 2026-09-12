@@ -11,7 +11,7 @@
 //        openCommandPalette() / closeCommandPalette() from keybind.
 // ============================================================
 
-/** @typedef {{ scrollToSection: (id: string) => void, togglePower: () => void, toggleSound: () => void, activateProbe: () => void, deactivateProbe: () => void, toggleSysinfo: () => void, toggleDebug: () => void, toggleTeardown?: () => void, toggleOverclock?: () => void, toggleRover?: () => void, cycleTheme?: () => void, linkedinUrl: string, githubUrl: string }} CPDeps */
+/** @typedef {{ scrollToSection: (id: string) => void, togglePower: () => void, toggleSound: () => void, activateProbe: () => void, deactivateProbe: () => void, toggleSysinfo: () => void, toggleDebug: () => void, toggleTeardown?: () => void, toggleOverclock?: () => void, toggleRover?: () => void, cycleTheme?: () => void, toggleArch?: () => void, toggleBench?: () => void, linkedinUrl: string, githubUrl: string }} CPDeps */
 
 /** @type {CPDeps | null} */
 let deps = null;
@@ -37,19 +37,22 @@ function buildCommands() {
         { icon: '▶', label: 'Signal History (Experience)',   hint: 'J1 · USB',      exec: () => deps && deps.scrollToSection('sec-experience') },
         { icon: '▶', label: 'Transmission Interface (Contact)', hint: 'ANT1 · RF',  exec: () => deps && deps.scrollToSection('sec-contact') },
         { icon: '⌂',  label: 'Go to Home',                    hint: 'HERO · BOARD',  exec: () => deps && deps.scrollToSection('sec-hero') },
+        // ── Engineering Architecture & Specification
+        { icon: '⚙', label: 'Engineering Architecture & Specs (About Project)', hint: 'WebGL · Telemetry · Stack', exec: () => deps && deps.toggleArch && deps.toggleArch() },
         // ── Utilities
-        { icon: '🏎️', label: 'Drive PCB Nano-Rover',           hint: 'R · Drive Mode', exec: () => deps && deps.toggleRover && deps.toggleRover() },
+        { icon: '⊚', label: 'Drive PCB Nano-Rover',           hint: 'R · Drive Mode', exec: () => deps && deps.toggleRover && deps.toggleRover() },
         { icon: '◫', label: '3D Hardware Teardown (Explode)', hint: 'E · 5-Layer',   exec: () => deps && deps.toggleTeardown && deps.toggleTeardown() },
-        { icon: '⚡', label: 'Turbo Overclock (100MHz / 5V)', hint: 'T · High-Voltage', exec: () => deps && deps.toggleOverclock && deps.toggleOverclock() },
-        { icon: '🎨', label: 'Cycle Board Theme',             hint: 'ENIG / 24K / Cyber / Stealth', exec: () => deps && deps.cycleTheme && deps.cycleTheme() },
+        { icon: '⌁', label: 'Turbo Overclock (100MHz / 5V)', hint: 'T · High-Voltage', exec: () => deps && deps.toggleOverclock && deps.toggleOverclock() },
+        { icon: '◈', label: 'Cycle Board Theme',             hint: 'ENIG / 24K / Cyber / Stealth', exec: () => deps && deps.cycleTheme && deps.cycleTheme() },
         { icon: '◉', label: 'Toggle Night Bench',             hint: 'P · PWR LED',   exec: () => deps && deps.togglePower() },
+        { icon: '◐', label: 'Low-Glare Bench Mode (Dim Bloom)', hint: 'Reduced Glare · 0.35x Bloom', exec: () => deps && deps.toggleBench && deps.toggleBench() },
         { icon: '♪', label: 'Toggle Sound',                   hint: 'SND toggle',    exec: () => deps && deps.toggleSound() },
         { icon: '✜', label: 'Fly Probe',                      hint: 'WASD · scope',  exec: () => deps && deps.activateProbe() },
         { icon: '⟳', label: 'Reset to Top',                   hint: 'HERO · BOARD',  exec: () => deps && deps.scrollToSection('sec-hero') },
         // ── Secret engineering readouts (easter eggs) — a reward for typing
         // beyond the obvious: serial, rail voltage, die temp, uptime, firmware,
         // and a raw FPS/frame debug view.
-        { icon: '⚡', label: 'System Telemetry',               hint: 'SN · V · TEMP', exec: () => deps && deps.toggleSysinfo() },
+        { icon: '⎔', label: 'System Telemetry',               hint: 'SN · V · TEMP', exec: () => deps && deps.toggleSysinfo() },
         { icon: '⌬', label: 'Debug Overlay',                  hint: 'FPS · FRAME',   exec: () => deps && deps.toggleDebug() },
         // ── Links
         { icon: '⬡', label: 'Open LinkedIn',                  hint: 'Connect →',     exec: () => window.open(deps?.linkedinUrl, '_blank', 'noopener') },
