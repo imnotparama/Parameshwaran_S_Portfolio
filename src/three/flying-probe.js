@@ -138,6 +138,10 @@ export function flyProbeTo(x) {
     if (!cGroup || !nGroup) return;
     targetX = x;
 
+    gsap.killTweensOf(nGroup.position);
+    gsap.killTweensOf(cGroup.position);
+    if (contactGlowMat) gsap.killTweensOf(contactGlowMat);
+
     if (motionPrefs.reduced) {
         cGroup.position.x = targetX;
         nGroup.position.z = -0.15;
@@ -145,37 +149,40 @@ export function flyProbeTo(x) {
         return;
     }
 
-    // 1. Lift needles up
+    isLanded = false;
+    if (contactGlowMat) contactGlowMat.opacity = 0;
+
+    // 1. Lift needles quickly
     gsap.to(nGroup.position, {
         z: 0.05,
-        duration: 0.25,
+        duration: 0.15,
         ease: 'power2.out',
-        onComplete: () => {
-            if (contactGlowMat) contactGlowMat.opacity = 0;
+        overwrite: 'auto'
+    });
 
-            // 2. Glide smoothly across to the new project
-            gsap.to(cGroup.position, {
-                x: targetX,
-                duration: 0.6,
-                ease: 'power2.inOut',
+    // 2. Glide carriage across to the new project
+    gsap.to(cGroup.position, {
+        x: targetX,
+        duration: 0.45,
+        ease: 'power2.out',
+        overwrite: 'auto',
+        onComplete: () => {
+            // 3. Descend gently onto the chip pins
+            gsap.to(nGroup.position, {
+                z: -0.18,
+                duration: 0.22,
+                ease: 'back.out(1.2)',
+                overwrite: 'auto',
                 onComplete: () => {
-                    // 3. Descend gently onto the chip pins
-                    gsap.to(nGroup.position, {
-                        z: -0.18,
-                        duration: 0.3,
-                        ease: 'back.out(1.4)',
-                        onComplete: () => {
-                            isLanded = true;
-                            clickBlip();
-                            // Soft contact glow
-                            if (contactGlowMat) {
-                                gsap.fromTo(contactGlowMat, 
-                                    { opacity: 0.8 }, 
-                                    { opacity: 0.3, duration: 0.8, yoyo: true, repeat: 1 }
-                                );
-                            }
-                        }
-                    });
+                    isLanded = true;
+                    clickBlip();
+                    // Soft contact glow
+                    if (contactGlowMat) {
+                        gsap.fromTo(contactGlowMat, 
+                            { opacity: 0.8 }, 
+                            { opacity: 0.3, duration: 0.8, yoyo: true, repeat: 1, overwrite: 'auto' }
+                        );
+                    }
                 }
             });
         }

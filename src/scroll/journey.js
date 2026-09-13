@@ -961,9 +961,15 @@ export function focusLcdCamera(replayBoot = false) {
 function setLegState(destination, source, progress) {
   currentLegProgress = progress;
   if (progress >= 0.55) {
-    currentSectionId = destination;
+    if (currentSectionId !== destination) {
+      currentSectionId = destination;
+      pulseArrival(destination);
+    }
   } else if (progress < 0.5) {
-    currentSectionId = source;
+    if (currentSectionId !== source) {
+      currentSectionId = source;
+      pulseArrival(source);
+    }
   }
 }
 

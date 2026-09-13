@@ -13,6 +13,7 @@ import { hoverBlip, clickBlip, probeTone } from './sound.js';
 import { motionPrefs } from './motion-prefs.js';
 import { rotatePotentiometer } from '../three/potentiometer.js';
 import { playComponentTone } from './synth.js';
+import { setDroneTarget } from '../three/drone.js';
 
 // ─── Exports ────────────────────────────────────────────────
 export const mouse = new THREE.Vector2();
@@ -624,6 +625,10 @@ function handleHoverEnter(mesh) {
         mesh.getWorldPosition(hoverLight.position);
         hoverLight.position.z += 0.3;
         gsap.to(hoverLight, { intensity: 0.6, duration: 0.2, overwrite: 'auto' });
+    }
+
+    if (mesh.position) {
+        setDroneTarget(mesh.position.x, mesh.position.y);
     }
 
     document.body.style.cursor = 'pointer';

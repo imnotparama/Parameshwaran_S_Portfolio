@@ -84,7 +84,11 @@ export function disturbDroplets() {
  * @param {number} elapsed
  */
 export function updateWaterDroplets(elapsed) {
-    if (motionPrefs.reduced || !dropletsGroup) return;
+    if (!dropletsGroup) return;
+    if (motionPrefs.reduced) {
+        droplets.forEach((d) => d.mesh.scale.copy(d.baseScale));
+        return;
+    }
 
     droplets.forEach((d) => {
         // Natural micro-wobble from board vibration

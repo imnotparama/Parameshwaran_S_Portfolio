@@ -72,16 +72,25 @@ export function onSectionChanged(sectionId) {
 
 /**
  * Inspect a specific project chip (moves probe and shows 3D visual).
- * @param {string} ref Project reference ID e.g. 'PRJ1', 'crowdpulse', etc.
+ * Supports direct ref ('CP1'), lowercase ref ('cp1'), or project id ('crowd-pulse').
+ * @param {string} refOrId Project reference ID e.g. 'CP1', 'crowd-pulse', etc.
  */
-export function inspectProject(ref) {
-    if (!ref) return;
+export function inspectProject(refOrId) {
+    if (!refOrId) return;
 
-    const chip = projectChips[ref];
+    /** @type {any} */
+    let chip = projectChips[refOrId];
+    if (!chip) {
+        const lower = String(refOrId).toLowerCase();
+        chip = Object.values(projectChips).find(c => 
+            (c.data && c.data.ref && c.data.ref.toLowerCase() === lower) ||
+            (c.data && c.data.id && c.data.id.toLowerCase() === lower)
+        );
+    }
     if (chip && chip.pos) {
         flyProbeTo(chip.pos.x);
         setDroneTarget(chip.pos.x, chip.pos.y);
-        const projectId = (chip.data && chip.data.id) || ref;
+        const projectId = (chip.data && chip.data.id) || refOrId;
         showProjectVisual(projectId, chip.pos);
         setThermalLoad(62);
     }

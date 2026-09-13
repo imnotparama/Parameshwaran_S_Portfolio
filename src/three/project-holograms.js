@@ -698,51 +698,64 @@ export function initProjectHolograms(boardGroup) {
 export function showProjectVisual(projectId, chipPos) {
     if (!hologramParentGroup) return;
 
-    // Hide all dioramas first
-    [crowdPulseGroup, dialoraGroup, smartParkingGroup, busItGroup, blueGroundGroup, pawPalGroup, ecoMentorGroup, mlDsaGroup].forEach(grp => {
-        if (grp) grp.visible = false;
-    });
-
     activeHoloName = projectId ? projectId.toLowerCase() : '';
     let targetGroup = null;
+    let targetRef = 'CP1';
 
     if (activeHoloName.includes('crowd') || activeHoloName.includes('pulse') || activeHoloName === 'cp1') {
         targetGroup = crowdPulseGroup;
+        targetRef = 'CP1';
     } else if (activeHoloName.includes('dialora') || activeHoloName.includes('voice') || activeHoloName === 'dl1') {
         targetGroup = dialoraGroup;
+        targetRef = 'DL1';
     } else if (activeHoloName.includes('park') || activeHoloName === 'sp1') {
         targetGroup = smartParkingGroup;
+        targetRef = 'SP1';
     } else if (activeHoloName.includes('bus') || activeHoloName === 'bt1') {
         targetGroup = busItGroup;
+        targetRef = 'BT1';
     } else if (activeHoloName.includes('blue') || activeHoloName.includes('ground') || activeHoloName === 'aqd1') {
         targetGroup = blueGroundGroup;
+        targetRef = 'AQD1';
     } else if (activeHoloName.includes('paw') || activeHoloName.includes('pet') || activeHoloName === 'px1') {
         targetGroup = pawPalGroup;
+        targetRef = 'PX1';
     } else if (activeHoloName.includes('eco') || activeHoloName.includes('mentor') || activeHoloName === 'em1') {
         targetGroup = ecoMentorGroup;
+        targetRef = 'EM1';
     } else if (activeHoloName.includes('ml') || activeHoloName.includes('dsa') || activeHoloName === 'ml1') {
         targetGroup = mlDsaGroup;
+        targetRef = 'ML1';
     }
 
+    // Hide any group that is NOT the target
+    [crowdPulseGroup, dialoraGroup, smartParkingGroup, busItGroup, blueGroundGroup, pawPalGroup, ecoMentorGroup, mlDsaGroup].forEach(grp => {
+        if (grp && grp !== targetGroup) grp.visible = false;
+    });
+
+    // Zero out opacity of non-target materials
+    const activeMats = targetGroup ? (groupMaterialsMap.get(targetGroup) || []) : [];
+    allHoloMaterials.forEach(m => {
+        if (!activeMats.includes(m)) {
+            gsap.killTweensOf(m);
+            m.opacity = 0;
+        }
+    });
+
     if (targetGroup) {
-        // Position on top of the physical chip
-        if (chipPos) {
-            targetGroup.position.copy(chipPos);
-        } else {
-            // Find chip position from lookup if not explicitly passed
-            const chip = Object.values(projectChips).find(c => 
-                (c.data && c.data.id && c.data.id.toLowerCase() === activeHoloName) ||
-                (c.data && c.data.ref && c.data.ref.toLowerCase() === activeHoloName)
-            );
-            if (chip && chip.pos) {
-                targetGroup.position.copy(chip.pos);
-            }
+        let pos = chipPos;
+        if (!pos) {
+            const chip = projectChips[targetRef];
+            if (chip && chip.pos) pos = chip.pos;
+        }
+        if (pos) {
+            targetGroup.position.copy(pos);
         }
         targetGroup.visible = true;
 
         // Ensure materials for this active group are visibly glowing
-        const mats = groupMaterialsMap.get(targetGroup) || [];
-        mats.forEach(m => {
+        activeMats.forEach(m => {
+            gsap.killTweensOf(m);
             gsap.to(m, { opacity: 0.95, duration: 0.35, ease: 'power1.out', overwrite: 'auto' });
         });
     }
@@ -752,16 +765,17 @@ export function showProjectVisual(projectId, chipPos) {
  * Hide all active project dioramas.
  */
 export function hideProjectVisuals() {
+    activeHoloName = '';
     allHoloMaterials.forEach(m => {
-        gsap.to(m, { 
-            opacity: 0, 
-            duration: 0.25, 
-            onComplete: () => {
-                [crowdPulseGroup, dialoraGroup, smartParkingGroup, busItGroup, blueGroundGroup, pawPalGroup, ecoMentorGroup, mlDsaGroup].forEach(grp => {
-                    if (grp) grp.visible = false;
-                });
-            }
-        });
+        gsap.killTweensOf(m);
+        gsap.to(m, { opacity: 0, duration: 0.25, overwrite: 'auto' });
+    });
+    gsap.delayedCall(0.25, () => {
+        if (!activeHoloName) {
+            [crowdPulseGroup, dialoraGroup, smartParkingGroup, busItGroup, blueGroundGroup, pawPalGroup, ecoMentorGroup, mlDsaGroup].forEach(grp => {
+                if (grp) grp.visible = false;
+            });
+        }
     });
 }
 
