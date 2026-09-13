@@ -7,7 +7,7 @@ import { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulse
 import { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips, projectChips } from './src/three/project-chips.js';
 import { createLcd, updateLcdScreen, isLcdActive, getBestScore, setBestListener, getBoardFx } from './src/three/lcd.js';
-import { updateRadarRing, pulseBuzzer, updateCapacitorBanks } from './src/three/components.js';
+import { updateRadarRing, pulseBuzzer, updateCapacitorBanks, triggerCapacitorOverdrive } from './src/three/components.js';
 import { runBootSequence } from './src/ui/boot.js';
 import { initHover, checkHover, mouse, setBoardClickHandler, setBuzzerHandler, setSwitchHandler, setLcdHandler, setSubsystemInspectHandler, setTestpointHandler, setTrimpotHandler, setHeaderHandler, setRfHandler, setInductorHandler } from './src/utils/hover.js';
 import { isSoundEnabled, toggleSound, switchClack, clickBlip, electricalHum, stopElectricalHum, powerUpBeep } from './src/utils/sound.js';
@@ -323,8 +323,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setSwitchHandler((switchName) => {
         if (switchName === 'SW1') {
             togglePower();
-            emitUartLog('PWR', 'Front Panel SW1 Pressed · System Power Mode Toggled');
-            emitSystemEvent('POWER MODE TOGGLE', 'Night bench power rail state switched');
+            triggerCapacitorOverdrive();
+            emitUartLog('PWR', 'Front Panel SW1 Pressed · Capacitor Overdrive & Power Mode Active');
+            emitSystemEvent('POWER MODE TOGGLE', 'Night bench power rail & capacitor banks energized');
         } else if (switchName === 'SW2') {
             pulseBuzzer();
             emitUartLog('DIAG', 'Front Panel SW2 Pressed · Piezo Audio Beacon Test Initiated');

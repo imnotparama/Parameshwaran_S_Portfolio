@@ -95,7 +95,7 @@ let suppressHoverUntil = 0;
 const PCB_GLOW_MAP = {
     'U1': 0x3ee6a0, 'U2': 0x00bfff, 'Y1': 0xaa44ff,
     'ANT1': 0x00ffff, 'J1': 0xff8800, 'VR1': 0xff4444,
-    'RN1': 0x14b8a6, 'TP1': 0xffcc00, 'TP2': 0xffcc00,
+    'RN1': 0x14b8a6, 'U3': 0x06b6d4, 'TP1': 0xd97706, 'TP2': 0xd97706,
     'C5': 0x10b981, 'RF1': 0x00ffff, 'HDR1': 0xffcc00,
     'L1': 0x14b8a6, 'RV1': 0xff8800, 'SW1': 0x3ee6a0, 'SW2': 0x3ee6a0, 'SW3': 0x3ee6a0
 };
@@ -119,6 +119,7 @@ const SCOPE_MAP = {
     'VR1':    { v: '5V→3.3V',   f: '—',         state: 'REG' },
     'D1-D7':  { v: '2.0V',      f: '20mA',      state: 'LIT' },
     'RN1':    { v: '4.7kΩ',     f: '—',         state: 'PULL-UP' },
+    'U3':     { v: '3.3V',      f: '104MHz SPI', state: 'READY' },
     'TP1':    { v: '5V',        f: '—',         state: 'REF' },
     'TP2':    { v: 'GND',       f: '—',         state: 'REF' },
     'BZ1':    { v: '3.3V',      f: '2.7kHz',    state: 'SILENT' },

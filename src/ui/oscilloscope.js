@@ -115,10 +115,47 @@ function waveform(ref, t, x) {
             if (l.shielded) base = base * 0.75 + 0.15 * Math.sin(x * Math.PI * 8 + t * 3);
             return base + noise(t * 6 + x * 4, 0.03);
         }
-        case 'C1': case 'C2': case 'C3': case 'C4': {
-            // Decoupling cap: small RC discharge/charge cycles
-            const rc = (x + t * 0.3) % 1;
-            return (1 - Math.exp(-rc * 5)) * 0.6 - 0.3 + noise(t * 4 + x, 0.05);
+        case 'C1': {
+            // AI & Computer Vision — Neural spike burst & synaptic action potentials
+            const phase = (x * 4 + t * 3.2) % 1;
+            const spike = phase < 0.15 ? Math.sin((phase / 0.15) * Math.PI) * 0.85 - 0.25 * Math.sin((phase / 0.15) * Math.PI * 2) : -0.15 * Math.exp(-(phase - 0.15) * 6);
+            return spike + noise(t * 15 + x * 4, 0.04);
+        }
+        case 'C2': {
+            // Backend & Cloud Architecture — Asynchronous packet trains & multi-thread clock pulses
+            const clk1 = Math.sin(x * 16 + t * 7) > 0 ? 0.45 : -0.45;
+            const clk2 = Math.sin(x * 32 - t * 11) > 0.2 ? 0.3 : -0.3;
+            const envelope = Math.sin(x * 3.5 + t * 1.5) * 0.5 + 0.5;
+            return (clk1 * 0.6 + clk2 * 0.4) * envelope + noise(t * 12, 0.03);
+        }
+        case 'C3': {
+            // WebGL 3D & Graphics Core — Harmonic sine superposition & geometric vertex waves
+            const harm1 = Math.sin(x * Math.PI * 6 + t * 4.2) * 0.45;
+            const harm2 = Math.sin(x * Math.PI * 12 - t * 2.8) * 0.25;
+            const harm3 = Math.sin(x * Math.PI * 18 + t * 6.0) * 0.15;
+            return harm1 + harm2 + harm3 + noise(t * 8 + x * 2, 0.03);
+        }
+        case 'C4': {
+            // Embedded & Edge Hardware — Stepped PWM duty cycle with inductive ringing transients
+            const duty = 0.3 + 0.35 * (Math.sin(t * 1.5) * 0.5 + 0.5);
+            const cycle = (x * 5 + t * 2.0) % 1;
+            const square = cycle < duty ? 0.6 : -0.6;
+            const ringing = Math.exp(-(cycle % 0.5) * 12) * Math.sin(cycle * 48) * 0.25;
+            return square + ringing + noise(t * 20, 0.03);
+        }
+        case 'RF1': {
+            // Power Substation RF1 — Dual-phase interleaved resonant power ripple with inductive flyback
+            const saw1 = ((x * 8 + t * 5) % 1) * 0.7 - 0.35;
+            const saw2 = ((x * 8 + t * 5 + 0.5) % 1) * 0.7 - 0.35;
+            const flyback = Math.sin(x * 32 + t * 20) * 0.15;
+            return (saw1 + saw2) * 0.5 + flyback + noise(t * 25, 0.04);
+        }
+        case 'U3': {
+            // SPI Flash ROM — High-speed burst synchronous serial data stream & clock packets
+            const sck = Math.sin(x * 64 + t * 24) > 0 ? 0.35 : -0.35;
+            const dataBit = Math.sin(x * 16 + t * 6) > 0.1 ? 0.45 : -0.45;
+            const burstGate = Math.sin(x * 4 + t * 2) > -0.2 ? 1 : 0.1;
+            return (sck * 0.4 + dataBit * 0.6) * burstGate + noise(t * 18, 0.03);
         }
         // ── Expansion modules — each subsystem has its OWN waveform, the
         // probe sees the module's actual signal. (Same phosphor green — the

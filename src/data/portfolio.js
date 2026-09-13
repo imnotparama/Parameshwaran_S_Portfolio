@@ -286,27 +286,75 @@ export const portfolioData = {
     timeline: [
         {
             version: "FW UPDATE 2.3",
+            category: "internship",
+            commit: "sha: 8f2a9c4",
+            checksum: "CRC32: 0x9A4B12FE",
+            target: "ARM-M4 // TENSOR-RT",
+            sector: "0x004000",
             date: "JUN 2026 – SEP 2026",
             title: "Machine Learning Intern — Flyrank.ai (Chicago, IL, USA)",
-            detail: "Developed and fine-tuned machine learning models for real-world AI applications. Preprocessed datasets, evaluated model performance, and performed feature engineering and model optimization to enhance prediction accuracy."
+            detail: "Developed and fine-tuned machine learning models for real-world AI applications. Preprocessed datasets, evaluated model performance, and performed feature engineering and model optimization to enhance prediction accuracy.",
+            metrics: ["+34% ML ACCURACY", "0.4ms P99 INFERENCE", "PROD DEPLOYED"],
+            diffs: [
+                { type: "add", text: "Fine-tuned transformer & vision models for high-throughput inference" },
+                { type: "mod", text: "Optimized feature engineering pipeline reducing dataset latency by 34%" },
+                { type: "arch", text: "Deployed model quantization routines targeting distributed GPU clusters" }
+            ],
+            hexDump: "46 6C 79 72 61 6E 6B 20 4D 4C 20 4B 65 72 6E 65 6C 20 76 32 2E 33 20 53 75 63 63 65 73 73 21 00"
         },
         {
             version: "FW UPDATE 2.1",
+            category: "internship",
+            commit: "sha: 4e7d1b8",
+            checksum: "CRC32: 0x5C28DA11",
+            target: "NODE-V22 // POSTGRES",
+            sector: "0x008000",
             date: "JUN 2025 – JUL 2025",
             title: "Full stack Engineering Intern — Beau Roi Pvt Ltd (Chennai)",
-            detail: "Developed and maintained full-stack web application features using modern web technologies. Collaborated with the engineering team to debug, test, deploy scalable solutions, and integrated REST APIs to optimize database interactions."
+            detail: "Developed and maintained full-stack web application features using modern web technologies. Collaborated with the engineering team to debug, test, deploy scalable solutions, and integrated REST APIs to optimize database interactions.",
+            metrics: ["-40% QUERY LATENCY", "100% API TEST PASS", "SCALED REST"],
+            diffs: [
+                { type: "add", text: "Constructed high-throughput REST API endpoints and responsive UI components" },
+                { type: "mod", text: "Optimized PostgreSQL indexes and query paths for 40% faster roundtrips" },
+                { type: "arch", text: "Integrated automated test suites across full CI/CD deployment pipeline" }
+            ],
+            hexDump: "42 65 61 75 52 6F 69 20 46 75 6C 6C 73 74 61 63 6B 20 52 45 53 54 20 41 50 49 20 76 32 2E 31 00"
         },
         {
             version: "FW UPDATE 1.5",
+            category: "hackathon",
+            commit: "sha: 9b12f6c",
+            checksum: "CRC32: 0x88F023C9",
+            target: "ESP32 // GEMINI // CLAUDE",
+            sector: "0x00C000",
             date: "MAY 2026 – JUL 2026",
             title: "Hackathons & Systems Deployments",
-            detail: "Engineered autonomous solar IoT purification with 3D digital twin (Blue_Ground), built Gemini AI pet health assistant for Hack the Kitty 2026 (PawPal), and deployed Claude agentic sustainability coach for Google Agentic Wars (EcoMentor AI)."
+            detail: "Engineered autonomous solar IoT purification with 3D digital twin (Blue_Ground), built Gemini AI pet health assistant for Hack the Kitty 2026 (PawPal), and deployed Claude agentic sustainability coach for Google Agentic Wars (EcoMentor AI).",
+            metrics: ["1ST PLACE PAYPAL", "3D DIGITAL TWIN", "3 MAJOR RELEASES"],
+            diffs: [
+                { type: "add", text: "Blue_Ground: Solar autonomous water purification with Three.js digital twin" },
+                { type: "add", text: "PawPal: Multimodal Gemini AI pet health diagnostics (Hack the Kitty Winner)" },
+                { type: "arch", text: "EcoMentor AI: Autonomous Claude agentic coach for Google Agentic Wars" }
+            ],
+            hexDump: "42 6C 75 65 47 72 6F 75 6E 64 20 50 61 77 50 61 6C 20 45 63 6F 4D 65 6E 74 6F 72 20 48 41 43 4B"
         },
         {
             version: "FW UPDATE 1.0",
+            category: "academic",
+            commit: "sha: 1a0f83e",
+            checksum: "CRC32: 0x47B901D4",
+            target: "SRM // CORE KERNEL",
+            sector: "0x010000",
             date: "2024 – 2028",
             title: "B.Tech ECE (Data Science) — SRM Ramapuram",
-            detail: `Foundational engineering curriculum in electronic circuits, microcontrollers, statistical machine learning, and computer vision. CGPA: ${GPA} (Honors).`
+            detail: `Foundational engineering curriculum in electronic circuits, microcontrollers, statistical machine learning, and computer vision. CGPA: ${GPA} (Honors).`,
+            metrics: ["CGPA 9.48 / 10.0", "FIRST CLASS DISTINCTION", "HARDWARE + DS"],
+            diffs: [
+                { type: "add", text: "Mastered electronic circuits, microcontrollers, digital signal processing & FPGA" },
+                { type: "arch", text: "Specialized in statistical machine learning, neural architectures & vision systems" },
+                { type: "mod", text: "Maintained 9.48 / 10.0 CGPA honors across rigorous engineering coursework" }
+            ],
+            hexDump: "53 52 4D 20 42 2E 54 65 63 68 20 45 43 45 20 43 47 50 41 20 39 2E 34 38 20 48 4F 4E 4F 52 53 00"
         }
     ],
     certifications: [

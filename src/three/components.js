@@ -47,6 +47,89 @@ let plasmaArcTimer = 0;
 const plasmaArcSourcePos = new THREE.Vector3();
 const plasmaArcTargetPos = new THREE.Vector3();
 
+/** @type {{ mesh: THREE.Mesh, capIndex: number, speed: number, seed: number }[]} */
+const sparkMotes = [];
+/** @type {THREE.Mesh | null} */
+let voltmeterNeedle = null;
+/** @type {THREE.Mesh | null} */
+export let rfCoil1 = null;
+/** @type {THREE.Mesh | null} */
+export let rfCoil2 = null;
+/** @type {THREE.Mesh | null} */
+export let u3FlashChip = null;
+/** @type {THREE.Mesh | null} */
+export let u3LaserBeam = null;
+/** @type {THREE.Mesh | null} */
+export let u3ActivityLed = null;
+
+/**
+ * Trigger animated firmware burning sequence on U3 SPI Flash ROM.
+ * @param {string} [_version]
+ */
+export function triggerFirmwareFlashAnim(_version = '2.3') {
+    if (u3LaserBeam && u3LaserBeam.material) {
+        const mat = /** @type {THREE.MeshBasicMaterial} */ (u3LaserBeam.material);
+        u3LaserBeam.visible = true;
+        gsap.killTweensOf(mat);
+        gsap.killTweensOf(u3LaserBeam.scale);
+        gsap.set(mat, { opacity: 0.95 });
+        gsap.set(u3LaserBeam.scale, { x: 1.2, y: 1.2, z: 1.0 });
+        gsap.to(mat, {
+            opacity: 0,
+            duration: 0.65,
+            ease: 'power2.out',
+            onComplete: () => {
+                if (u3LaserBeam) u3LaserBeam.visible = false;
+            }
+        });
+        gsap.to(u3LaserBeam.scale, {
+            x: 0.8, y: 0.8, z: 1.4,
+            duration: 0.65,
+            ease: 'power2.out'
+        });
+    }
+
+    if (u3ActivityLed && u3ActivityLed.material) {
+        const mat = /** @type {THREE.MeshStandardMaterial} */ (u3ActivityLed.material);
+        gsap.killTweensOf(mat);
+        gsap.to(mat, {
+            emissiveIntensity: 3.5,
+            duration: 0.08,
+            repeat: 7,
+            yoyo: true,
+            ease: 'steps(1)',
+            onComplete: () => {
+                mat.emissiveIntensity = 0.2;
+            }
+        });
+    }
+
+    if (u3FlashChip && u3FlashChip.scale) {
+        gsap.killTweensOf(u3FlashChip.scale);
+        gsap.fromTo(u3FlashChip.scale, { x: 1, y: 1, z: 1 }, {
+            x: 1.1, y: 1.1, z: 1.1,
+            duration: 0.15,
+            repeat: 1,
+            yoyo: true,
+            ease: 'power2.out'
+        });
+    }
+
+    // Piezo buzzer acoustic chime confirmation
+    pulseBuzzer();
+}
+
+/**
+ * Trigger full capacitor bank overdrive mode: all banks flash and surge in sequence.
+ */
+export function triggerCapacitorOverdrive() {
+    Object.keys(capacitorBanks).forEach((k, i) => {
+        setTimeout(() => {
+            energizeCapacitor(k, 3.2);
+        }, i * 70);
+    });
+}
+
 /**
  * Energize a specific capacitor bank (e.g. 'C1', 'C2', 'C3', 'C4').
  * Fired when hovering skill cards in the UI or on section arrival.
@@ -69,12 +152,14 @@ export function energizeCapacitor(bankId, boost = 1.8) {
 }
 
 /**
- * Per-frame animation for high-tech capacitor banks (holographic rings, plasma cores, VU LEDs, plasma arcs).
+ * Per-frame animation for high-tech capacitor banks (holographic rings, plasma cores, VU LEDs, sparks, dial gauge).
  * @param {number} elapsed
  * @param {number} delta
  */
 export function updateCapacitorBanks(elapsed, delta) {
     const isReduced = motionPrefs.reduced;
+    let maxBoost = 1.0;
+
     Object.keys(capacitorBanks).forEach((key, idx) => {
         const b = capacitorBanks[key];
         if (!b) return;
@@ -83,6 +168,7 @@ export function updateCapacitorBanks(elapsed, delta) {
         if (b.boost > 1.0) {
             b.boost = Math.max(1.0, b.boost - delta * 1.8);
         }
+        if (b.boost > maxBoost) maxBoost = b.boost;
 
         // Holographic ring rotation & levitation
         if (!isReduced && b.ringMesh) {
@@ -106,7 +192,44 @@ export function updateCapacitorBanks(elapsed, delta) {
         });
     });
 
-    // Animate plasma lightning arc
+    // 1. Counter-rotate the dual inductors in Crystalline Substation
+    if (!isReduced && rfCoil1 && rfCoil2) {
+        rfCoil1.rotation.z += delta * 1.6;
+        rfCoil2.rotation.z -= delta * 1.6;
+    }
+
+    // 2. Animate floating golden electron sparks above capacitors
+    if (!isReduced && sparkMotes.length > 0) {
+        const capXs = [2.3, 2.9, 3.5, 4.1];
+        sparkMotes.forEach((sp) => {
+            sp.mesh.position.z += delta * sp.speed;
+            sp.mesh.position.x += Math.sin(elapsed * 2.5 + sp.seed) * 0.003;
+            sp.mesh.position.y += Math.cos(elapsed * 2.0 + sp.seed) * 0.003;
+
+            // Fade opacity with height
+            const mat = /** @type {THREE.MeshBasicMaterial} */ (sp.mesh.material);
+            if (mat) {
+                const frac = (sp.mesh.position.z - 0.4) / 1.0;
+                mat.opacity = Math.max(0, 0.9 * (1.0 - frac));
+            }
+
+            // Recycle spark once it floats high enough
+            if (sp.mesh.position.z > 1.4) {
+                sp.mesh.position.z = 0.4 + Math.random() * 0.1;
+                sp.capIndex = Math.floor(Math.random() * 4);
+                sp.mesh.position.x = capXs[sp.capIndex] + (Math.random() - 0.5) * 0.16;
+                sp.mesh.position.y = 4.5 + (Math.random() - 0.5) * 0.16;
+            }
+        });
+    }
+
+    // 3. Voltmeter needle rotation tracking system charge
+    if (voltmeterNeedle) {
+        const targetAngle = -0.55 + (maxBoost - 1.0) * 0.85 + Math.sin(elapsed * 2.2) * 0.04;
+        voltmeterNeedle.rotation.z = THREE.MathUtils.lerp(voltmeterNeedle.rotation.z, targetAngle, delta * 7);
+    }
+
+    // 4. Animate plasma lightning arc
     if (plasmaArcLine && plasmaArcMat) {
         if (plasmaArcTimer > 0) {
             plasmaArcTimer -= delta;
@@ -663,6 +786,84 @@ export function createComponents(boardGroup) {
     plasmaArcLine.visible = false;
     boardGroup.add(plasmaArcLine);
 
+    // 1. Floating golden/cyan electron spark motes above capacitor bank
+    const sparkGeo = new THREE.OctahedronGeometry(0.025, 0);
+    disposableResources.geometries.add(sparkGeo);
+    const sparkMat = new THREE.MeshBasicMaterial({
+        color: 0x3ee6a0,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+    });
+    disposableResources.materials.add(sparkMat);
+    sparkMotes.length = 0;
+    const capXs = [2.3, 2.9, 3.5, 4.1];
+    for (let s = 0; s < 12; s++) {
+        const sMesh = new THREE.Mesh(sparkGeo, sparkMat);
+        const capIdx = s % 4;
+        const startX = capXs[capIdx];
+        sMesh.position.set(
+            startX + (Math.random() - 0.5) * 0.18,
+            4.5 + (Math.random() - 0.5) * 0.18,
+            0.4 + Math.random() * 0.9
+        );
+        boardGroup.add(sMesh);
+        sparkMotes.push({
+            mesh: sMesh,
+            capIndex: capIdx,
+            speed: 0.35 + Math.random() * 0.4,
+            seed: s * 1.7
+        });
+    }
+
+    // 2. Analog Precision Galvanometer / Voltmeter Gauge at x: 1.65, y: 4.5
+    const gaugeGroup = new THREE.Group();
+    gaugeGroup.position.set(1.65, 4.5, surfaceZ);
+    boardGroup.add(gaugeGroup);
+
+    const gaugeRimGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.04, 24);
+    gaugeRimGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(gaugeRimGeo);
+    const gaugeFaceGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.045, 24);
+    gaugeFaceGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(gaugeFaceGeo);
+
+    const gaugeRim = new THREE.Mesh(gaugeRimGeo, goldMaterial);
+    gaugeRim.position.z = 0.02;
+    gaugeGroup.add(gaugeRim);
+
+    const gaugeFaceMat = new THREE.MeshStandardMaterial({
+        color: 0x090d16,
+        roughness: 0.75,
+        metalness: 0.25
+    });
+    disposableResources.materials.add(gaugeFaceMat);
+    const gaugeFace = new THREE.Mesh(gaugeFaceGeo, gaugeFaceMat);
+    gaugeFace.position.z = 0.025;
+    gaugeGroup.add(gaugeFace);
+
+    // Voltmeter needle
+    const needleGeo = new THREE.BoxGeometry(0.012, 0.16, 0.008);
+    disposableResources.geometries.add(needleGeo);
+    voltmeterNeedle = new THREE.Mesh(needleGeo, goldMaterial);
+    voltmeterNeedle.position.set(0, 0.06, 0.05);
+    voltmeterNeedle.rotation.z = -0.45;
+    gaugeGroup.add(voltmeterNeedle);
+
+    // 3. Substrate Translucent Ground Glow Patch beneath C1-C4
+    const substrateGlowGeo = new THREE.PlaneGeometry(2.6, 1.2);
+    disposableResources.geometries.add(substrateGlowGeo);
+    const substrateGlowMat = new THREE.MeshBasicMaterial({
+        color: 0x06b6d4,
+        transparent: true,
+        opacity: 0.12,
+        blending: THREE.AdditiveBlending
+    });
+    disposableResources.materials.add(substrateGlowMat);
+    const substrateGlow = new THREE.Mesh(substrateGlowGeo, substrateGlowMat);
+    substrateGlow.position.set(3.2, 4.5, surfaceZ + 0.002);
+    boardGroup.add(substrateGlow);
+
     // -------------------------------------------------------------
     // COMPONENT 4 — Crystal Oscillator (Y1) - Education
     // -------------------------------------------------------------
@@ -884,6 +1085,90 @@ export function createComponents(boardGroup) {
     rnMesh.userData = { componentName: 'Resistor Network RN1 (Programming Languages)', type: 'RESISTOR' };
     boardGroup.add(rnMesh);
     interactiveObjects.push(rnMesh);
+
+    // -------------------------------------------------------------
+    // COMPONENT 9B — SPI NOR Flash Memory Chip (U3) - Firmware Storage
+    // Winbond W25Q128 / 128Mb high-speed serial flash.
+    // 8-pin SOIC package with gull-wing leads, pin 1 dot, and laser write-head.
+    // -------------------------------------------------------------
+    const u3Group = new THREE.Group();
+    u3Group.position.set(0.9, -4.6, surfaceZ);
+    boardGroup.add(u3Group);
+
+    const u3BodyGeo = new THREE.BoxGeometry(0.72, 0.52, 0.14);
+    disposableResources.geometries.add(u3BodyGeo);
+    const u3Mat = chipMaterial.clone();
+    u3Mat.color.setHex(0x111317);
+    disposableResources.materials.add(u3Mat);
+    const u3Mesh = new THREE.Mesh(u3BodyGeo, u3Mat);
+    u3Mesh.position.z = 0.07;
+    u3Mesh.castShadow = true;
+    u3Mesh.name = 'U3';
+    u3Mesh.userData = {
+        componentName: 'SPI Flash ROM U3 (W25Q128 128Mb Firmware)',
+        type: 'FLASH_ROM'
+    };
+    u3Group.add(u3Mesh);
+    interactiveObjects.push(u3Mesh);
+    u3FlashChip = u3Mesh;
+
+    // Pin 1 orientation index dot
+    const pin1Geo = new THREE.CylinderGeometry(0.04, 0.04, 0.02, 12);
+    pin1Geo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(pin1Geo);
+    const pin1Mesh = new THREE.Mesh(pin1Geo, new THREE.MeshStandardMaterial({ color: 0x22262d, roughness: 0.8 }));
+    pin1Mesh.position.set(-0.24, 0.16, 0.142);
+    u3Group.add(pin1Mesh);
+
+    // 8 Gull-wing solder pins (4 top, 4 bottom)
+    const pinGeo = new THREE.BoxGeometry(0.07, 0.16, 0.02);
+    disposableResources.geometries.add(pinGeo);
+    const pinMat = metalMaterial.clone();
+    disposableResources.materials.add(pinMat);
+    for (let i = 0; i < 4; i++) {
+        const px = -0.225 + i * 0.15;
+        // Top pins
+        const pTop = new THREE.Mesh(pinGeo, pinMat);
+        pTop.position.set(px, 0.31, 0.02);
+        u3Group.add(pTop);
+        // Bottom pins
+        const pBot = new THREE.Mesh(pinGeo, pinMat);
+        pBot.position.set(px, -0.31, 0.02);
+        u3Group.add(pBot);
+    }
+
+    // Holographic firmware write-beam / optic cone above U3
+    const laserConeGeo = new THREE.CylinderGeometry(0.03, 0.18, 0.65, 16);
+    laserConeGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(laserConeGeo);
+    const laserConeMat = new THREE.MeshBasicMaterial({
+        color: 0x06b6d4,
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.DoubleSide,
+        depthWrite: false
+    });
+    disposableResources.materials.add(laserConeMat);
+    const laserBeam = new THREE.Mesh(laserConeGeo, laserConeMat);
+    laserBeam.position.set(0, 0, 0.42);
+    laserBeam.visible = false;
+    u3Group.add(laserBeam);
+    u3LaserBeam = laserBeam;
+
+    // SPI Activity Micro-LED (D8 FL_ACT)
+    const d8Geo = new THREE.BoxGeometry(0.06, 0.04, 0.03);
+    disposableResources.geometries.add(d8Geo);
+    const d8Mat = new THREE.MeshStandardMaterial({
+        color: 0x06b6d4,
+        emissive: 0x06b6d4,
+        emissiveIntensity: 0.2,
+        roughness: 0.3
+    });
+    disposableResources.materials.add(d8Mat);
+    const d8Mesh = new THREE.Mesh(d8Geo, d8Mat);
+    d8Mesh.position.set(0.55, 0.0, 0.015);
+    u3Group.add(d8Mesh);
+    u3ActivityLed = d8Mesh;
 
     // -------------------------------------------------------------
     // COMPONENT 10 — Piezo Buzzer (BZ1) - the horn
@@ -1150,12 +1435,17 @@ export function createComponents(boardGroup) {
     }
 
     // Dual Glowing Copper Toroidal Inductors inside cavity
-    for (const cdx of [-0.28, 0.28]) {
-        const coil = new THREE.Mesh(rfInductorGeo, rfInductorMat);
-        coil.position.set(4.1 + cdx, 6.0, surfaceZ + 0.18);
-        coil.rotation.x = 0.2;
-        boardGroup.add(coil);
-    }
+    const coil1 = new THREE.Mesh(rfInductorGeo, rfInductorMat);
+    coil1.position.set(4.1 - 0.28, 6.0, surfaceZ + 0.18);
+    coil1.rotation.x = 0.2;
+    boardGroup.add(coil1);
+    rfCoil1 = coil1;
+
+    const coil2 = new THREE.Mesh(rfInductorGeo, rfInductorMat);
+    coil2.position.set(4.1 + 0.28, 6.0, surfaceZ + 0.18);
+    coil2.rotation.x = 0.2;
+    boardGroup.add(coil2);
+    rfCoil2 = coil2;
 
     // Sapphire Crystalline Glass Cover Window
     const glass = new THREE.Mesh(rfGlassGeo, rfGlassMat);
