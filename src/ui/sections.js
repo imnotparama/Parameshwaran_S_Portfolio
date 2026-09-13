@@ -8,9 +8,11 @@ import { LINKEDIN_URL, GITHUB_URL } from '../config.js';
 import { setProjectFilter } from '../three/project-chips.js';
 import { isChipVerified } from './telemetry.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
-import { clickBlip } from '../utils/sound.js';
+import { clickBlip, relayClick } from '../utils/sound.js';
 import { focusProject } from '../scroll/journey.js';
 import { inspectProject } from '../three/hardware-orchestrator.js';
+import { energizeCapacitor } from '../three/components.js';
+import { emitUartLog } from './telemetry.js';
 import gsap from 'gsap';
 
 /** @param {string} str */
@@ -239,27 +241,77 @@ function applyProjectFilter(filter, clickedBtn) {
     setProjectFilter(filter);
 }
 
-// Skills — Capabilities First, Supported by Technologies
+// Skills — Capabilities First, Supported by Technologies & Energy Banks
 function renderSkills() {
     const wrap = document.getElementById('skills-groups');
     if (!wrap) return;
 
     const skillCategories = [
-        { code: 'BANK C1', label: 'AI & Computer Vision Architecture', group: portfolioData.skills.ai_vision },
-        { code: 'BANK C2', label: 'Distributed Backend Engineering', group: portfolioData.skills.backend },
-        { code: 'BANK C3', label: 'Interactive WebGL & Engine Systems', group: portfolioData.skills.webgl_ui },
-        { code: 'BANK C4', label: 'Embedded Systems & IoT Hardware', group: portfolioData.skills.embedded_iot },
-        { code: 'BANK C5', label: 'Data Science & Analytical Pipelines', group: portfolioData.skills.data_analytics }
+        {
+            code: 'BANK C1',
+            bank: 'C1',
+            spec: '+3.3V · 4700µF · TENSOR CORE',
+            pct: 98,
+            colorHex: '#f59e0b',
+            label: 'AI & Computer Vision Architecture',
+            group: portfolioData.skills.ai_vision
+        },
+        {
+            code: 'BANK C2',
+            bank: 'C2',
+            spec: '+5.0V · 3300µF · ASYNC CLOUD',
+            pct: 95,
+            colorHex: '#06b6d4',
+            label: 'Distributed Backend Engineering',
+            group: portfolioData.skills.backend
+        },
+        {
+            code: 'BANK C3',
+            bank: 'C3',
+            spec: '+3.3V · 2200µF · 3D WEBGL ENGINE',
+            pct: 96,
+            colorHex: '#10b981',
+            label: 'Interactive WebGL & Engine Systems',
+            group: portfolioData.skills.webgl_ui
+        },
+        {
+            code: 'BANK C4',
+            bank: 'C4',
+            spec: '+1.8V · 1000µF · EMBEDDED DMA',
+            pct: 92,
+            colorHex: '#8b5cf6',
+            label: 'Embedded Systems & IoT Hardware',
+            group: portfolioData.skills.embedded_iot
+        },
+        {
+            code: 'BANK C5',
+            bank: 'C1', // Links to primary analytics core
+            spec: '+12V · 6800µF · DATA PIPELINE',
+            pct: 94,
+            colorHex: '#38bdf8',
+            label: 'Data Science & Analytical Pipelines',
+            group: portfolioData.skills.data_analytics
+        }
     ];
 
     wrap.innerHTML = skillCategories
         .map((cat) => {
             const items = cat.group || [];
             return `
-            <div class="skill-group">
+            <div class="skill-group" data-bank="${cat.bank}" style="--bank-accent: ${cat.colorHex};">
                 <div class="skill-group-head">
-                    <span class="skill-group-code">${esc(cat.code)}</span>
+                    <div class="skill-head-top">
+                        <span class="skill-group-code">${esc(cat.code)}</span>
+                        <span class="skill-bank-spec">${esc(cat.spec)}</span>
+                    </div>
                     <h3 class="skill-group-label">${esc(cat.label)}</h3>
+                </div>
+                <div class="skill-energy-meter">
+                    <div class="skill-energy-label">CAPACITY // CHARGE RESERVE</div>
+                    <div class="skill-energy-track">
+                        <div class="skill-energy-fill" style="width: ${cat.pct}%; background: linear-gradient(90deg, ${cat.colorHex}88, ${cat.colorHex});"></div>
+                    </div>
+                    <span class="skill-energy-val">${cat.pct}%</span>
                 </div>
                 ${items.map((item) => `
                     <div class="capability-block">
@@ -275,6 +327,17 @@ function renderSkills() {
             </div>`;
         })
         .join('');
+
+    // Wire bilateral 3D hover sync and tactile feedback
+    wrap.querySelectorAll('.skill-group').forEach((card) => {
+        const bank = card.getAttribute('data-bank') || 'C1';
+        card.addEventListener('mouseenter', () => {
+            energizeCapacitor(bank, 2.2);
+            relayClick();
+            const label = card.querySelector('.skill-group-label')?.textContent || '';
+            emitUartLog('PWR', `ENERGIZING BANK ${bank} [${label}] · HIGH VOLTAGE RAIL ACTIVE`);
+        });
+    });
 }
 
 // Experience — FW UPDATE Timeline

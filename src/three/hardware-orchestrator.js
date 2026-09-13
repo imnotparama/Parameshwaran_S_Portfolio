@@ -57,6 +57,12 @@ export function onSectionChanged(sectionId) {
         // Expansion Bus: probe inspects the first project chip automatically
         setThermalLoad(60);
         inspectFirstProject();
+    } else if (sectionId === 'sec-skills') {
+        // High-voltage capacitor bank energy activation: probe glides to banks, drone inspects substation
+        setThermalLoad(52);
+        hideProjectVisuals();
+        flyProbeTo(3.2);
+        setDroneTarget(3.5, 5.2);
     } else if (sectionId === 'sec-contact') {
         // Antenna wakes up with natural RF microwave waves + corner celebration sparks
         setThermalLoad(42);
@@ -64,7 +70,7 @@ export function onSectionChanged(sectionId) {
         triggerRfBurst();
         triggerCornerSparks();
     } else {
-        // Hero / Skills / Experience: quiet steady state
+        // Hero / Experience: quiet steady state
         setThermalLoad(40);
         hideProjectVisuals();
     }

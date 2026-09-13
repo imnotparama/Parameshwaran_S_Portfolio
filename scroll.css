@@ -3767,10 +3767,83 @@ body.bench-mode-dim .vignette-overlay {
 }
 
 #panel-skills .skill-group {
-    background: rgba(8, 16, 12, 0.85);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.82) 0%, rgba(6, 12, 22, 0.92) 100%);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-left: 3px solid var(--enig-gold, #c9a24b);
-    box-shadow: none;
+    border-left: 3px solid var(--bank-accent, #c9a24b);
+    border-radius: 8px;
+    padding: 16px 18px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(12px);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+#panel-skills .skill-group:hover,
+#panel-skills .skill-group.skill-group-active {
+    transform: translateX(-4px);
+    border-color: var(--bank-accent, #3ee6a0);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5), 0 0 16px rgba(62, 230, 160, 0.18);
+}
+
+.skill-head-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 4px;
+}
+
+.skill-bank-spec {
+    font-family: var(--font-mono, monospace);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    color: var(--bank-accent, #c9a24b);
+    opacity: 0.85;
+}
+
+.skill-energy-meter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 12px 0;
+    padding: 5px 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+}
+
+.skill-energy-label {
+    font-family: var(--font-mono, monospace);
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+}
+
+.skill-energy-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.skill-energy-fill {
+    height: 100%;
+    border-radius: 2px;
+    box-shadow: 0 0 8px currentColor;
+    transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.skill-energy-val {
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    font-weight: 700;
+    color: #ffffff;
+    min-width: 28px;
+    text-align: right;
 }
 
 /* Experience: Clean Firmware Update Changelog */

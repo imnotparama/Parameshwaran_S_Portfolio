@@ -6,7 +6,7 @@
 // ============================================================
 import * as THREE from 'three';
 import gsap from 'gsap';
-import { interactiveObjects, pressTactile } from '../three/components.js';
+import { interactiveObjects, pressTactile, energizeCapacitor } from '../three/components.js';
 import { highlightTrace } from '../three/traces.js';
 import { simView } from '../three/lcd-sim.js';
 import { hoverBlip, clickBlip, probeTone } from './sound.js';
@@ -248,6 +248,15 @@ export function setScopeReadout(name, userData) {
     scopeRefEl.textContent = name || '? ';
     scopeValEl.textContent = `${reading.v} · ${reading.f} · ${reading.state}`;
     document.body.classList.add('hud-scope-live');
+
+    // Bilateral hover sync: highlight corresponding skill card in UI & energize capacitor
+    if (name && name.startsWith('C') && name.length === 2) {
+        energizeCapacitor(name, 1.4);
+    }
+    document.querySelectorAll('.skill-group').forEach((card) => {
+        const bank = card.getAttribute('data-bank');
+        card.classList.toggle('skill-group-active', bank === name);
+    });
 }
 
 /** Return the HUD scope chip to its idle state. */
@@ -255,6 +264,9 @@ export function clearScopeReadout() {
     if (scopeRefEl) scopeRefEl.textContent = 'SCOPE';
     if (scopeValEl) scopeValEl.textContent = 'AWAIT PROBE';
     document.body.classList.remove('hud-scope-live');
+    document.querySelectorAll('.skill-group.skill-group-active').forEach((card) => {
+        card.classList.remove('skill-group-active');
+    });
 }
 
 /** Clear the active mouse hover (glow, cursor state, scope readout) — used

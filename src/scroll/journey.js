@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
-import { cpuRadarRing, siliconDieMesh } from '../three/components.js';
+import { cpuRadarRing, siliconDieMesh, energizeCapacitor } from '../three/components.js';
 import { traceData, energizeTraceForSection, energizeTraceAtPoint } from '../three/traces.js';
 import { projectChips } from '../three/project-chips.js';
 import { LCD_LOCAL_POS, focusLcd, exitLcd, setLcdExitHandler } from '../three/lcd.js';
@@ -87,6 +87,10 @@ const COMPONENT_WORLD = {
 // rideCamera's dstCfg comes from this function.
 /** @type {Record<string, { pos: THREE.Vector3, look: THREE.Vector3 }>} */
 const CUSTOM_CAMERAS = {
+  'sec-skills': {
+    pos: new THREE.Vector3(1.6, 6.4, 5.6),
+    look: new THREE.Vector3(3.2, 4.8, 0.1)
+  },
   'sec-experience': {
     pos: new THREE.Vector3(0, -4.0, 9.0),
     look: new THREE.Vector3(0, -5.2, 0.08)
@@ -1005,6 +1009,12 @@ export function pulseArrival(secId) {
                     overwrite: 'auto'
                 });
             }
+        });
+    }
+    if (secId === 'sec-skills') {
+        // Energize capacitor banks: cascade charge flash across C1-C4
+        ['C1', 'C2', 'C3', 'C4'].forEach((cid, i) => {
+            setTimeout(() => energizeCapacitor(cid, 2.2), i * 90);
         });
     }
     const ref = ARRIVAL_TRACE[secId];

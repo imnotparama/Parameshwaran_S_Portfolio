@@ -20,6 +20,118 @@ export let ledMeshes = [];
 /** @type {THREE.Mesh | undefined} */
 export let cpuRadarRing;
 
+/**
+ * @typedef {{
+ *   group: THREE.Group,
+ *   body: THREE.Mesh,
+ *   coreMesh: THREE.Mesh,
+ *   coreMat: THREE.MeshStandardMaterial,
+ *   ringMesh: THREE.Mesh,
+ *   ringMat: THREE.MeshBasicMaterial,
+ *   vuLeds: THREE.Mesh[],
+ *   baseColor: number,
+ *   baseEmissive: number,
+ *   boost: number,
+ *   pos: THREE.Vector3
+ * }} CapacitorBankItem
+ */
+
+/** @type {Record<string, CapacitorBankItem>} */
+export const capacitorBanks = {};
+
+/** @type {THREE.Line | null} */
+let plasmaArcLine = null;
+/** @type {THREE.LineBasicMaterial | null} */
+let plasmaArcMat = null;
+let plasmaArcTimer = 0;
+const plasmaArcSourcePos = new THREE.Vector3();
+const plasmaArcTargetPos = new THREE.Vector3();
+
+/**
+ * Energize a specific capacitor bank (e.g. 'C1', 'C2', 'C3', 'C4').
+ * Fired when hovering skill cards in the UI or on section arrival.
+ * @param {string} bankId
+ * @param {number} [boost]
+ */
+export function energizeCapacitor(bankId, boost = 1.8) {
+    const bank = capacitorBanks[bankId];
+    if (!bank) return;
+    bank.boost = Math.max(bank.boost, boost);
+
+    // Dynamic lightning arc between active capacitor and motherboard power bus
+    if (plasmaArcLine && plasmaArcMat) {
+        plasmaArcSourcePos.copy(bank.pos).setZ(0.4);
+        plasmaArcTargetPos.set(1.2, 3.6, 0.15);
+        plasmaArcTimer = 0.45;
+        plasmaArcMat.color.setHex(bank.baseColor);
+        plasmaArcLine.visible = true;
+    }
+}
+
+/**
+ * Per-frame animation for high-tech capacitor banks (holographic rings, plasma cores, VU LEDs, plasma arcs).
+ * @param {number} elapsed
+ * @param {number} delta
+ */
+export function updateCapacitorBanks(elapsed, delta) {
+    const isReduced = motionPrefs.reduced;
+    Object.keys(capacitorBanks).forEach((key, idx) => {
+        const b = capacitorBanks[key];
+        if (!b) return;
+
+        // Decay boost back to rest
+        if (b.boost > 1.0) {
+            b.boost = Math.max(1.0, b.boost - delta * 1.8);
+        }
+
+        // Holographic ring rotation & levitation
+        if (!isReduced && b.ringMesh) {
+            b.ringMesh.rotation.z += delta * (0.9 + idx * 0.2);
+            b.ringMesh.rotation.x = Math.sin(elapsed * 1.6 + idx) * 0.15;
+            b.ringMesh.position.z = 0.88 + Math.sin(elapsed * 2.4 + idx * 1.2) * 0.035;
+        }
+
+        // Core breathing emission
+        const pulse = isReduced ? 1.0 : (0.85 + Math.sin(elapsed * 3.2 + idx * 1.5) * 0.25);
+        b.coreMat.emissiveIntensity = b.baseEmissive * pulse * b.boost;
+
+        // Micro VU meter LEDs
+        b.vuLeds.forEach((led, lIdx) => {
+            const ledMat = /** @type {THREE.MeshStandardMaterial} */ (led.material);
+            if (ledMat) {
+                const threshold = (lIdx + 1) * 0.33;
+                const active = (b.boost - 1.0) * 1.5 + 0.35 > threshold;
+                ledMat.emissiveIntensity = active ? 1.5 : 0.12;
+            }
+        });
+    });
+
+    // Animate plasma lightning arc
+    if (plasmaArcLine && plasmaArcMat) {
+        if (plasmaArcTimer > 0) {
+            plasmaArcTimer -= delta;
+            plasmaArcMat.opacity = Math.min(1.0, plasmaArcTimer / 0.15);
+
+            const geo = /** @type {THREE.BufferGeometry} */ (plasmaArcLine.geometry);
+            const posAttr = geo.getAttribute('position');
+            const pts = 12;
+            for (let i = 0; i < pts; i++) {
+                const frac = i / (pts - 1);
+                const px = THREE.MathUtils.lerp(plasmaArcSourcePos.x, plasmaArcTargetPos.x, frac);
+                const py = THREE.MathUtils.lerp(plasmaArcSourcePos.y, plasmaArcTargetPos.y, frac);
+                const pz = THREE.MathUtils.lerp(plasmaArcSourcePos.z, plasmaArcTargetPos.z, frac);
+
+                const jitter = (i > 0 && i < pts - 1) ? (Math.random() - 0.5) * 0.18 : 0;
+                const jitterZ = (i > 0 && i < pts - 1) ? (Math.random() - 0.5) * 0.12 : 0;
+                posAttr.setXYZ(i, px + jitter, py + jitter, pz + jitterZ);
+            }
+            posAttr.needsUpdate = true;
+        } else {
+            plasmaArcLine.visible = false;
+        }
+    }
+}
+
 // ─── CPU radar sweep — the ring is an open arc that rotates like a
 // radar line, with a gentle opacity pulse. Driven per-frame from
 // elapsed time (procedural, deterministic).
@@ -388,36 +500,168 @@ export function createComponents(boardGroup) {
     boardGroup.add(gpuMarkMesh);
 
     // -------------------------------------------------------------
-    // COMPONENT 3 — Capacitor Bank (C1-C4) - Skills (Display only)
+    // COMPONENT 3 — High-Tech Neon Energy Capacitors (C1-C4) - Skills
     // -------------------------------------------------------------
-    const capGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.7, 16);
-    capGeo.rotateX(Math.PI / 2);
-    const capTopGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.02, 16);
-    capTopGeo.rotateX(Math.PI / 2);
+    // Solder collar base
+    const capBaseGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.04, 20);
+    capBaseGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(capBaseGeo);
 
-    const capBodyMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.5, metalness: 0.3 });
-    const capStripeMat = new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.3, metalness: 0.9 });
+    // Slotted outer titanium body sleeve
+    const capOuterGeo = new THREE.CylinderGeometry(0.20, 0.20, 0.72, 24);
+    capOuterGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(capOuterGeo);
 
-    const capXPositions = [2.3, 2.9, 3.5, 4.1];
-    const skillCategories = ['AI/ML', 'WEB', 'DATA', 'HW'];
+    // Glowing plasma core
+    const capCoreGeo = new THREE.CylinderGeometry(0.125, 0.125, 0.66, 18);
+    capCoreGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(capCoreGeo);
 
-    capXPositions.forEach((cx, index) => {
+    // Anode top crown terminal
+    const capTopCrownGeo = new THREE.CylinderGeometry(0.20, 0.20, 0.045, 20);
+    capTopCrownGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(capTopCrownGeo);
+
+    // Floating holographic category ring
+    const capRingGeo = new THREE.TorusGeometry(0.22, 0.012, 8, 28);
+    disposableResources.geometries.add(capRingGeo);
+
+    // Micro VU meter LED indicator
+    const vuLedGeo = new THREE.BoxGeometry(0.035, 0.035, 0.02);
+    disposableResources.geometries.add(vuLedGeo);
+
+    const capOuterMat = new THREE.MeshStandardMaterial({
+        color: 0x090d16,
+        roughness: 0.35,
+        metalness: 0.85
+    });
+    disposableResources.materials.add(capOuterMat);
+
+    const capCrownMat = new THREE.MeshStandardMaterial({
+        color: 0xe5e7eb,
+        roughness: 0.2,
+        metalness: 0.95
+    });
+    disposableResources.materials.add(capCrownMat);
+
+    // 4 Bank Domain Configurations
+    const CAP_CONFIGS = [
+        { code: 'C1', label: 'AI & Computer Vision', color: 0xf59e0b, emissive: 0xd97706, x: 2.3 },
+        { code: 'C2', label: 'Distributed Backend', color: 0x06b6d4, emissive: 0x0891b2, x: 2.9 },
+        { code: 'C3', label: 'Interactive WebGL', color: 0x10b981, emissive: 0x059669, x: 3.5 },
+        { code: 'C4', label: 'Embedded Systems', color: 0x8b5cf6, emissive: 0x7c3aed, x: 4.1 }
+    ];
+
+    // Reset capacitorBanks map
+    for (const k in capacitorBanks) delete capacitorBanks[k];
+
+    CAP_CONFIGS.forEach((cfg) => {
         const capGroup = new THREE.Group();
-        capGroup.position.set(cx, 4.5, surfaceZ);
+        capGroup.position.set(cfg.x, 4.5, surfaceZ);
         boardGroup.add(capGroup);
 
-        const body = new THREE.Mesh(capGeo, capBodyMat.clone());
+        // 1. Gold mounting solder base ring
+        const base = new THREE.Mesh(capBaseGeo, goldMaterial);
+        base.position.z = 0.02;
+        capGroup.add(base);
+
+        // 2. Pulsating plasma core (color-coded to skill category)
+        const coreMat = new THREE.MeshStandardMaterial({
+            color: cfg.color,
+            emissive: cfg.emissive,
+            emissiveIntensity: 0.85,
+            roughness: 0.2,
+            metalness: 0.1
+        });
+        disposableResources.materials.add(coreMat);
+        const coreMesh = new THREE.Mesh(capCoreGeo, coreMat);
+        coreMesh.position.z = 0.36;
+        capGroup.add(coreMesh);
+
+        // 3. Dark titanium protective sleeve (hit target)
+        const body = new THREE.Mesh(capOuterGeo, capOuterMat);
         body.castShadow = true;
-        body.position.z = 0.35;
-        body.name = `C${index + 1}`;
-        body.userData = { componentName: `Capacitor C${index + 1} (${skillCategories[index]} Skills)`, type: 'CAP' };
+        body.position.z = 0.36;
+        body.name = cfg.code;
+        body.userData = {
+            componentName: `Capacitor Bank ${cfg.code} (${cfg.label})`,
+            type: 'CAP',
+            bank: cfg.code
+        };
         capGroup.add(body);
         interactiveObjects.push(body);
 
-        const top = new THREE.Mesh(capTopGeo, capStripeMat);
-        top.position.set(0, 0, 0.7);
-        capGroup.add(top);
+        // 4. Polished anode crown terminal
+        const crown = new THREE.Mesh(capTopCrownGeo, capCrownMat);
+        crown.position.z = 0.72;
+        capGroup.add(crown);
+
+        // 5. Floating holographic category ring
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: cfg.color,
+            transparent: true,
+            opacity: 0.75,
+            blending: THREE.AdditiveBlending
+        });
+        disposableResources.materials.add(ringMat);
+        const ringMesh = new THREE.Mesh(capRingGeo, ringMat);
+        ringMesh.position.z = 0.88;
+        capGroup.add(ringMesh);
+
+        // 6. Micro VU meter LEDs (Low, Med, High charge indicator beads)
+        const vuLeds = [];
+        for (let l = 0; l < 3; l++) {
+            const vuMat = new THREE.MeshStandardMaterial({
+                color: cfg.color,
+                emissive: cfg.emissive,
+                emissiveIntensity: 0.2,
+                roughness: 0.3
+            });
+            disposableResources.materials.add(vuMat);
+            const vu = new THREE.Mesh(vuLedGeo, vuMat);
+            vu.position.set(0.24, -0.22 + l * 0.15, 0.15);
+            capGroup.add(vu);
+            vuLeds.push(vu);
+        }
+
+        capacitorBanks[cfg.code] = {
+            group: capGroup,
+            body,
+            coreMesh,
+            coreMat,
+            ringMesh,
+            ringMat,
+            vuLeds,
+            baseColor: cfg.color,
+            baseEmissive: 0.85,
+            boost: 1.0,
+            pos: new THREE.Vector3(cfg.x, 4.5, surfaceZ)
+        };
     });
+
+    // Horizontal polished copper busbar linking all 4 capacitor banks at the base
+    const busbarGeo = new THREE.BoxGeometry(2.2, 0.05, 0.018);
+    disposableResources.geometries.add(busbarGeo);
+    const busbarMesh = new THREE.Mesh(busbarGeo, goldMaterial);
+    busbarMesh.position.set(3.2, 4.15, surfaceZ + 0.01);
+    boardGroup.add(busbarMesh);
+
+    // Procedural Lightning Plasma Arc mesh
+    const arcPts = [];
+    for (let p = 0; p < 12; p++) arcPts.push(new THREE.Vector3());
+    const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPts);
+    disposableResources.geometries.add(arcGeo);
+    plasmaArcMat = new THREE.LineBasicMaterial({
+        color: 0x3ee6a0,
+        transparent: true,
+        opacity: 0.0,
+        blending: THREE.AdditiveBlending,
+        linewidth: 2
+    });
+    disposableResources.materials.add(plasmaArcMat);
+    plasmaArcLine = new THREE.Line(arcGeo, plasmaArcMat);
+    plasmaArcLine.visible = false;
+    boardGroup.add(plasmaArcLine);
 
     // -------------------------------------------------------------
     // COMPONENT 4 — Crystal Oscillator (Y1) - Education
@@ -768,18 +1012,44 @@ export function createComponents(boardGroup) {
     disposableResources.materials.add(btnBracketMat);
     btnCapMats.forEach(m => disposableResources.materials.add(m));
 
-    // RF shield can — RF1 top-right (WiFi/BLE module can with embossed
-    // top frame + vent slots).
-    const rfBodyMat = new THREE.MeshStandardMaterial({ color: 0x8f99a3, roughness: 0.35, metalness: 0.9 });
-    const rfVentMat = new THREE.MeshStandardMaterial({ color: 0x39424d, roughness: 0.5, metalness: 0.7 });
-    const rfFrameMat = new THREE.LineBasicMaterial({ color: 0x2b3440, transparent: true, opacity: 0.85 });
-    const rfBodyGeo = new THREE.BoxGeometry(1.5, 1.5, 0.2);
-    const rfVentGeo = new THREE.BoxGeometry(0.05, 0.5, 0.012);
+    // -------------------------------------------------------------
+    // RF1 — Crystalline Cyber Power Substation (Dual-Phase Converter)
+    // -------------------------------------------------------------
+    const rfBodyMat = new THREE.MeshStandardMaterial({
+        color: 0x090d16, // Dark obsidian chassis
+        roughness: 0.22,
+        metalness: 0.92
+    });
+    const rfGlassMat = new THREE.MeshStandardMaterial({
+        color: 0x0284c7, // Sapphire crystalline viewport
+        roughness: 0.1,
+        metalness: 0.2,
+        transparent: true,
+        opacity: 0.52
+    });
+    const rfInductorMat = new THREE.MeshStandardMaterial({
+        color: 0xd97706, // Glowing copper induction coil
+        emissive: 0xb45309,
+        emissiveIntensity: 0.9,
+        roughness: 0.2,
+        metalness: 0.95
+    });
+    const rfBodyGeo = new THREE.BoxGeometry(1.65, 1.65, 0.26);
+    const rfCornerGeo = new THREE.BoxGeometry(0.18, 0.18, 0.28);
+    const rfGlassGeo = new THREE.PlaneGeometry(1.15, 1.15);
+    const rfInductorGeo = new THREE.TorusGeometry(0.20, 0.055, 12, 24);
+    const rfNameplateGeo = new THREE.BoxGeometry(1.2, 0.22, 0.015);
+    const rfStatusLedGeo = new THREE.BoxGeometry(0.05, 0.05, 0.02);
+
     disposableResources.geometries.add(rfBodyGeo);
-    disposableResources.geometries.add(rfVentGeo);
+    disposableResources.geometries.add(rfCornerGeo);
+    disposableResources.geometries.add(rfGlassGeo);
+    disposableResources.geometries.add(rfInductorGeo);
+    disposableResources.geometries.add(rfNameplateGeo);
+    disposableResources.geometries.add(rfStatusLedGeo);
     disposableResources.materials.add(rfBodyMat);
-    disposableResources.materials.add(rfVentMat);
-    disposableResources.materials.add(rfFrameMat);
+    disposableResources.materials.add(rfGlassMat);
+    disposableResources.materials.add(rfInductorMat);
 
     // Electrolytic through-hole capacitor — C5 bottom-center-right: black
     // can with a gold top and the classic + polarity cross.
@@ -861,26 +1131,63 @@ export function createComponents(boardGroup) {
         interactiveObjects.push(cap);
     });
 
-    // RF1 — metal can + embossed top frame + three vent slots.
+    // RF1 — Crystalline Cyber Power Substation with sapphire viewport and toroidal inductors
     const rfMesh = new THREE.Mesh(rfBodyGeo, rfBodyMat);
-    rfMesh.position.set(4.1, 6.0, surfaceZ + 0.1);
+    rfMesh.position.set(4.1, 6.0, surfaceZ + 0.13);
     rfMesh.castShadow = true;
     rfMesh.name = 'RF1';
-    rfMesh.userData = { componentName: 'RF Shield RF1 (WiFi/BLE Can)', type: 'RF' };
+    rfMesh.userData = { componentName: 'Power Substation RF1 (Dual-Phase Converter)', type: 'RF' };
     boardGroup.add(rfMesh);
     interactiveObjects.push(rfMesh);
-    const rfFrame = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-0.62, -0.62, 0.101),
-        new THREE.Vector3(0.62, -0.62, 0.101),
-        new THREE.Vector3(0.62, 0.62, 0.101),
-        new THREE.Vector3(-0.62, 0.62, 0.101)
-    ]), rfFrameMat);
-    rfFrame.position.set(4.1, 6.0, surfaceZ + 0.1);
-    boardGroup.add(rfFrame);
-    for (let v = 0; v < 3; v++) {
-        const vent = new THREE.Mesh(rfVentGeo, rfVentMat);
-        vent.position.set(4.1 - 0.25 + v * 0.25, 6.0, surfaceZ + 0.201);
-        boardGroup.add(vent);
+
+    // 4 Polished Gold Corner Brackets
+    for (const dx of [-0.72, 0.72]) {
+        for (const dy of [-0.72, 0.72]) {
+            const corner = new THREE.Mesh(rfCornerGeo, goldMaterial);
+            corner.position.set(4.1 + dx, 6.0 + dy, surfaceZ + 0.14);
+            boardGroup.add(corner);
+        }
+    }
+
+    // Dual Glowing Copper Toroidal Inductors inside cavity
+    for (const cdx of [-0.28, 0.28]) {
+        const coil = new THREE.Mesh(rfInductorGeo, rfInductorMat);
+        coil.position.set(4.1 + cdx, 6.0, surfaceZ + 0.18);
+        coil.rotation.x = 0.2;
+        boardGroup.add(coil);
+    }
+
+    // Sapphire Crystalline Glass Cover Window
+    const glass = new THREE.Mesh(rfGlassGeo, rfGlassMat);
+    glass.position.set(4.1, 6.0, surfaceZ + 0.261);
+    boardGroup.add(glass);
+
+    // Gold Laser-Etched Nameplate
+    const nameplate = new THREE.Mesh(rfNameplateGeo, goldMaterial);
+    nameplate.position.set(4.1, 5.34, surfaceZ + 0.262);
+    boardGroup.add(nameplate);
+
+    // 4 Top Status Micro LEDs (Emerald, Amber, Cyan, Emerald)
+    const statusColors = [0x10b981, 0xf59e0b, 0x06b6d4, 0x10b981];
+    statusColors.forEach((col, idx) => {
+        const sMat = new THREE.MeshStandardMaterial({
+            color: col,
+            emissive: col,
+            emissiveIntensity: 1.2
+        });
+        disposableResources.materials.add(sMat);
+        const sLed = new THREE.Mesh(rfStatusLedGeo, sMat);
+        sLed.position.set(4.1 - 0.36 + idx * 0.24, 6.66, surfaceZ + 0.262);
+        boardGroup.add(sLed);
+    });
+
+    // Copper power feeding busbars leading down into the capacitor banks
+    for (const bdx of [-0.25, 0.25]) {
+        const feedGeo = new THREE.BoxGeometry(0.04, 0.7, 0.015);
+        disposableResources.geometries.add(feedGeo);
+        const feedMesh = new THREE.Mesh(feedGeo, goldMaterial);
+        feedMesh.position.set(4.1 + bdx, 4.95, surfaceZ + 0.01);
+        boardGroup.add(feedMesh);
     }
 
     // C5 — upright electrolytic: dark can, gold top, + cross, cast shadow.

@@ -39,7 +39,7 @@ let rampMesh = null;
  * @param {THREE.Group} boardGroup
  */
 export function initPlaygroundProps(boardGroup) {
-    // 1. Construct Solder-Pin Bowling Pins (6 pins in a triangle at x: 3.2, y: 4.8)
+    // 1. Construct Solder-Pin Bowling Pins (6 pins in a triangle in the lower playground zone x: 3.2, y: -2.8)
     const pinGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.45, 16);
     disposableResources.geometries.add(pinGeo);
 
@@ -52,7 +52,7 @@ export function initPlaygroundProps(boardGroup) {
     });
     disposableResources.materials.add(pinMat);
 
-    const clusterOrigin = new THREE.Vector2(3.2, 4.8);
+    const clusterOrigin = new THREE.Vector2(3.2, -2.8);
     const pinOffsets = [
         [0, 0],
         [-0.22, 0.28], [0.22, 0.28],
