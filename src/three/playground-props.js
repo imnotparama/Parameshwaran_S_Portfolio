@@ -202,3 +202,14 @@ export function resetPins() {
         pin.mesh.rotation.set(Math.PI / 2, 0, 0);
     });
 }
+
+/**
+ * Temporarily hide or restore pins during LCD arcade focus to ensure an unobstructed view.
+ * @param {boolean} active
+ */
+export function setPinsGameFocus(active) {
+    pins.forEach(pin => {
+        pin.mesh.visible = !active;
+    });
+}
+

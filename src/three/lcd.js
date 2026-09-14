@@ -58,6 +58,8 @@ import * as THREE from 'three';
 import { disposableResources } from './scene.js';
 import { interactiveObjects } from './components.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
+import { dockDrone, undockDrone } from './drone.js';
+import { setPinsGameFocus } from './playground-props.js';
 // The pure SIGNAL RUNNER simulation — zero THREE/DOM (lcd-sim.js). The sim
 // owns the game state, physics, persistence, and the snapshot seam; this
 // module owns the meshes, the canvas texture, and the drawing.
@@ -712,6 +714,8 @@ export function focusLcd(replayBoot = false) {
     // the boot title forever.) The state transition itself is the sim's
     // (powerOnLcd); this module layers the DOM keyboard gate on top.
     powerOnLcd();
+    dockDrone();
+    setPinsGameFocus(true);
     reducedStaticDrawn = false;
     renderLeaderboard(simView());
 }
@@ -842,7 +846,13 @@ export function exitLcd() {
         document.body.classList.remove('lcd-active');
         // Restore the full sidebar on exit.
         document.body.classList.remove('lcd-game-focus');
+        ['arcade-btn-jump', 'arcade-btn-slide', 'arcade-btn-dash', 'arcade-btn-restart', 'arcade-btn-exit'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('btn-pressed');
+        });
     }
+    undockDrone();
+    setPinsGameFocus(false);
     powerOffLcd();
 }
 

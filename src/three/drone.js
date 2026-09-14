@@ -102,12 +102,32 @@ export function initInspectionDrone(boardGroup) {
     droneGroup.position.set(0, 0, 1.2);
 }
 
+// Dedicated charging dock pad far from LCD1 (x: 2.4, y: -1.2)
+const DOCK_PAD = new THREE.Vector3(-4.2, -5.0, 0.35);
+let isDocked = false;
+
+/** Dock the inspection drone away from the active LCD screen during arcade play */
+export function dockDrone() {
+    isDocked = true;
+}
+
+/** Undock the inspection drone back into companion flight */
+export function undockDrone() {
+    isDocked = false;
+}
+
+/** Check if drone is currently parked at its dock */
+export function isDroneDocked() {
+    return isDocked;
+}
+
 /**
  * Update drone position target from cursor ray / active hover component.
  * @param {number} x
  * @param {number} y
  */
 export function setDroneTarget(x, y) {
+    if (isDocked) return;
     // Keep drone comfortably inside board boundaries
     targetPos.x = Math.max(-5.0, Math.min(5.0, x));
     targetPos.y = Math.max(-6.5, Math.min(6.5, y));
@@ -127,9 +147,19 @@ export function updateInspectionDrone(elapsed, delta) {
         return;
     }
 
-    // Organic bobbing hover frequency
-    const hoverZ = 1.1 + Math.sin(elapsed * 3.5) * 0.05;
-    targetPos.z = hoverZ;
+    if (isDocked) {
+        targetPos.set(DOCK_PAD.x, DOCK_PAD.y, DOCK_PAD.z + Math.sin(elapsed * 1.5) * 0.02);
+        if (droneSpotlight) {
+            droneSpotlight.intensity = THREE.MathUtils.lerp(droneSpotlight.intensity, 0.15, delta * 3.0);
+        }
+    } else {
+        // Organic bobbing hover frequency
+        const hoverZ = 1.1 + Math.sin(elapsed * 3.5) * 0.05;
+        targetPos.z = hoverZ;
+        if (droneSpotlight) {
+            droneSpotlight.intensity = THREE.MathUtils.lerp(droneSpotlight.intensity, 1.6, delta * 3.0);
+        }
+    }
 
     // Smooth physical spring lerp
     const lerpSpeed = Math.min(1.0, delta * 3.5);
