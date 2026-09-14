@@ -923,15 +923,16 @@ function getPooledObstacle(type) {
 function buildCollectiblePools() {
     if (!collectiblesGroup) return;
 
-    const coreGeo = new THREE.OctahedronGeometry(0.09, 0);
+    const coreGeo = new THREE.OctahedronGeometry(0.10, 0);
     const coreMat = new THREE.MeshStandardMaterial({
         color: 0xffd700,
         emissive: 0xffaa00,
-        emissiveIntensity: 2.5,
-        roughness: 0.2
+        emissiveIntensity: 2.8,
+        roughness: 0.15,
+        metalness: 0.85
     });
 
-    const satGeo = new THREE.SphereGeometry(0.026, 6, 6);
+    const satGeo = new THREE.SphereGeometry(0.028, 6, 6);
     const satMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
 
     for (let i = 0; i < ELECTRON_POOL_SIZE; i++) {
@@ -939,14 +940,24 @@ function buildCollectiblePools() {
         const core = new THREE.Mesh(coreGeo, coreMat);
         el.add(core);
 
+        // Orbit 1: Tilted X
         const orbitPivot = new THREE.Group();
         orbitPivot.rotation.x = Math.PI / 4;
-        const sat = new THREE.Mesh(satGeo, satMat);
-        sat.position.set(0.16, 0, 0);
-        orbitPivot.add(sat);
+        const sat1 = new THREE.Mesh(satGeo, satMat);
+        sat1.position.set(0.18, 0, 0);
+        orbitPivot.add(sat1);
         el.add(orbitPivot);
 
-        el.userData = { core, orbitPivot };
+        // Orbit 2: Tilted Y/Z
+        const orbitPivot2 = new THREE.Group();
+        orbitPivot2.rotation.y = Math.PI / 3;
+        orbitPivot2.rotation.z = Math.PI / 6;
+        const sat2 = new THREE.Mesh(satGeo, satMat);
+        sat2.position.set(0, 0.18, 0);
+        orbitPivot2.add(sat2);
+        el.add(orbitPivot2);
+
+        el.userData = { core, orbitPivot, orbitPivot2 };
         el.visible = false;
         collectiblesGroup.add(el);
         electronPool.push(el);
@@ -1023,43 +1034,50 @@ function updateCollectibles(delta, sim) {
         }
     }
 
-    // 2. Position active electrons
+    // 2. Position active electrons in horizontal space
     if (Array.isArray(sim.fieldEls)) {
         for (let i = 0; i < sim.fieldEls.length; i++) {
             if (i >= electronPool.length) break;
             const e = sim.fieldEls[i];
-            const relX = e.x - 16;
-            const z3d = -relX * 0.38;
-            if (z3d > 3.0 || z3d < -55.0) continue;
+            const worldX = toWorldX(e.x);
+            if (worldX < -5.5 || worldX > 5.5) continue;
 
             const elMesh = electronPool[i];
             elMesh.visible = true;
 
-            const targetY = 0.28 + ((SIM_GROUND_Y - e.y) / 38.0) * 1.35;
-            if (sim.magnet > 0 && z3d > -8.0 && z3d < 0.5) {
-                elMesh.position.x = THREE.MathUtils.lerp(elMesh.position.x, 0, delta * 6.0);
-                elMesh.position.y = THREE.MathUtils.lerp(elMesh.position.y, playerGroup ? playerGroup.position.y : targetY, delta * 8.0);
+            const targetY = toWorldY(e.y);
+            const playerX = playerGroup ? playerGroup.position.x : -2.5;
+            const playerY = playerGroup ? playerGroup.position.y : 0.35;
+
+            if (sim.magnet > 0 && Math.abs(worldX - playerX) < 2.8) {
+                // Smooth 3D magnetic attraction towards player
+                elMesh.position.x = THREE.MathUtils.lerp(elMesh.position.x, playerX, delta * 8.5);
+                elMesh.position.y = THREE.MathUtils.lerp(elMesh.position.y, playerY, delta * 8.5);
             } else {
-                elMesh.position.set(0, targetY, z3d);
+                elMesh.position.set(worldX, targetY, 0.0);
             }
 
-            if (elMesh.userData.core) elMesh.userData.core.rotation.y += delta * 4.5;
-            if (elMesh.userData.orbitPivot) elMesh.userData.orbitPivot.rotation.z += delta * 8.0;
+            if (elMesh.userData.core) {
+                elMesh.userData.core.rotation.y += delta * 4.5;
+                elMesh.userData.core.rotation.z += delta * 3.0;
+            }
+            if (elMesh.userData.orbitPivot) elMesh.userData.orbitPivot.rotation.z += delta * 8.5;
+            if (elMesh.userData.orbitPivot2) elMesh.userData.orbitPivot2.rotation.x += delta * 7.0;
         }
     }
 
-    // 3. Position active power-up pickups
+    // 3. Position active power-up pickups in horizontal space
     if (Array.isArray(sim.actors)) {
         for (const a of sim.actors) {
             if (a.kind !== 'powerup') continue;
-            const relX = a.x - 16;
-            const z3d = -relX * 0.38;
-            if (z3d > 3.0 || z3d < -55.0) continue;
+            const worldX = toWorldX(a.x + a.w / 2);
+            if (worldX < -5.5 || worldX > 5.5) continue;
 
             const pMesh = getPooledPowerup(a.type);
-            const yHover = 0.42 + Math.sin(sim.dist * 0.2 + relX) * 0.08;
-            pMesh.position.set(0, yHover, z3d);
+            const targetY = toWorldY(a.y) + Math.sin(sim.dist * 0.2 + a.x) * 0.08;
+            pMesh.position.set(worldX, targetY, 0.0);
             pMesh.rotation.y += delta * 3.5;
+            pMesh.rotation.x += delta * 2.2;
         }
     }
 }
