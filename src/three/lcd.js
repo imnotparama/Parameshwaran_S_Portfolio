@@ -511,7 +511,7 @@ function drawPaused(c) {
 /** @param {CanvasRenderingContext2D} c */
 function drawOver(c) {
     // Dim the run field behind the verdict.
-    c.fillStyle = C_BG;
+    c.fillStyle = is3dGameReady() ? 'rgba(3, 19, 10, 0.72)' : C_BG;
     c.fillRect(0, 8, CANVAS_W, 52);
     drawTextCentered(c, 'SIGNAL LOST', 8, C_BRIGHT);
     drawTextCentered(c, `DIST ${String(Math.floor(S.dist)).padStart(4, '0')} · SIG ${String(S.score).padStart(3, '0')}`, 18, C_DIM);

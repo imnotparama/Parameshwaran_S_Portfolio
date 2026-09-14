@@ -622,50 +622,72 @@ function buildShatterSystem() {
     shatterGroup.visible = false;
     gameScene.add(shatterGroup);
 
-    const shardGeo = new THREE.TetrahedronGeometry(0.075, 0);
-    const shardMat = new THREE.MeshStandardMaterial({
+    const shardGeo1 = new THREE.TetrahedronGeometry(0.085, 0);
+    const shardGeo2 = new THREE.OctahedronGeometry(0.07, 0);
+    const shardMatEmerald = new THREE.MeshStandardMaterial({
         color: 0x3ee6a0,
         emissive: 0x3ee6a0,
-        emissiveIntensity: 3.5,
+        emissiveIntensity: 3.8,
         roughness: 0.2
+    });
+    const shardMatCyan = new THREE.MeshStandardMaterial({
+        color: 0x00ffff,
+        emissive: 0x00ffff,
+        emissiveIntensity: 4.2,
+        roughness: 0.15
+    });
+    const shardMatGold = new THREE.MeshStandardMaterial({
+        color: 0xffdd44,
+        emissive: 0xffaa00,
+        emissiveIntensity: 3.5,
+        roughness: 0.25
     });
 
     shardData = [];
     for (let i = 0; i < SHARD_COUNT; i++) {
-        const shard = new THREE.Mesh(shardGeo, shardMat);
+        const geo = i % 2 === 0 ? shardGeo1 : shardGeo2;
+        const mat = i % 3 === 0 ? shardMatCyan : (i % 3 === 1 ? shardMatEmerald : shardMatGold);
+        const shard = new THREE.Mesh(geo, mat);
         shatterGroup.add(shard);
         shardData.push({
             mesh: shard,
             vx: 0,
             vy: 0,
             vz: 0,
-            rx: (Math.random() - 0.5) * 16,
-            ry: (Math.random() - 0.5) * 16,
-            rz: (Math.random() - 0.5) * 16
+            rx: (Math.random() - 0.5) * 20,
+            ry: (Math.random() - 0.5) * 20,
+            rz: (Math.random() - 0.5) * 20
         });
     }
 }
 
-function trigger3dCrash(playerY = 0.28) {
+/**
+ * Triggers horizontal 3D core fracture explosion at the player's crash coordinates.
+ * @param {number} [playerX=-2.5]
+ * @param {number} [playerY=0.35]
+ */
+function trigger3dCrash(playerX = -2.5, playerY = 0.35) {
     if (!shatterGroup || !playerGroup) return;
     shatterGroup.visible = true;
     playerGroup.visible = false;
-    cameraShake = 0.65;
+    cameraShake = 0.85;
 
     for (let i = 0; i < SHARD_COUNT; i++) {
         const s = shardData[i];
-        s.mesh.position.set(0, playerY, 0);
-        const speed = 2.4 + Math.random() * 3.8;
-        const theta = Math.random() * Math.PI * 2;
-        const phi = (Math.random() - 0.3) * Math.PI * 0.5;
-        s.vx = Math.cos(theta) * Math.cos(phi) * speed;
-        s.vy = Math.sin(phi) * speed + 1.8;
-        s.vz = Math.sin(theta) * Math.cos(phi) * speed;
+        s.mesh.position.set(playerX, playerY, 0);
+        const speed = 3.2 + Math.random() * 4.8;
+        const angle = Math.random() * Math.PI * 2;
+        s.vx = Math.cos(angle) * speed;
+        s.vy = Math.abs(Math.sin(angle)) * speed + 2.0;
+        s.vz = (Math.random() - 0.5) * 3.5;
+        s.rx = (Math.random() - 0.5) * 24;
+        s.ry = (Math.random() - 0.5) * 24;
+        s.rz = (Math.random() - 0.5) * 24;
     }
 
     if (signalLostMesh) {
         signalLostMesh.visible = true;
-        signalLostMesh.position.set(0, 1.1, -1.8);
+        signalLostMesh.position.set(playerX, 1.75, 0.3);
     }
 }
 
@@ -673,30 +695,77 @@ function buildSignalLostBanner() {
     if (!gameScene) return;
 
     const bannerCanvas = document.createElement('canvas');
-    bannerCanvas.width = 256;
-    bannerCanvas.height = 64;
+    bannerCanvas.width = 512;
+    bannerCanvas.height = 160;
     const ctx = bannerCanvas.getContext('2d');
     if (ctx) {
-        ctx.fillStyle = 'rgba(3, 19, 10, 0.85)';
-        ctx.fillRect(0, 0, 256, 64);
+        // Dark translucent cyber card
+        ctx.fillStyle = 'rgba(2, 14, 8, 0.88)';
+        ctx.fillRect(0, 0, 512, 160);
+
+        // Cyberpunk border & corner reticles
         ctx.strokeStyle = '#3ee6a0';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(4, 4, 248, 56);
-        ctx.fillStyle = '#ff4444';
-        ctx.font = 'bold 22px monospace';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(6, 6, 500, 148);
+
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 5;
+        // Top-left bracket
+        ctx.beginPath();
+        ctx.moveTo(6, 30); ctx.lineTo(6, 6); ctx.lineTo(30, 6);
+        ctx.stroke();
+        // Top-right bracket
+        ctx.beginPath();
+        ctx.moveTo(482, 6); ctx.lineTo(506, 6); ctx.lineTo(506, 30);
+        ctx.stroke();
+        // Bottom-left bracket
+        ctx.beginPath();
+        ctx.moveTo(6, 130); ctx.lineTo(6, 154); ctx.lineTo(30, 154);
+        ctx.stroke();
+        // Bottom-right bracket
+        ctx.beginPath();
+        ctx.moveTo(482, 154); ctx.lineTo(506, 154); ctx.lineTo(506, 130);
+        ctx.stroke();
+
+        // Scanline lines across card
+        ctx.fillStyle = 'rgba(0, 255, 170, 0.08)';
+        for (let y = 10; y < 150; y += 4) {
+            ctx.fillRect(10, y, 492, 1);
+        }
+
+        // Warning Icon & Main Title
+        ctx.fillStyle = '#ff3366';
+        ctx.font = 'bold 36px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('SIGNAL LOST', 128, 30);
+        ctx.shadowColor = '#ff1144';
+        ctx.shadowBlur = 10;
+        ctx.fillText('SIGNAL LOST', 256, 52);
+        ctx.shadowBlur = 0;
+
+        // Subtitle Status
         ctx.fillStyle = '#3ee6a0';
-        ctx.font = '12px monospace';
-        ctx.fillText('ENTER // RETRY', 128, 48);
+        ctx.font = 'bold 16px monospace';
+        ctx.fillText('TRACE DECOUPLING // SEVERE CIRCUIT BREACH', 256, 84);
+
+        // Action prompt button
+        ctx.fillStyle = 'rgba(0, 255, 204, 0.2)';
+        ctx.fillRect(64, 102, 384, 38);
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(64, 102, 384, 38);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText('[ENTER] / [TAP] TO REBOOT CORE', 256, 127);
     }
 
     const bannerTexture = new THREE.CanvasTexture(bannerCanvas);
-    const bannerGeo = new THREE.PlaneGeometry(1.6, 0.4);
+    const bannerGeo = new THREE.PlaneGeometry(2.4, 0.75);
     const bannerMat = new THREE.MeshBasicMaterial({
         map: bannerTexture,
         transparent: true,
-        opacity: 0.95
+        opacity: 0.96,
+        side: THREE.DoubleSide
     });
     signalLostMesh = new THREE.Mesh(bannerGeo, bannerMat);
     signalLostMesh.visible = false;
@@ -1306,8 +1375,9 @@ export function update3dGame(delta, sim) {
     // 1. Detect State Transitions (Crash / Restart)
     if (sim.state !== lastSimState) {
         if (sim.state === 'over') {
-            const curY = playerGroup ? playerGroup.position.y : 0.28;
-            trigger3dCrash(curY);
+            const curX = playerGroup ? playerGroup.position.x : -2.5;
+            const curY = playerGroup ? playerGroup.position.y : 0.35;
+            trigger3dCrash(curX, curY);
         } else if (sim.state === 'playing' || sim.state === 'count' || sim.state === 'ready') {
             if (shatterGroup) shatterGroup.visible = false;
             if (playerGroup) playerGroup.visible = true;
@@ -1355,16 +1425,18 @@ export function update3dGame(delta, sim) {
             s.mesh.position.y += s.vy * delta;
             s.mesh.position.z += s.vz * delta;
             s.vy -= 9.8 * delta;
-            if (s.mesh.position.y < 0.04) {
-                s.mesh.position.y = 0.04;
-                s.vy = -s.vy * 0.42; // bounce
+            if (s.mesh.position.y < 0.21) {
+                s.mesh.position.y = 0.21;
+                s.vy = -s.vy * 0.45; // elastic copper bounce
+                s.vx *= 0.85; // friction
+                s.vz *= 0.85;
             }
             s.mesh.rotation.x += s.rx * delta;
             s.mesh.rotation.y += s.ry * delta;
             s.mesh.rotation.z += s.rz * delta;
         }
         if (signalLostMesh && signalLostMesh.visible) {
-            signalLostMesh.position.y = 1.6 + Math.sin(sim.dist * 0.4) * 0.03;
+            signalLostMesh.position.y = 1.75 + Math.sin(sim.overAccum ? sim.overAccum * 3.5 : 0) * 0.04;
         }
     } else {
         // 6. Advance Track Tiles horizontally to the left (-X) based on speed
