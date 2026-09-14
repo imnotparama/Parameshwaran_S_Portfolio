@@ -93,7 +93,7 @@ let suppressHoverUntil = 0;
 // ─── PCB Hover Glow Color Map ───────────────────────────────
 /** @type {Record<string, number>} */
 const PCB_GLOW_MAP = {
-    'U1': 0x3ee6a0, 'U1_LID': 0xdde4ec, 'U2': 0x00bfff, 'Y1': 0xaa44ff,
+    'U1': 0x3ee6a0, 'U1_LID': 0x3ee6a0, 'U2': 0x00bfff, 'Y1': 0xaa44ff,
     'ANT1': 0x00ffff, 'J1': 0xff8800, 'VR1': 0xff4444,
     'RN1': 0x14b8a6, 'U3': 0x06b6d4, 'TP1': 0xd97706, 'TP2': 0xd97706,
     'C5': 0x10b981, 'RF1': 0x00ffff, 'HDR1': 0xffcc00,

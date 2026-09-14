@@ -588,13 +588,13 @@ export function createComponents(boardGroup) {
     cpuLidGroup.position.set(0, 0, 0.12);
     cpuGroup.add(cpuLidGroup);
 
-    // Beveled metallic lid plate
+    // Beveled metallic lid plate (Calibrated Brushed Titanium / Nickel PBR)
     const lidBaseGeo = new THREE.BoxGeometry(2.14, 2.14, 0.04);
     const lidTopGeo = new THREE.BoxGeometry(1.98, 1.98, 0.05);
     const lidMat = new THREE.MeshStandardMaterial({
-        color: 0xdde4ec,
-        metalness: 0.88,
-        roughness: 0.24
+        color: 0x2e3842,
+        metalness: 0.85,
+        roughness: 0.42
     });
     disposableResources.geometries.add(lidBaseGeo);
     disposableResources.geometries.add(lidTopGeo);
@@ -608,25 +608,19 @@ export function createComponents(boardGroup) {
     lidTopMesh.castShadow = true;
     cpuLidGroup.add(lidBaseMesh, lidTopMesh);
 
-    // Laser-Engraved Silkscreen Texture on IHS
+    // Laser-Engraved Silkscreen Texture on IHS (Transparent mask over titanium body)
     const ihsCanvas = document.createElement('canvas');
     ihsCanvas.width = 512;
     ihsCanvas.height = 512;
     const ihsCtx = ihsCanvas.getContext('2d');
     if (ihsCtx) {
-        ihsCtx.fillStyle = '#cfd7e1';
-        ihsCtx.fillRect(0, 0, 512, 512);
+        ihsCtx.clearRect(0, 0, 512, 512);
 
-        // Brushed-metal micro-streaks
-        ihsCtx.fillStyle = 'rgba(255, 255, 255, 0.12)';
-        for (let i = 0; i < 40; i++) {
-            ihsCtx.fillRect(0, Math.random() * 512, 512, Math.random() * 3 + 1);
-        }
-
-        // Precision laser-etched border
-        ihsCtx.strokeStyle = 'rgba(28, 38, 46, 0.8)';
+        // Precision laser-etched border & chamfers
+        ihsCtx.strokeStyle = 'rgba(62, 230, 160, 0.45)';
         ihsCtx.lineWidth = 3;
         ihsCtx.strokeRect(20, 20, 472, 472);
+        ihsCtx.strokeStyle = 'rgba(180, 200, 215, 0.35)';
         ihsCtx.strokeRect(28, 28, 456, 456);
 
         // Corner thermal relief notches
@@ -638,22 +632,23 @@ export function createComponents(boardGroup) {
         ihsCtx.moveTo(492, 462); ihsCtx.lineTo(462, 492);
         ihsCtx.stroke();
 
-        // Laser text
-        ihsCtx.fillStyle = '#1c262e';
+        // Laser silkscreen typography
+        ihsCtx.fillStyle = '#8eecc0';
         ihsCtx.font = 'bold 16px monospace';
         ihsCtx.fillText('PARAMA LABS // SILICON ARCH', 44, 68);
 
         ihsCtx.font = 'bold 34px monospace';
+        ihsCtx.fillStyle = '#e2ecf5';
         ihsCtx.fillText('PARAMA CORE-X', 44, 140);
 
         ihsCtx.font = 'bold 15px monospace';
-        ihsCtx.fillStyle = '#2d3e48';
+        ihsCtx.fillStyle = '#94a3b8';
         ihsCtx.fillText('64-BIT DUAL-CORE NEURAL ENGINE', 44, 175);
         ihsCtx.fillText('4.80GHz TURBO · 32MB L3 · BGA-1151', 44, 205);
         ihsCtx.fillText('REV 2.4 · ECE-2026 // FAB: SRM LABS', 44, 235);
 
         // 2D DataMatrix barcode simulation
-        ihsCtx.fillStyle = '#1c262e';
+        ihsCtx.fillStyle = '#3ee6a0';
         for (let r = 0; r < 6; r++) {
             for (let c = 0; c < 6; c++) {
                 if ((r * 7 + c * 11) % 3 !== 0) {
@@ -662,27 +657,30 @@ export function createComponents(boardGroup) {
             }
         }
 
-        // Pin 1 gold index mark
+        // Pin 1 ENIG gold index mark
         ihsCtx.beginPath();
         ihsCtx.arc(46, 466, 12, 0, Math.PI * 2);
-        ihsCtx.fillStyle = '#b8860b';
+        ihsCtx.fillStyle = '#d4af37';
         ihsCtx.fill();
-        ihsCtx.strokeStyle = '#1c262e';
+        ihsCtx.strokeStyle = '#3ee6a0';
         ihsCtx.lineWidth = 2;
         ihsCtx.stroke();
 
         // Bottom specs
         ihsCtx.font = '12px monospace';
-        ihsCtx.fillStyle = '#3a4e5a';
+        ihsCtx.fillStyle = '#64748b';
         ihsCtx.fillText('SEC_ID: U1 // THERMAL SPEC: 105C MAX', 44, 430);
     }
     const ihsTexture = new THREE.CanvasTexture(ihsCanvas);
     disposableResources.textures.add(ihsTexture);
     const ihsPrintGeo = new THREE.PlaneGeometry(1.94, 1.94);
-    const ihsPrintMat = new THREE.MeshBasicMaterial({
+    const ihsPrintMat = new THREE.MeshStandardMaterial({
         map: ihsTexture,
         transparent: true,
-        opacity: 0.96
+        opacity: 0.95,
+        roughness: 0.35,
+        metalness: 0.2,
+        depthWrite: false
     });
     disposableResources.geometries.add(ihsPrintGeo);
     disposableResources.materials.add(ihsPrintMat);
@@ -697,7 +695,7 @@ export function createComponents(boardGroup) {
     disposableResources.materials.add(cpuLidHitMat);
     const cpuLidMesh = new THREE.Mesh(cpuLidHitGeo, cpuLidHitMat);
     cpuLidMesh.name = 'U1_LID';
-    cpuLidMesh.userData = { componentName: 'CPU Heat Spreader (IHS)', type: 'CPU_LID' };
+    cpuLidMesh.userData = { componentName: 'CPU Heat Spreader (IHS) [Click to Delid]', type: 'CPU_LID', isInteractive: true };
     cpuLidGroup.add(cpuLidMesh);
     interactiveObjects.push(cpuLidMesh);
 

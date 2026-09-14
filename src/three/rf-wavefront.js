@@ -15,6 +15,10 @@ let rfGroup = null;
 // ANT1 Wavefront shells
 /** @type {Array<{ mesh: THREE.Mesh, mat: THREE.MeshBasicMaterial, phase: number }>} */
 const wavefrontRings = [];
+/** @type {Array<{ mesh: THREE.Mesh, mat: THREE.MeshBasicMaterial, phase: number }>} */
+const j1WavefrontRings = [];
+/** @type {THREE.Group | null} */
+let commsBeaconGroup = null;
 let burstEnergy = 0; // 0..1 surge on packet transmission
 
 // Toroidal Magnetic Flux Lines (around L1)
@@ -67,6 +71,68 @@ export function initRfWavefront(boardGroup) {
             phase: i / ringCount
         });
     }
+
+    // -------------------------------------------------------------
+    // 1b. J1 USB-C Physical-Layer Carrier Wave Rings
+    // Positioned at USB-C Port (x = 0, y = -6.6, z = 0.15)
+    // -------------------------------------------------------------
+    const j1Pos = new THREE.Vector3(0, -6.6, 0.15);
+    for (let j = 0; j < 3; j++) {
+        const jRingGeo = new THREE.RingGeometry(0.12, 0.18, 32);
+        disposableResources.geometries.add(jRingGeo);
+        const jRingMat = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        disposableResources.materials.add(jRingMat);
+        const jMesh = new THREE.Mesh(jRingGeo, jRingMat);
+        jMesh.position.copy(j1Pos);
+        rfGroup.add(jMesh);
+        j1WavefrontRings.push({
+            mesh: jMesh,
+            mat: jRingMat,
+            phase: j / 3
+        });
+    }
+
+    // -------------------------------------------------------------
+    // 1c. 3D Holographic Comms Beacon over ANT1
+    // -------------------------------------------------------------
+    commsBeaconGroup = new THREE.Group();
+    commsBeaconGroup.position.set(3.5, 0.5, 0.35);
+    rfGroup.add(commsBeaconGroup);
+
+    const beaconGeo = new THREE.ConeGeometry(0.24, 0.55, 4, 1, true);
+    disposableResources.geometries.add(beaconGeo);
+    const beaconMat = new THREE.MeshBasicMaterial({
+        color: 0x3ee6a0,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.45,
+        blending: THREE.AdditiveBlending
+    });
+    disposableResources.materials.add(beaconMat);
+    const beaconMesh = new THREE.Mesh(beaconGeo, beaconMat);
+    beaconMesh.rotation.x = Math.PI; // invert beacon pointing down to feedpoint
+    commsBeaconGroup.add(beaconMesh);
+
+    // Tip photon emitter
+    const tipGeo = new THREE.SphereGeometry(0.04, 8, 8);
+    disposableResources.geometries.add(tipGeo);
+    const tipMat = new THREE.MeshBasicMaterial({
+        color: 0x5eead4,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending
+    });
+    disposableResources.materials.add(tipMat);
+    const tipMesh = new THREE.Mesh(tipGeo, tipMat);
+    tipMesh.position.y = 0.3;
+    commsBeaconGroup.add(tipMesh);
 
     // -------------------------------------------------------------
     // 2. Toroidal Magnetic Flux Rings around Power Inductor (L1)
@@ -160,6 +226,21 @@ export function updateRfWavefront(elapsed, delta) {
             ring.mat.color.setHex(0x3ee6a0);
         }
     });
+
+    // Animate J1 USB-C carrier field rings
+    j1WavefrontRings.forEach((jRing) => {
+        jRing.phase = (jRing.phase + delta * 0.35) % 1.0;
+        const jScale = 0.3 + jRing.phase * 1.6;
+        jRing.mesh.scale.set(jScale, jScale, jScale);
+        const jFade = Math.sin(jRing.phase * Math.PI);
+        jRing.mat.opacity = Math.max(0, Math.min(0.6, jFade * 0.4));
+    });
+
+    // Gentle float and rotation on 3D comms beacon
+    if (commsBeaconGroup) {
+        commsBeaconGroup.rotation.z = elapsed * 0.4;
+        commsBeaconGroup.position.z = 0.35 + Math.sin(elapsed * 2.0) * 0.04;
+    }
 
     // Rotate Toroidal Magnetic Flux lines around inductor core
     if (toroidalFluxGroup) {
