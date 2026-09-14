@@ -80,9 +80,15 @@ function waveform(ref, t, x) {
             return noise(t * 2.9 + x * 3.1, 0.04);
         }
         case 'U1': {
-            // CPU clock: square wave, 50% duty cycle, fast
-            const sq = Math.sin(x * Math.PI * 10 + t * 5.0) >= 0 ? 0.75 : -0.75;
-            return sq + noise(t * 8 + x, 0.05);
+            // CPU clock: high-speed dual-phase interleaved square wave with clock jitter
+            const f = 12.0;
+            const sq = Math.sin(x * Math.PI * f + t * 8.0) >= 0 ? 0.8 : -0.8;
+            const harmonic = Math.sin(x * Math.PI * 24 + t * 16.0) * 0.15;
+            return sq + harmonic + noise(t * 12 + x, 0.04);
+        }
+        case 'U1_LID': {
+            // IHS Ground shield — near flatline with high-frequency electromagnetic interference (EMI)
+            return Math.sin(x * Math.PI * 28 + t * 14.0) * 0.12 + noise(t * 22 + x * 7, 0.05);
         }
         case 'U2': {
             // GPU: slightly different square wave frequency

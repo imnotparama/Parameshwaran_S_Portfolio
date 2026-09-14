@@ -8,7 +8,7 @@ import { LINKEDIN_URL, GITHUB_URL } from '../config.js';
 import { setProjectFilter } from '../three/project-chips.js';
 import { isChipVerified } from './telemetry.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
-import { clickBlip, relayClick } from '../utils/sound.js';
+import { clickBlip, relayClick, playCpuTurboChime, switchClack } from '../utils/sound.js';
 import { focusProject } from '../scroll/journey.js';
 import { inspectProject } from '../three/hardware-orchestrator.js';
 import { energizeCapacitor, triggerFirmwareFlashAnim } from '../three/components.js';
@@ -112,6 +112,7 @@ export function initHeroSiliconStation() {
     if (clockSlider) {
         clockSlider.addEventListener('input', () => {
             currentClockMult = parseFloat(clockSlider.value) || 1.0;
+            switchClack();
             let label = '1.0x (NOMINAL)';
             if (currentClockMult >= 2.2) label = `${currentClockMult.toFixed(1)}x (EXTREME OC)`;
             else if (currentClockMult >= 1.6) label = `${currentClockMult.toFixed(1)}x (TURBO BOOST)`;
@@ -126,6 +127,7 @@ export function initHeroSiliconStation() {
         btnBenchmark.addEventListener('click', () => {
             if (isBenchmarkRunning) return;
             isBenchmarkRunning = true;
+            playCpuTurboChime();
             btnBenchmark.setAttribute('disabled', 'true');
             btnBenchmark.style.opacity = '0.6';
 

@@ -285,3 +285,32 @@ export function moduleTouchdown() {
     }, 45);
 }
 
+/** Play high-tech multi-tone ascending arpeggio when CPU benchmark initiates. */
+export function playCpuTurboChime() {
+    if (!enabled) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+            if (!ctx) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t0 + idx * 0.07);
+            gain.gain.setValueAtTime(0.001, t0 + idx * 0.07);
+            gain.gain.exponentialRampToValueAtTime(0.045, t0 + idx * 0.07 + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + idx * 0.07 + 0.14);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t0 + idx * 0.07);
+            osc.stop(t0 + idx * 0.07 + 0.15);
+        });
+    } catch {
+        // Safe under AudioContext autoplay policies
+    }
+}
+
+
