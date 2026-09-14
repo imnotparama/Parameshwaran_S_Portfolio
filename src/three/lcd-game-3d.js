@@ -14,6 +14,8 @@
 //   - Distant cyberpunk horizon with glowing wireframe monoliths
 //   - 3D High-Tech Pulse Core Avatar with spinning gyroscopic gimbal rings
 //   - Dynamic action kinematics: somersault flips, rail friction sparks, dash afterimages
+//   - 3D Volumetric Physical Obstacles: SMT Resistors, Can Capacitors, Laser Beams, Chasms, Relays, Spikes
+//   - High-performance zero-allocation obstacle pooling
 //   - Lighting rig: cyber ambient, top-down key light, player point light
 // ============================================================
 import * as THREE from 'three';
@@ -89,6 +91,19 @@ const SPARK_COUNT = 18;
 let sparkPositions = new Float32Array(SPARK_COUNT * 3);
 /** @type {Array<{ vx: number, vy: number, vz: number, life: number }>} */
 let sparkVels = [];
+
+/** @type {THREE.Group | null} */
+let obstacleGroup = null;
+
+/** @type {Record<string, Array<THREE.Group>>} */
+const obstaclePool = {
+    resistor: [],
+    capacitor: [],
+    beam: [],
+    gap: [],
+    relay: [],
+    spike: []
+};
 
 /** @type {THREE.MeshStandardMaterial | null} */
 let copperRailMat = null;
@@ -195,6 +210,10 @@ export function init3dGame(canvas) {
 
     // 8. Build 3D Cyber-Pulse Avatar & FX
     buildPlayer();
+
+    // 9. Build Obstacle Container Group
+    obstacleGroup = new THREE.Group();
+    gameScene.add(obstacleGroup);
 
     isInitialized = true;
     return true;
@@ -414,6 +433,303 @@ function buildPlayer() {
     gameScene.add(slideSparks);
 }
 
+// ─────────────────────────────────────────────────────────────
+// 3D Procedural Obstacle Factories & Pooling
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 1. 3D SMT Resistor: Ceramic body, nickel end caps, colored stripes
+ */
+function createResistorMesh() {
+    const grp = new THREE.Group();
+    // Ceramic body
+    const bodyGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.52, 12);
+    bodyGeo.rotateZ(Math.PI / 2);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x383b40, roughness: 0.7 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    grp.add(body);
+
+    // Metallic End Caps
+    const capGeo = new THREE.CylinderGeometry(0.155, 0.155, 0.08, 12);
+    capGeo.rotateZ(Math.PI / 2);
+    const capMat = new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 0.9, roughness: 0.2 });
+    const capL = new THREE.Mesh(capGeo, capMat);
+    capL.position.x = -0.23;
+    grp.add(capL);
+
+    const capR = new THREE.Mesh(capGeo, capMat);
+    capR.position.x = 0.23;
+    grp.add(capR);
+
+    // Colored Resistance Bands
+    const bandGeo = new THREE.CylinderGeometry(0.145, 0.145, 0.04, 12);
+    bandGeo.rotateZ(Math.PI / 2);
+    const colors = [0x111111, 0x8b4513, 0xff2200, 0xd4af37];
+    [-0.12, -0.04, 0.04, 0.12].forEach((xPos, idx) => {
+        const band = new THREE.Mesh(bandGeo, new THREE.MeshBasicMaterial({ color: colors[idx] }));
+        band.position.x = xPos;
+        grp.add(band);
+    });
+
+    grp.userData = { type: 'resistor' };
+    return grp;
+}
+
+/**
+ * 2. 3D Can Capacitor: Aluminum electrolytic cylinder with top vent
+ */
+function createCapacitorMesh() {
+    const grp = new THREE.Group();
+    // Can body
+    const canGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.58, 16);
+    const canMat = new THREE.MeshStandardMaterial({
+        color: 0x48525e,
+        metalness: 0.85,
+        roughness: 0.25,
+        emissive: 0x112233,
+        emissiveIntensity: 0.2
+    });
+    const can = new THREE.Mesh(canGeo, canMat);
+    can.position.y = 0.29;
+    grp.add(can);
+
+    // Top vent cross
+    const ventGeo = new THREE.BoxGeometry(0.3, 0.02, 0.05);
+    const ventMat = new THREE.MeshBasicMaterial({ color: 0x1f2429 });
+    const vent1 = new THREE.Mesh(ventGeo, ventMat);
+    vent1.position.y = 0.585;
+    grp.add(vent1);
+    const vent2 = new THREE.Mesh(ventGeo, ventMat);
+    vent2.position.y = 0.585;
+    vent2.rotation.y = Math.PI / 2;
+    grp.add(vent2);
+
+    // Spark node on top
+    const sparkNodeGeo = new THREE.OctahedronGeometry(0.06, 0);
+    const sparkNodeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+    const sparkNode = new THREE.Mesh(sparkNodeGeo, sparkNodeMat);
+    sparkNode.position.y = 0.64;
+    grp.add(sparkNode);
+
+    grp.userData = { type: 'capacitor', sparkNode };
+    return grp;
+}
+
+/**
+ * 3. 3D Laser Beam Emitters: Twin neon pylons with horizontal volumetric laser
+ */
+function createBeamMesh() {
+    const grp = new THREE.Group();
+    // Twin emitter pylons on lateral edges
+    const pylonGeo = new THREE.CylinderGeometry(0.06, 0.08, 1.1, 6);
+    const pylonMat = new THREE.MeshStandardMaterial({
+        color: 0x22262a,
+        metalness: 0.7,
+        roughness: 0.3
+    });
+
+    const pylonL = new THREE.Mesh(pylonGeo, pylonMat);
+    pylonL.position.set(-TRACK_WIDTH / 2 + 0.1, 0.55, 0);
+    grp.add(pylonL);
+
+    const pylonR = new THREE.Mesh(pylonGeo, pylonMat);
+    pylonR.position.set(TRACK_WIDTH / 2 - 0.1, 0.55, 0);
+    grp.add(pylonR);
+
+    // Pulsing volumetric laser beam (must slide under!)
+    const beamGeo = new THREE.CylinderGeometry(0.04, 0.04, TRACK_WIDTH - 0.2, 8);
+    beamGeo.rotateZ(Math.PI / 2);
+    const beamMat = new THREE.MeshBasicMaterial({
+        color: 0xff3366,
+        transparent: true,
+        opacity: 0.9
+    });
+    const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+    beamMesh.position.set(0, 0.55, 0);
+    grp.add(beamMesh);
+
+    // Secondary core beam
+    const coreBeamGeo = new THREE.CylinderGeometry(0.015, 0.015, TRACK_WIDTH - 0.2, 6);
+    coreBeamGeo.rotateZ(Math.PI / 2);
+    const coreBeamMesh = new THREE.Mesh(coreBeamGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    coreBeamMesh.position.set(0, 0.55, 0);
+    grp.add(coreBeamMesh);
+
+    grp.userData = { type: 'beam', beamMesh };
+    return grp;
+}
+
+/**
+ * 4. 3D Broken Trace Gap / PCB Chasm
+ */
+function createGapMesh() {
+    const grp = new THREE.Group();
+    // Void box (dark abyss cut into the track)
+    const voidGeo = new THREE.BoxGeometry(RAIL_WIDTH + 0.12, 0.45, 1.35);
+    const voidMat = new THREE.MeshBasicMaterial({ color: 0x000201 });
+    const voidBox = new THREE.Mesh(voidGeo, voidMat);
+    voidBox.position.set(0, -0.22, 0);
+    grp.add(voidBox);
+
+    // Frayed copper sparks at both ends of the break
+    const frayGeo = new THREE.BoxGeometry(0.06, 0.06, 0.08);
+    const frayMat = new THREE.MeshBasicMaterial({ color: 0x3ee6a0 });
+    const fray1 = new THREE.Mesh(frayGeo, frayMat);
+    fray1.position.set(0, 0.04, -0.68);
+    grp.add(fray1);
+    const fray2 = new THREE.Mesh(frayGeo, frayMat);
+    fray2.position.set(0, 0.04, 0.68);
+    grp.add(fray2);
+
+    grp.userData = { type: 'gap' };
+    return grp;
+}
+
+/**
+ * 5. 3D Solenoid Relay Gate: Oscillating mechanical contact arm
+ */
+function createRelayMesh() {
+    const grp = new THREE.Group();
+    // Housing
+    const boxGeo = new THREE.BoxGeometry(0.62, 0.46, 0.38);
+    const boxMat = new THREE.MeshStandardMaterial({
+        color: 0x1a2e22,
+        metalness: 0.6,
+        roughness: 0.4,
+        emissive: 0x0a1e12,
+        emissiveIntensity: 0.2
+    });
+    const box = new THREE.Mesh(boxGeo, boxMat);
+    box.position.set(0, 0.52, 0);
+    grp.add(box);
+
+    // Oscillating solenoid arm
+    const armGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.42, 8);
+    const armMat = new THREE.MeshStandardMaterial({ color: 0xd49b38, metalness: 0.9, roughness: 0.2 });
+    const arm = new THREE.Mesh(armGeo, armMat);
+    arm.position.set(0, 0.24, 0);
+    grp.add(arm);
+
+    grp.userData = { type: 'relay', arm };
+    return grp;
+}
+
+/**
+ * 6. 3D Voltage Spike: Jagged amber crystal pyramids
+ */
+function createSpikeMesh() {
+    const grp = new THREE.Group();
+    const spikeGeo = new THREE.ConeGeometry(0.14, 0.42, 4);
+    const spikeMat = new THREE.MeshStandardMaterial({
+        color: 0xffaa00,
+        emissive: 0xff7700,
+        emissiveIntensity: 2.2,
+        roughness: 0.15,
+        metalness: 0.8
+    });
+
+    const s1 = new THREE.Mesh(spikeGeo, spikeMat);
+    s1.position.set(-0.16, 0.21, 0);
+    grp.add(s1);
+
+    const s2 = new THREE.Mesh(spikeGeo, spikeMat);
+    s2.position.set(0.16, 0.21, 0);
+    grp.add(s2);
+
+    const s3 = new THREE.Mesh(spikeGeo, spikeMat);
+    s3.scale.set(1.25, 1.25, 1.25);
+    s3.position.set(0, 0.26, 0);
+    grp.add(s3);
+
+    grp.userData = { type: 'spike' };
+    return grp;
+}
+
+/**
+ * Retrieves a pooled obstacle or creates one on demand.
+ * @param {string} type
+ * @returns {THREE.Group}
+ */
+function getPooledObstacle(type) {
+    if (!obstaclePool[type]) obstaclePool[type] = [];
+    const pool = obstaclePool[type];
+    for (let i = 0; i < pool.length; i++) {
+        if (!pool[i].visible) {
+            pool[i].visible = true;
+            return pool[i];
+        }
+    }
+    // Create new mesh if none available
+    let newMesh = null;
+    if (type === 'resistor') newMesh = createResistorMesh();
+    else if (type === 'capacitor') newMesh = createCapacitorMesh();
+    else if (type === 'beam') newMesh = createBeamMesh();
+    else if (type === 'gap') newMesh = createGapMesh();
+    else if (type === 'relay') newMesh = createRelayMesh();
+    else newMesh = createSpikeMesh();
+
+    if (obstacleGroup) obstacleGroup.add(newMesh);
+    pool.push(newMesh);
+    return newMesh;
+}
+
+/**
+ * Synchronize 3D obstacles with simulation actors.
+ * @param {number} delta
+ * @param {any} sim
+ */
+function updateObstacles(delta, sim) {
+    if (!obstacleGroup || !sim || !Array.isArray(sim.actors)) return;
+
+    // 1. Hide all pooled obstacles
+    for (const key of Object.keys(obstaclePool)) {
+        const list = obstaclePool[key];
+        for (let i = 0; i < list.length; i++) {
+            list[i].visible = false;
+        }
+    }
+
+    // 2. Position active obstacles
+    for (const a of sim.actors) {
+        if (a.kind !== 'obstacle') continue;
+
+        // Player is at x = 16 in 2D simulation
+        const relX = a.x - 16;
+        // Transform 2D horizontal distance to 3D Z depth
+        const z3d = -relX * 0.38;
+
+        // Skip obstacles far behind camera
+        if (z3d > 4.0 || z3d < -55.0) continue;
+
+        const mesh = getPooledObstacle(a.type);
+        mesh.position.z = z3d;
+
+        if (a.type === 'beam') {
+            mesh.position.set(0, 0, z3d);
+            if (mesh.userData.beamMesh) {
+                // Pulse laser opacity
+                mesh.userData.beamMesh.material.opacity = 0.7 + 0.3 * Math.sin(sim.dist * 0.4);
+            }
+        } else if (a.type === 'gap') {
+            mesh.position.set(0, 0, z3d);
+        } else if (a.type === 'relay') {
+            mesh.position.set(0, 0, z3d);
+            if (mesh.userData.arm) {
+                // Oscillate relay contact arm with actor phase
+                mesh.userData.arm.position.y = 0.24 + Math.sin(a.phase) * 0.12;
+            }
+        } else if (a.type === 'capacitor') {
+            mesh.position.set(0, 0, z3d);
+            if (mesh.userData.sparkNode) {
+                mesh.userData.sparkNode.rotation.y += delta * 6.0;
+            }
+        } else {
+            // Resistor / Spike: sit on copper rail
+            mesh.position.set(0, 0, z3d);
+        }
+    }
+}
+
 /**
  * Updates player position, somersault, slide compression, dash trails, and particles.
  * @param {number} delta
@@ -590,16 +906,19 @@ export function update3dGame(delta, sim) {
         }
     }
 
-    // 2. Update 3D Cyber-Pulse Avatar
+    // 2. Update 3D Obstacles
+    updateObstacles(delta, sim);
+
+    // 3. Update 3D Cyber-Pulse Avatar
     updatePlayer(delta, sim);
 
-    // 3. Update camera position & subtle speed bobbing
+    // 4. Update camera position & subtle speed bobbing
     if (!motionPrefs.reduced) {
         const bob = Math.sin(sim.dist * 0.12) * 0.025;
         gameCamera.position.y = 1.85 + bob;
     }
 
-    // 4. Render 3D Sub-Scene to CRT canvas
+    // 5. Render 3D Sub-Scene to CRT canvas
     gameRenderer.render(gameScene, gameCamera);
 }
 
