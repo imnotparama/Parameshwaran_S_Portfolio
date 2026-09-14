@@ -61,6 +61,7 @@ import { motionPrefs } from '../utils/motion-prefs.js';
 import { dockDrone, undockDrone } from './drone.js';
 import { setPinsGameFocus } from './playground-props.js';
 import { energizeTraceAtPoint } from './traces.js';
+import { init3dGame, update3dGame, is3dGameReady } from './lcd-game-3d.js';
 // The pure SIGNAL RUNNER simulation — zero THREE/DOM (lcd-sim.js). The sim
 // owns the game state, physics, persistence, and the snapshot seam; this
 // module owns the meshes, the canvas texture, and the drawing.
@@ -108,6 +109,7 @@ const C_FAINT = '#0a3d22';
 /** @type {HTMLCanvasElement | null} */ let gameCanvas = null;
 /** @type {CanvasRenderingContext2D | null} */ let gctx = null;
 /** @type {THREE.CanvasTexture | null} */ let screenTexture = null;
+/** @type {THREE.CanvasTexture | null} */ let crtTexture = null;
 /** @type {THREE.MeshStandardMaterial | null} */ let bezelLedMat = null;
 /** @type {THREE.MeshBasicMaterial | null} */ let glowMat = null;
 /** @type {HTMLCanvasElement | null} */ let ghostCanvas = null;
@@ -783,18 +785,27 @@ function renderLeaderboard(sim) {
 }
 
 /** Synchronize the mirrored CRT arcade screen and telemetry deck
- *  @param {ReturnType<typeof simView>} sim */
-function updateArcadeStation(sim) {
+ *  @param {ReturnType<typeof simView>} sim
+ *  @param {number} [delta] */
+function updateArcadeStation(sim, delta = 0.016) {
     if (typeof document === 'undefined') return;
     if (!document.body.classList.contains('lcd-game-focus')) return;
 
-    // 1. Mirror CRT Canvas
+    // 1. Mirror CRT Canvas (3D Three.js or 2D fallback)
     const crt = /** @type {HTMLCanvasElement | null} */ (document.getElementById('arcade-crt-canvas'));
-    if (crt && gameCanvas) {
-        const ctx = crt.getContext('2d');
-        if (ctx) {
-            ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(gameCanvas, 0, 0, crt.width, crt.height);
+    if (crt) {
+        if (!is3dGameReady()) {
+            init3dGame(crt);
+        }
+        if (is3dGameReady()) {
+            update3dGame(delta, sim);
+            if (crtTexture) crtTexture.needsUpdate = true;
+        } else if (gameCanvas) {
+            const ctx = crt.getContext('2d');
+            if (ctx) {
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(gameCanvas, 0, 0, crt.width, crt.height);
+            }
         }
     }
 
@@ -998,7 +1009,7 @@ export function updateLcdScreen(elapsed, delta) {
         screenTexture.needsUpdate = true;
         clearDirty();
     }
-    updateArcadeStation(S);
+    updateArcadeStation(S, delta);
 
     // Board-reactive power surge: electrify physical copper traces feeding LCD1
     if (S.electrons > lastObservedElectrons) {
@@ -1095,11 +1106,20 @@ export function createLcd(boardGroup) {
     disposableResources.geometries.add(screenGeo);
     const screenMat = new THREE.MeshBasicMaterial();
     if (gctx) {
-        screenTexture = new THREE.CanvasTexture(gameCanvas);
-        screenTexture.colorSpace = THREE.SRGBColorSpace;
-        screenTexture.anisotropy = 4;
-        disposableResources.textures.add(screenTexture);
-        screenMat.map = screenTexture;
+        const crt = typeof document !== 'undefined' ? /** @type {HTMLCanvasElement | null} */ (document.getElementById('arcade-crt-canvas')) : null;
+        if (crt && init3dGame(crt)) {
+            crtTexture = new THREE.CanvasTexture(crt);
+            crtTexture.colorSpace = THREE.SRGBColorSpace;
+            crtTexture.anisotropy = 4;
+            disposableResources.textures.add(crtTexture);
+            screenMat.map = crtTexture;
+        } else {
+            screenTexture = new THREE.CanvasTexture(gameCanvas);
+            screenTexture.colorSpace = THREE.SRGBColorSpace;
+            screenTexture.anisotropy = 4;
+            disposableResources.textures.add(screenTexture);
+            screenMat.map = screenTexture;
+        }
         // Ghost buffer — the previous frame, drawn faintly under the next
         // (LCD pixel persistence). Same 128×64 size, offscreen.
         ghostCanvas = document.createElement('canvas');
