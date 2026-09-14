@@ -16,8 +16,10 @@
 //   - Dynamic action kinematics: somersault flips, rail friction sparks, dash afterimages
 //   - 3D Volumetric Physical Obstacles: SMT Resistors, Can Capacitors, Laser Beams, Chasms, Relays, Spikes
 //   - 3D Collectibles & Holographic Power-ups: Gold Bohr Electrons, Geodesic Shield, Overclock Vortex, Turbo Cones
+//   - Dynamic Cinematic Camera: speed-reactive FOV warp, landing bob, camera shake
+//   - Explosive 24-shard 3D core fracture with bounce physics on Game Over
+//   - 3D Floating Holographic "SIGNAL LOST" & Score Popups
 //   - High-performance zero-allocation obstacle & collectible pooling
-//   - Lighting rig: cyber ambient, top-down key light, player point light
 // ============================================================
 import * as THREE from 'three';
 import { motionPrefs } from '../utils/motion-prefs.js';
@@ -130,6 +132,24 @@ const powerupPool = {
     magnet: [],
     stabilizer: []
 };
+
+// 3D Shatter Crash System
+/** @type {THREE.Group | null} */
+let shatterGroup = null;
+const SHARD_COUNT = 24;
+/** @type {Array<{ mesh: THREE.Mesh, vx: number, vy: number, vz: number, rx: number, ry: number, rz: number }>} */
+let shardData = [];
+
+// 3D Holographic "SIGNAL LOST" Banner
+/** @type {THREE.Mesh | null} */
+let signalLostMesh = null;
+
+// Camera dynamics
+let cameraShake = 0;
+let currentCameraFov = 62;
+let lastSimState = 'off';
+let lastObservedElectrons = 0;
+let lastObservedCombo = 1;
 
 /** @type {THREE.MeshStandardMaterial | null} */
 let copperRailMat = null;
@@ -245,6 +265,12 @@ export function init3dGame(canvas) {
     collectiblesGroup = new THREE.Group();
     gameScene.add(collectiblesGroup);
     buildCollectiblePools();
+
+    // 11. Build 3D Shatter Crash System
+    buildShatterSystem();
+
+    // 12. Build 3D Signal Lost Hologram Banner
+    buildSignalLostBanner();
 
     isInitialized = true;
     return true;
@@ -505,6 +531,98 @@ function buildPlayer() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 3D Shatter Crash System & Signal Lost Banner
+// ─────────────────────────────────────────────────────────────
+
+function buildShatterSystem() {
+    if (!gameScene) return;
+
+    shatterGroup = new THREE.Group();
+    shatterGroup.visible = false;
+    gameScene.add(shatterGroup);
+
+    const shardGeo = new THREE.TetrahedronGeometry(0.075, 0);
+    const shardMat = new THREE.MeshStandardMaterial({
+        color: 0x3ee6a0,
+        emissive: 0x3ee6a0,
+        emissiveIntensity: 3.5,
+        roughness: 0.2
+    });
+
+    shardData = [];
+    for (let i = 0; i < SHARD_COUNT; i++) {
+        const shard = new THREE.Mesh(shardGeo, shardMat);
+        shatterGroup.add(shard);
+        shardData.push({
+            mesh: shard,
+            vx: 0,
+            vy: 0,
+            vz: 0,
+            rx: (Math.random() - 0.5) * 16,
+            ry: (Math.random() - 0.5) * 16,
+            rz: (Math.random() - 0.5) * 16
+        });
+    }
+}
+
+function trigger3dCrash(playerY = 0.28) {
+    if (!shatterGroup || !playerGroup) return;
+    shatterGroup.visible = true;
+    playerGroup.visible = false;
+    cameraShake = 0.65;
+
+    for (let i = 0; i < SHARD_COUNT; i++) {
+        const s = shardData[i];
+        s.mesh.position.set(0, playerY, 0);
+        const speed = 2.4 + Math.random() * 3.8;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = (Math.random() - 0.3) * Math.PI * 0.5;
+        s.vx = Math.cos(theta) * Math.cos(phi) * speed;
+        s.vy = Math.sin(phi) * speed + 1.8;
+        s.vz = Math.sin(theta) * Math.cos(phi) * speed;
+    }
+
+    if (signalLostMesh) {
+        signalLostMesh.visible = true;
+        signalLostMesh.position.set(0, 1.1, -1.8);
+    }
+}
+
+function buildSignalLostBanner() {
+    if (!gameScene) return;
+
+    const bannerCanvas = document.createElement('canvas');
+    bannerCanvas.width = 256;
+    bannerCanvas.height = 64;
+    const ctx = bannerCanvas.getContext('2d');
+    if (ctx) {
+        ctx.fillStyle = 'rgba(3, 19, 10, 0.85)';
+        ctx.fillRect(0, 0, 256, 64);
+        ctx.strokeStyle = '#3ee6a0';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(4, 4, 248, 56);
+        ctx.fillStyle = '#ff4444';
+        ctx.font = 'bold 22px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('SIGNAL LOST', 128, 30);
+        ctx.fillStyle = '#3ee6a0';
+        ctx.font = '12px monospace';
+        ctx.fillText('ENTER // RETRY', 128, 48);
+    }
+
+    const bannerTexture = new THREE.CanvasTexture(bannerCanvas);
+    const bannerGeo = new THREE.PlaneGeometry(1.6, 0.4);
+    const bannerMat = new THREE.MeshBasicMaterial({
+        map: bannerTexture,
+        transparent: true,
+        opacity: 0.95
+    });
+    signalLostMesh = new THREE.Mesh(bannerGeo, bannerMat);
+    signalLostMesh.visible = false;
+    gameScene.add(signalLostMesh);
+}
+
+// ─────────────────────────────────────────────────────────────
 // 3D Procedural Obstacle Factories & Pooling
 // ─────────────────────────────────────────────────────────────
 
@@ -715,13 +833,9 @@ function getPooledObstacle(type) {
 // 3D Procedural Collectible & Powerup Factories & Pooling
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Builds the initial pool of 3D Gold Bohr Electrons.
- */
 function buildCollectiblePools() {
     if (!collectiblesGroup) return;
 
-    // Build 3D Electron pool
     const coreGeo = new THREE.OctahedronGeometry(0.09, 0);
     const coreMat = new THREE.MeshStandardMaterial({
         color: 0xffd700,
@@ -835,7 +949,6 @@ function updateCollectibles(delta, sim) {
             elMesh.visible = true;
 
             const targetY = 0.28 + ((SIM_GROUND_Y - e.y) / 38.0) * 1.35;
-            // When Magnet active, pull towards player in 3D
             if (sim.magnet > 0 && z3d > -8.0 && z3d < 0.5) {
                 elMesh.position.x = THREE.MathUtils.lerp(elMesh.position.x, 0, delta * 6.0);
                 elMesh.position.y = THREE.MathUtils.lerp(elMesh.position.y, playerGroup ? playerGroup.position.y : targetY, delta * 8.0);
@@ -872,7 +985,6 @@ function updateCollectibles(delta, sim) {
 function updateObstacles(delta, sim) {
     if (!obstacleGroup || !sim || !Array.isArray(sim.actors)) return;
 
-    // 1. Hide all pooled obstacles
     for (const key of Object.keys(obstaclePool)) {
         const list = obstaclePool[key];
         for (let i = 0; i < list.length; i++) {
@@ -880,7 +992,6 @@ function updateObstacles(delta, sim) {
         }
     }
 
-    // 2. Position active obstacles
     for (const a of sim.actors) {
         if (a.kind !== 'obstacle') continue;
 
@@ -923,11 +1034,9 @@ function updateObstacles(delta, sim) {
 function updatePlayer(delta, sim) {
     if (!playerGroup || !coreMesh || !outerRingMesh || !innerRingMesh) return;
 
-    // 1. Calculate Target 3D Height from 2D sim py
     const heightNorm = Math.max(0, (SIM_GROUND_Y - sim.py) / 38.0);
     const baseTargetY = 0.28 + heightNorm * 1.35;
 
-    // 2. Action States Kinematics
     if (sim.sliding) {
         coreMesh.scale.set(1.45, 0.35, 1.45);
         if (innerSparkMesh) innerSparkMesh.scale.set(1.4, 0.3, 1.4);
@@ -989,7 +1098,6 @@ function updatePlayer(delta, sim) {
         }
     }
 
-    // 3. Update Active Power-Up Holograms on Player
     if (shieldSphere) {
         shieldSphere.visible = !!sim.shield;
         if (sim.shield) {
@@ -1016,7 +1124,6 @@ function updatePlayer(delta, sim) {
         }
     }
 
-    // 4. Update Dash Afterimage Ghosts
     if (afterimages.length >= 2) {
         if (sim.dashing) {
             afterimages[0].visible = true;
@@ -1031,7 +1138,6 @@ function updatePlayer(delta, sim) {
         }
     }
 
-    // 5. Update Particle Jet Trail
     if (trailInstanced) {
         for (let i = TRAIL_COUNT - 1; i > 0; i--) {
             trailHistory[i].x = trailHistory[i - 1].x;
@@ -1055,7 +1161,6 @@ function updatePlayer(delta, sim) {
         trailInstanced.instanceMatrix.needsUpdate = true;
     }
 
-    // 6. Update Ground Shadow
     if (playerShadow) {
         playerShadow.position.y = 0.035;
         const shadowOpacity = Math.max(0.08, 0.55 - heightNorm * 0.38);
@@ -1064,7 +1169,6 @@ function updatePlayer(delta, sim) {
         playerShadow.scale.set(shadowScale, shadowScale, shadowScale);
     }
 
-    // 7. Update Dynamic Player Point Light
     if (playerLight) {
         playerLight.position.set(0, playerGroup.position.y + 0.15, 0.1);
         if (sim.dashing) {
@@ -1091,42 +1195,99 @@ function updatePlayer(delta, sim) {
 export function update3dGame(delta, sim) {
     if (!isInitialized || !gameRenderer || !gameScene || !gameCamera || !sim) return;
 
-    // 1. Advance Track Tiles based on distance
-    const trackSpeed = sim.curSpeed || 85;
-    const scrollZ = (trackSpeed * delta * 0.05);
+    // 1. Detect State Transitions (Crash / Restart)
+    if (sim.state !== lastSimState) {
+        if (sim.state === 'over') {
+            const curY = playerGroup ? playerGroup.position.y : 0.28;
+            trigger3dCrash(curY);
+        } else if (sim.state === 'playing' || sim.state === 'count' || sim.state === 'ready') {
+            if (shatterGroup) shatterGroup.visible = false;
+            if (playerGroup) playerGroup.visible = true;
+            if (signalLostMesh) signalLostMesh.visible = false;
+        }
+        lastSimState = sim.state;
+    }
 
-    if (trackTiles.length > 0) {
-        for (let i = 0; i < trackTiles.length; i++) {
-            const tile = trackTiles[i];
-            tile.position.z += scrollZ;
-            // Loop back when tile passes behind camera
-            if (tile.position.z > 5.0) {
-                // Find current furthest tile
-                let minZ = 0;
-                for (let j = 0; j < trackTiles.length; j++) {
-                    if (trackTiles[j].position.z < minZ) minZ = trackTiles[j].position.z;
+    // 2. Camera FOV Speed Warp
+    const targetFov = sim.dashing ? 74.0 : (sim.turbo > 0 ? 69.0 : 62.0);
+    currentCameraFov = THREE.MathUtils.lerp(currentCameraFov, targetFov, delta * 6.0);
+    gameCamera.fov = currentCameraFov;
+    gameCamera.updateProjectionMatrix();
+
+    // 3. Camera Shake Decay & Jitter
+    if (sim.electrons > lastObservedElectrons) {
+        cameraShake = Math.max(cameraShake, 0.16);
+        lastObservedElectrons = sim.electrons;
+    } else if (sim.electrons < lastObservedElectrons) {
+        lastObservedElectrons = sim.electrons;
+    }
+    if (sim.combo > lastObservedCombo) {
+        cameraShake = Math.max(cameraShake, 0.28);
+        lastObservedCombo = sim.combo;
+    } else if (sim.combo < lastObservedCombo) {
+        lastObservedCombo = sim.combo;
+    }
+
+    if (cameraShake > 0) {
+        cameraShake = Math.max(0, cameraShake - delta * 4.2);
+    }
+    const shakeX = (Math.random() - 0.5) * cameraShake * 0.08;
+    const shakeY = (Math.random() - 0.5) * cameraShake * 0.08;
+
+    // 4. Update Camera Height & Bob
+    const bob = (!motionPrefs.reduced && sim.state === 'playing') ? Math.sin(sim.dist * 0.12) * 0.025 : 0;
+    gameCamera.position.set(shakeX, 1.85 + bob + shakeY, 3.9);
+
+    // 5. Update Shatter Shards if game is over
+    if (sim.state === 'over' && shatterGroup && shatterGroup.visible) {
+        for (let i = 0; i < SHARD_COUNT; i++) {
+            const s = shardData[i];
+            s.mesh.position.x += s.vx * delta;
+            s.mesh.position.y += s.vy * delta;
+            s.mesh.position.z += s.vz * delta;
+            s.vy -= 9.8 * delta;
+            if (s.mesh.position.y < 0.04) {
+                s.mesh.position.y = 0.04;
+                s.vy = -s.vy * 0.42; // bounce
+            }
+            s.mesh.rotation.x += s.rx * delta;
+            s.mesh.rotation.y += s.ry * delta;
+            s.mesh.rotation.z += s.rz * delta;
+        }
+        if (signalLostMesh && signalLostMesh.visible) {
+            // Pulse signal lost banner
+            signalLostMesh.position.y = 1.1 + Math.sin(sim.dist * 0.4) * 0.03;
+        }
+    } else {
+        // 6. Advance Track Tiles based on distance (only while running)
+        const trackSpeed = sim.curSpeed || 85;
+        const scrollZ = (trackSpeed * delta * 0.05);
+
+        if (trackTiles.length > 0) {
+            for (let i = 0; i < trackTiles.length; i++) {
+                const tile = trackTiles[i];
+                tile.position.z += scrollZ;
+                if (tile.position.z > 5.0) {
+                    let minZ = 0;
+                    for (let j = 0; j < trackTiles.length; j++) {
+                        if (trackTiles[j].position.z < minZ) minZ = trackTiles[j].position.z;
+                    }
+                    tile.position.z = minZ - TILE_LENGTH;
                 }
-                tile.position.z = minZ - TILE_LENGTH;
             }
         }
+
+        // 7. Update 3D Obstacles
+        updateObstacles(delta, sim);
+
+        // 8. Update 3D Collectibles & Power-ups
+        updateCollectibles(delta, sim);
+
+        // 9. Update 3D Cyber-Pulse Avatar
+        updatePlayer(delta, sim);
     }
 
-    // 2. Update 3D Obstacles
-    updateObstacles(delta, sim);
-
-    // 3. Update 3D Collectibles & Power-up Pickups
-    updateCollectibles(delta, sim);
-
-    // 4. Update 3D Cyber-Pulse Avatar
-    updatePlayer(delta, sim);
-
-    // 5. Update camera position & subtle speed bobbing
-    if (!motionPrefs.reduced) {
-        const bob = Math.sin(sim.dist * 0.12) * 0.025;
-        gameCamera.position.y = 1.85 + bob;
-    }
-
-    // 6. Render 3D Sub-Scene to CRT canvas
+    // 10. Render 3D Sub-Scene to CRT canvas
     gameRenderer.render(gameScene, gameCamera);
 }
 
