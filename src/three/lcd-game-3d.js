@@ -164,24 +164,34 @@ let trackFloorMat = null;
 let isInitialized = false;
 
 /**
- * Initialize the 3D game engine attached to the arcade CRT canvas.
+ * Initialize the 3D game engine. If no canvas is provided, creates an offscreen canvas.
  * Safe in headless environments: returns false if WebGL is unavailable.
- * @param {HTMLCanvasElement} canvas
+ * @param {HTMLCanvasElement | null} [canvas]
  * @returns {boolean}
  */
-export function init3dGame(canvas) {
-    if (!canvas || typeof canvas.getContext !== 'function') return false;
+export function init3dGame(canvas = null) {
+    if (isInitialized) return true;
+    if (typeof document === 'undefined') return false;
 
-    // Check WebGL availability
-    let gl = null;
+    let targetCanvas = canvas;
+    if (!targetCanvas) {
+        targetCanvas = document.createElement('canvas');
+        targetCanvas.width = CRT_W;
+        targetCanvas.height = CRT_H;
+    }
+
+    if (!targetCanvas || typeof targetCanvas.getContext !== 'function') return false;
+
+    // Check WebGL availability using a probe canvas so targetCanvas preserves its context options
     try {
-        gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+        const probe = document.createElement('canvas');
+        const probeGl = probe.getContext('webgl2') || probe.getContext('webgl');
+        if (!probeGl) return false;
     } catch {
         return false;
     }
-    if (!gl) return false;
 
-    boundCanvas = canvas;
+    boundCanvas = targetCanvas;
     boundCanvas.width = CRT_W;
     boundCanvas.height = CRT_H;
 
@@ -1087,7 +1097,10 @@ function updatePlayer(delta, sim) {
             } else {
                 playerGroup.rotation.x *= 0.82;
                 playerGroup.rotation.z *= 0.82;
-                const bob = Math.sin(sim.dist * 0.25) * 0.035;
+                const idle = (!sim.curSpeed || sim.state === 'ready');
+                const bob = idle
+                    ? Math.sin((sim.idleAccum || 0) * 3.8) * 0.04
+                    : Math.sin(sim.dist * 0.25) * 0.035;
                 playerGroup.position.y = baseTargetY + bob;
 
                 outerRingMesh.rotation.x += delta * 3.8;
@@ -1302,5 +1315,13 @@ export function is3dGameReady() {
  * Returns the CRT canvas element.
  */
 export function get3dGameCanvas() {
+    return boundCanvas;
+}
+
+/**
+ * Returns the offscreen / rendered 3D canvas element.
+ * @returns {HTMLCanvasElement | null}
+ */
+export function get3dCanvas() {
     return boundCanvas;
 }

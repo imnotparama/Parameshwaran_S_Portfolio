@@ -61,7 +61,7 @@ import { motionPrefs } from '../utils/motion-prefs.js';
 import { dockDrone, undockDrone } from './drone.js';
 import { setPinsGameFocus } from './playground-props.js';
 import { energizeTraceAtPoint } from './traces.js';
-import { init3dGame, update3dGame, is3dGameReady } from './lcd-game-3d.js';
+import { init3dGame, update3dGame, is3dGameReady, get3dCanvas } from './lcd-game-3d.js';
 // The pure SIGNAL RUNNER simulation — zero THREE/DOM (lcd-sim.js). The sim
 // owns the game state, physics, persistence, and the snapshot seam; this
 // module owns the meshes, the canvas texture, and the drawing.
@@ -109,7 +109,6 @@ const C_FAINT = '#0a3d22';
 /** @type {HTMLCanvasElement | null} */ let gameCanvas = null;
 /** @type {CanvasRenderingContext2D | null} */ let gctx = null;
 /** @type {THREE.CanvasTexture | null} */ let screenTexture = null;
-/** @type {THREE.CanvasTexture | null} */ let crtTexture = null;
 /** @type {THREE.MeshStandardMaterial | null} */ let bezelLedMat = null;
 /** @type {THREE.MeshBasicMaterial | null} */ let glowMat = null;
 /** @type {HTMLCanvasElement | null} */ let ghostCanvas = null;
@@ -486,7 +485,9 @@ function drawCount(c) {
 /** @param {CanvasRenderingContext2D} c */
 function drawPlaying(c) {
     drawHud(c);
-    drawField(c);
+    if (!is3dGameReady()) {
+        drawField(c);
+    }
     // A CPU checkpoint flash every 1000px — the trace reached the next
     // processor stage ("CPU 1000 OK"). Blinks ~4Hz for the flash duration.
     if (S.fxMilestone > 0 && Math.floor(S.fxMilestone * 4) % 2 === 0) {
@@ -571,14 +572,27 @@ function drawDebugOverlay(c) {
 function drawFrame(delta) {
     if (!gctx) return;
     const c = gctx;
-    c.fillStyle = C_BG;
-    c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    // LCD ghosting — the previous frame bleeds through faintly where this
-    // frame is empty, so a moving object leaves a fading trail (persistence).
-    if (ghostCanvas && ghostCtx && !motionPrefs.reduced) {
-        c.globalAlpha = 0.16;
-        c.drawImage(ghostCanvas, 0, 0);
-        c.globalAlpha = 1;
+
+    let rendered3d = false;
+    if (is3dGameReady() && S.state !== 'off') {
+        update3dGame(delta, S);
+        const c3d = get3dCanvas();
+        if (c3d) {
+            c.drawImage(c3d, 0, 0, CANVAS_W, CANVAS_H);
+            rendered3d = true;
+        }
+    }
+
+    if (!rendered3d) {
+        c.fillStyle = C_BG;
+        c.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        // LCD ghosting — the previous frame bleeds through faintly where this
+        // frame is empty, so a moving object leaves a fading trail (persistence).
+        if (ghostCanvas && ghostCtx && !motionPrefs.reduced) {
+            c.globalAlpha = 0.16;
+            c.drawImage(ghostCanvas, 0, 0);
+            c.globalAlpha = 1;
+        }
     }
 
     if (S.state === 'off') drawOff(c);
@@ -784,25 +798,169 @@ function renderLeaderboard(sim) {
     }).join('');
 }
 
+/**
+ * Draw crisp high-resolution cybernetic HUD and status overlays over the 512×256 arcade CRT canvas.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {ReturnType<typeof simView>} sim
+ * @param {number} w
+ * @param {number} h
+ */
+function drawCrtOverlay(ctx, sim, w, h) {
+    ctx.save();
+    ctx.font = 'bold 12px "JetBrains Mono", "Courier New", monospace';
+    ctx.textBaseline = 'top';
+
+    if (sim.state === 'boot') {
+        ctx.fillStyle = 'rgba(2, 10, 6, 0.72)';
+        ctx.fillRect(35, 30, w - 70, h - 60);
+        ctx.strokeStyle = '#3ee6a0';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(35, 30, w - 70, h - 60);
+
+        ctx.fillStyle = '#3ee6a0';
+        ctx.font = 'bold 13px "JetBrains Mono", monospace';
+        ctx.fillText('DIAGNOSTIC BOOT // SIGNAL RUNNER 3D', 50, 48);
+
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.8)';
+        ctx.font = '11px "JetBrains Mono", monospace';
+        ctx.fillText('POST 0x8840: VRAM ALLOCATED (512×256 WebGL2)', 50, 80);
+        ctx.fillText('TRACE SCAN: ENIG GOLD TRANSMISSION LINE ... OK', 50, 105);
+        ctx.fillText('PULSE GENERATOR: QUANTUM CORE LOCKED ... OK', 50, 130);
+        ctx.fillText('BUS SYNCHRONIZER: CLOCK RATE 60Hz ... OK', 50, 155);
+
+        ctx.fillStyle = '#3ee6a0';
+        ctx.fillText('CALIBRATING INTERFACES ... READY', 50, 185);
+    } else if (sim.state === 'ready') {
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 20px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#3ee6a0';
+        ctx.shadowColor = 'rgba(62, 230, 160, 0.8)';
+        ctx.shadowBlur = 10;
+        ctx.fillText('SIGNAL RUNNER 3D', w / 2, 45);
+
+        ctx.font = '11px "JetBrains Mono", monospace';
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.8)';
+        ctx.shadowBlur = 0;
+        ctx.fillText('HIGH-SPEED SUB-NANOSECOND PULSE RUNNER', w / 2, 75);
+
+        const armed = sim.idleAccum >= 15;
+        const blink = !armed || (Math.floor(sim.idleAccum / 0.4) % 2 === 0);
+        if (blink) {
+            ctx.font = 'bold 14px "JetBrains Mono", monospace';
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#3ee6a0';
+            ctx.shadowBlur = 12;
+            ctx.fillText('▶ PRESS SPACE OR [JUMP] TO START', w / 2, 135);
+        }
+
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.65)';
+        ctx.shadowBlur = 0;
+        ctx.fillText('[W / SPACE] JUMP    [S / DOWN] SLIDE    [D / SHIFT] DASH', w / 2, 180);
+        if (sim.bestScore > 0) {
+            ctx.fillText(`ALL-TIME RECORD: ${Math.floor(sim.bestScore)}m`, w / 2, 210);
+        }
+    } else if (sim.state === 'count') {
+        const digit = Math.max(1, Math.ceil((3.0 - sim.countAccum) / 1.0));
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 58px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#3ee6a0';
+        ctx.shadowBlur = 20;
+        ctx.fillText(String(digit), w / 2, 75);
+
+        ctx.font = 'bold 12px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#3ee6a0';
+        ctx.shadowBlur = 0;
+        ctx.fillText('STANDBY // ENGAGING TACHYON DRIVE', w / 2, 160);
+    } else if (sim.state === 'paused') {
+        ctx.fillStyle = 'rgba(2, 10, 6, 0.72)';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 22px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#3ee6a0';
+        ctx.shadowColor = 'rgba(62, 230, 160, 0.9)';
+        ctx.shadowBlur = 12;
+        ctx.fillText('SYSTEM PAUSED', w / 2, 90);
+
+        ctx.font = '12px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.fillText('PRESS [P] TO RESUME  ·  [ESC] TO EXIT', w / 2, 140);
+    } else if (sim.state === 'over') {
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 20px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#ff4d4d';
+        ctx.shadowColor = 'rgba(255, 77, 77, 0.9)';
+        ctx.shadowBlur = 15;
+        ctx.fillText('// CRITICAL FAULT: SIGNAL LOST //', w / 2, 40);
+
+        ctx.shadowBlur = 0;
+        ctx.font = '12px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`DISTANCE: ${Math.floor(sim.dist)}m    ELECTRONS: ${sim.electrons}`, w / 2, 78);
+        ctx.fillText(`PEAK VELOCITY: ${Math.round(sim.curSpeed)} px/s    MAX COMBO: x${sim.maxCombo}`, w / 2, 102);
+
+        if (sim.newRecord) {
+            ctx.fillStyle = '#ffcc00';
+            ctx.font = 'bold 13px "JetBrains Mono", monospace';
+            ctx.shadowColor = '#ffcc00';
+            ctx.shadowBlur = 10;
+            ctx.fillText('★ NEW ALL-TIME RECORD ACHIEVED ★', w / 2, 138);
+            ctx.shadowBlur = 0;
+        }
+
+        const blink = Math.floor(sim.overAccum / 0.4) % 2 === 0;
+        if (blink) {
+            ctx.fillStyle = '#3ee6a0';
+            ctx.font = 'bold 13px "JetBrains Mono", monospace';
+            ctx.fillText('▶ PRESS ENTER OR [RESTART] TO REBOOT', w / 2, 190);
+        }
+    } else if (sim.state === 'playing') {
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.85)';
+        ctx.fillText(`SIG: ${String(sim.score).padStart(4, '0')}`, 14, 12);
+        ctx.fillText(`DIST: ${String(Math.floor(sim.dist)).padStart(4, '0')}m`, 120, 12);
+
+        if (sim.combo > 1) {
+            ctx.fillStyle = '#00ffff';
+            ctx.fillText(`COMBO x${sim.combo}`, 230, 12);
+        }
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.85)';
+        ctx.fillText(`SPD: ${Math.round(sim.curSpeed)} px/s`, w - 14, 12);
+
+        if (sim.fxMilestone > 0 && Math.floor(sim.fxMilestone * 4) % 2 === 0) {
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 14px "JetBrains Mono", monospace';
+            ctx.fillStyle = '#00ffff';
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 10;
+            ctx.fillText(`STAGE CHECKPOINT: CPU ${String(sim.milestonePx).padStart(4, '0')} OK`, w / 2, 45);
+        }
+    }
+    ctx.restore();
+}
+
 /** Synchronize the mirrored CRT arcade screen and telemetry deck
- *  @param {ReturnType<typeof simView>} sim
- *  @param {number} [delta] */
-function updateArcadeStation(sim, delta = 0.016) {
+ *  @param {ReturnType<typeof simView>} sim */
+function updateArcadeStation(sim) {
     if (typeof document === 'undefined') return;
     if (!document.body.classList.contains('lcd-game-focus')) return;
 
-    // 1. Mirror CRT Canvas (3D Three.js or 2D fallback)
+    // 1. Mirror to Arcade CRT Canvas (512×256)
     const crt = /** @type {HTMLCanvasElement | null} */ (document.getElementById('arcade-crt-canvas'));
     if (crt) {
-        if (!is3dGameReady()) {
-            init3dGame(crt);
-        }
-        if (is3dGameReady()) {
-            update3dGame(delta, sim);
-            if (crtTexture) crtTexture.needsUpdate = true;
-        } else if (gameCanvas) {
-            const ctx = crt.getContext('2d');
-            if (ctx) {
+        const ctx = crt.getContext('2d');
+        if (ctx) {
+            const c3d = get3dCanvas();
+            if (c3d && is3dGameReady() && sim.state !== 'off') {
+                ctx.imageSmoothingEnabled = true;
+                ctx.drawImage(c3d, 0, 0, crt.width, crt.height);
+                drawCrtOverlay(ctx, sim, crt.width, crt.height);
+            } else if (gameCanvas) {
                 ctx.imageSmoothingEnabled = false;
                 ctx.drawImage(gameCanvas, 0, 0, crt.width, crt.height);
             }
@@ -977,6 +1135,8 @@ export function updateLcdScreen(elapsed, delta) {
     // The runner animates every frame while playing; the countdown digit
     // slides down each second, so it redraws every frame too.
     if (S.state === 'playing' || S.state === 'count') markDirty();
+    // Continuous 3D subscene animation while machine is active (gimbals, hover, particle jets)
+    if (is3dGameReady() && S.state !== 'off') markDirty();
     // The title prompt blinks once armed — redraw on the blink transition.
     if (S.state === 'ready') {
         const armed = S.idleAccum >= IDLE_BLINK_MS / 1000;
@@ -1009,7 +1169,7 @@ export function updateLcdScreen(elapsed, delta) {
         screenTexture.needsUpdate = true;
         clearDirty();
     }
-    updateArcadeStation(S, delta);
+    updateArcadeStation(S);
 
     // Board-reactive power surge: electrify physical copper traces feeding LCD1
     if (S.electrons > lastObservedElectrons) {
@@ -1106,20 +1266,15 @@ export function createLcd(boardGroup) {
     disposableResources.geometries.add(screenGeo);
     const screenMat = new THREE.MeshBasicMaterial();
     if (gctx) {
-        const crt = typeof document !== 'undefined' ? /** @type {HTMLCanvasElement | null} */ (document.getElementById('arcade-crt-canvas')) : null;
-        if (crt && init3dGame(crt)) {
-            crtTexture = new THREE.CanvasTexture(crt);
-            crtTexture.colorSpace = THREE.SRGBColorSpace;
-            crtTexture.anisotropy = 4;
-            disposableResources.textures.add(crtTexture);
-            screenMat.map = crtTexture;
-        } else {
-            screenTexture = new THREE.CanvasTexture(gameCanvas);
-            screenTexture.colorSpace = THREE.SRGBColorSpace;
-            screenTexture.anisotropy = 4;
-            disposableResources.textures.add(screenTexture);
-            screenMat.map = screenTexture;
-        }
+        screenTexture = new THREE.CanvasTexture(gameCanvas);
+        screenTexture.colorSpace = THREE.SRGBColorSpace;
+        screenTexture.anisotropy = 4;
+        disposableResources.textures.add(screenTexture);
+        screenMat.map = screenTexture;
+
+        // Initialize 3D game engine
+        init3dGame();
+
         // Ghost buffer — the previous frame, drawn faintly under the next
         // (LCD pixel persistence). Same 128×64 size, offscreen.
         ghostCanvas = document.createElement('canvas');
