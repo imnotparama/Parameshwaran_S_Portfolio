@@ -3633,6 +3633,42 @@ body.lcd-game-focus .lcd-arcade-station {
     color: rgba(62, 230, 160, 0.5);
 }
 
+.arcade-share-bar {
+    margin-top: 6px;
+    border-top: 1px solid rgba(62, 230, 160, 0.18);
+    padding-top: 8px;
+}
+.arcade-share-btn {
+    width: 100%;
+    background: linear-gradient(180deg, rgba(16, 48, 28, 0.85) 0%, rgba(6, 24, 13, 0.95) 100%);
+    border: 1px solid var(--signal, #3ee6a0);
+    border-radius: 4px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--signal, #3ee6a0);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.arcade-share-btn:hover {
+    background: rgba(62, 230, 160, 0.2);
+    border-color: #fff;
+    color: #fff;
+    box-shadow: 0 0 14px rgba(62, 230, 160, 0.35);
+}
+.arcade-share-btn.copied {
+    border-color: #ffd875;
+    color: #ffd875;
+    background: rgba(201, 162, 75, 0.25);
+    box-shadow: 0 0 14px rgba(255, 216, 117, 0.4);
+}
+
 @media (max-width: 1024px) {
     .lcd-arcade-station {
         left: 20px;

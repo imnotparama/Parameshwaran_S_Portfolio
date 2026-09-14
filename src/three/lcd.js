@@ -691,6 +691,38 @@ export function getRunnerScope() {
     };
 }
 
+/**
+ * Generate a shareable retro ASCII achievement brag card.
+ * @param {ReturnType<typeof simView>} sim
+ * @returns {string}
+ */
+export function generateAsciiBragCard(sim) {
+    const dist = Math.floor(sim.dist || 0);
+    const score = sim.score || 0;
+    const electrons = sim.electrons || 0;
+    const maxCombo = sim.maxCombo || 1;
+    const rank = dist >= 1000 ? 'RANK S // SILICON ARCHITECT'
+        : dist >= 500 ? 'RANK A // HARDWARE HACKER'
+        : dist >= 250 ? 'RANK B // CIRCUIT TESTER'
+        : dist >= 100 ? 'RANK C // SOLDER ROOKIE'
+        : 'RANK D // PROBE IDLE';
+
+    return [
+        '┌────────────────────────────────────────────────────────┐',
+        '│ ⚡ PARAMESHWARAN_DEV_BOARD // SIGNAL RUNNER v2.4 CRT   │',
+        '├────────────────────────────────────────────────────────┤',
+        `│ DISTANCE:   ${String(dist).padStart(5, ' ')} m                                  │`,
+        `│ SIGNAL:     ${String(score).padStart(5, ' ')} pts                                │`,
+        `│ ELECTRONS:  ${String(electrons).padStart(5, ' ')} bits                               │`,
+        `│ PEAK COMBO: x${String(maxCombo).padEnd(2, ' ')}                                        │`,
+        `│ STATUS:     ${rank.padEnd(42, ' ')}│`,
+        '│ HARDWARE:   ARM Cortex-M4 // 3.3V RAIL // 16MHz BUS    │',
+        '├────────────────────────────────────────────────────────┤',
+        '│ PLAY: https://imnotparama.github.io/Parameshwaran_S_Portfolio/#/lcd │',
+        '└────────────────────────────────────────────────────────┘'
+    ].join('\n');
+}
+
 /** Enter the game — called by journey.js when the camera glides to the
  *  display. The machine powers ON: the boot POST + diagnostics play, then
  *  the title screen idles (Enter starts). Under reduced motion the POST
@@ -1223,6 +1255,39 @@ export function createLcd(boardGroup) {
             exitLcd();
             if (exitHandler) exitHandler();
         });
+
+        const shareBtn = document.getElementById('arcade-btn-share');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const card = generateAsciiBragCard(simView());
+                try {
+                    if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                        await navigator.clipboard.writeText(card);
+                    } else if (typeof document !== 'undefined') {
+                        const ta = document.createElement('textarea');
+                        ta.value = card;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                    }
+                    const label = document.getElementById('arcade-share-text');
+                    if (label) {
+                        const orig = label.textContent;
+                        label.textContent = 'COPIED TO CLIPBOARD! ✓';
+                        shareBtn.classList.add('copied');
+                        setTimeout(() => {
+                            if (label) label.textContent = orig;
+                            shareBtn.classList.remove('copied');
+                        }, 2200);
+                    }
+                } catch (err) {
+                    console.warn('Share copy error:', err);
+                }
+            });
+        }
     };
 
     initArcadeGamepad();
