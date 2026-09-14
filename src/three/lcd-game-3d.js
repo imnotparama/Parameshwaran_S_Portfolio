@@ -527,22 +527,22 @@ function buildPlayer() {
     overclockHalo.visible = false;
     playerGroup.add(overclockHalo);
 
-    // 5. Turbo Twin Plasma Thruster Cones
+    // 5. Turbo Twin Plasma Thruster Cones (Facing -X)
     turboFlames = new THREE.Group();
     const flameGeo = new THREE.ConeGeometry(0.06, 0.35, 8);
-    flameGeo.rotateX(Math.PI / 2);
+    flameGeo.rotateZ(Math.PI / 2);
     const flameMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
     const f1 = new THREE.Mesh(flameGeo, flameMat);
-    f1.position.set(-0.12, 0, 0.32);
+    f1.position.set(-0.32, 0.08, 0);
     turboFlames.add(f1);
     const f2 = new THREE.Mesh(flameGeo, flameMat);
-    f2.position.set(0.12, 0, 0.32);
+    f2.position.set(-0.32, -0.08, 0);
     turboFlames.add(f2);
     turboFlames.visible = false;
     playerGroup.add(turboFlames);
 
-    // 6. Ground Shadow
-    const shadowGeo = new THREE.PlaneGeometry(0.48, 0.65);
+    // 6. Ground Shadow on Copper Rail
+    const shadowGeo = new THREE.PlaneGeometry(0.65, 0.48);
     shadowGeo.rotateX(-Math.PI / 2);
     const shadowMat = new THREE.MeshBasicMaterial({
         color: 0x000000,
@@ -550,7 +550,7 @@ function buildPlayer() {
         opacity: 0.55
     });
     playerShadow = new THREE.Mesh(shadowGeo, shadowMat);
-    playerShadow.position.set(0, 0.035, 0);
+    playerShadow.position.set(-2.5, 0.21, 0);
     gameScene.add(playerShadow);
 
     // 7. Dash Afterimage Ghosts
@@ -1117,15 +1117,20 @@ function updateObstacles(delta, sim) {
 function updatePlayer(delta, sim) {
     if (!playerGroup || !coreMesh || !outerRingMesh || !innerRingMesh) return;
 
+    // Fixed horizontal baseline mapping
+    playerGroup.position.x = toWorldX(sim.px);
+    playerGroup.position.z = 0.0;
+
+    const baseTargetY = toWorldY(sim.py);
     const heightNorm = Math.max(0, (SIM_GROUND_Y - sim.py) / 38.0);
-    const baseTargetY = 0.28 + heightNorm * 1.35;
 
     if (sim.sliding) {
-        coreMesh.scale.set(1.45, 0.35, 1.45);
-        if (innerSparkMesh) innerSparkMesh.scale.set(1.4, 0.3, 1.4);
-        outerRingMesh.rotation.set(Math.PI / 2, 0, 0);
-        innerRingMesh.rotation.set(Math.PI / 2, 0, 0);
-        playerGroup.position.y = 0.16;
+        // Flat horizontal aerodynamic duck
+        coreMesh.scale.set(1.65, 0.38, 1.25);
+        if (innerSparkMesh) innerSparkMesh.scale.set(1.5, 0.32, 1.1);
+        outerRingMesh.rotation.set(0, 0, Math.PI / 2);
+        innerRingMesh.rotation.set(0, 0, Math.PI / 2);
+        playerGroup.position.y = 0.22;
 
         if (slideSparks) {
             slideSparks.visible = true;
@@ -1133,12 +1138,12 @@ function updatePlayer(delta, sim) {
                 const vel = sparkVels[i];
                 vel.life -= delta * 4.0;
                 if (vel.life <= 0) {
-                    sparkPositions[i * 3] = (Math.random() - 0.5) * 0.2;
-                    sparkPositions[i * 3 + 1] = 0.04;
-                    sparkPositions[i * 3 + 2] = 0.1;
-                    vel.vx = (Math.random() - 0.5) * 1.8;
-                    vel.vy = Math.random() * 1.2 + 0.4;
-                    vel.vz = Math.random() * 3.5 + 2.0;
+                    sparkPositions[i * 3] = playerGroup.position.x - 0.15;
+                    sparkPositions[i * 3 + 1] = 0.21;
+                    sparkPositions[i * 3 + 2] = (Math.random() - 0.5) * 0.35;
+                    vel.vx = -Math.random() * 4.5 - 2.0;
+                    vel.vy = Math.random() * 2.2 + 0.6;
+                    vel.vz = (Math.random() - 0.5) * 1.5;
                     vel.life = 1.0;
                 } else {
                     sparkPositions[i * 3] += vel.vx * delta;
@@ -1154,22 +1159,25 @@ function updatePlayer(delta, sim) {
         if (slideSparks) slideSparks.visible = false;
 
         if (sim.dashing) {
-            coreMesh.scale.set(0.75, 0.75, 2.2);
-            if (innerSparkMesh) innerSparkMesh.scale.set(0.7, 0.7, 2.0);
-            outerRingMesh.rotation.x += delta * 12.0;
-            innerRingMesh.rotation.y += delta * 15.0;
+            // Horizontal elongated missile pose
+            coreMesh.scale.set(2.4, 0.75, 0.75);
+            if (innerSparkMesh) innerSparkMesh.scale.set(2.1, 0.7, 0.7);
+            outerRingMesh.rotation.z -= delta * 18.0;
+            innerRingMesh.rotation.x += delta * 15.0;
             playerGroup.position.y = baseTargetY;
         } else {
             coreMesh.scale.set(1, 1, 1);
             if (innerSparkMesh) innerSparkMesh.scale.set(1, 1, 1);
 
             if (!sim.onGround) {
-                const flipSpeed = (sim.jumpsUsed >= 2 ? 18.0 : 10.0);
-                playerGroup.rotation.x += delta * flipSpeed;
+                // Forward somersault rotation in 3D around Z axis
+                const flipSpeed = (sim.jumpsUsed >= 2 ? 22.0 : 12.0);
+                playerGroup.rotation.z -= delta * flipSpeed;
+                playerGroup.rotation.x *= 0.82;
                 playerGroup.position.y = baseTargetY;
             } else {
-                playerGroup.rotation.x *= 0.82;
                 playerGroup.rotation.z *= 0.82;
+                playerGroup.rotation.x *= 0.82;
                 const idle = (!sim.curSpeed || sim.state === 'ready');
                 const bob = idle
                     ? Math.sin((sim.idleAccum || 0) * 3.8) * 0.04
@@ -1206,7 +1214,7 @@ function updatePlayer(delta, sim) {
         turboFlames.visible = (sim.turbo > 0);
         if (sim.turbo > 0) {
             const flameScale = 1.0 + Math.random() * 0.7;
-            turboFlames.scale.set(1.0, 1.0, flameScale);
+            turboFlames.scale.set(flameScale, 1.0, 1.0);
         }
     }
 
@@ -1214,33 +1222,34 @@ function updatePlayer(delta, sim) {
         if (sim.dashing) {
             afterimages[0].visible = true;
             afterimages[1].visible = true;
-            afterimages[0].position.set(playerGroup.position.x, playerGroup.position.y, playerGroup.position.z + 0.35);
-            afterimages[0].scale.set(0.7, 0.7, 1.8);
-            afterimages[1].position.set(playerGroup.position.x, playerGroup.position.y, playerGroup.position.z + 0.70);
-            afterimages[1].scale.set(0.65, 0.65, 1.5);
+            afterimages[0].position.set(playerGroup.position.x - 0.38, playerGroup.position.y, 0);
+            afterimages[0].scale.set(1.8, 0.7, 0.7);
+            afterimages[1].position.set(playerGroup.position.x - 0.76, playerGroup.position.y, 0);
+            afterimages[1].scale.set(1.5, 0.65, 0.65);
         } else {
             afterimages[0].visible = false;
             afterimages[1].visible = false;
         }
     }
 
+    // Horizontal instanced particle exhaust stream trailing to the left (-X)
     if (trailInstanced) {
         for (let i = TRAIL_COUNT - 1; i > 0; i--) {
             trailHistory[i].x = trailHistory[i - 1].x;
             trailHistory[i].y = trailHistory[i - 1].y;
-            trailHistory[i].z = trailHistory[i - 1].z + (sim.curSpeed || 85) * delta * 0.045;
+            trailHistory[i].z = trailHistory[i - 1].z;
         }
-        trailHistory[0].x = playerGroup.position.x;
+        trailHistory[0].x = playerGroup.position.x - 0.25;
         trailHistory[0].y = playerGroup.position.y;
-        trailHistory[0].z = playerGroup.position.z + 0.25;
+        trailHistory[0].z = playerGroup.position.z;
 
         const dummy = new THREE.Object3D();
         for (let i = 0; i < TRAIL_COUNT; i++) {
             const node = trailHistory[i];
             const p = 1.0 - (i / TRAIL_COUNT);
-            const scale = p * 0.09;
+            const scale = p * 0.085;
             dummy.position.set(node.x, node.y, node.z);
-            dummy.scale.set(scale, scale, scale * 1.6);
+            dummy.scale.set(scale * 1.8, scale, scale);
             dummy.updateMatrix();
             trailInstanced.setMatrixAt(i, dummy.matrix);
         }
@@ -1248,7 +1257,7 @@ function updatePlayer(delta, sim) {
     }
 
     if (playerShadow) {
-        playerShadow.position.y = 0.035;
+        playerShadow.position.set(playerGroup.position.x, 0.21, 0);
         const shadowOpacity = Math.max(0.08, 0.55 - heightNorm * 0.38);
         /** @type {THREE.MeshBasicMaterial} */ (playerShadow.material).opacity = shadowOpacity;
         const shadowScale = Math.max(0.6, 1.0 - heightNorm * 0.3);
@@ -1256,7 +1265,7 @@ function updatePlayer(delta, sim) {
     }
 
     if (playerLight) {
-        playerLight.position.set(0, playerGroup.position.y + 0.15, 0.1);
+        playerLight.position.set(playerGroup.position.x, playerGroup.position.y + 0.2, 0.6);
         if (sim.dashing) {
             playerLight.color.setHex(0x00ffff);
             playerLight.intensity = 5.2;
