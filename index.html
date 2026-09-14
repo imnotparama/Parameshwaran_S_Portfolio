@@ -433,45 +433,138 @@
                     <h2 class="ds-title">Primary Uplink</h2>
                     <span class="headline-twin" aria-hidden="true">Primary Uplink</span>
                 </div>
-                <p class="ds-body text-pretty">Actively open to software engineering internships, AI/ML roles, and ambitious system collaborations. Direct transmission lines open via LinkedIn or Email.</p>
-                <div class="contact-grid">
-                    <a class="contact-card js-linkedin" href="#" target="_blank" rel="noopener noreferrer">
-                        <div class="contact-card-head">
-                            <span class="contact-card-badge">UPLINK // NETWORK</span>
-                            <span class="contact-status-dot"></span>
-                        </div>
-                        <div class="contact-card-title">LinkedIn Profile</div>
-                        <div class="contact-card-sub">Direct Channel →</div>
-                    </a>
-                    <a class="contact-card js-github" href="#" target="_blank" rel="noopener noreferrer">
-                        <div class="contact-card-head">
-                            <span class="contact-card-badge">REPOSITORY // VCS</span>
-                            <span class="contact-status-dot"></span>
-                        </div>
-                        <div class="contact-card-title">GitHub Source</div>
-                        <div class="contact-card-sub">github.com/imnotparama →</div>
-                    </a>
-                    <a class="contact-card" href="mailto:hunterparama@gmail.com">
-                        <div class="contact-card-head">
-                            <span class="contact-card-badge">PRIMARY // SMTP</span>
-                            <span class="contact-status-dot"></span>
-                        </div>
-                        <div class="contact-card-title">Direct Email</div>
-                        <div class="contact-card-sub">hunterparama@gmail.com →</div>
-                    </a>
-                    <a class="contact-card" href="tel:+919176020504">
-                        <div class="contact-card-head">
-                            <span class="contact-card-badge">VOICE // TELECOM</span>
-                            <span class="contact-status-dot"></span>
-                        </div>
-                        <div class="contact-card-title">Mobile Line</div>
-                        <div class="contact-card-sub">+91 9176020504 →</div>
-                    </a>
+
+                <!-- Real-Time Hardware Telemetry Strip -->
+                <div class="contact-telemetry-strip" aria-label="System Transmission Telemetry">
+                    <span class="telem-item"><span class="telem-dot pulse"></span>RTT: <strong id="rtt-counter">12ms</strong> (DIRECT)</span>
+                    <span class="telem-item">BAND: <strong id="current-rf-band">2.4GHz ISM</strong></span>
+                    <span class="telem-item">INTEGRITY: <strong class="text-emerald">99.98%</strong></span>
+                    <span class="telem-item clock">LOCAL: <strong id="chennai-clock">--:--:-- IST</strong></span>
                 </div>
+
+                <!-- Mission Statement & Uplink Status -->
+                <p class="ds-body text-pretty">Actively open to software engineering internships, AI/ML roles, and ambitious system collaborations. Direct transmission lines open via LinkedIn, Email, or packet dispatch below.</p>
+
+                <!-- Dual-Mode & Packet Export Tabs -->
+                <div class="contact-mode-tabs" role="tablist">
+                    <button type="button" class="contact-mode-tab active" id="tab-uplink-cards" role="tab" aria-selected="true">DIRECT UPLINK</button>
+                    <button type="button" class="contact-mode-tab" id="tab-uplink-terminal" role="tab" aria-selected="false">RAW UART CONSOLE</button>
+                    <button type="button" class="contact-mode-tab js-copy-vcard" id="btn-copy-vcard" title="Copy formatted contact JSON to clipboard">COPY PACKET [JSON]</button>
+                </div>
+
+                <!-- 1. DIRECT UPLINK CARDS VIEW -->
+                <div id="uplink-cards-view" class="uplink-view-container">
+                    <!-- RF Carrier Frequency Selector -->
+                    <div class="freq-band-selector">
+                        <span class="freq-selector-label">CARRIER FREQ:</span>
+                        <button type="button" class="freq-band-chip active" data-band="2.4GHz ISM">2.4GHz Wi-Fi/BT</button>
+                        <button type="button" class="freq-band-chip" data-band="5.8GHz HIGH-THROUGHPUT">5.8GHz ISM</button>
+                        <button type="button" class="freq-band-chip" data-band="Sub-GHz 868/915MHz LoRa">Sub-GHz LoRa</button>
+                    </div>
+
+                    <div class="contact-grid">
+                        <div class="contact-card js-linkedin-card">
+                            <div class="contact-card-head">
+                                <span class="contact-card-badge">UPLINK // NETWORK</span>
+                                <span class="contact-status-dot"></span>
+                            </div>
+                            <div class="contact-card-title">LinkedIn Profile</div>
+                            <div class="contact-card-sub">Direct Channel &rarr;</div>
+                            <div class="contact-card-actions">
+                                <a class="contact-action-link js-linkedin" href="https://linkedin.com/in/imnotparama" target="_blank" rel="noopener noreferrer">OPEN LINK &rarr;</a>
+                                <button type="button" class="contact-copy-chip js-copy-btn" data-copy="https://linkedin.com/in/imnotparama" aria-label="Copy LinkedIn URL">COPY</button>
+                            </div>
+                        </div>
+
+                        <div class="contact-card js-github-card">
+                            <div class="contact-card-head">
+                                <span class="contact-card-badge">REPOSITORY // VCS</span>
+                                <span class="contact-status-dot"></span>
+                            </div>
+                            <div class="contact-card-title">GitHub Source</div>
+                            <div class="contact-card-sub">github.com/imnotparama &rarr;</div>
+                            <div class="contact-card-actions">
+                                <a class="contact-action-link js-github" href="https://github.com/imnotparama" target="_blank" rel="noopener noreferrer">OPEN REPO &rarr;</a>
+                                <button type="button" class="contact-copy-chip js-copy-btn" data-copy="https://github.com/imnotparama" aria-label="Copy GitHub URL">COPY</button>
+                            </div>
+                        </div>
+
+                        <div class="contact-card">
+                            <div class="contact-card-head">
+                                <span class="contact-card-badge">PRIMARY // SMTP</span>
+                                <span class="contact-status-dot"></span>
+                            </div>
+                            <div class="contact-card-title">Direct Email</div>
+                            <div class="contact-card-sub">hunterparama@gmail.com &rarr;</div>
+                            <div class="contact-card-actions">
+                                <a class="contact-action-link" href="mailto:hunterparama@gmail.com">COMPOSE &rarr;</a>
+                                <button type="button" class="contact-copy-chip js-copy-btn" data-copy="hunterparama@gmail.com" aria-label="Copy Email">COPY</button>
+                            </div>
+                        </div>
+
+                        <div class="contact-card">
+                            <div class="contact-card-head">
+                                <span class="contact-card-badge">VOICE // TELECOM</span>
+                                <span class="contact-status-dot"></span>
+                            </div>
+                            <div class="contact-card-title">Mobile Line</div>
+                            <div class="contact-card-sub">+91 9176020504 &rarr;</div>
+                            <div class="contact-card-actions">
+                                <a class="contact-action-link" href="tel:+919176020504">CALL &rarr;</a>
+                                <button type="button" class="contact-copy-chip js-copy-btn" data-copy="+919176020504" aria-label="Copy Phone Number">COPY</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tactical Actions: Firmware Download & Packet Injection -->
+                    <div class="contact-tactical-row">
+                        <button type="button" class="btn-firmware-dl js-resume-btn" aria-label="Download Firmware Spec PDF">
+                            <span class="btn-fw-icon">&#x2193;</span>
+                            <span class="btn-fw-text">DOWNLOAD FIRMWARE SPEC (RESUME.PDF)</span>
+                        </button>
+                    </div>
+
+                    <!-- Instant Packet Injection Box -->
+                    <form id="packet-injection-form" class="packet-form">
+                        <div class="packet-form-head">
+                            <span class="packet-form-title">// DIRECT PACKET INJECTION</span>
+                            <span class="packet-form-status" id="packet-dispatch-status">STANDBY // READY FOR TRANSMISSION</span>
+                        </div>
+                        <div class="packet-inputs">
+                            <input type="email" id="packet-sender-email" placeholder="Your Email / Organization Callsign" required class="packet-input" />
+                            <textarea id="packet-message" rows="2" placeholder="Transmission payload or inquiry message..." required class="packet-textarea"></textarea>
+                        </div>
+                        <button type="submit" class="btn-packet-send">TRANSMIT PACKET &rarr;</button>
+                    </form>
+                </div>
+
+                <!-- 2. RAW UART CONSOLE VIEW -->
+                <div id="uplink-terminal-view" class="uplink-view-container hidden">
+                    <div class="uart-terminal-box">
+                        <div class="uart-terminal-bar">
+                            <span class="term-status-led"></span>
+                            <span class="term-bar-title">UART_TTY0 // 115200 BAUD // 8-N-1</span>
+                            <span class="term-bar-sub">J1 USB BRIDGE</span>
+                        </div>
+                        <div id="uart-terminal-log" class="uart-terminal-log" role="log" aria-live="polite">
+                            <div class="term-line intro">// PARAMA LABS DIAGNOSTIC UART TERMINAL INITIALIZED</div>
+                            <div class="term-line intro">// ALL HARDWARE REGISTERS LOADED · TYPE 'help' FOR COMMANDS</div>
+                        </div>
+                        <div class="uart-terminal-prompt-row">
+                            <span class="uart-prompt-label">UART_TX&gt;</span>
+                            <input type="text" id="uart-terminal-input" class="uart-prompt-input" placeholder="Type command (ping, status, email, resume, help)..." autocomplete="off" spellcheck="false" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contact Footer & Digital Signature -->
                 <div class="contact-footer">
-                    <span>PARAMA LABS · PRM-DEV-BOARD V2.0 · CHENNAI, TAMIL NADU, INDIA</span>
-                    <span>Built with Three.js WebGL &amp; Hardware State Machine</span>
-                    <span>&copy; 2026 &mdash; All Rights Reserved</span>
+                    <div class="contact-signature-badge">
+                        <span class="sig-title">DIGITAL SIGNATURE HASH:</span>
+                        <span class="sig-hash">SHA-256: 7F3A9B2C4E8D10A65F9321E5BDC874A0 // VERIFIED FIRMWARE</span>
+                    </div>
+                    <span>PARAMA LABS · PRM-DEV-BOARD V2.4 · CHENNAI, TAMIL NADU, INDIA</span>
+                    <span>Built with Three.js WebGL &amp; Hardware State Machine &copy; 2026</span>
                 </div>
             </div>
         </section>

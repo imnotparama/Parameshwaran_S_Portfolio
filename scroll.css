@@ -2804,6 +2804,422 @@ body.full-journey .ds-panel.panel-active {
     margin-top: 14px;
 }
 
+/* Contact: Real-Time Hardware Telemetry Strip */
+.contact-telemetry-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    background: rgba(8, 20, 14, 0.75);
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 6px;
+    padding: 6px 12px;
+    margin-top: 14px;
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: rgba(180, 220, 200, 0.85);
+}
+
+.telem-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.telem-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--signal, #3ee6a0);
+    box-shadow: 0 0 6px var(--signal, #3ee6a0);
+}
+
+.telem-dot.pulse {
+    animation: telem-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes telem-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.15); }
+}
+
+/* Mode Switcher Tabs */
+.contact-mode-tabs {
+    display: flex;
+    gap: 6px;
+    margin: 14px 0 16px 0;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.15);
+    padding-bottom: 8px;
+}
+
+.contact-mode-tab {
+    background: rgba(12, 28, 20, 0.6);
+    border: 1px solid rgba(62, 230, 160, 0.25);
+    border-radius: 4px;
+    color: rgba(180, 220, 200, 0.75);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.contact-mode-tab:hover {
+    color: #ffffff;
+    border-color: var(--signal, #3ee6a0);
+    background: rgba(62, 230, 160, 0.12);
+}
+
+.contact-mode-tab.active {
+    background: rgba(62, 230, 160, 0.18);
+    border-color: var(--signal, #3ee6a0);
+    color: var(--signal, #3ee6a0);
+    box-shadow: 0 0 10px rgba(62, 230, 160, 0.15);
+}
+
+.contact-mode-tab.js-copy-vcard {
+    margin-left: auto;
+    border-color: rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+}
+
+.contact-mode-tab.js-copy-vcard:hover {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: #38bdf8;
+}
+
+.uplink-view-container.hidden {
+    display: none;
+}
+
+/* Frequency Band Selector */
+.freq-band-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+}
+
+.freq-selector-label {
+    color: rgba(160, 200, 180, 0.7);
+    font-weight: 700;
+    letter-spacing: 0.8px;
+}
+
+.freq-band-chip {
+    background: rgba(8, 20, 14, 0.6);
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    color: rgba(160, 200, 180, 0.8);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.freq-band-chip:hover {
+    border-color: var(--signal, #3ee6a0);
+    color: #ffffff;
+}
+
+.freq-band-chip.active {
+    background: rgba(62, 230, 160, 0.15);
+    border-color: var(--signal, #3ee6a0);
+    color: var(--signal, #3ee6a0);
+    font-weight: 700;
+}
+
+/* Contact Card Actions & Copy Buttons */
+.contact-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(62, 230, 160, 0.1);
+}
+
+.contact-action-link {
+    color: var(--signal, #3ee6a0);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.contact-action-link:hover {
+    color: #ffffff;
+    text-decoration: underline;
+}
+
+.contact-copy-chip {
+    background: rgba(62, 230, 160, 0.08);
+    border: 1px solid rgba(62, 230, 160, 0.25);
+    border-radius: 3px;
+    color: rgba(180, 220, 200, 0.8);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 2px 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.contact-copy-chip:hover {
+    background: rgba(62, 230, 160, 0.2);
+    color: #ffffff;
+    border-color: var(--signal, #3ee6a0);
+}
+
+.contact-copy-chip.copied {
+    background: var(--signal, #3ee6a0);
+    color: #03140a;
+    border-color: var(--signal, #3ee6a0);
+    font-weight: 700;
+}
+
+/* Tactical Firmware Download Button */
+.contact-tactical-row {
+    margin: 14px 0;
+}
+
+.btn-firmware-dl {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 78, 59, 0.3) 100%);
+    border: 1px solid rgba(62, 230, 160, 0.4);
+    border-radius: 6px;
+    padding: 10px 16px;
+    color: #ffffff;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.btn-firmware-dl:hover {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(6, 78, 59, 0.5) 100%);
+    border-color: var(--signal, #3ee6a0);
+    box-shadow: 0 0 16px rgba(62, 230, 160, 0.25);
+    transform: translateY(-1px);
+}
+
+.btn-fw-icon {
+    font-size: 14px;
+    color: var(--signal, #3ee6a0);
+}
+
+/* Packet Injection Form */
+.packet-form {
+    background: rgba(6, 18, 12, 0.7);
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 12px;
+    text-align: left;
+}
+
+.packet-form-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+}
+
+.packet-form-title {
+    color: var(--signal, #3ee6a0);
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.packet-form-status {
+    color: rgba(160, 200, 180, 0.7);
+}
+
+.packet-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.packet-input,
+.packet-textarea {
+    width: 100%;
+    background: rgba(3, 10, 6, 0.85);
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 4px;
+    padding: 8px 10px;
+    color: #e2ecf5;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease;
+}
+
+.packet-input:focus,
+.packet-textarea:focus {
+    outline: none;
+    border-color: var(--signal, #3ee6a0);
+    box-shadow: 0 0 8px rgba(62, 230, 160, 0.2);
+}
+
+.btn-packet-send {
+    width: 100%;
+    background: rgba(62, 230, 160, 0.12);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-radius: 4px;
+    padding: 7px 12px;
+    color: var(--signal, #3ee6a0);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-packet-send:hover {
+    background: var(--signal, #3ee6a0);
+    color: #031208;
+}
+
+/* Raw UART Console Box */
+.uart-terminal-box {
+    background: rgba(3, 9, 6, 0.95);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: left;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.uart-terminal-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.15);
+    font-family: var(--font-mono);
+    font-size: 10px;
+}
+
+.term-status-led {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 6px #10b981;
+}
+
+.term-bar-title {
+    color: #ffffff;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.term-bar-sub {
+    margin-left: auto;
+    color: rgba(160, 200, 180, 0.6);
+    font-size: 9px;
+}
+
+.uart-terminal-log {
+    height: 180px;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: #bbf7d0;
+    padding-right: 6px;
+}
+
+.term-line.intro {
+    color: rgba(160, 200, 180, 0.65);
+    font-style: italic;
+}
+
+.term-prompt {
+    color: #38bdf8;
+    font-weight: 700;
+}
+
+.term-input-echo {
+    color: #ffffff;
+}
+
+.term-resp {
+    color: rgba(187, 247, 208, 0.9);
+    margin: 2px 0 8px 14px;
+}
+
+.uart-terminal-prompt-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(62, 230, 160, 0.15);
+}
+
+.uart-prompt-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: #38bdf8;
+}
+
+.uart-prompt-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    outline: none;
+}
+
+/* Digital Signature Badge */
+.contact-signature-badge {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: rgba(62, 230, 160, 0.05);
+    border: 1px dashed rgba(62, 230, 160, 0.25);
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.sig-title {
+    color: var(--signal, #3ee6a0);
+    font-weight: 700;
+}
+
+.sig-hash {
+    color: rgba(180, 220, 200, 0.8);
+}
+
 /* The connector line is a live signal trace — dashes march toward the
    anchored panel (stroke-dasharray 4 4 is set as an SVG attribute, so
    only the offset needs animating; period 8 loops cleanly at -16). */

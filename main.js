@@ -35,6 +35,7 @@ import { initHardwareOrchestrator, onSectionChanged, inspectProject, updateHardw
 import { triggerRfBurst } from './src/three/rf-wavefront.js';
 import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode, focusLcdCamera } from './src/scroll/journey.js';
 import { SECTION_HASHES, hashToSectionId } from './src/utils/hash-nav.js';
+import { initContactTerminal } from './src/ui/contact-terminal.js';
 
 // ─── Hash-based deep links ─────────────────────────────────
 // Each section gets a shareable URL (#/about, #/projects, ...). Nav clicks
@@ -281,10 +282,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 7c. LinkedIn CTA click tracking — one named goal, separate from
-    // pageviews; no-op (no script, no beacon) unless configured via
-    // VITE_PLAUSIBLE_DOMAIN / VITE_CTA_TRACKING_ENDPOINT (analytics.js).
+    // 7c. LinkedIn CTA click tracking
     initLinkedInTracking();
+
+    // 7d. Initialize Primary Uplink Contact Terminal & Live Telemetry
+    initContactTerminal();
 
     // 8. Bind hover raycast checking
     initHover(camera, scene);
