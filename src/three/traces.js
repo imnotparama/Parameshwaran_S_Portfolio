@@ -100,6 +100,23 @@ export function createTraces(boardGroup) {
                 new THREE.Vector3(-3.2, 4.5, surfaceZ)
             ]
         },
+        // 1b. High-Speed Serpentine Length-Matched Differential Bus (PCIe/AXI)
+        {
+            component: 'U2',
+            width: 0.035,
+            points: [
+                new THREE.Vector3(-0.85, 2.2, surfaceZ),
+                new THREE.Vector3(-0.85, 2.5, surfaceZ),
+                new THREE.Vector3(-1.05, 2.5, surfaceZ),
+                new THREE.Vector3(-1.05, 2.7, surfaceZ),
+                new THREE.Vector3(-0.85, 2.7, surfaceZ),
+                new THREE.Vector3(-0.85, 2.9, surfaceZ),
+                new THREE.Vector3(-1.05, 2.9, surfaceZ),
+                new THREE.Vector3(-1.05, 3.1, surfaceZ),
+                new THREE.Vector3(-2.1, 3.1, surfaceZ),
+                new THREE.Vector3(-3.4, 4.5, surfaceZ)
+            ]
+        },
         // 2. CPU (U1) to C1-C4 Capacitor bank medium traces
         {
             component: 'C1',

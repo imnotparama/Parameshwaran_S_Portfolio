@@ -23,6 +23,10 @@ export let cpuRadarRing;
 export let cpuLidGroup;
 /** @type {boolean} */
 export let isCpuDelidded = false;
+/** @type {THREE.Mesh | undefined} */
+export let cpuHeatBloomMesh;
+/** @type {THREE.Mesh[]} */
+export const cpuVuLeds = [];
 
 /**
  * @typedef {{
@@ -295,6 +299,23 @@ export function updateRadarRing(elapsed, fx = null) {
     // Subtle thermal breathing pulse on U1 silicon die
     if (siliconDieMesh && siliconDieMesh.material instanceof THREE.MeshBasicMaterial) {
         siliconDieMesh.material.opacity = 0.65 + Math.sin(elapsed * 2.8) * 0.12;
+    }
+
+    // Volumetric thermal heat shimmer rotation and breathing
+    if (cpuHeatBloomMesh && cpuHeatBloomMesh.material instanceof THREE.MeshBasicMaterial) {
+        cpuHeatBloomMesh.material.opacity = 0.28 + Math.sin(elapsed * 2.5) * 0.10;
+        cpuHeatBloomMesh.rotation.z = -elapsed * 0.18;
+    }
+
+    // Dynamic SMD VU-meter chaser along CPU bus
+    if (cpuVuLeds.length > 0) {
+        for (let i = 0; i < cpuVuLeds.length; i++) {
+            const led = cpuVuLeds[i];
+            if (led.material instanceof THREE.MeshBasicMaterial) {
+                const phase = (elapsed * 5.0 - i * 0.45) % (Math.PI * 2);
+                led.material.opacity = Math.sin(phase) > 0.2 ? 0.85 : 0.15;
+            }
+        }
     }
 }
 
@@ -711,6 +732,79 @@ export function createComponents(boardGroup) {
     const u1Dot = new THREE.Mesh(u1DotGeo, u1DotMat);
     u1Dot.position.set(-0.95, 0.95, 0.113);
     cpuGroup.add(u1Dot);
+
+    // 1f. Soft Ambient Occlusion Contact Drop Shadow under U1
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.width = 128;
+    shadowCanvas.height = 128;
+    const shCtx = shadowCanvas.getContext('2d');
+    if (shCtx) {
+        const grad = shCtx.createRadialGradient(64, 64, 30, 64, 64, 64);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0.85)');
+        grad.addColorStop(0.6, 'rgba(0, 0, 0, 0.4)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        shCtx.fillStyle = grad;
+        shCtx.fillRect(0, 0, 128, 128);
+    }
+    const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+    disposableResources.textures.add(shadowTexture);
+    const shadowGeo = new THREE.PlaneGeometry(3.4, 3.4);
+    const shadowMat = new THREE.MeshBasicMaterial({
+        map: shadowTexture,
+        transparent: true,
+        opacity: 0.65,
+        depthWrite: false
+    });
+    disposableResources.geometries.add(shadowGeo);
+    disposableResources.materials.add(shadowMat);
+    const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+    shadowMesh.position.set(0, 0, 0.005);
+    cpuGroup.add(shadowMesh);
+
+    // 1g. Volumetric Thermal Heat Bloom & Shimmer Mesh over CPU
+    const bloomCanvas = document.createElement('canvas');
+    bloomCanvas.width = 128;
+    bloomCanvas.height = 128;
+    const blCtx = bloomCanvas.getContext('2d');
+    if (blCtx) {
+        const grad = blCtx.createRadialGradient(64, 64, 12, 64, 64, 64);
+        grad.addColorStop(0, 'rgba(62, 230, 160, 0.55)');
+        grad.addColorStop(0.4, 'rgba(20, 184, 166, 0.25)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        blCtx.fillStyle = grad;
+        blCtx.fillRect(0, 0, 128, 128);
+    }
+    const bloomTexture = new THREE.CanvasTexture(bloomCanvas);
+    disposableResources.textures.add(bloomTexture);
+    const bloomGeo = new THREE.PlaneGeometry(3.6, 3.6);
+    const bloomMat = new THREE.MeshBasicMaterial({
+        map: bloomTexture,
+        transparent: true,
+        opacity: 0.28,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    disposableResources.geometries.add(bloomGeo);
+    disposableResources.materials.add(bloomMat);
+    cpuHeatBloomMesh = new THREE.Mesh(bloomGeo, bloomMat);
+    cpuHeatBloomMesh.position.set(0, 0, 0.16);
+    cpuGroup.add(cpuHeatBloomMesh);
+
+    // 1h. 8-Segment Surface Mount LED VU Meter along CPU bus
+    const vuGeo = new THREE.BoxGeometry(0.06, 0.09, 0.03);
+    disposableResources.geometries.add(vuGeo);
+    for (let i = 0; i < 8; i++) {
+        const vuMat = new THREE.MeshBasicMaterial({
+            color: i < 5 ? 0x3ee6a0 : (i < 7 ? 0xffaa00 : 0xff3333),
+            transparent: true,
+            opacity: 0.25
+        });
+        disposableResources.materials.add(vuMat);
+        const vuMesh = new THREE.Mesh(vuGeo, vuMat);
+        vuMesh.position.set(1.42, (i - 3.5) * 0.24, 0.02);
+        cpuGroup.add(vuMesh);
+        cpuVuLeds.push(vuMesh);
+    }
 
     disposableResources.geometries.add(cpuGeo);
 
