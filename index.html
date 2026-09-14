@@ -553,6 +553,120 @@
     <!-- LCD game minimized CTA -->
     <a class="lcd-game-minicta" id="lcd-game-minicta" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile">LINKEDIN →</a>
 
+    <!-- LCD Arcade Station: Dual-Screen Cyberpunk Cabinet -->
+    <section id="lcd-arcade-station" class="lcd-arcade-station" aria-label="Signal Runner Dual-Screen Arcade Cabinet">
+        <div class="arcade-cabinet-frame">
+            <!-- Header bar -->
+            <div class="arcade-header">
+                <div class="arcade-title-group">
+                    <span class="arcade-ref">DIAGNOSTIC DISPLAY // LCD1 2.4"</span>
+                    <h2 class="arcade-title">SIGNAL RUNNER <span class="arcade-ver">DUAL-SCREEN CRT</span></h2>
+                </div>
+                <div class="arcade-live-badge">
+                    <span class="arcade-live-dot"></span>
+                    <span class="arcade-live-text">SYNC: ACTIVE</span>
+                </div>
+            </div>
+
+            <!-- Mirrored CRT Screen Container -->
+            <div class="arcade-crt-wrapper">
+                <div class="arcade-crt-bezel">
+                    <div class="arcade-crt-glass">
+                        <canvas id="arcade-crt-canvas" width="512" height="256" aria-label="Mirrored Signal Runner CRT Screen"></canvas>
+                        <div class="arcade-crt-scanlines" aria-hidden="true"></div>
+                        <div class="arcade-crt-vignette" aria-hidden="true"></div>
+                        <div class="arcade-crt-glare" aria-hidden="true"></div>
+                    </div>
+                </div>
+                <div class="arcade-crt-footer-labels">
+                    <span>RASTER: 512×256 60Hz</span>
+                    <span>PHOSPHOR: P1-GREEN</span>
+                    <span>BUS: U1-SYNC</span>
+                </div>
+            </div>
+
+            <!-- Live Scoreboard & Telemetry Deck -->
+            <div class="arcade-telemetry-deck">
+                <div class="arcade-metric-grid">
+                    <div class="arcade-metric-card">
+                        <div class="arcade-metric-label">DISTANCE</div>
+                        <div class="arcade-metric-val" id="arcade-dist">0000 m</div>
+                    </div>
+                    <div class="arcade-metric-card">
+                        <div class="arcade-metric-label">SIGNAL / ELECTRONS</div>
+                        <div class="arcade-metric-val" id="arcade-sig">0000 (0)</div>
+                    </div>
+                    <div class="arcade-metric-card">
+                        <div class="arcade-metric-label">VELOCITY</div>
+                        <div class="arcade-metric-val" id="arcade-speed">160 px/s</div>
+                    </div>
+                    <div class="arcade-metric-card">
+                        <div class="arcade-metric-label">ACTIVE COMBO</div>
+                        <div class="arcade-metric-val" id="arcade-combo">x1 [READY]</div>
+                    </div>
+                    <div class="arcade-metric-card highlight">
+                        <div class="arcade-metric-label">ALL-TIME RECORD</div>
+                        <div class="arcade-metric-val" id="arcade-best">---- m</div>
+                    </div>
+                </div>
+
+                <!-- Signal Integrity Shield Meter -->
+                <div class="arcade-integrity-deck">
+                    <div class="arcade-integrity-header">
+                        <span class="arcade-integrity-label">HARDWARE INTEGRITY</span>
+                        <span class="arcade-integrity-val" id="arcade-integrity-text">100% NOMINAL</span>
+                    </div>
+                    <div class="arcade-integrity-track">
+                        <div class="arcade-integrity-bar" id="arcade-integrity-fill" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Active Power-Up Badges Grid -->
+                <div class="arcade-powerups-grid">
+                    <div class="arcade-power-badge" id="badge-overclock" data-power="overclock">
+                        <span class="arcade-power-icon">⚡</span>
+                        <div class="arcade-power-info">
+                            <span class="arcade-power-name">OVERCLOCK 2X</span>
+                            <span class="arcade-power-state">STANDBY</span>
+                        </div>
+                    </div>
+                    <div class="arcade-power-badge" id="badge-magnet" data-power="magnet">
+                        <span class="arcade-power-icon">🧲</span>
+                        <div class="arcade-power-info">
+                            <span class="arcade-power-name">MAGNET FLUX</span>
+                            <span class="arcade-power-state">STANDBY</span>
+                        </div>
+                    </div>
+                    <div class="arcade-power-badge" id="badge-shield" data-power="shield">
+                        <span class="arcade-power-icon">🛡️</span>
+                        <div class="arcade-power-info">
+                            <span class="arcade-power-name">SHIELD ARRAY</span>
+                            <span class="arcade-power-state">STANDBY</span>
+                        </div>
+                    </div>
+                    <div class="arcade-power-badge" id="badge-turbo" data-power="turbo">
+                        <span class="arcade-power-icon">🚀</span>
+                        <div class="arcade-power-info">
+                            <span class="arcade-power-name">TURBO CHARGE</span>
+                            <span class="arcade-power-state">STANDBY</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hall of Fame Local Leaderboard -->
+                <div class="arcade-leaderboard-deck">
+                    <div class="arcade-leaderboard-header">
+                        <span class="arcade-lb-title">HALL OF FAME // LOCAL RUNS</span>
+                        <span class="arcade-lb-rank" id="arcade-player-rank">RANK: INITIALIZING</span>
+                    </div>
+                    <div class="arcade-lb-list" id="arcade-lb-list">
+                        <!-- Populated dynamically from localStorage leaderboard -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Engineering Readouts -->
     <div id="sys-telemetry" class="sys-telemetry" aria-hidden="true" hidden></div>
     <div id="debug-overlay" class="debug-overlay" aria-hidden="true" hidden></div>

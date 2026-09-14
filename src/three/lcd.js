@@ -713,6 +713,127 @@ export function focusLcd(replayBoot = false) {
     // (powerOnLcd); this module layers the DOM keyboard gate on top.
     powerOnLcd();
     reducedStaticDrawn = false;
+    renderLeaderboard(simView());
+}
+
+/** Leaderboard HTML list population — called on focus and game over
+ *  @param {ReturnType<typeof simView>} sim */
+function renderLeaderboard(sim) {
+    if (typeof document === 'undefined') return;
+    const list = document.getElementById('arcade-lb-list');
+    if (!list) return;
+
+    /** @type {Array<{ score: number, dist?: number, electrons?: number, date?: number }>} */
+    const entries = Array.isArray(sim.leaderboard) && sim.leaderboard.length > 0
+        ? sim.leaderboard
+        : [
+            { dist: Math.max(250, sim.bestScore || 250), score: Math.max(41, sim.bestScore || 41), date: Date.now() - 86400000 },
+            { dist: 180, score: 32, date: Date.now() - 172800000 },
+            { dist: 120, score: 20, date: Date.now() - 259200000 }
+        ];
+
+    list.innerHTML = entries.slice(0, 4).map((entry, idx) => {
+        const topClass = idx === 0 ? 'arcade-lb-row top-1' : 'arcade-lb-row';
+        const rankBadge = `#${idx + 1}`;
+        const distStr = `${String(Math.floor(entry.dist || entry.score || 0)).padStart(4, '0')}m`;
+        const dateStr = entry.date ? new Date(entry.date).toISOString().slice(5, 10) : 'CALIB';
+        return `<div class="${topClass}">
+            <span class="arcade-lb-rank-badge">${rankBadge}</span>
+            <span class="arcade-lb-score">${distStr}</span>
+            <span class="arcade-lb-meta">SIG:${entry.score || 0} · ${dateStr}</span>
+        </div>`;
+    }).join('');
+}
+
+/** Synchronize the mirrored CRT arcade screen and telemetry deck
+ *  @param {ReturnType<typeof simView>} sim */
+function updateArcadeStation(sim) {
+    if (typeof document === 'undefined') return;
+    if (!document.body.classList.contains('lcd-game-focus')) return;
+
+    // 1. Mirror CRT Canvas
+    const crt = /** @type {HTMLCanvasElement | null} */ (document.getElementById('arcade-crt-canvas'));
+    if (crt && gameCanvas) {
+        const ctx = crt.getContext('2d');
+        if (ctx) {
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(gameCanvas, 0, 0, crt.width, crt.height);
+        }
+    }
+
+    // 2. Metrics (distance, score, velocity, combo, best)
+    const distEl = document.getElementById('arcade-dist');
+    if (distEl) distEl.textContent = `${String(Math.floor(sim.dist)).padStart(4, '0')} m`;
+
+    const sigEl = document.getElementById('arcade-sig');
+    if (sigEl) sigEl.textContent = `${String(sim.score).padStart(4, '0')} (${sim.electrons})`;
+
+    const speedEl = document.getElementById('arcade-speed');
+    if (speedEl) speedEl.textContent = `${Math.round(sim.curSpeed)} px/s`;
+
+    const comboEl = document.getElementById('arcade-combo');
+    if (comboEl) comboEl.textContent = `x${sim.combo} ${sim.combo > 1 ? '[BURST]' : '[READY]'}`;
+
+    const bestEl = document.getElementById('arcade-best');
+    if (bestEl) bestEl.textContent = sim.bestScore > 0 ? `${String(sim.bestScore).padStart(4, '0')} m` : '---- m';
+
+    // 3. Hardware Integrity
+    const integText = document.getElementById('arcade-integrity-text');
+    const integFill = /** @type {HTMLElement | null} */ (document.getElementById('arcade-integrity-fill'));
+    if (integText && integFill) {
+        if (sim.state === 'over') {
+            integText.textContent = '0% // FAULT DETECTED';
+            integText.style.color = '#ff4d4d';
+            integFill.style.width = '0%';
+            integFill.style.background = '#ff4d4d';
+        } else if (sim.shield) {
+            integText.textContent = '100% // ARRAY SHIELDED';
+            integText.style.color = '#3ee6a0';
+            integFill.style.width = '100%';
+            integFill.style.background = 'linear-gradient(90deg, #10794a, #00ffff)';
+        } else {
+            integText.textContent = '100% // NOMINAL';
+            integText.style.color = '#3ee6a0';
+            integFill.style.width = '100%';
+            integFill.style.background = 'linear-gradient(90deg, #10794a, #3ee6a0)';
+        }
+    }
+
+    // 4. Power-up Badges
+    /**
+     * @param {string} id
+     * @param {boolean} active
+     */
+    const updateBadge = (id, active) => {
+        const badge = document.getElementById(id);
+        if (!badge) return;
+        if (active) {
+            if (!badge.classList.contains('active')) badge.classList.add('active');
+            const stateSpan = badge.querySelector('.arcade-power-state');
+            if (stateSpan) stateSpan.textContent = 'ACTIVE';
+        } else {
+            if (badge.classList.contains('active')) badge.classList.remove('active');
+            const stateSpan = badge.querySelector('.arcade-power-state');
+            if (stateSpan) stateSpan.textContent = 'STANDBY';
+        }
+    };
+
+    updateBadge('badge-overclock', sim.overclock > 0);
+    updateBadge('badge-magnet', sim.magnet > 0);
+    updateBadge('badge-shield', sim.shield);
+    updateBadge('badge-turbo', sim.turbo > 0);
+
+    // 5. Leaderboard and Player Rank
+    const rankEl = document.getElementById('arcade-player-rank');
+    if (rankEl) {
+        const d = sim.dist;
+        const rank = d >= 1000 ? 'RANK S // ARCHITECT'
+            : d >= 500 ? 'RANK A // HACKER'
+            : d >= 250 ? 'RANK B // TESTER'
+            : d >= 100 ? 'RANK C // ROOKIE'
+            : 'RANK D // PROBE';
+        if (rankEl.textContent !== rank) rankEl.textContent = rank;
+    }
 }
 
 /** Leave the game — power the display back down (a real LCD module). */
@@ -818,6 +939,7 @@ export function updateLcdScreen(elapsed, delta) {
         if (o !== lastOverBlink) {
             lastOverBlink = o;
             markDirty();
+            renderLeaderboard(S);
         }
     }
     // The pause prompt blinks — same transition-gated redraw.
@@ -833,6 +955,7 @@ export function updateLcdScreen(elapsed, delta) {
         screenTexture.needsUpdate = true;
         clearDirty();
     }
+    updateArcadeStation(S);
 }
 
 /** Build the LCD1 assembly: bezel, hollow trim frame, screen quad
