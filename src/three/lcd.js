@@ -60,6 +60,7 @@ import { interactiveObjects } from './components.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 import { dockDrone, undockDrone } from './drone.js';
 import { setPinsGameFocus } from './playground-props.js';
+import { energizeTraceAtPoint } from './traces.js';
 // The pure SIGNAL RUNNER simulation — zero THREE/DOM (lcd-sim.js). The sim
 // owns the game state, physics, persistence, and the snapshot seam; this
 // module owns the meshes, the canvas texture, and the drawing.
@@ -966,7 +967,23 @@ export function updateLcdScreen(elapsed, delta) {
         clearDirty();
     }
     updateArcadeStation(S);
+
+    // Board-reactive power surge: electrify physical copper traces feeding LCD1
+    if (S.electrons > lastObservedElectrons) {
+        energizeTraceAtPoint(LCD_LOCAL, 1.8);
+        lastObservedElectrons = S.electrons;
+    } else if (S.electrons < lastObservedElectrons) {
+        lastObservedElectrons = S.electrons;
+    }
+    const currentPowerups = (S.overclock > 0 ? 1 : 0) + (S.turbo > 0 ? 1 : 0) + (S.magnet > 0 ? 1 : 0) + (S.shield ? 1 : 0);
+    if (currentPowerups > lastObservedPowerups) {
+        energizeTraceAtPoint(LCD_LOCAL, 2.4);
+    }
+    lastObservedPowerups = currentPowerups;
 }
+
+let lastObservedElectrons = 0;
+let lastObservedPowerups = 0;
 
 /** Build the LCD1 assembly: bezel, hollow trim frame, screen quad
  *  (CanvasTexture), power LED, glow halo, and the interactive hit bounds.

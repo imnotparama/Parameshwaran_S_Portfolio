@@ -35,7 +35,7 @@
 // pin exact death distances, layouts, and effect bounds.
 // ============================================================
 import { motionPrefs } from '../utils/motion-prefs.js';
-import { gameBeep, loseBuzz, powerUpBeep, jumpBlip, dashBlip } from '../utils/sound.js';
+import { gameBeep, loseBuzz, powerUpBeep, jumpBlip, dashBlip, slideBlip, playRecordFanfare } from '../utils/sound.js';
 
 // ─── LCD geometry — 128×64, one pixel = one screen pixel ────
 const CANVAS_W = 128;
@@ -418,6 +418,7 @@ function endRun(cause) {
         if (bestListener) bestListener(bestScore);
         // NEW RECORD — the board's D1-D7 array celebrates with a chase.
         fxCelebrate = FX_CELEBRATE_SEC;
+        playRecordFanfare();
     }
     // Every death dips the board's power for a moment (LEDs dim, the U1
     // radar sweep stutters) — the machine flinches with the pulse.
@@ -482,6 +483,7 @@ function doSlide() {
     if (state !== 'playing' || !onGround) return;
     sliding = true;
     slideTimer = SLIDE_FAST;
+    slideBlip();
     dirty = true;
 }
 

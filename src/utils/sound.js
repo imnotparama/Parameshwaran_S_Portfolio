@@ -125,6 +125,40 @@ export function dashBlip() {
     blip(860, 0.07, 0.02, 'square');
 }
 
+/** Runner slide whoosh — descending square-wave friction chirp under obstacles */
+export function slideBlip() {
+    blip(380, 0.05, 0.025, 'triangle');
+    blip(260, 0.07, 0.02, 'triangle');
+}
+
+/** 8-bit celebratory high-score fanfare arpeggio */
+export function playRecordFanfare() {
+    if (!enabled) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+        const notes = [587.33, 739.99, 880.00, 1174.66]; // D5, F#5, A5, D6
+        notes.forEach((freq, idx) => {
+            if (!ctx) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, t0 + idx * 0.08);
+            gain.gain.setValueAtTime(0.001, t0 + idx * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.04, t0 + idx * 0.08 + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + idx * 0.08 + 0.16);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t0 + idx * 0.08);
+            osc.stop(t0 + idx * 0.08 + 0.18);
+        });
+    } catch {
+        // Safe under AudioContext autoplay policies
+    }
+}
+
 // ─── Tactile relay + switch sounds ──────────────────────────────
 // Mechanical feedback for physical actions (night-bench relay, membrane
 // switch section jumps). Same master gate as every blip — silent unless the
