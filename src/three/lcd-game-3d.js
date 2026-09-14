@@ -28,14 +28,38 @@ import { motionPrefs } from '../utils/motion-prefs.js';
 const CRT_W = 512;
 const CRT_H = 256;
 
-// Track geometry constants
-const TRACK_WIDTH = 2.4;
-const RAIL_WIDTH = 0.7;
-const TILE_LENGTH = 5.0;
-const NUM_TILES = 12;
-
-// Simulation ground height baseline (matches GROUND_Y in lcd-sim.js)
+// Horizontal World Coordinate Mapping (matches 128x64 lcd-sim.js field)
+const WORLD_LEFT_X = -4.0;
+const WORLD_SPAN_X = 8.0;
 const SIM_GROUND_Y = 50;
+const WORLD_GROUND_Y = 0.35;
+const WORLD_HEIGHT_SCALE = 2.75 / 42.0;
+
+// Track geometry constants for horizontal side-scroller
+const SEGMENT_WIDTH = 4.0;
+const NUM_TILES = 8;
+const RAIL_DEPTH = 1.2;
+const TRACK_DEPTH = 2.0;
+const TRACK_WIDTH = 2.0;
+const RAIL_WIDTH = 1.2;
+
+/**
+ * Map simulation pixel X (0..128) to 3D horizontal world space (-4.0..+4.0).
+ * @param {number} px
+ * @returns {number}
+ */
+export function toWorldX(px) {
+    return WORLD_LEFT_X + (px / 128.0) * WORLD_SPAN_X;
+}
+
+/**
+ * Map simulation pixel Y (0..64) to 3D horizontal world space (ground=0.35, apex=3.1).
+ * @param {number} py
+ * @returns {number}
+ */
+export function toWorldY(py) {
+    return WORLD_GROUND_Y + (SIM_GROUND_Y - py) * WORLD_HEIGHT_SCALE;
+}
 
 /** @type {THREE.Scene | null} */
 let gameScene = null;
@@ -198,12 +222,12 @@ export function init3dGame(canvas = null) {
     // 1. Create Game Scene
     gameScene = new THREE.Scene();
     gameScene.background = new THREE.Color(0x020a06);
-    gameScene.fog = new THREE.FogExp2(0x020a06, 0.038);
+    gameScene.fog = new THREE.FogExp2(0x020a06, 0.035);
 
-    // 2. Perspective Camera (3rd person chase angle)
-    gameCamera = new THREE.PerspectiveCamera(62, CRT_W / CRT_H, 0.1, 100);
-    gameCamera.position.set(0, 1.85, 3.9);
-    gameCamera.lookAt(0, 0.65, -9.0);
+    // 2. Cinematic 2.5D Side-Perspective Camera
+    gameCamera = new THREE.PerspectiveCamera(56, CRT_W / CRT_H, 0.1, 100);
+    gameCamera.position.set(0.0, 1.45, 5.2);
+    gameCamera.lookAt(0.2, 0.95, 0.0);
 
     // 3. WebGL Renderer
     try {
@@ -287,7 +311,7 @@ export function init3dGame(canvas = null) {
 }
 
 /**
- * Constructs modular looping track segments.
+ * Constructs modular looping horizontal track segments along X.
  */
 function buildTrack() {
     if (!gameScene || !copperRailMat || !neonRailMat || !trackFloorMat) return;
@@ -296,54 +320,80 @@ function buildTrack() {
     gameScene.add(trackGroup);
     trackTiles = [];
 
-    const floorGeo = new THREE.PlaneGeometry(TRACK_WIDTH, TILE_LENGTH);
-    floorGeo.rotateX(-Math.PI / 2);
+    // Base substrate: SEGMENT_WIDTH wide in X, 0.16 high in Y, TRACK_DEPTH deep in Z
+    const floorGeo = new THREE.BoxGeometry(SEGMENT_WIDTH, 0.16, TRACK_DEPTH);
+    // Central ENIG Gold Transmission Rail: SEGMENT_WIDTH wide in X, 0.05 high in Y, RAIL_DEPTH deep in Z
+    const railGeo = new THREE.BoxGeometry(SEGMENT_WIDTH, 0.05, RAIL_DEPTH);
+    // Front and Back glowing neon guide rails
+    const edgeGuideGeo = new THREE.BoxGeometry(SEGMENT_WIDTH, 0.07, 0.05);
 
-    const railGeo = new THREE.BoxGeometry(RAIL_WIDTH, 0.06, TILE_LENGTH);
-    const edgeGuideGeo = new THREE.BoxGeometry(0.06, 0.08, TILE_LENGTH);
+    // Micro-vias along the track edges (small emissive discs)
+    const viaGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.02, 10);
+    const viaMat = new THREE.MeshStandardMaterial({
+        color: 0x00ffcc,
+        emissive: 0x00ffcc,
+        emissiveIntensity: 2.5
+    });
 
     for (let i = 0; i < NUM_TILES; i++) {
         const tile = new THREE.Group();
 
-        // Dark PCB Track Floor
+        // Dark PCB Substrate Base Slab
         const floor = new THREE.Mesh(floorGeo, trackFloorMat);
-        floor.position.y = -0.01;
+        floor.position.set(0, 0.08, 0);
         tile.add(floor);
 
-        // Center ENIG Copper Busway Rail
+        // Center ENIG Copper Busway Rail (Brushed Gold)
         const rail = new THREE.Mesh(railGeo, copperRailMat);
-        rail.position.y = 0.03;
+        rail.position.set(0, 0.18, 0);
         tile.add(rail);
 
-        // Left & Right Neon Guide Tracks
-        const guideL = new THREE.Mesh(edgeGuideGeo, neonRailMat);
-        guideL.position.set(-TRACK_WIDTH / 2 + 0.05, 0.04, 0);
-        tile.add(guideL);
+        // Front & Rear Neon Guide Tracks (Emerald Laser Curbs)
+        const guideFront = new THREE.Mesh(edgeGuideGeo, neonRailMat);
+        guideFront.position.set(0, 0.21, RAIL_DEPTH / 2 + 0.03);
+        tile.add(guideFront);
 
-        const guideR = new THREE.Mesh(edgeGuideGeo, neonRailMat);
-        guideR.position.set(TRACK_WIDTH / 2 - 0.05, 0.04, 0);
-        tile.add(guideR);
+        const guideRear = new THREE.Mesh(edgeGuideGeo, neonRailMat);
+        guideRear.position.set(0, 0.21, -RAIL_DEPTH / 2 - 0.03);
+        tile.add(guideRear);
 
-        // Circuit grid markers on floor
-        const markerGeo = new THREE.PlaneGeometry(TRACK_WIDTH * 0.85, 0.08);
-        markerGeo.rotateX(-Math.PI / 2);
-        const markerMat = new THREE.MeshBasicMaterial({
+        // Micro-via solder pads along the track
+        for (let v = -SEGMENT_WIDTH / 2 + 0.5; v < SEGMENT_WIDTH / 2; v += 1.0) {
+            const viaF = new THREE.Mesh(viaGeo, viaMat);
+            viaF.position.set(v, 0.20, RAIL_DEPTH / 2 + 0.12);
+            tile.add(viaF);
+
+            const viaR = new THREE.Mesh(viaGeo, viaMat);
+            viaR.position.set(v, 0.20, -RAIL_DEPTH / 2 - 0.12);
+            tile.add(viaR);
+        }
+
+        // Horizontal circuit trace lines on the substrate
+        const traceGeo = new THREE.PlaneGeometry(SEGMENT_WIDTH, 0.03);
+        traceGeo.rotateX(-Math.PI / 2);
+        const traceMat = new THREE.MeshBasicMaterial({
             color: 0x10794a,
             transparent: true,
-            opacity: 0.4
+            opacity: 0.5
         });
-        const marker = new THREE.Mesh(markerGeo, markerMat);
-        marker.position.set(0, 0.005, TILE_LENGTH / 2 - 0.2);
-        tile.add(marker);
+        const trace1 = new THREE.Mesh(traceGeo, traceMat);
+        trace1.position.set(0, 0.165, TRACK_DEPTH / 2 - 0.1);
+        tile.add(trace1);
 
-        tile.position.z = -i * TILE_LENGTH;
+        const trace2 = new THREE.Mesh(traceGeo, traceMat);
+        trace2.position.set(0, 0.165, -TRACK_DEPTH / 2 + 0.1);
+        tile.add(trace2);
+
+        // Position tiles along X
+        tile.position.set(-12 + i * SEGMENT_WIDTH, 0, 0);
+
         trackGroup.add(tile);
         trackTiles.push(tile);
     }
 }
 
 /**
- * Builds distant glowing wireframe monoliths and horizon grid.
+ * Builds distant glowing motherboard city, IC monoliths, and cyber grid.
  */
 function buildHorizon() {
     if (!gameScene) return;
@@ -351,35 +401,58 @@ function buildHorizon() {
     horizonGroup = new THREE.Group();
     gameScene.add(horizonGroup);
 
-    // Cyber wireframe towers in the background
-    const towerGeo = new THREE.BoxGeometry(2.5, 12, 2.5);
-    const towerMat = new THREE.MeshBasicMaterial({
-        color: 0x0a3d22,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.4
+    // 1. Monolithic 3D BGA Chips in background (-Z)
+    const chipMat = new THREE.MeshStandardMaterial({
+        color: 0x0a1c12,
+        roughness: 0.4,
+        metalness: 0.8,
+        emissive: 0x05120a,
+        emissiveIntensity: 0.3
     });
 
-    for (let i = 0; i < 10; i++) {
-        const side = i % 2 === 0 ? 1 : -1;
-        const dist = -18 - (i * 4.5);
-        const xPos = side * (5.5 + (i * 1.2));
-        const tower = new THREE.Mesh(towerGeo, towerMat);
-        tower.position.set(xPos, 4.0, dist);
-        horizonGroup.add(tower);
-    }
-
-    // Distant horizon laser ring
-    const ringGeo = new THREE.TorusGeometry(18, 0.12, 8, 48);
-    const ringMat = new THREE.MeshBasicMaterial({
-        color: 0x3ee6a0,
-        transparent: true,
-        opacity: 0.35,
+    const heatsinkMat = new THREE.MeshStandardMaterial({
+        color: 0x183022,
+        roughness: 0.2,
+        metalness: 0.9,
         wireframe: true
     });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.position.set(0, 2.5, -45);
-    horizonGroup.add(ring);
+
+    const chipPositions = [
+        { x: -9, y: 1.8, z: -5.5, w: 3.5, h: 2.2, d: 2.5 },
+        { x: -4, y: 3.2, z: -8.0, w: 4.0, h: 4.5, d: 3.0 },
+        { x: 2, y: 2.2, z: -6.0, w: 3.2, h: 2.8, d: 2.5 },
+        { x: 8, y: 3.8, z: -9.5, w: 5.0, h: 5.0, d: 3.5 },
+        { x: -14, y: 4.5, z: -12.0, w: 6.0, h: 6.5, d: 4.0 },
+        { x: 14, y: 4.0, z: -11.0, w: 5.5, h: 5.5, d: 3.8 }
+    ];
+
+    for (const cp of chipPositions) {
+        const chip = new THREE.Mesh(new THREE.BoxGeometry(cp.w, cp.h, cp.d), chipMat);
+        chip.position.set(cp.x, cp.y, cp.z);
+        horizonGroup.add(chip);
+
+        const fins = new THREE.Mesh(new THREE.BoxGeometry(cp.w * 0.9, 0.4, cp.d * 0.9), heatsinkMat);
+        fins.position.set(cp.x, cp.y + cp.h / 2 + 0.2, cp.z);
+        horizonGroup.add(fins);
+    }
+
+    // 2. Distant cylindrical ferrite choke coils
+    const chokeGeo = new THREE.CylinderGeometry(0.7, 0.7, 1.8, 16);
+    const chokeMat = new THREE.MeshStandardMaterial({
+        color: 0x9b6b28,
+        metalness: 0.85,
+        roughness: 0.3
+    });
+    for (let c = 0; c < 5; c++) {
+        const choke = new THREE.Mesh(chokeGeo, chokeMat);
+        choke.position.set(-10 + c * 5.0, 1.2, -4.2);
+        horizonGroup.add(choke);
+    }
+
+    // 3. Glowing Cyber Horizon Data Grid
+    const gridHelper = new THREE.GridHelper(50, 50, 0x3ee6a0, 0x0c3820);
+    gridHelper.position.set(0, -0.05, -7);
+    horizonGroup.add(gridHelper);
 }
 
 /**
@@ -1222,7 +1295,7 @@ export function update3dGame(delta, sim) {
     }
 
     // 2. Camera FOV Speed Warp
-    const targetFov = sim.dashing ? 74.0 : (sim.turbo > 0 ? 69.0 : 62.0);
+    const targetFov = sim.dashing ? 68.0 : (sim.turbo > 0 ? 64.0 : 56.0);
     currentCameraFov = THREE.MathUtils.lerp(currentCameraFov, targetFov, delta * 6.0);
     gameCamera.fov = currentCameraFov;
     gameCamera.updateProjectionMatrix();
@@ -1247,9 +1320,10 @@ export function update3dGame(delta, sim) {
     const shakeX = (Math.random() - 0.5) * cameraShake * 0.08;
     const shakeY = (Math.random() - 0.5) * cameraShake * 0.08;
 
-    // 4. Update Camera Height & Bob
-    const bob = (!motionPrefs.reduced && sim.state === 'playing') ? Math.sin(sim.dist * 0.12) * 0.025 : 0;
-    gameCamera.position.set(shakeX, 1.85 + bob + shakeY, 3.9);
+    // 4. Update Camera Position with Subtle Dynamic Reactions
+    const bob = (!motionPrefs.reduced && sim.state === 'playing') ? Math.sin(sim.dist * 0.25) * 0.02 : 0;
+    gameCamera.position.set(shakeX, 1.45 + bob + shakeY, 5.2);
+    gameCamera.lookAt(0.2 + shakeX, 0.95, 0.0);
 
     // 5. Update Shatter Shards if game is over
     if (sim.state === 'over' && shatterGroup && shatterGroup.visible) {
@@ -1268,24 +1342,23 @@ export function update3dGame(delta, sim) {
             s.mesh.rotation.z += s.rz * delta;
         }
         if (signalLostMesh && signalLostMesh.visible) {
-            // Pulse signal lost banner
-            signalLostMesh.position.y = 1.1 + Math.sin(sim.dist * 0.4) * 0.03;
+            signalLostMesh.position.y = 1.6 + Math.sin(sim.dist * 0.4) * 0.03;
         }
     } else {
-        // 6. Advance Track Tiles based on distance (only while running)
+        // 6. Advance Track Tiles horizontally to the left (-X) based on speed
         const trackSpeed = sim.curSpeed || 85;
-        const scrollZ = (trackSpeed * delta * 0.05);
+        const scrollX = (trackSpeed * delta * 0.045);
 
         if (trackTiles.length > 0) {
             for (let i = 0; i < trackTiles.length; i++) {
                 const tile = trackTiles[i];
-                tile.position.z += scrollZ;
-                if (tile.position.z > 5.0) {
-                    let minZ = 0;
+                tile.position.x -= scrollX;
+                if (tile.position.x < -14.0) {
+                    let maxX = -14.0;
                     for (let j = 0; j < trackTiles.length; j++) {
-                        if (trackTiles[j].position.z < minZ) minZ = trackTiles[j].position.z;
+                        if (trackTiles[j].position.x > maxX) maxX = trackTiles[j].position.x;
                     }
-                    tile.position.z = minZ - TILE_LENGTH;
+                    tile.position.x = maxX + SEGMENT_WIDTH;
                 }
             }
         }
