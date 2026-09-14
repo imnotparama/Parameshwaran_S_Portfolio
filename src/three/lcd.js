@@ -1120,6 +1120,86 @@ export function createLcd(boardGroup) {
     // #/lcd) powers it on: boot POST → title → run.
     powerOffLcd();
 
+    /**
+     * @param {string} id
+     * @param {boolean} pressed
+     */
+    const setBtnPressed = (id, pressed) => {
+        if (typeof document === 'undefined') return;
+        const el = document.getElementById(id);
+        if (el) {
+            if (pressed) el.classList.add('btn-pressed');
+            else el.classList.remove('btn-pressed');
+        }
+    };
+
+    // Tactile on-screen arcade buttons
+    const initArcadeGamepad = () => {
+        if (typeof document === 'undefined') return;
+
+        /**
+         * @param {string} id
+         * @param {() => void} [onPress]
+         * @param {() => void} [onRelease]
+         */
+        const bindBtn = (id, onPress, onRelease) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+
+            /** @param {PointerEvent} e */
+            const handleDown = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                btn.classList.add('btn-pressed');
+                if (onPress) onPress();
+            };
+
+            const handleUp = () => {
+                if (btn.classList.contains('btn-pressed')) {
+                    btn.classList.remove('btn-pressed');
+                    if (onRelease) onRelease();
+                }
+            };
+
+            btn.addEventListener('pointerdown', handleDown);
+            btn.addEventListener('pointerup', handleUp);
+            btn.addEventListener('pointerleave', handleUp);
+            btn.addEventListener('pointercancel', handleUp);
+        };
+
+        bindBtn('arcade-btn-jump', () => {
+            const st = getState();
+            if (st === 'playing') doJump();
+            else if (st === 'count') skipCountdown();
+            else if (st === 'ready' || st === 'over') startRun();
+            else if (st === 'paused') resumeRun();
+        });
+
+        bindBtn('arcade-btn-slide', () => {
+            doSlide();
+        }, () => {
+            endSlide();
+        });
+
+        bindBtn('arcade-btn-dash', () => {
+            doDash();
+        });
+
+        bindBtn('arcade-btn-restart', () => {
+            const st = getState();
+            if (st === 'count') skipCountdown();
+            else if (st === 'paused') resumeRun();
+            else startRun();
+        });
+
+        bindBtn('arcade-btn-exit', () => {
+            exitLcd();
+            if (exitHandler) exitHandler();
+        });
+    };
+
+    initArcadeGamepad();
+
     // Exclusive keyboard capture while the game is focused. Registered
     // once; internally gated on isLcdActive() so it never steals keys at
     // rest. The OTHER listeners (probe / journey arrows / section keys /
@@ -1130,12 +1210,14 @@ export function createLcd(boardGroup) {
         const key = e.key;
         const st = getState();
         if (key === 'Escape') {
+            setBtnPressed('arcade-btn-exit', true);
             e.preventDefault();
             exitLcd();
             if (exitHandler) exitHandler();
             return;
         }
         if (key === 'Enter') {
+            setBtnPressed('arcade-btn-restart', true);
             e.preventDefault();
             if (st === 'paused') {
                 resumeRun();
@@ -1163,16 +1245,19 @@ export function createLcd(boardGroup) {
         const isSlide = key === 'ArrowDown' || key === 's' || key === 'S';
         const isDash = key === 'd' || key === 'D' || key === 'Shift' || key === 'ShiftLeft' || key === 'ShiftRight';
         if (isJump) {
+            setBtnPressed('arcade-btn-jump', true);
             e.preventDefault();
             doJump();
             return;
         }
         if (isSlide) {
+            setBtnPressed('arcade-btn-slide', true);
             e.preventDefault();
             doSlide();
             return;
         }
         if (isDash) {
+            setBtnPressed('arcade-btn-dash', true);
             e.preventDefault();
             doDash();
             return;
@@ -1182,8 +1267,21 @@ export function createLcd(boardGroup) {
     window.addEventListener('keyup', (e) => {
         if (!isLcdActive()) return;
         const key = e.key;
+        if (key === 'ArrowUp' || key === 'w' || key === 'W' || key === ' ') {
+            setBtnPressed('arcade-btn-jump', false);
+        }
         if (key === 'ArrowDown' || key === 's' || key === 'S') {
+            setBtnPressed('arcade-btn-slide', false);
             endSlide();
+        }
+        if (key === 'd' || key === 'D' || key === 'Shift' || key === 'ShiftLeft' || key === 'ShiftRight') {
+            setBtnPressed('arcade-btn-dash', false);
+        }
+        if (key === 'Enter') {
+            setBtnPressed('arcade-btn-restart', false);
+        }
+        if (key === 'Escape') {
+            setBtnPressed('arcade-btn-exit', false);
         }
     });
 
