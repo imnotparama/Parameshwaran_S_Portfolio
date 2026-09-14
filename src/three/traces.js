@@ -531,6 +531,31 @@ export function energizeTraceForSection(sectionId, on) {
 }
 
 /**
+ * Trigger an all-systems global celebration pulse.
+ * Sends a cascading optical wave along every trace on the motherboard
+ * from U1 outward to all peripheral banks and antenna.
+ */
+export function triggerGlobalCelebrationPulse() {
+    if (motionPrefs.reduced) return;
+    rippleSegments.forEach((seg) => {
+        gsap.killTweensOf(seg.mat);
+        gsap.to(seg.mat, {
+            emissiveIntensity: 2.8,
+            duration: 0.15,
+            delay: (seg.distFromStart || 0) * 0.04
+        }).then(() => {
+            gsap.to(seg.mat, {
+                emissiveIntensity: TRACE_BASE_INTENSITY,
+                duration: 0.9,
+                ease: 'power2.out'
+            });
+        });
+    });
+    ambientPulseSpeedMultiplier = 4;
+    setTimeout(() => { ambientPulseSpeedMultiplier = 1; }, 2500);
+}
+
+/**
  * Helper: Squared distance from 2D point (px, py) to line segment (ax, ay) -> (bx, by).
  * @param {number} px @param {number} py
  * @param {number} ax @param {number} ay

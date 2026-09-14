@@ -8,6 +8,9 @@
 import { triggerRfBurst } from '../three/rf-wavefront.js';
 import { toggleDelidCpu } from '../three/components.js';
 import { launchPaperAirplane } from '../three/paper-airplane.js';
+import { triggerGlobalCelebrationPulse } from '../three/traces.js';
+import { scrollToSection } from '../scroll/journey.js';
+import { clickBlip } from '../utils/sound.js';
 import { RESUME_URL, LINKEDIN_URL, GITHUB_URL } from '../config.js';
 
 const VCARD_DATA = {
@@ -26,6 +29,8 @@ const VCARD_DATA = {
 let clockInterval = null;
 /** @type {ReturnType<typeof setInterval> | null} */
 let rttInterval = null;
+/** @type {number | null} */
+let radarAnimFrame = null;
 
 /**
  * Initialize all interactive transmission elements on #panel-contact.
@@ -171,6 +176,113 @@ export function initContactTerminal() {
             }, 600);
         });
     }
+
+    // 9. All-Systems Global Celebration Pulse ("TRANSMIT ALL")
+    const transmitAllBtn = document.getElementById('btn-transmit-all');
+    if (transmitAllBtn) {
+        transmitAllBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            clickBlip();
+            triggerGlobalCelebrationPulse();
+            triggerRfBurst();
+            if (packetStatus) {
+                packetStatus.innerHTML = `<span class="text-emerald">BROADCAST_BEACON:</span> All 5 motherboard buses energized. Signal integrity 100%.`;
+            }
+        });
+    }
+
+    // 10. Tour Reboot Loop (Return to Hero)
+    const rebootBtn = document.getElementById('btn-reboot-tour');
+    if (rebootBtn) {
+        rebootBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            clickBlip();
+            scrollToSection('sec-hero');
+        });
+    }
+
+    // 11. Animated ANT1 PPI Radar Sweep
+    initRadarPpi();
+}
+
+/**
+ * Initialize 2D canvas radar PPI sweep.
+ */
+function initRadarPpi() {
+    const canvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('contact-radar-canvas'));
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = w / 2 - 2;
+
+    const renderRadar = () => {
+        const time = Date.now() * 0.0022;
+        ctx.fillStyle = 'rgba(3, 12, 7, 0.28)';
+        ctx.fillRect(0, 0, w, h);
+
+        // Concentric distance rings
+        ctx.strokeStyle = 'rgba(62, 230, 160, 0.2)';
+        ctx.lineWidth = 1;
+        [0.35, 0.65, 0.95].forEach(frac => {
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * frac, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+
+        // Crosshairs
+        ctx.strokeStyle = 'rgba(62, 230, 160, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(cx, 2); ctx.lineTo(cx, h - 2);
+        ctx.moveTo(2, cy); ctx.lineTo(w - 2, cy);
+        ctx.stroke();
+
+        // Rotating Sweep Radial Beam
+        const angle = time % (Math.PI * 2);
+        const bx = cx + Math.cos(angle) * r;
+        const by = cy + Math.sin(angle) * r;
+
+        // Fading sweep sector
+        const sweepGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, r);
+        sweepGrad.addColorStop(0, 'rgba(62, 230, 160, 0.4)');
+        sweepGrad.addColorStop(1, 'rgba(62, 230, 160, 0.05)');
+        ctx.fillStyle = sweepGrad;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, angle - 0.5, angle);
+        ctx.closePath();
+        ctx.fill();
+
+        // Main Sweep Line
+        ctx.strokeStyle = 'rgba(62, 230, 160, 0.9)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+
+        // Target blip at (cx + 12, cy - 14)
+        const blipX = cx + 12;
+        const blipY = cy - 14;
+        const blipAngle = Math.atan2(blipY - cy, blipX - cx);
+        const normBlipAngle = (blipAngle + Math.PI * 2) % (Math.PI * 2);
+        const diff = Math.abs(angle - normBlipAngle);
+        const blipAlpha = diff < 0.4 ? 1.0 : Math.max(0.2, 1.0 - diff * 0.4);
+
+        ctx.fillStyle = `rgba(56, 189, 248, ${blipAlpha})`;
+        ctx.beginPath();
+        ctx.arc(blipX, blipY, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        radarAnimFrame = requestAnimationFrame(renderRadar);
+    };
+
+    if (radarAnimFrame) cancelAnimationFrame(radarAnimFrame);
+    renderRadar();
 }
 
 /**
@@ -268,6 +380,20 @@ function executeTerminalCommand(rawCmd, logEl) {
         case 'delid':
             toggleDelidCpu();
             resp.innerHTML = `IHS_TOGGLE: Bare silicon die inspection state altered.`;
+            break;
+        case 'celebrate':
+        case 'broadcast':
+            triggerGlobalCelebrationPulse();
+            triggerRfBurst();
+            resp.innerHTML = `<span class="text-emerald">CELEBRATION_SURGE:</span> Global optical current pulse dispatched along all 5 system buses!`;
+            break;
+        case 'radar':
+            triggerRfBurst();
+            resp.innerHTML = `RADAR_PING: PPI radar sweep synchronized to ANT1 feedpoint. Target locked.`;
+            break;
+        case 'reboot':
+            resp.innerHTML = `SYSTEM_REBOOT: Re-orienting to hero macro inspection view...`;
+            setTimeout(() => { scrollToSection('sec-hero'); }, 500);
             break;
         case 'clear':
             logEl.innerHTML = '';

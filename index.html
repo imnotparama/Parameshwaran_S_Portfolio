@@ -428,18 +428,28 @@
         <!-- CONTACT — Transmission Interface (J1 / ANT1) -->
         <section class="journey-sec" id="sec-contact" data-panel="panel-contact">
             <div class="ds-panel contact-panel" id="panel-contact">
+                <div class="milestone-badge">
+                    <span class="milestone-status-led"></span>
+                    <span class="milestone-text">MISSION ACCOMPLISHED // HARDWARE EXPLORATION 100% OPERATIONAL</span>
+                </div>
                 <div class="panel-eyebrow">// TRANSMISSION INTERFACE (J1 USB / ANT1)</div>
                 <div class="headline-stack ds-title-stack">
                     <h2 class="ds-title">Primary Uplink</h2>
                     <span class="headline-twin" aria-hidden="true">Primary Uplink</span>
                 </div>
 
-                <!-- Real-Time Hardware Telemetry Strip -->
-                <div class="contact-telemetry-strip" aria-label="System Transmission Telemetry">
-                    <span class="telem-item"><span class="telem-dot pulse"></span>RTT: <strong id="rtt-counter">12ms</strong> (DIRECT)</span>
-                    <span class="telem-item">BAND: <strong id="current-rf-band">2.4GHz ISM</strong></span>
-                    <span class="telem-item">INTEGRITY: <strong class="text-emerald">99.98%</strong></span>
-                    <span class="telem-item clock">LOCAL: <strong id="chennai-clock">--:--:-- IST</strong></span>
+                <!-- Real-Time Hardware Telemetry Strip & Radar PPI -->
+                <div class="contact-radar-and-telem">
+                    <div class="contact-radar-box">
+                        <canvas id="contact-radar-canvas" width="68" height="68" class="contact-radar-canvas" aria-label="ANT1 2.4GHz Radar PPI Sweep"></canvas>
+                        <span class="radar-tag">ANT1 RF RADAR</span>
+                    </div>
+                    <div class="contact-telemetry-strip" aria-label="System Transmission Telemetry">
+                        <span class="telem-item"><span class="telem-dot pulse"></span>RTT: <strong id="rtt-counter">12ms</strong> (DIRECT)</span>
+                        <span class="telem-item">BAND: <strong id="current-rf-band">2.4GHz ISM</strong></span>
+                        <span class="telem-item">INTEGRITY: <strong class="text-emerald">99.98%</strong></span>
+                        <span class="telem-item clock">LOCAL: <strong id="chennai-clock">--:--:-- IST</strong></span>
+                    </div>
                 </div>
 
                 <!-- Mission Statement & Uplink Status -->
@@ -516,11 +526,15 @@
                         </div>
                     </div>
 
-                    <!-- Tactical Actions: Firmware Download & Packet Injection -->
+                    <!-- Tactical Actions: Firmware Download & Broadcast Beacon -->
                     <div class="contact-tactical-row">
                         <button type="button" class="btn-firmware-dl js-resume-btn" aria-label="Download Firmware Spec PDF">
                             <span class="btn-fw-icon">&#x2193;</span>
                             <span class="btn-fw-text">DOWNLOAD FIRMWARE SPEC (RESUME.PDF)</span>
+                        </button>
+                        <button type="button" class="btn-broadcast-beacon" id="btn-transmit-all" aria-label="Broadcast beacon to all system buses">
+                            <span class="btn-beacon-icon">&#x26A1;</span>
+                            <span class="btn-beacon-text">BROADCAST BEACON // PING ALL 5 BUSES</span>
                         </button>
                     </div>
 
@@ -557,12 +571,15 @@
                     </div>
                 </div>
 
-                <!-- Contact Footer & Digital Signature -->
+                <!-- Contact Footer, Digital Signature & Reboot Loop -->
                 <div class="contact-footer">
                     <div class="contact-signature-badge">
                         <span class="sig-title">DIGITAL SIGNATURE HASH:</span>
                         <span class="sig-hash">SHA-256: 7F3A9B2C4E8D10A65F9321E5BDC874A0 // VERIFIED FIRMWARE</span>
                     </div>
+                    <button type="button" class="btn-tour-reboot" id="btn-reboot-tour" aria-label="Reboot motherboard guided tour">
+                        <span class="reboot-icon">&#x21BA;</span> REBOOT MOTHERBOARD TOUR (RETURN TO HERO)
+                    </button>
                     <span>PARAMA LABS · PRM-DEV-BOARD V2.4 · CHENNAI, TAMIL NADU, INDIA</span>
                     <span>Built with Three.js WebGL &amp; Hardware State Machine &copy; 2026</span>
                 </div>

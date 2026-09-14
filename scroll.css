@@ -2804,6 +2804,73 @@ body.full-journey .ds-panel.panel-active {
     margin-top: 14px;
 }
 
+/* Milestone Badge */
+.milestone-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-radius: 20px;
+    padding: 4px 12px;
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #6ee7b7;
+}
+
+.milestone-status-led {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: telem-pulse 1.2s infinite;
+}
+
+/* Contact Radar and Telemetry Row */
+.contact-radar-and-telem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    margin-bottom: 12px;
+}
+
+.contact-radar-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(3, 12, 7, 0.85);
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    border-radius: 8px;
+    padding: 4px;
+    flex-shrink: 0;
+}
+
+.contact-radar-canvas {
+    border-radius: 50%;
+    background: #020804;
+    box-shadow: 0 0 10px rgba(62, 230, 160, 0.2);
+}
+
+.radar-tag {
+    font-family: var(--font-mono);
+    font-size: 7.5px;
+    font-weight: 700;
+    color: var(--signal, #3ee6a0);
+    letter-spacing: 0.5px;
+    margin-top: 3px;
+}
+
+.contact-radar-and-telem .contact-telemetry-strip {
+    flex: 1;
+    margin: 0;
+}
+
 /* Contact: Real-Time Hardware Telemetry Strip */
 .contact-telemetry-strip {
     display: flex;
@@ -3218,6 +3285,78 @@ body.full-journey .ds-panel.panel-active {
 
 .sig-hash {
     color: rgba(180, 220, 200, 0.8);
+}
+
+/* Broadcast Beacon Button */
+.btn-broadcast-beacon {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(14, 165, 233, 0.25) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 6px;
+    padding: 8px 14px;
+    color: #38bdf8;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    margin-top: 8px;
+}
+
+.btn-broadcast-beacon:hover {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(14, 165, 233, 0.45) 100%);
+    color: #ffffff;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
+    transform: translateY(-1px);
+}
+
+/* Tour Reboot Button */
+.btn-tour-reboot {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #cbd5e1;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin: 8px 0;
+}
+
+.btn-tour-reboot:hover {
+    background: rgba(62, 230, 160, 0.15);
+    border-color: var(--signal, #3ee6a0);
+    color: var(--signal, #3ee6a0);
+}
+
+.reboot-icon {
+    font-size: 12px;
+}
+
+@media (max-width: 640px) {
+    .contact-radar-and-telem {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .contact-radar-box {
+        align-self: center;
+    }
+    .contact-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* The connector line is a live signal trace — dashes march toward the
