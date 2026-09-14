@@ -242,6 +242,74 @@ export function playContinuityBeep() {
     blip(850, 0.12, 0.045, 'square');
 }
 
+/**
+ * Inductor coil whine / DC-DC flyback resonance.
+ * A high-frequency switching harmonic (3.1kHz) simulating magnetic saturation.
+ * @param {number} [dur]
+ * @param {number} [peak]
+ */
+export function playInductorWhine(dur = 0.18, peak = 0.035) {
+    if (!enabled) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(3120, t0);
+        osc.frequency.linearRampToValueAtTime(3380, t0 + dur * 0.5);
+        osc.frequency.linearRampToValueAtTime(3120, t0 + dur);
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.02);
+    } catch {}
+}
+
+/**
+ * High-tactile mechanical switch click with dual spring-latch resonance.
+ */
+export function playMechanicalClick() {
+    if (!enabled) return;
+    click(4200, 0.015, 0.05);
+    click(2400, 0.018, 0.04, 0.012);
+    click(1200, 0.022, 0.03, 0.02);
+}
+
+/**
+ * Demodulated RF packet transmission chatter (2.4GHz IEEE 802.15.4 frame).
+ * Quick frequency-shift-keyed (FSK) data burst.
+ */
+export function playRfChirp() {
+    if (!enabled) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+        const freqs = [2400, 3600, 2100, 4200, 2800];
+        freqs.forEach((f, idx) => {
+            if (!ctx) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(f, t0 + idx * 0.025);
+            gain.gain.setValueAtTime(0.0001, t0 + idx * 0.025);
+            gain.gain.exponentialRampToValueAtTime(0.025, t0 + idx * 0.025 + 0.004);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + idx * 0.025 + 0.024);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t0 + idx * 0.025);
+            osc.stop(t0 + idx * 0.025 + 0.025);
+        });
+    } catch {}
+}
+
 // ─── Electrical hum — scroll-velocity drone ───────────────────
 // A low mains-frequency drone that swells with scroll speed (the board's
 // power rail audibly energizes as you fly along the traces). Starts and

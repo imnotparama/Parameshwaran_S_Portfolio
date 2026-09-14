@@ -165,6 +165,28 @@
         <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Connect on LinkedIn">CONNECT ON LINKEDIN →</a>
     </header>
 
+    <!-- CAD/CAM Layer Stackup & X-Ray Inspector Bar (Active during [LAYERS] Teardown) -->
+    <div id="cad-cam-rack" class="cad-cam-rack" aria-label="CAD/CAM Layer Stackup Inspector" hidden>
+        <div class="cad-cam-header">
+            <span class="cad-cam-ref">CAD/CAM // 6-LAYER STACKUP</span>
+            <button type="button" class="cad-cam-btn xray-btn" id="cad-cam-xray-btn" aria-pressed="false" title="Fluoroscopic X-Ray Trace Mode">X-RAY</button>
+        </div>
+        <div class="cad-cam-layers" role="group" aria-label="Layer Isolation">
+            <button type="button" class="cad-layer-btn active" data-layer="ALL">ALL</button>
+            <button type="button" class="cad-layer-btn" data-layer="SILK">L1 SILK</button>
+            <button type="button" class="cad-layer-btn" data-layer="TOP_CU">L2 TOP-CU</button>
+            <button type="button" class="cad-layer-btn" data-layer="FR4">L3 FR-4</button>
+            <button type="button" class="cad-layer-btn" data-layer="GND">L4 GND</button>
+            <button type="button" class="cad-layer-btn" data-layer="PWR">L5 PWR</button>
+            <button type="button" class="cad-layer-btn" data-layer="BOT_CU">L6 BOT-CU</button>
+        </div>
+        <div class="cad-cam-slider-wrap">
+            <label for="cad-cam-z-slider" class="cad-cam-slider-label">Z-EXPANSION</label>
+            <input type="range" id="cad-cam-z-slider" min="20" max="200" value="100" class="cad-cam-slider" aria-label="Layer separation distance">
+            <span id="cad-cam-z-val" class="cad-cam-z-val">100%</span>
+        </div>
+    </div>
+
     <!-- System Diagnostic Event Toast Container -->
     <div id="system-events-container" class="system-events-container" aria-live="assertive"></div>
 

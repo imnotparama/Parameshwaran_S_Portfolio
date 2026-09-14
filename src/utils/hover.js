@@ -9,7 +9,7 @@ import gsap from 'gsap';
 import { interactiveObjects, pressTactile, energizeCapacitor, toggleDelidCpu } from '../three/components.js';
 import { highlightTrace } from '../three/traces.js';
 import { simView } from '../three/lcd-sim.js';
-import { hoverBlip, clickBlip, probeTone, playContinuityBeep } from './sound.js';
+import { hoverBlip, clickBlip, probeTone, playContinuityBeep, playMechanicalClick, playRfChirp, playInductorWhine } from './sound.js';
 import { motionPrefs } from './motion-prefs.js';
 import { rotatePotentiometer } from '../three/potentiometer.js';
 import { playComponentTone } from './synth.js';
@@ -429,13 +429,17 @@ export function initHover(camera, scene) {
                     clickBlip();
                     if (subsystemInspectHandler) subsystemInspectHandler('sec-experience');
                 } else if (obj.name === 'J1' || obj.name === 'ANT1' || (obj.userData && (obj.userData.type === 'USB' || obj.userData.type === 'ANTENNA'))) {
-                    clickBlip();
+                    if (obj.name === 'ANT1') {
+                        playRfChirp();
+                    } else {
+                        clickBlip();
+                    }
                     if (subsystemInspectHandler) subsystemInspectHandler('sec-contact');
                 } else if (obj.userData && obj.userData.type === 'BUZZER' && buzzerHandler) {
                     buzzerHandler();
                 } else if (obj.userData && obj.userData.type === 'SWITCH' && obj.name) {
                     pressTactile(obj.name);
-                    clickBlip();
+                    playMechanicalClick();
                     if (switchHandler) switchHandler(obj.name);
                 } else if (obj.userData && obj.userData.type === 'LCD' && lcdHandler) {
                     clickBlip();
@@ -454,10 +458,10 @@ export function initHover(camera, scene) {
                     clickBlip();
                     if (headerHandler) headerHandler();
                 } else if (obj.userData && (obj.userData.type === 'RF' || obj.name === 'RF1')) {
-                    clickBlip();
+                    playRfChirp();
                     if (rfHandler) rfHandler();
                 } else if (obj.userData && (obj.userData.type === 'IND' || obj.name === 'L1')) {
-                    clickBlip();
+                    playInductorWhine();
                     if (inductorHandler) inductorHandler();
                 }
             }

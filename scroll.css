@@ -5905,4 +5905,124 @@ body.bench-mode-dim .vignette-overlay {
 }
 .live-algo .badge-dot { background: #a3e635; box-shadow: 0 0 6px #a3e635; }
 
+/* ─── CAD/CAM Layer Stackup & X-Ray Inspector Bar ─── */
+.cad-cam-rack {
+    position: fixed;
+    top: 64px;
+    right: 24px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(5, 14, 9, 0.94);
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    border-top: 2px solid var(--signal, #3ee6a0);
+    border-radius: 6px;
+    padding: 10px 14px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 15px rgba(62, 230, 160, 0.15);
+    font-family: var(--font-mono, monospace);
+    backdrop-filter: blur(12px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.cad-cam-rack[hidden] {
+    display: none !important;
+}
+
+.cad-cam-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.cad-cam-ref {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--enig-gold, #c9a24b);
+    letter-spacing: 1.2px;
+}
+
+.cad-cam-btn.xray-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    color: var(--signal, #3ee6a0);
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cad-cam-btn.xray-btn.active, .cad-cam-btn.xray-btn:hover {
+    background: var(--signal, #3ee6a0);
+    color: #020f06;
+    box-shadow: 0 0 8px var(--signal, #3ee6a0);
+}
+
+.cad-cam-layers {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.cad-layer-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(220, 240, 230, 0.75);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    padding: 3px 6px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cad-layer-btn:hover, .cad-layer-btn.active {
+    background: rgba(62, 230, 160, 0.18);
+    border-color: var(--signal, #3ee6a0);
+    color: var(--signal, #3ee6a0);
+}
+
+.cad-cam-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cad-cam-slider-label {
+    font-size: 8px;
+    color: var(--silkscreen-muted);
+    letter-spacing: 0.8px;
+}
+
+.cad-cam-slider {
+    flex: 1;
+    height: 4px;
+    accent-color: var(--signal, #3ee6a0);
+    cursor: pointer;
+}
+
+.cad-cam-z-val {
+    font-size: 8.5px;
+    color: var(--signal, #3ee6a0);
+    font-variant-numeric: tabular-nums;
+    width: 32px;
+    text-align: right;
+}
+
+/* X-Ray Fluoroscopic Mode Overlay / PCB styling */
+body.xray-active .screen-scanlines {
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 255, 200, 0.15) 50%), linear-gradient(90deg, rgba(0, 255, 150, 0.06), rgba(0, 255, 255, 0.02), rgba(0, 255, 150, 0.06));
+}
+
+body.xray-active #canvas-container {
+    filter: contrast(1.4) brightness(1.15) hue-rotate(15deg);
+}
+
 
