@@ -26,6 +26,7 @@ function esc(str) {
 export function renderSections() {
     wireProfileLinks();
     renderHeroStats();
+    initHeroSiliconStation();
     renderAboutVref();
     renderProjects();
     renderSkills();
@@ -45,6 +46,127 @@ function renderHeroStats() {
             <span class="badge-lbl">${esc(s.label)}</span>
         </div>`)
         .join('');
+}
+
+// ─── Hero Silicon Station & Dual-Core Live Telemetry ─────────
+/** @type {any} */
+let siliconTelemetryInterval = null;
+let currentClockMult = 1.0;
+let isBenchmarkRunning = false;
+
+export function initHeroSiliconStation() {
+    const station = document.getElementById('hero-silicon-station');
+    if (!station) return;
+
+    const core0Freq = document.getElementById('core0-freq');
+    const core0Bar = document.getElementById('core0-bar');
+    const core0Load = document.getElementById('core0-load');
+    const core0Temp = document.getElementById('core0-temp');
+    const core0Volt = document.getElementById('core0-volt');
+
+    const core1Freq = document.getElementById('core1-freq');
+    const core1Bar = document.getElementById('core1-bar');
+    const core1Load = document.getElementById('core1-load');
+    const core1Temp = document.getElementById('core1-temp');
+    const core1Volt = document.getElementById('core1-volt');
+
+    const clockSlider = /** @type {HTMLInputElement | null} */ (document.getElementById('hero-clock-slider'));
+    const clockMultVal = document.getElementById('hero-clock-mult-val');
+    const btnBenchmark = document.getElementById('btn-run-benchmark');
+    const rtosLogs = document.getElementById('hero-rtos-logs');
+
+    // Fluctuating live telemetry loop
+    if (siliconTelemetryInterval) clearInterval(siliconTelemetryInterval);
+    siliconTelemetryInterval = setInterval(() => {
+        if (isBenchmarkRunning) return;
+
+        // Micro variations
+        const jitter0 = (Math.random() - 0.5) * 0.08;
+        const jitter1 = (Math.random() - 0.5) * 0.06;
+        const f0 = (4.80 * currentClockMult + jitter0).toFixed(2);
+        const f1 = (3.60 * currentClockMult + jitter1).toFixed(2);
+
+        const load0 = Math.min(98, Math.max(35, Math.round(65 * (currentClockMult > 1.2 ? 1.25 : 1.0) + (Math.random() - 0.5) * 20)));
+        const load1 = Math.min(95, Math.max(25, Math.round(40 * (currentClockMult > 1.2 ? 1.2 : 1.0) + (Math.random() - 0.5) * 16)));
+
+        const temp0 = Math.round(42 + (currentClockMult - 1.0) * 28 + load0 * 0.12);
+        const temp1 = Math.round(38 + (currentClockMult - 1.0) * 22 + load1 * 0.10);
+
+        const volt0 = (1.12 + (currentClockMult - 1.0) * 0.22 + (Math.random() - 0.5) * 0.02).toFixed(2);
+        const volt1 = (1.02 + (currentClockMult - 1.0) * 0.18 + (Math.random() - 0.5) * 0.02).toFixed(2);
+
+        if (core0Freq) core0Freq.textContent = `${f0} GHz`;
+        if (core0Bar) core0Bar.style.width = `${load0}%`;
+        if (core0Load) core0Load.textContent = `${load0}%`;
+        if (core0Temp) core0Temp.textContent = `${temp0}°C`;
+        if (core0Volt) core0Volt.textContent = `${volt0}V`;
+
+        if (core1Freq) core1Freq.textContent = `${f1} GHz`;
+        if (core1Bar) core1Bar.style.width = `${load1}%`;
+        if (core1Load) core1Load.textContent = `${load1}%`;
+        if (core1Temp) core1Temp.textContent = `${temp1}°C`;
+        if (core1Volt) core1Volt.textContent = `${volt1}V`;
+    }, 700);
+
+    // Clock Multiplier Slider
+    if (clockSlider) {
+        clockSlider.addEventListener('input', () => {
+            currentClockMult = parseFloat(clockSlider.value) || 1.0;
+            let label = '1.0x (NOMINAL)';
+            if (currentClockMult >= 2.2) label = `${currentClockMult.toFixed(1)}x (EXTREME OC)`;
+            else if (currentClockMult >= 1.6) label = `${currentClockMult.toFixed(1)}x (TURBO BOOST)`;
+            else if (currentClockMult > 1.0) label = `${currentClockMult.toFixed(1)}x (OVERCLOCKED)`;
+
+            if (clockMultVal) clockMultVal.textContent = label;
+        });
+    }
+
+    // Benchmark Stress Test Action
+    if (btnBenchmark && rtosLogs) {
+        btnBenchmark.addEventListener('click', () => {
+            if (isBenchmarkRunning) return;
+            isBenchmarkRunning = true;
+            btnBenchmark.setAttribute('disabled', 'true');
+            btnBenchmark.style.opacity = '0.6';
+
+            // Flare bars to 99% load & amber/red
+            if (core0Bar) {
+                core0Bar.style.width = '100%';
+                core0Bar.style.background = 'linear-gradient(90deg, #ff8800, #ff4444)';
+            }
+            if (core1Bar) {
+                core1Bar.style.width = '98%';
+                core1Bar.style.background = 'linear-gradient(90deg, #ff8800, #ff4444)';
+            }
+            if (core0Load) core0Load.textContent = '100%';
+            if (core1Load) core1Load.textContent = '98%';
+            if (core0Temp) core0Temp.textContent = '86°C';
+            if (core1Temp) core1Temp.textContent = '79°C';
+
+            // Emit rolling log lines
+            const appendLog = (/** @type {string} */ msg) => {
+                const line = document.createElement('div');
+                line.className = 'log-line';
+                line.textContent = msg;
+                rtosLogs.appendChild(line);
+                if (rtosLogs.children.length > 5) {
+                    rtosLogs.removeChild(rtosLogs.children[0]);
+                }
+            };
+
+            appendLog(`[STRESS] Running 64-bit FP16 matrix GEMM benchmark...`);
+            setTimeout(() => appendLog(`[STRESS] Neural DMA throughput: 14.8 TFLOPS`), 1000);
+            setTimeout(() => appendLog(`[STRESS] Memory bandwidth verified: 51.2 GB/s (99.8% hit rate)`), 2200);
+            setTimeout(() => {
+                appendLog(`[STRESS] BENCHMARK COMPLETE: 9,942 DMIPS // STABILITY: 100%`);
+                isBenchmarkRunning = false;
+                btnBenchmark.removeAttribute('disabled');
+                btnBenchmark.style.opacity = '1.0';
+                if (core0Bar) core0Bar.style.background = 'linear-gradient(90deg, #14b8a6, #3ee6a0)';
+                if (core1Bar) core1Bar.style.background = 'linear-gradient(90deg, #14b8a6, #3ee6a0)';
+            }, 3800);
+        });
+    }
 }
 
 // About spec-table VREF row

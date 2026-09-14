@@ -181,6 +181,77 @@
                 </div>
                 <p class="hero-claim text-pretty">ECE student and systems developer specializing in <span class="sig-word">computer vision</span>, <span class="sig-word">backend systems</span>, and <span class="sig-word">high-performance interactive software</span>.</p>
                 <div class="badge-row" id="hero-badges"></div>
+
+                <!-- Live Silicon Telemetry & Overclock Station -->
+                <div class="hero-silicon-station" id="hero-silicon-station">
+                    <div class="silicon-station-header">
+                        <span class="station-title"><span class="pulse-led live"></span> REAL-TIME SILICON TELEMETRY</span>
+                        <span class="station-chip-tag">PARAMA CORE-X // BGA-1151</span>
+                    </div>
+
+                    <!-- Dual-Core Telemetry Grid -->
+                    <div class="core-telemetry-grid">
+                        <div class="core-meter-card" id="meter-core0">
+                            <div class="core-meter-top">
+                                <span class="core-name">CORE 0 [AI/CV]</span>
+                                <span class="core-freq" id="core0-freq">4.80 GHz</span>
+                            </div>
+                            <div class="core-bar-track">
+                                <div class="core-bar-fill" id="core0-bar" style="width: 76%;"></div>
+                            </div>
+                            <div class="core-metrics">
+                                <span>LOAD: <b id="core0-load">76%</b></span>
+                                <span>TEMP: <b id="core0-temp">48°C</b></span>
+                                <span>VOLT: <b id="core0-volt">1.18V</b></span>
+                            </div>
+                        </div>
+
+                        <div class="core-meter-card" id="meter-core1">
+                            <div class="core-meter-top">
+                                <span class="core-name">CORE 1 [SYS/RTOS]</span>
+                                <span class="core-freq" id="core1-freq">3.60 GHz</span>
+                            </div>
+                            <div class="core-bar-track">
+                                <div class="core-bar-fill" id="core1-bar" style="width: 42%;"></div>
+                            </div>
+                            <div class="core-metrics">
+                                <span>LOAD: <b id="core1-load">42%</b></span>
+                                <span>TEMP: <b id="core1-temp">41°C</b></span>
+                                <span>VOLT: <b id="core1-volt">1.05V</b></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Overclock Throttle & Benchmark Controls -->
+                    <div class="station-controls-row">
+                        <div class="overclock-slider-wrap">
+                            <div class="slider-label-row">
+                                <span class="slider-label">CLOCK MULTIPLIER:</span>
+                                <span class="slider-val" id="hero-clock-mult-val">1.0x (NOMINAL)</span>
+                            </div>
+                            <input type="range" min="1.0" max="2.5" step="0.1" value="1.0" class="cyber-range" id="hero-clock-slider" aria-label="CPU Clock Multiplier">
+                        </div>
+                        <button type="button" class="btn-benchmark" id="btn-run-benchmark" title="Run 4-Second Silicon Stress Test">
+                            <span class="benchmark-icon">⚡</span>
+                            <span class="benchmark-text">STRESS TEST</span>
+                        </button>
+                    </div>
+
+                    <!-- Mini RTOS Log Stream -->
+                    <div class="mini-rtos-terminal" id="hero-rtos-terminal">
+                        <div class="rtos-term-header">
+                            <span>KERNEL STREAM // ttyS0</span>
+                            <span class="rtos-status">ONLINE 115200 8N1</span>
+                        </div>
+                        <div class="rtos-term-body" id="hero-rtos-logs">
+                            <div class="log-line">[SYS] PARAMA-RTOS v2.4 initialized at 0x80000000</div>
+                            <div class="log-line">[CLK] PLL Lock achieved: Base 100MHz · Bus 400MHz</div>
+                            <div class="log-line">[DMA] Neural accelerator ring buffer mapped (64MB)</div>
+                            <div class="log-line">[POST] All 8 peripheral expansion modules verified OK</div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="hero-quick-actions" aria-label="Interactive 3D hardware modes">
                     <span class="quick-actions-label">INTERACTIVE 3D FEATURES //</span>
                     <div class="quick-action-pills">
