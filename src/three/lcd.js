@@ -570,55 +570,59 @@ function drawDebugOverlay(c) {
  *  flicker is a seeded per-frame dim so it is deterministic.
  *  @param {number} delta */
 function drawFrame(delta) {
-    if (!gctx) return;
+    if (!gctx || !gameCanvas) return;
     const c = gctx;
+    const w = gameCanvas.width;
+    const h = gameCanvas.height;
 
     let rendered3d = false;
     if (is3dGameReady() && S.state !== 'off') {
         update3dGame(delta, S);
         const c3d = get3dCanvas();
         if (c3d) {
-            c.drawImage(c3d, 0, 0, CANVAS_W, CANVAS_H);
+            c.drawImage(c3d, 0, 0, w, h);
+            drawCrtOverlay(c, S, w, h);
             rendered3d = true;
         }
     }
 
     if (!rendered3d) {
         c.fillStyle = C_BG;
-        c.fillRect(0, 0, CANVAS_W, CANVAS_H);
-        // LCD ghosting — the previous frame bleeds through faintly where this
-        // frame is empty, so a moving object leaves a fading trail (persistence).
+        c.fillRect(0, 0, w, h);
         if (ghostCanvas && ghostCtx && !motionPrefs.reduced) {
             c.globalAlpha = 0.16;
             c.drawImage(ghostCanvas, 0, 0);
             c.globalAlpha = 1;
         }
+        if (S.state === 'off') drawOff(c);
+        else if (S.state === 'boot') drawBoot(c);
+        else if (S.state === 'ready') drawReady(c);
+        else if (S.state === 'count') drawCount(c);
+        else if (S.state === 'playing') drawPlaying(c);
+        else if (S.state === 'paused') drawPaused(c);
+        else drawOver(c);
+        if (S.state !== 'off' && S.debug) drawDebugOverlay(c);
     }
 
-    if (S.state === 'off') drawOff(c);
-    else if (S.state === 'boot') drawBoot(c);
-    else if (S.state === 'ready') drawReady(c);
-    else if (S.state === 'count') drawCount(c);
-    else if (S.state === 'playing') drawPlaying(c);
-    else if (S.state === 'paused') drawPaused(c);
-    else drawOver(c);
-    if (S.state !== 'off' && S.debug) drawDebugOverlay(c);
-
-    // Scanlines — every other row dimmed (a real 128×64 glass).
-    c.fillStyle = 'rgba(0, 0, 0, 0.26)';
-    for (let y = 1; y < CANVAS_H; y += 2) c.fillRect(0, y, CANVAS_W, 1);
+    // Authentic CRT scanlines
+    c.fillStyle = 'rgba(0, 0, 0, 0.22)';
+    for (let y = 1; y < h; y += 2) c.fillRect(0, y, w, 1);
 
     // Subtle CRT flicker — deterministic from the frame counter.
     if (!motionPrefs.reduced) {
         const f = (frameCount * 2654435761) >>> 0;
-        const fl = 0.012 + ((f & 7) / 7) * 0.028;
+        const fl = 0.008 + ((f & 7) / 7) * 0.018;
         c.fillStyle = `rgba(0, 0, 0, ${fl.toFixed(4)})`;
-        c.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        c.fillRect(0, 0, w, h);
     }
 
-    // Persist this frame as next frame's ghost.
-    if (ghostCtx) ghostCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-    if (ghostCtx && gameCanvas && !motionPrefs.reduced) ghostCtx.drawImage(gameCanvas, 0, 0);
+    if (ghostCtx && gameCanvas && !motionPrefs.reduced && !rendered3d) {
+        ghostCtx.clearRect(0, 0, w, h);
+        ghostCtx.drawImage(gameCanvas, 0, 0);
+    }
+
+    // Push frame to screenTexture
+    if (screenTexture) screenTexture.needsUpdate = true;
 
     void delta;
 }
@@ -725,7 +729,7 @@ export function generateAsciiBragCard(sim) {
 
     return [
         '┌────────────────────────────────────────────────────────┐',
-        '│ ⚡ PARAMESHWARAN_DEV_BOARD // SIGNAL RUNNER v2.4 CRT   │',
+        '│ :: PARAMESHWARAN_DEV_BOARD // SIGNAL RUNNER v2.4 CRT   │',
         '├────────────────────────────────────────────────────────┤',
         `│ DISTANCE:   ${String(dist).padStart(5, ' ')} m                                  │`,
         `│ SIGNAL:     ${String(score).padStart(5, ' ')} pts                                │`,
@@ -823,7 +827,7 @@ function drawCrtOverlay(ctx, sim, w, h) {
 
         ctx.fillStyle = 'rgba(62, 230, 160, 0.8)';
         ctx.font = '11px "JetBrains Mono", monospace';
-        ctx.fillText('POST 0x8840: VRAM ALLOCATED (512×256 WebGL2)', 50, 80);
+        ctx.fillText('POST 0x8840: VRAM ALLOCATED (512x256 WebGL2)', 50, 80);
         ctx.fillText('TRACE SCAN: ENIG GOLD TRANSMISSION LINE ... OK', 50, 105);
         ctx.fillText('PULSE GENERATOR: QUANTUM CORE LOCKED ... OK', 50, 130);
         ctx.fillText('BUS SYNCHRONIZER: CLOCK RATE 60Hz ... OK', 50, 155);
@@ -832,33 +836,34 @@ function drawCrtOverlay(ctx, sim, w, h) {
         ctx.fillText('CALIBRATING INTERFACES ... READY', 50, 185);
     } else if (sim.state === 'ready') {
         ctx.textAlign = 'center';
-        ctx.font = 'bold 20px "JetBrains Mono", monospace';
+        ctx.font = 'bold 22px "JetBrains Mono", monospace';
         ctx.fillStyle = '#3ee6a0';
         ctx.shadowColor = 'rgba(62, 230, 160, 0.8)';
         ctx.shadowBlur = 10;
-        ctx.fillText('SIGNAL RUNNER 3D', w / 2, 45);
+        ctx.fillText('SIGNAL RUNNER 3D', w / 2, 35);
 
-        ctx.font = '11px "JetBrains Mono", monospace';
-        ctx.fillStyle = 'rgba(62, 230, 160, 0.8)';
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.85)';
         ctx.shadowBlur = 0;
-        ctx.fillText('HIGH-SPEED SUB-NANOSECOND PULSE RUNNER', w / 2, 75);
+        ctx.fillText('SYSTEM READY // CIRCUIT INTEGRITY 100% NOMINAL', w / 2, 68);
 
         const armed = sim.idleAccum >= 15;
         const blink = !armed || (Math.floor(sim.idleAccum / 0.4) % 2 === 0);
         if (blink) {
-            ctx.font = 'bold 14px "JetBrains Mono", monospace';
+            ctx.font = 'bold 15px "JetBrains Mono", monospace';
             ctx.fillStyle = '#ffffff';
-            ctx.shadowColor = '#3ee6a0';
-            ctx.shadowBlur = 12;
-            ctx.fillText('▶ PRESS SPACE OR [JUMP] TO START', w / 2, 135);
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 14;
+            ctx.fillText('>> PRESS [SPACE] OR [ENTER] TO LAUNCH <<', w / 2, 130);
         }
 
-        ctx.font = '10px "JetBrains Mono", monospace';
-        ctx.fillStyle = 'rgba(62, 230, 160, 0.65)';
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#3ee6a0';
         ctx.shadowBlur = 0;
-        ctx.fillText('[W / SPACE] JUMP    [S / DOWN] SLIDE    [D / SHIFT] DASH', w / 2, 180);
+        ctx.fillText('[W / SPACE] JUMP / FLIP    [S / DOWN] DUCK / SLIDE    [D / SHIFT] HYPER DASH', w / 2, 175);
         if (sim.bestScore > 0) {
-            ctx.fillText(`ALL-TIME RECORD: ${Math.floor(sim.bestScore)}m`, w / 2, 210);
+            ctx.fillStyle = 'rgba(255, 220, 80, 0.9)';
+            ctx.fillText(`CURRENT ALL-TIME RECORD: ${Math.floor(sim.bestScore)}m`, w / 2, 208);
         }
     } else if (sim.state === 'count') {
         const digit = Math.max(1, Math.ceil((3.0 - sim.countAccum) / 1.0));
@@ -887,45 +892,49 @@ function drawCrtOverlay(ctx, sim, w, h) {
         ctx.font = '12px "JetBrains Mono", monospace';
         ctx.fillStyle = '#ffffff';
         ctx.shadowBlur = 0;
-        ctx.fillText('PRESS [P] TO RESUME  ·  [ESC] TO EXIT', w / 2, 140);
+        ctx.fillText('PRESS [P] TO RESUME  |  [ESC] TO EXIT', w / 2, 140);
     } else if (sim.state === 'over') {
         ctx.textAlign = 'center';
-        ctx.font = 'bold 20px "JetBrains Mono", monospace';
+        // Top warning bar (kept high at y=18 so it never overlaps the center 3D shattered avatar)
+        ctx.font = 'bold 16px "JetBrains Mono", monospace';
         ctx.fillStyle = '#ff4d4d';
         ctx.shadowColor = 'rgba(255, 77, 77, 0.9)';
-        ctx.shadowBlur = 15;
-        ctx.fillText('// CRITICAL FAULT: SIGNAL LOST //', w / 2, 40);
+        ctx.shadowBlur = 12;
+        ctx.fillText('// CRITICAL FAULT: CIRCUIT DECOUPLING //', w / 2, 18);
 
-        ctx.shadowBlur = 0;
-        ctx.font = '12px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(`DISTANCE: ${Math.floor(sim.dist)}m    ELECTRONS: ${sim.electrons}`, w / 2, 78);
-        ctx.fillText(`PEAK VELOCITY: ${Math.round(sim.curSpeed)} px/s    MAX COMBO: x${sim.maxCombo}`, w / 2, 102);
-
+        // Record callout if record was beaten
         if (sim.newRecord) {
-            ctx.fillStyle = '#ffcc00';
-            ctx.font = 'bold 13px "JetBrains Mono", monospace';
-            ctx.shadowColor = '#ffcc00';
-            ctx.shadowBlur = 10;
-            ctx.fillText('★ NEW ALL-TIME RECORD ACHIEVED ★', w / 2, 138);
-            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffdd44';
+            ctx.font = 'bold 12px "JetBrains Mono", monospace';
+            ctx.shadowColor = '#ffaa00';
+            ctx.shadowBlur = 8;
+            ctx.fillText('>> NEW ALL-TIME RECORD REGISTERED <<', w / 2, 172);
         }
+
+        // Clean bottom telemetry readout bar (at y=198)
+        ctx.shadowBlur = 0;
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`DIST: ${Math.floor(sim.dist)}m   SIG: ${sim.score}   COINS: ${sim.electrons}   MAX COMBO: x${sim.maxCombo}`, w / 2, 198);
 
         const blink = Math.floor(sim.overAccum / 0.4) % 2 === 0;
         if (blink) {
             ctx.fillStyle = '#3ee6a0';
             ctx.font = 'bold 13px "JetBrains Mono", monospace';
-            ctx.fillText('▶ PRESS ENTER OR [RESTART] TO REBOOT', w / 2, 190);
+            ctx.shadowColor = '#3ee6a0';
+            ctx.shadowBlur = 8;
+            ctx.fillText('>> PRESS [SPACE] OR [ENTER] TO REBOOT CORE <<', w / 2, 224);
         }
     } else if (sim.state === 'playing') {
         ctx.font = 'bold 11px "JetBrains Mono", monospace';
         ctx.fillStyle = 'rgba(62, 230, 160, 0.85)';
         ctx.fillText(`SIG: ${String(sim.score).padStart(4, '0')}`, 14, 12);
         ctx.fillText(`DIST: ${String(Math.floor(sim.dist)).padStart(4, '0')}m`, 120, 12);
+        ctx.fillText(`COINS: ${sim.electrons}`, 220, 12);
 
         if (sim.combo > 1) {
             ctx.fillStyle = '#00ffff';
-            ctx.fillText(`COMBO x${sim.combo}`, 230, 12);
+            ctx.fillText(`COMBO x${sim.combo}`, 310, 12);
         }
 
         ctx.textAlign = 'right';
@@ -950,20 +959,13 @@ function updateArcadeStation(sim) {
     if (typeof document === 'undefined') return;
     if (!document.body.classList.contains('lcd-game-focus')) return;
 
-    // 1. Mirror to Arcade CRT Canvas (512×256)
+    // 1. Mirror directly from gameCanvas (which contains the full 512×256 3D game + CRT overlay)
     const crt = /** @type {HTMLCanvasElement | null} */ (document.getElementById('arcade-crt-canvas'));
-    if (crt) {
+    if (crt && gameCanvas) {
         const ctx = crt.getContext('2d');
         if (ctx) {
-            const c3d = get3dCanvas();
-            if (c3d && is3dGameReady() && sim.state !== 'off') {
-                ctx.imageSmoothingEnabled = true;
-                ctx.drawImage(c3d, 0, 0, crt.width, crt.height);
-                drawCrtOverlay(ctx, sim, crt.width, crt.height);
-            } else if (gameCanvas) {
-                ctx.imageSmoothingEnabled = false;
-                ctx.drawImage(gameCanvas, 0, 0, crt.width, crt.height);
-            }
+            ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(gameCanvas, 0, 0, crt.width, crt.height);
         }
     }
 
@@ -1259,8 +1261,8 @@ export function createLcd(boardGroup) {
     // rendered, same posture as the glow) so the smoke suite can raycast
     // that nothing occludes the display; the browser gets the CanvasTexture.
     gameCanvas = document.createElement('canvas');
-    gameCanvas.width = CANVAS_W;
-    gameCanvas.height = CANVAS_H;
+    gameCanvas.width = 512;
+    gameCanvas.height = 256;
     gctx = /** @type {CanvasRenderingContext2D | null} */ (gameCanvas.getContext('2d'));
     const screenGeo = new THREE.PlaneGeometry(SCREEN_W, SCREEN_H);
     disposableResources.geometries.add(screenGeo);
@@ -1275,11 +1277,10 @@ export function createLcd(boardGroup) {
         // Initialize 3D game engine
         init3dGame();
 
-        // Ghost buffer — the previous frame, drawn faintly under the next
-        // (LCD pixel persistence). Same 128×64 size, offscreen.
+        // Ghost buffer — 512×256 matching game resolution
         ghostCanvas = document.createElement('canvas');
-        ghostCanvas.width = CANVAS_W;
-        ghostCanvas.height = CANVAS_H;
+        ghostCanvas.width = 512;
+        ghostCanvas.height = 256;
         ghostCtx = /** @type {CanvasRenderingContext2D | null} */ (ghostCanvas.getContext('2d'));
     }
     const screen = new THREE.Mesh(screenGeo, screenMat);
@@ -1514,6 +1515,17 @@ export function createLcd(boardGroup) {
         if (isJump) {
             setBtnPressed('arcade-btn-jump', true);
             e.preventDefault();
+            if (st === 'paused') {
+                return;
+            }
+            if (st === 'ready' || st === 'over') {
+                startRun();
+                return;
+            }
+            if (st === 'count') {
+                skipCountdown();
+                return;
+            }
             doJump();
             return;
         }

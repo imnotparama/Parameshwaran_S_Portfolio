@@ -3523,11 +3523,26 @@ body.lcd-game-focus .lcd-arcade-station {
     padding: 6px 10px;
     transition: all 0.2s ease;
 }
-.arcade-power-icon {
-    font-size: 14px;
-    filter: grayscale(1);
-    opacity: 0.5;
+.arcade-power-icon,
+.arcade-power-tag {
+    font-family: var(--font-mono, monospace);
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: rgba(62, 230, 160, 0.08);
+    border: 1px solid rgba(62, 230, 160, 0.25);
+    color: rgba(62, 230, 160, 0.7);
+    letter-spacing: 0.08em;
+    display: inline-block;
     transition: all 0.2s ease;
+}
+.arcade-share-tag {
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    font-weight: 800;
+    color: #ffd875;
+    letter-spacing: 0.08em;
 }
 .arcade-power-info {
     display: flex;

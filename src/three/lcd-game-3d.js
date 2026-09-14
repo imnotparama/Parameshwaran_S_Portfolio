@@ -992,41 +992,69 @@ function getPooledObstacle(type) {
 function buildCollectiblePools() {
     if (!collectiblesGroup) return;
 
-    const coreGeo = new THREE.OctahedronGeometry(0.10, 0);
-    const coreMat = new THREE.MeshStandardMaterial({
+    // High-visibility Cyber Gold Coin geometry:
+    // Chamfered coin disc with circular faces oriented toward the 2.5D camera (+Z)
+    const coinGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.05, 20);
+    coinGeo.rotateX(Math.PI / 2); // Faces toward camera
+    const coinMat = new THREE.MeshStandardMaterial({
         color: 0xffd700,
-        emissive: 0xffaa00,
+        emissive: 0xff9900,
         emissiveIntensity: 2.8,
-        roughness: 0.15,
-        metalness: 0.85
+        roughness: 0.12,
+        metalness: 0.95
     });
 
-    const satGeo = new THREE.SphereGeometry(0.028, 6, 6);
+    // Inner radiant energy core
+    const coreGeo = new THREE.OctahedronGeometry(0.11, 0);
+    const coreMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xffdd44,
+        emissiveIntensity: 4.5,
+        roughness: 0.1
+    });
+
+    // Outer luminous cyan halo ring
+    const ringGeo = new THREE.TorusGeometry(0.24, 0.016, 8, 24);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+
+    // Orbiting quantum electron satellites
+    const satGeo = new THREE.SphereGeometry(0.032, 8, 8);
     const satMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
 
     for (let i = 0; i < ELECTRON_POOL_SIZE; i++) {
         const el = new THREE.Group();
-        const core = new THREE.Mesh(coreGeo, coreMat);
-        el.add(core);
 
-        // Orbit 1: Tilted X
+        // 1. Spinning Coin Body
+        const coinBody = new THREE.Group();
+        const disc = new THREE.Mesh(coinGeo, coinMat);
+        coinBody.add(disc);
+
+        const innerCore = new THREE.Mesh(coreGeo, coreMat);
+        coinBody.add(innerCore);
+
+        const halo = new THREE.Mesh(ringGeo, ringMat);
+        coinBody.add(halo);
+
+        el.add(coinBody);
+
+        // 2. Quantum Orbit 1
         const orbitPivot = new THREE.Group();
         orbitPivot.rotation.x = Math.PI / 4;
         const sat1 = new THREE.Mesh(satGeo, satMat);
-        sat1.position.set(0.18, 0, 0);
+        sat1.position.set(0.32, 0, 0);
         orbitPivot.add(sat1);
         el.add(orbitPivot);
 
-        // Orbit 2: Tilted Y/Z
+        // 3. Quantum Orbit 2
         const orbitPivot2 = new THREE.Group();
         orbitPivot2.rotation.y = Math.PI / 3;
         orbitPivot2.rotation.z = Math.PI / 6;
         const sat2 = new THREE.Mesh(satGeo, satMat);
-        sat2.position.set(0, 0.18, 0);
+        sat2.position.set(0, 0.32, 0);
         orbitPivot2.add(sat2);
         el.add(orbitPivot2);
 
-        el.userData = { core, orbitPivot, orbitPivot2 };
+        el.userData = { coinBody, orbitPivot, orbitPivot2 };
         el.visible = false;
         collectiblesGroup.add(el);
         electronPool.push(el);
@@ -1114,7 +1142,9 @@ function updateCollectibles(delta, sim) {
             const elMesh = electronPool[i];
             elMesh.visible = true;
 
-            const targetY = toWorldY(e.y);
+            const baseTargetY = toWorldY(e.y);
+            const bob = Math.sin(sim.dist * 0.35 + worldX * 2.2) * 0.05;
+            const targetY = baseTargetY + bob;
             const playerX = playerGroup ? playerGroup.position.x : -2.5;
             const playerY = playerGroup ? playerGroup.position.y : 0.35;
 
@@ -1126,12 +1156,11 @@ function updateCollectibles(delta, sim) {
                 elMesh.position.set(worldX, targetY, 0.0);
             }
 
-            if (elMesh.userData.core) {
-                elMesh.userData.core.rotation.y += delta * 4.5;
-                elMesh.userData.core.rotation.z += delta * 3.0;
+            if (elMesh.userData.coinBody) {
+                elMesh.userData.coinBody.rotation.y += delta * 4.2;
             }
-            if (elMesh.userData.orbitPivot) elMesh.userData.orbitPivot.rotation.z += delta * 8.5;
-            if (elMesh.userData.orbitPivot2) elMesh.userData.orbitPivot2.rotation.x += delta * 7.0;
+            if (elMesh.userData.orbitPivot) elMesh.userData.orbitPivot.rotation.z += delta * 8.0;
+            if (elMesh.userData.orbitPivot2) elMesh.userData.orbitPivot2.rotation.x += delta * 6.5;
         }
     }
 

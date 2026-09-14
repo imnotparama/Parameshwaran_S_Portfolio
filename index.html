@@ -588,27 +588,27 @@
             <!-- Tactile Arcade Controls Pad -->
             <div class="arcade-controls-pad" role="group" aria-label="Arcade tactile gamepad controls">
                 <button type="button" class="arcade-btn btn-jump" id="arcade-btn-jump" aria-label="Jump or double jump">
-                    <span class="arcade-btn-icon">▲</span>
+                    <span class="arcade-btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg></span>
                     <span class="arcade-btn-label">JUMP</span>
                     <span class="arcade-btn-hint">W / SPACE</span>
                 </button>
                 <button type="button" class="arcade-btn btn-slide" id="arcade-btn-slide" aria-label="Slide under obstacles">
-                    <span class="arcade-btn-icon">▼</span>
+                    <span class="arcade-btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
                     <span class="arcade-btn-label">SLIDE</span>
                     <span class="arcade-btn-hint">S / DOWN</span>
                 </button>
                 <button type="button" class="arcade-btn btn-dash" id="arcade-btn-dash" aria-label="Invulnerable speed dash">
-                    <span class="arcade-btn-icon">⚡</span>
+                    <span class="arcade-btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg></span>
                     <span class="arcade-btn-label">DASH</span>
                     <span class="arcade-btn-hint">D / SHIFT</span>
                 </button>
                 <button type="button" class="arcade-btn btn-restart" id="arcade-btn-restart" aria-label="Start or restart run">
-                    <span class="arcade-btn-icon">🔄</span>
+                    <span class="arcade-btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></span>
                     <span class="arcade-btn-label">RESTART</span>
                     <span class="arcade-btn-hint">ENTER</span>
                 </button>
                 <button type="button" class="arcade-btn btn-exit" id="arcade-btn-exit" aria-label="Exit arcade mode">
-                    <span class="arcade-btn-icon">✕</span>
+                    <span class="arcade-btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></span>
                     <span class="arcade-btn-label">EXIT</span>
                     <span class="arcade-btn-hint">ESC</span>
                 </button>
@@ -653,28 +653,28 @@
                 <!-- Active Power-Up Badges Grid -->
                 <div class="arcade-powerups-grid">
                     <div class="arcade-power-badge" id="badge-overclock" data-power="overclock">
-                        <span class="arcade-power-icon">⚡</span>
+                        <span class="arcade-power-tag tag-oc">2X</span>
                         <div class="arcade-power-info">
                             <span class="arcade-power-name">OVERCLOCK 2X</span>
                             <span class="arcade-power-state">STANDBY</span>
                         </div>
                     </div>
                     <div class="arcade-power-badge" id="badge-magnet" data-power="magnet">
-                        <span class="arcade-power-icon">🧲</span>
+                        <span class="arcade-power-tag tag-mag">MAG</span>
                         <div class="arcade-power-info">
                             <span class="arcade-power-name">MAGNET FLUX</span>
                             <span class="arcade-power-state">STANDBY</span>
                         </div>
                     </div>
                     <div class="arcade-power-badge" id="badge-shield" data-power="shield">
-                        <span class="arcade-power-icon">🛡️</span>
+                        <span class="arcade-power-tag tag-def">DEF</span>
                         <div class="arcade-power-info">
                             <span class="arcade-power-name">SHIELD ARRAY</span>
                             <span class="arcade-power-state">STANDBY</span>
                         </div>
                     </div>
                     <div class="arcade-power-badge" id="badge-turbo" data-power="turbo">
-                        <span class="arcade-power-icon">🚀</span>
+                        <span class="arcade-power-tag tag-spd">SPD</span>
                         <div class="arcade-power-info">
                             <span class="arcade-power-name">TURBO CHARGE</span>
                             <span class="arcade-power-state">STANDBY</span>
@@ -693,8 +693,8 @@
                     </div>
                     <div class="arcade-share-bar">
                         <button type="button" class="arcade-share-btn" id="arcade-btn-share" aria-label="Copy formatted ASCII score brag card to clipboard">
-                            <span class="arcade-share-icon">📋</span>
-                            <span class="arcade-share-text" id="arcade-share-text">SHARE SCORE // COPY ASCII BRAG CARD</span>
+                            <span class="arcade-share-tag">[EXPORT]</span>
+                            <span class="arcade-share-text" id="arcade-share-text">COPY ASCII BRAG CARD</span>
                         </button>
                     </div>
                 </div>
