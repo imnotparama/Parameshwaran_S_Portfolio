@@ -15,7 +15,8 @@
 //   - 3D High-Tech Pulse Core Avatar with spinning gyroscopic gimbal rings
 //   - Dynamic action kinematics: somersault flips, rail friction sparks, dash afterimages
 //   - 3D Volumetric Physical Obstacles: SMT Resistors, Can Capacitors, Laser Beams, Chasms, Relays, Spikes
-//   - High-performance zero-allocation obstacle pooling
+//   - 3D Collectibles & Holographic Power-ups: Gold Bohr Electrons, Geodesic Shield, Overclock Vortex, Turbo Cones
+//   - High-performance zero-allocation obstacle & collectible pooling
 //   - Lighting rig: cyber ambient, top-down key light, player point light
 // ============================================================
 import * as THREE from 'three';
@@ -76,6 +77,15 @@ let innerRingMesh = null;
 /** @type {THREE.Mesh | null} */
 let playerShadow = null;
 
+/** @type {THREE.Mesh | null} */
+let shieldSphere = null;
+
+/** @type {THREE.Mesh | null} */
+let overclockHalo = null;
+
+/** @type {THREE.Group | null} */
+let turboFlames = null;
+
 /** @type {Array<THREE.Mesh>} */
 let afterimages = [];
 
@@ -103,6 +113,22 @@ const obstaclePool = {
     gap: [],
     relay: [],
     spike: []
+};
+
+/** @type {THREE.Group | null} */
+let collectiblesGroup = null;
+
+/** @type {Array<THREE.Group>} */
+let electronPool = [];
+const ELECTRON_POOL_SIZE = 28;
+
+/** @type {Record<string, Array<THREE.Group>>} */
+const powerupPool = {
+    shield: [],
+    overclock: [],
+    turbo: [],
+    magnet: [],
+    stabilizer: []
 };
 
 /** @type {THREE.MeshStandardMaterial | null} */
@@ -214,6 +240,11 @@ export function init3dGame(canvas) {
     // 9. Build Obstacle Container Group
     obstacleGroup = new THREE.Group();
     gameScene.add(obstacleGroup);
+
+    // 10. Build Collectibles Container Group
+    collectiblesGroup = new THREE.Group();
+    gameScene.add(collectiblesGroup);
+    buildCollectiblePools();
 
     isInitialized = true;
     return true;
@@ -361,7 +392,47 @@ function buildPlayer() {
     innerRingMesh = new THREE.Mesh(innerRingGeo, ringMat);
     playerGroup.add(innerRingMesh);
 
-    // 3. Ground Shadow
+    // 3. Geodesic Force-Field Shield Sphere (Active on Powerup)
+    const shieldGeo = new THREE.IcosahedronGeometry(0.48, 1);
+    const shieldMat = new THREE.MeshStandardMaterial({
+        color: 0x00ffff,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.65,
+        emissive: 0x0088cc,
+        emissiveIntensity: 2.2
+    });
+    shieldSphere = new THREE.Mesh(shieldGeo, shieldMat);
+    shieldSphere.visible = false;
+    playerGroup.add(shieldSphere);
+
+    // 4. Overclock Golden Lightning Vortex
+    const haloGeo = new THREE.TorusGeometry(0.42, 0.016, 6, 24);
+    const haloMat = new THREE.MeshStandardMaterial({
+        color: 0xffdd44,
+        emissive: 0xffaa00,
+        emissiveIntensity: 3.0,
+        roughness: 0.1
+    });
+    overclockHalo = new THREE.Mesh(haloGeo, haloMat);
+    overclockHalo.visible = false;
+    playerGroup.add(overclockHalo);
+
+    // 5. Turbo Twin Plasma Thruster Cones
+    turboFlames = new THREE.Group();
+    const flameGeo = new THREE.ConeGeometry(0.06, 0.35, 8);
+    flameGeo.rotateX(Math.PI / 2);
+    const flameMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+    const f1 = new THREE.Mesh(flameGeo, flameMat);
+    f1.position.set(-0.12, 0, 0.32);
+    turboFlames.add(f1);
+    const f2 = new THREE.Mesh(flameGeo, flameMat);
+    f2.position.set(0.12, 0, 0.32);
+    turboFlames.add(f2);
+    turboFlames.visible = false;
+    playerGroup.add(turboFlames);
+
+    // 6. Ground Shadow
     const shadowGeo = new THREE.PlaneGeometry(0.48, 0.65);
     shadowGeo.rotateX(-Math.PI / 2);
     const shadowMat = new THREE.MeshBasicMaterial({
@@ -373,7 +444,7 @@ function buildPlayer() {
     playerShadow.position.set(0, 0.035, 0);
     gameScene.add(playerShadow);
 
-    // 4. Dash Afterimage Ghosts
+    // 7. Dash Afterimage Ghosts
     afterimages = [];
     const ghostMat1 = new THREE.MeshBasicMaterial({
         color: 0x00ffff,
@@ -395,7 +466,7 @@ function buildPlayer() {
     gameScene.add(ghost2);
     afterimages.push(ghost1, ghost2);
 
-    // 5. Instanced Particle Jet Trail
+    // 8. Instanced Particle Jet Trail
     const trailGeo = new THREE.BoxGeometry(0.06, 0.06, 0.06);
     const trailMat = new THREE.MeshBasicMaterial({
         color: 0x3ee6a0,
@@ -406,7 +477,7 @@ function buildPlayer() {
     trailInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     gameScene.add(trailInstanced);
 
-    // 6. Slide Rail Friction Sparks
+    // 9. Slide Rail Friction Sparks
     const sparkGeoPoints = new THREE.BufferGeometry();
     sparkPositions = new Float32Array(SPARK_COUNT * 3);
     sparkVels = [];
@@ -437,19 +508,14 @@ function buildPlayer() {
 // 3D Procedural Obstacle Factories & Pooling
 // ─────────────────────────────────────────────────────────────
 
-/**
- * 1. 3D SMT Resistor: Ceramic body, nickel end caps, colored stripes
- */
 function createResistorMesh() {
     const grp = new THREE.Group();
-    // Ceramic body
     const bodyGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.52, 12);
     bodyGeo.rotateZ(Math.PI / 2);
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x383b40, roughness: 0.7 });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     grp.add(body);
 
-    // Metallic End Caps
     const capGeo = new THREE.CylinderGeometry(0.155, 0.155, 0.08, 12);
     capGeo.rotateZ(Math.PI / 2);
     const capMat = new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 0.9, roughness: 0.2 });
@@ -461,7 +527,6 @@ function createResistorMesh() {
     capR.position.x = 0.23;
     grp.add(capR);
 
-    // Colored Resistance Bands
     const bandGeo = new THREE.CylinderGeometry(0.145, 0.145, 0.04, 12);
     bandGeo.rotateZ(Math.PI / 2);
     const colors = [0x111111, 0x8b4513, 0xff2200, 0xd4af37];
@@ -475,12 +540,8 @@ function createResistorMesh() {
     return grp;
 }
 
-/**
- * 2. 3D Can Capacitor: Aluminum electrolytic cylinder with top vent
- */
 function createCapacitorMesh() {
     const grp = new THREE.Group();
-    // Can body
     const canGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.58, 16);
     const canMat = new THREE.MeshStandardMaterial({
         color: 0x48525e,
@@ -493,7 +554,6 @@ function createCapacitorMesh() {
     can.position.y = 0.29;
     grp.add(can);
 
-    // Top vent cross
     const ventGeo = new THREE.BoxGeometry(0.3, 0.02, 0.05);
     const ventMat = new THREE.MeshBasicMaterial({ color: 0x1f2429 });
     const vent1 = new THREE.Mesh(ventGeo, ventMat);
@@ -504,7 +564,6 @@ function createCapacitorMesh() {
     vent2.rotation.y = Math.PI / 2;
     grp.add(vent2);
 
-    // Spark node on top
     const sparkNodeGeo = new THREE.OctahedronGeometry(0.06, 0);
     const sparkNodeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
     const sparkNode = new THREE.Mesh(sparkNodeGeo, sparkNodeMat);
@@ -515,12 +574,8 @@ function createCapacitorMesh() {
     return grp;
 }
 
-/**
- * 3. 3D Laser Beam Emitters: Twin neon pylons with horizontal volumetric laser
- */
 function createBeamMesh() {
     const grp = new THREE.Group();
-    // Twin emitter pylons on lateral edges
     const pylonGeo = new THREE.CylinderGeometry(0.06, 0.08, 1.1, 6);
     const pylonMat = new THREE.MeshStandardMaterial({
         color: 0x22262a,
@@ -536,7 +591,6 @@ function createBeamMesh() {
     pylonR.position.set(TRACK_WIDTH / 2 - 0.1, 0.55, 0);
     grp.add(pylonR);
 
-    // Pulsing volumetric laser beam (must slide under!)
     const beamGeo = new THREE.CylinderGeometry(0.04, 0.04, TRACK_WIDTH - 0.2, 8);
     beamGeo.rotateZ(Math.PI / 2);
     const beamMat = new THREE.MeshBasicMaterial({
@@ -548,7 +602,6 @@ function createBeamMesh() {
     beamMesh.position.set(0, 0.55, 0);
     grp.add(beamMesh);
 
-    // Secondary core beam
     const coreBeamGeo = new THREE.CylinderGeometry(0.015, 0.015, TRACK_WIDTH - 0.2, 6);
     coreBeamGeo.rotateZ(Math.PI / 2);
     const coreBeamMesh = new THREE.Mesh(coreBeamGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
@@ -559,19 +612,14 @@ function createBeamMesh() {
     return grp;
 }
 
-/**
- * 4. 3D Broken Trace Gap / PCB Chasm
- */
 function createGapMesh() {
     const grp = new THREE.Group();
-    // Void box (dark abyss cut into the track)
     const voidGeo = new THREE.BoxGeometry(RAIL_WIDTH + 0.12, 0.45, 1.35);
     const voidMat = new THREE.MeshBasicMaterial({ color: 0x000201 });
     const voidBox = new THREE.Mesh(voidGeo, voidMat);
     voidBox.position.set(0, -0.22, 0);
     grp.add(voidBox);
 
-    // Frayed copper sparks at both ends of the break
     const frayGeo = new THREE.BoxGeometry(0.06, 0.06, 0.08);
     const frayMat = new THREE.MeshBasicMaterial({ color: 0x3ee6a0 });
     const fray1 = new THREE.Mesh(frayGeo, frayMat);
@@ -585,12 +633,8 @@ function createGapMesh() {
     return grp;
 }
 
-/**
- * 5. 3D Solenoid Relay Gate: Oscillating mechanical contact arm
- */
 function createRelayMesh() {
     const grp = new THREE.Group();
-    // Housing
     const boxGeo = new THREE.BoxGeometry(0.62, 0.46, 0.38);
     const boxMat = new THREE.MeshStandardMaterial({
         color: 0x1a2e22,
@@ -603,7 +647,6 @@ function createRelayMesh() {
     box.position.set(0, 0.52, 0);
     grp.add(box);
 
-    // Oscillating solenoid arm
     const armGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.42, 8);
     const armMat = new THREE.MeshStandardMaterial({ color: 0xd49b38, metalness: 0.9, roughness: 0.2 });
     const arm = new THREE.Mesh(armGeo, armMat);
@@ -614,9 +657,6 @@ function createRelayMesh() {
     return grp;
 }
 
-/**
- * 6. 3D Voltage Spike: Jagged amber crystal pyramids
- */
 function createSpikeMesh() {
     const grp = new THREE.Group();
     const spikeGeo = new THREE.ConeGeometry(0.14, 0.42, 4);
@@ -646,7 +686,6 @@ function createSpikeMesh() {
 }
 
 /**
- * Retrieves a pooled obstacle or creates one on demand.
  * @param {string} type
  * @returns {THREE.Group}
  */
@@ -659,7 +698,6 @@ function getPooledObstacle(type) {
             return pool[i];
         }
     }
-    // Create new mesh if none available
     let newMesh = null;
     if (type === 'resistor') newMesh = createResistorMesh();
     else if (type === 'capacitor') newMesh = createCapacitorMesh();
@@ -671,6 +709,159 @@ function getPooledObstacle(type) {
     if (obstacleGroup) obstacleGroup.add(newMesh);
     pool.push(newMesh);
     return newMesh;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 3D Procedural Collectible & Powerup Factories & Pooling
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Builds the initial pool of 3D Gold Bohr Electrons.
+ */
+function buildCollectiblePools() {
+    if (!collectiblesGroup) return;
+
+    // Build 3D Electron pool
+    const coreGeo = new THREE.OctahedronGeometry(0.09, 0);
+    const coreMat = new THREE.MeshStandardMaterial({
+        color: 0xffd700,
+        emissive: 0xffaa00,
+        emissiveIntensity: 2.5,
+        roughness: 0.2
+    });
+
+    const satGeo = new THREE.SphereGeometry(0.026, 6, 6);
+    const satMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+
+    for (let i = 0; i < ELECTRON_POOL_SIZE; i++) {
+        const el = new THREE.Group();
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        el.add(core);
+
+        const orbitPivot = new THREE.Group();
+        orbitPivot.rotation.x = Math.PI / 4;
+        const sat = new THREE.Mesh(satGeo, satMat);
+        sat.position.set(0.16, 0, 0);
+        orbitPivot.add(sat);
+        el.add(orbitPivot);
+
+        el.userData = { core, orbitPivot };
+        el.visible = false;
+        collectiblesGroup.add(el);
+        electronPool.push(el);
+    }
+}
+
+/**
+ * Creates a floating 3D power-up token.
+ * @param {string} type
+ */
+function createPowerupMesh(type) {
+    const grp = new THREE.Group();
+
+    if (type === 'shield') {
+        const geo = new THREE.IcosahedronGeometry(0.18, 0);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x0088cc, emissiveIntensity: 2.0, wireframe: true });
+        grp.add(new THREE.Mesh(geo, mat));
+    } else if (type === 'overclock') {
+        const geo = new THREE.TetrahedronGeometry(0.18, 0);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xffdd44, emissive: 0xffaa00, emissiveIntensity: 2.5 });
+        grp.add(new THREE.Mesh(geo, mat));
+    } else if (type === 'turbo') {
+        const geo = new THREE.ConeGeometry(0.14, 0.32, 6);
+        geo.rotateX(-Math.PI / 2);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00aaff, emissiveIntensity: 2.0 });
+        grp.add(new THREE.Mesh(geo, mat));
+    } else {
+        const geo = new THREE.TorusGeometry(0.16, 0.04, 6, 16);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xff3366, emissive: 0xff0044, emissiveIntensity: 2.0 });
+        grp.add(new THREE.Mesh(geo, mat));
+    }
+
+    grp.userData = { type };
+    return grp;
+}
+
+/**
+ * Retrieves a pooled power-up pickup mesh.
+ * @param {string} type
+ */
+function getPooledPowerup(type) {
+    if (!powerupPool[type]) powerupPool[type] = [];
+    const pool = powerupPool[type];
+    for (let i = 0; i < pool.length; i++) {
+        if (!pool[i].visible) {
+            pool[i].visible = true;
+            return pool[i];
+        }
+    }
+    const newMesh = createPowerupMesh(type);
+    if (collectiblesGroup) collectiblesGroup.add(newMesh);
+    pool.push(newMesh);
+    return newMesh;
+}
+
+/**
+ * Synchronizes 3D Electrons & Power-up tokens with simulation state.
+ * @param {number} delta
+ * @param {any} sim
+ */
+function updateCollectibles(delta, sim) {
+    if (!collectiblesGroup || !sim) return;
+
+    // 1. Hide pooled electrons
+    for (let i = 0; i < electronPool.length; i++) {
+        electronPool[i].visible = false;
+    }
+
+    // Hide pooled powerups
+    for (const key of Object.keys(powerupPool)) {
+        const list = powerupPool[key];
+        for (let i = 0; i < list.length; i++) {
+            list[i].visible = false;
+        }
+    }
+
+    // 2. Position active electrons
+    if (Array.isArray(sim.fieldEls)) {
+        for (let i = 0; i < sim.fieldEls.length; i++) {
+            if (i >= electronPool.length) break;
+            const e = sim.fieldEls[i];
+            const relX = e.x - 16;
+            const z3d = -relX * 0.38;
+            if (z3d > 3.0 || z3d < -55.0) continue;
+
+            const elMesh = electronPool[i];
+            elMesh.visible = true;
+
+            const targetY = 0.28 + ((SIM_GROUND_Y - e.y) / 38.0) * 1.35;
+            // When Magnet active, pull towards player in 3D
+            if (sim.magnet > 0 && z3d > -8.0 && z3d < 0.5) {
+                elMesh.position.x = THREE.MathUtils.lerp(elMesh.position.x, 0, delta * 6.0);
+                elMesh.position.y = THREE.MathUtils.lerp(elMesh.position.y, playerGroup ? playerGroup.position.y : targetY, delta * 8.0);
+            } else {
+                elMesh.position.set(0, targetY, z3d);
+            }
+
+            if (elMesh.userData.core) elMesh.userData.core.rotation.y += delta * 4.5;
+            if (elMesh.userData.orbitPivot) elMesh.userData.orbitPivot.rotation.z += delta * 8.0;
+        }
+    }
+
+    // 3. Position active power-up pickups
+    if (Array.isArray(sim.actors)) {
+        for (const a of sim.actors) {
+            if (a.kind !== 'powerup') continue;
+            const relX = a.x - 16;
+            const z3d = -relX * 0.38;
+            if (z3d > 3.0 || z3d < -55.0) continue;
+
+            const pMesh = getPooledPowerup(a.type);
+            const yHover = 0.42 + Math.sin(sim.dist * 0.2 + relX) * 0.08;
+            pMesh.position.set(0, yHover, z3d);
+            pMesh.rotation.y += delta * 3.5;
+        }
+    }
 }
 
 /**
@@ -693,12 +884,9 @@ function updateObstacles(delta, sim) {
     for (const a of sim.actors) {
         if (a.kind !== 'obstacle') continue;
 
-        // Player is at x = 16 in 2D simulation
         const relX = a.x - 16;
-        // Transform 2D horizontal distance to 3D Z depth
         const z3d = -relX * 0.38;
 
-        // Skip obstacles far behind camera
         if (z3d > 4.0 || z3d < -55.0) continue;
 
         const mesh = getPooledObstacle(a.type);
@@ -707,7 +895,6 @@ function updateObstacles(delta, sim) {
         if (a.type === 'beam') {
             mesh.position.set(0, 0, z3d);
             if (mesh.userData.beamMesh) {
-                // Pulse laser opacity
                 mesh.userData.beamMesh.material.opacity = 0.7 + 0.3 * Math.sin(sim.dist * 0.4);
             }
         } else if (a.type === 'gap') {
@@ -715,7 +902,6 @@ function updateObstacles(delta, sim) {
         } else if (a.type === 'relay') {
             mesh.position.set(0, 0, z3d);
             if (mesh.userData.arm) {
-                // Oscillate relay contact arm with actor phase
                 mesh.userData.arm.position.y = 0.24 + Math.sin(a.phase) * 0.12;
             }
         } else if (a.type === 'capacitor') {
@@ -724,7 +910,6 @@ function updateObstacles(delta, sim) {
                 mesh.userData.sparkNode.rotation.y += delta * 6.0;
             }
         } else {
-            // Resistor / Spike: sit on copper rail
             mesh.position.set(0, 0, z3d);
         }
     }
@@ -744,14 +929,12 @@ function updatePlayer(delta, sim) {
 
     // 2. Action States Kinematics
     if (sim.sliding) {
-        // Flat streamline pose: core compresses, rings tilt flat
         coreMesh.scale.set(1.45, 0.35, 1.45);
         if (innerSparkMesh) innerSparkMesh.scale.set(1.4, 0.3, 1.4);
         outerRingMesh.rotation.set(Math.PI / 2, 0, 0);
         innerRingMesh.rotation.set(Math.PI / 2, 0, 0);
         playerGroup.position.y = 0.16;
 
-        // Slide rail sparks emission
         if (slideSparks) {
             slideSparks.visible = true;
             for (let i = 0; i < SPARK_COUNT; i++) {
@@ -769,7 +952,7 @@ function updatePlayer(delta, sim) {
                     sparkPositions[i * 3] += vel.vx * delta;
                     sparkPositions[i * 3 + 1] += vel.vy * delta;
                     sparkPositions[i * 3 + 2] += vel.vz * delta;
-                    vel.vy -= 9.8 * delta * 0.5; // gravity
+                    vel.vy -= 9.8 * delta * 0.5;
                 }
             }
             const posAttr = slideSparks.geometry.getAttribute('position');
@@ -779,24 +962,20 @@ function updatePlayer(delta, sim) {
         if (slideSparks) slideSparks.visible = false;
 
         if (sim.dashing) {
-            // Forward needle stretch
             coreMesh.scale.set(0.75, 0.75, 2.2);
             if (innerSparkMesh) innerSparkMesh.scale.set(0.7, 0.7, 2.0);
             outerRingMesh.rotation.x += delta * 12.0;
             innerRingMesh.rotation.y += delta * 15.0;
             playerGroup.position.y = baseTargetY;
         } else {
-            // Standard scale
             coreMesh.scale.set(1, 1, 1);
             if (innerSparkMesh) innerSparkMesh.scale.set(1, 1, 1);
 
             if (!sim.onGround) {
-                // Jump / Somersault Flip
                 const flipSpeed = (sim.jumpsUsed >= 2 ? 18.0 : 10.0);
                 playerGroup.rotation.x += delta * flipSpeed;
                 playerGroup.position.y = baseTargetY;
             } else {
-                // Ground Run: Hovering bob & continuous ring precession
                 playerGroup.rotation.x *= 0.82;
                 playerGroup.rotation.z *= 0.82;
                 const bob = Math.sin(sim.dist * 0.25) * 0.035;
@@ -810,7 +989,34 @@ function updatePlayer(delta, sim) {
         }
     }
 
-    // 3. Update Dash Afterimage Ghosts
+    // 3. Update Active Power-Up Holograms on Player
+    if (shieldSphere) {
+        shieldSphere.visible = !!sim.shield;
+        if (sim.shield) {
+            shieldSphere.rotation.y += delta * 3.2;
+            shieldSphere.rotation.x += delta * 1.8;
+            const pulse = 1.0 + Math.sin(sim.dist * 0.35) * 0.06;
+            shieldSphere.scale.set(pulse, pulse, pulse);
+        }
+    }
+
+    if (overclockHalo) {
+        overclockHalo.visible = (sim.overclock > 0);
+        if (sim.overclock > 0) {
+            overclockHalo.rotation.z += delta * 14.0;
+            overclockHalo.rotation.x = Math.PI / 3;
+        }
+    }
+
+    if (turboFlames) {
+        turboFlames.visible = (sim.turbo > 0);
+        if (sim.turbo > 0) {
+            const flameScale = 1.0 + Math.random() * 0.7;
+            turboFlames.scale.set(1.0, 1.0, flameScale);
+        }
+    }
+
+    // 4. Update Dash Afterimage Ghosts
     if (afterimages.length >= 2) {
         if (sim.dashing) {
             afterimages[0].visible = true;
@@ -825,9 +1031,8 @@ function updatePlayer(delta, sim) {
         }
     }
 
-    // 4. Update Particle Jet Trail
+    // 5. Update Particle Jet Trail
     if (trailInstanced) {
-        // Shift trail history
         for (let i = TRAIL_COUNT - 1; i > 0; i--) {
             trailHistory[i].x = trailHistory[i - 1].x;
             trailHistory[i].y = trailHistory[i - 1].y;
@@ -850,7 +1055,7 @@ function updatePlayer(delta, sim) {
         trailInstanced.instanceMatrix.needsUpdate = true;
     }
 
-    // 5. Update Ground Shadow
+    // 6. Update Ground Shadow
     if (playerShadow) {
         playerShadow.position.y = 0.035;
         const shadowOpacity = Math.max(0.08, 0.55 - heightNorm * 0.38);
@@ -859,7 +1064,7 @@ function updatePlayer(delta, sim) {
         playerShadow.scale.set(shadowScale, shadowScale, shadowScale);
     }
 
-    // 6. Update Dynamic Player Point Light
+    // 7. Update Dynamic Player Point Light
     if (playerLight) {
         playerLight.position.set(0, playerGroup.position.y + 0.15, 0.1);
         if (sim.dashing) {
@@ -909,16 +1114,19 @@ export function update3dGame(delta, sim) {
     // 2. Update 3D Obstacles
     updateObstacles(delta, sim);
 
-    // 3. Update 3D Cyber-Pulse Avatar
+    // 3. Update 3D Collectibles & Power-up Pickups
+    updateCollectibles(delta, sim);
+
+    // 4. Update 3D Cyber-Pulse Avatar
     updatePlayer(delta, sim);
 
-    // 4. Update camera position & subtle speed bobbing
+    // 5. Update camera position & subtle speed bobbing
     if (!motionPrefs.reduced) {
         const bob = Math.sin(sim.dist * 0.12) * 0.025;
         gameCamera.position.y = 1.85 + bob;
     }
 
-    // 5. Render 3D Sub-Scene to CRT canvas
+    // 6. Render 3D Sub-Scene to CRT canvas
     gameRenderer.render(gameScene, gameCamera);
 }
 
