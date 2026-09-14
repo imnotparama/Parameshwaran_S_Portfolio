@@ -213,20 +213,76 @@ function waveform(ref, t, x) {
     }
 }
 
+const COLOR_CH2    = '#f59e0b';
+const COLOR_CH2_GLOW = 'rgba(245, 158, 11, 0.35)';
+
+// Logic analyzer packet stream state
+let lastLogicUpdate = 0;
+let logicPacketIndex = 0;
+
+/** @type {Record<string, string[]>} */
+const LOGIC_PACKETS = {
+    'U1': ['[0x02 U1-FETCH 0x8F 0x00 OK]', '[0x04 ALU-EXEC CARRY=0 ACK]', '[0x06 DMA-REQ CH1 GRANTED]'],
+    'U1_LID': ['[IHS-SHIELD: EMI GROUND 0.0V]', '[THERMAL-JUNCTION: 41.2C]', '[HEAT-FLUX: NOMINAL]'],
+    'U2': ['[0x10 VRAM-BURST 0xFF CRC-OK]', '[0x12 SHADER-DISPATCH 64T]', '[0x14 TEXTURE-CACHE HIT]'],
+    'Y1': ['[PLL-LOCK: 27.000MHz ±2ppm]', '[CLK-JITTER: 1.2ps RMS]', '[REF-CLK-SYNC: LOCKED]'],
+    'ANT1': ['[RF: 2.4GHz RSSI -42dBm ACK]', '[PACKET: 32-BYTE AIR-FRAME]', '[CRC16: 0x8F21 VERIFIED]'],
+    'TP1': ['[RAIL: +5.02V DC RMS 7.4mV]', '[VOLT-MON: REGULATED OK]', '[RIPPLE: 0.15% NOMINAL]'],
+    'TP2': ['[GND: 0.00V IMPEDANCE 0.02Ω]', '[CONTINUITY: PIEZO TONE]', '[EARTH-RETURN: STABLE]'],
+    'J1': ['[USB-DP/DM 480Mbps SOF-OK]', '[ENDPOINT: EP1-IN ACK]', '[PACKET-TOKEN: DATA0 OK]'],
+    'LCD1': ['[LCD: FRAME-SYNC 60Hz RUNNER]', '[V-BLANK: 16.6ms STABLE]', '[PIXEL-CLOCK: 12.5MHz]'],
+    'CP1': ['[I2C: ADDR 0x3C DATA 0x9A ACK]', '[RTSP: H.264 NAL-UNIT SYNC]', '[AI-ACCEL: BATCH=1 OK]'],
+    'DL1': ['[I2S: 48kHz 24-BIT PCM OK]', '[VAD: VOICE-ACTIVE 88%]', '[DMA-BUFFER: CIRCULAR 512B]'],
+    'SP1': ['[CAN: ID 0x140 DATA 0x04 ACK]', '[BARRIER-SERVO: PWM 1500us]', '[SLOT-ALLOC: BAY4 RED]'],
+    'BT1': ['[NMEA: $GPGGA 1304.22 N OK]', '[UART: 115200 8N1 RX-PKT]', '[GPS-FIX: 3D DGPS 8-SATS]'],
+    'AQD1': ['[ADC: CH0 3.28V TEMP 24.1C]', '[MODBUS: REG 4001=0x0182]', '[SOLAR-MPPT: 18.2V 2.1A]'],
+    'PX1': ['[PWM: CH1 1500us CH2 1800us]', '[TELEMETRY: BATT 98% OK]', '[CARDIAC: 72-BPM PULSE]'],
+    'EM1': ['[NPU: TENSOR 128x128 INFER]', '[CYCLE-COUNT: 14.2k FLOPS]', '[MODEL: INT8 QUANT-OK]'],
+    'ML1': ['[SIMD: AVX2 256-BIT STREAM]', '[CACHE-L1: 32KB HIT 99%]', '[VECTOR-MATH: FMA-LOCKED]']
+};
+
+/**
+ * Waveform for Channel B reference clock carrier.
+ * @param {number} t Time
+ * @param {number} x Normalized X [0,1]
+ * @param {number} freqMhz Master clock frequency
+ */
+function ch2ClockWaveform(t, x, freqMhz) {
+    const f = (freqMhz || 27.0) / 5.0;
+    const clk = Math.sin(x * Math.PI * f + t * 12.0);
+    return (clk >= 0 ? 0.4 : -0.4) + noise(t * 8 + x * 15, 0.04);
+}
+
+/**
+ * Update the logic analyzer packet sniffer readout.
+ * @param {string} ref
+ * @param {number} elapsed
+ */
+function updateLogicSniffer(ref, elapsed) {
+    const logicEl = document.getElementById('hud-scope-logic-data');
+    if (!logicEl) return;
+    if (elapsed - lastLogicUpdate > 0.35) {
+        lastLogicUpdate = elapsed;
+        logicPacketIndex++;
+    }
+    const list = LOGIC_PACKETS[ref] || ['[BUS: 0xAA 0x55 READY CRC-OK]', '[SERIAL: 115200 8N1 ACK]', '[CRC-CHECK: PASS 0x00]'];
+    const pkt = list[logicPacketIndex % list.length];
+    logicEl.textContent = pkt;
+}
+
 /** Initialize the oscilloscope canvas. Call once after DOM ready. */
 export function initOscilloscope() {
     oscCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('hud-osc'));
     if (!oscCanvas) return;
     ctx = oscCanvas.getContext('2d');
     // Set actual pixel dimensions (CSS handles display size)
-    oscCanvas.width = 120;
-    oscCanvas.height = 40;
+    oscCanvas.width = 140;
+    oscCanvas.height = 42;
 }
 
 /**
- * Render one frame of the oscilloscope waveform.
- * Called per-tick from main.js. No-ops if osc canvas is missing or
- * no component is currently hovered (idle state).
+ * Render one frame of the dual-channel oscilloscope waveform.
+ * Called per-tick from main.js.
  * @param {number} elapsed  Scene elapsed time (seconds)
  * @param {string | undefined} hoverRef  Current hover ref from body.dataset.hoverRef
  */
@@ -236,7 +292,7 @@ export function updateOscilloscope(elapsed, hoverRef) {
     const W = oscCanvas.width;
     const H = oscCanvas.height;
     const midY = H / 2;
-    const ampY = (H / 2) * 0.82; // max amplitude in pixels
+    const ampY = (H / 2) * 0.78; // max amplitude in pixels
 
     // Background fill
     ctx.fillStyle = COLOR_BG;
@@ -253,7 +309,7 @@ export function updateOscilloscope(elapsed, hoverRef) {
         ctx.stroke();
     }
     // Vertical grid lines
-    for (let i = 0.25; i < 1; i += 0.25) {
+    for (let i = 0.2; i < 1; i += 0.2) {
         ctx.beginPath();
         ctx.moveTo(i * W, 0);
         ctx.lineTo(i * W, H);
@@ -267,13 +323,13 @@ export function updateOscilloscope(elapsed, hoverRef) {
     if (lcdScope.active) {
         const refEl = document.getElementById('hud-scope-ref');
         const valEl = document.getElementById('hud-scope-val');
-        if (refEl) refEl.textContent = 'SCOPE';
+        if (refEl) refEl.textContent = 'LCD1';
         if (valEl) valEl.textContent = 'SIGNAL RUNNER';
         document.body.classList.add('hud-scope-live');
     } else if (lastScopeActive) {
         const refEl = document.getElementById('hud-scope-ref');
         const valEl = document.getElementById('hud-scope-val');
-        if (refEl) refEl.textContent = 'SCOPE';
+        if (refEl) refEl.textContent = 'PROBE';
         if (valEl) valEl.textContent = 'AWAIT PROBE';
         document.body.classList.remove('hud-scope-live');
     }
@@ -282,14 +338,41 @@ export function updateOscilloscope(elapsed, hoverRef) {
     const overclocked = isOverclockActive();
     const freqMhz = getClockFrequency();
 
-    // Draw the trace
+    // Update Channel 2 clock readout
+    const ch2ValEl = document.getElementById('hud-scope-ch2-val');
+    if (ch2ValEl) ch2ValEl.textContent = `CLK ${freqMhz.toFixed(0)}M`;
+
+    // Update Logic Sniffer Stream
+    updateLogicSniffer(ref, elapsed);
+
+    // ─── CHANNEL 2: Bus Reference Clock (Amber) ────────────────
+    ctx.beginPath();
+    ctx.strokeStyle = COLOR_CH2;
+    ctx.lineWidth = 1.0;
+    ctx.shadowColor = COLOR_CH2_GLOW;
+    ctx.shadowBlur = 4;
+
+    const steps = W;
+    for (let px = 0; px <= steps; px++) {
+        const x = px / steps;
+        const y2 = ch2ClockWaveform(elapsed, x, freqMhz);
+        // Slightly offset down for visual channel separation
+        const canvasY = (midY + 4) - y2 * (ampY * 0.65);
+        if (px === 0) {
+            ctx.moveTo(px, canvasY);
+        } else {
+            ctx.lineTo(px, canvasY);
+        }
+    }
+    ctx.stroke();
+
+    // ─── CHANNEL 1: Probed Component Signal (Phosphor Green / Cyan) ─
     ctx.beginPath();
     ctx.strokeStyle = overclocked ? '#00ffff' : COLOR_TRACE;
     ctx.lineWidth = overclocked ? 2.0 : 1.5;
     ctx.shadowColor = overclocked ? 'rgba(0, 255, 255, 0.8)' : COLOR_GLOW;
-    ctx.shadowBlur = overclocked ? 8 : 4;
+    ctx.shadowBlur = overclocked ? 8 : 5;
 
-    const steps = W;
     for (let px = 0; px <= steps; px++) {
         const x = px / steps;  // 0..1
         let y = waveform(ref, elapsed, x);
@@ -298,7 +381,8 @@ export function updateOscilloscope(elapsed, hoverRef) {
             const saw = ((x * (freqMhz / 5) + elapsed * 10) % 1) * 1.4 - 0.7;
             y = y * 0.5 + saw * 0.5 + noise(elapsed * 20 + x * 30, 0.1);
         }
-        const canvasY = midY - y * ampY;
+        // Slightly offset up for channel separation
+        const canvasY = (midY - 4) - y * (ampY * 0.8);
         if (px === 0) {
             ctx.moveTo(px, canvasY);
         } else {
@@ -310,12 +394,12 @@ export function updateOscilloscope(elapsed, hoverRef) {
     // Phosphor glow: second pass with lower alpha + bigger blur for halo
     ctx.beginPath();
     ctx.strokeStyle = 'rgba(0,255,136,0.12)';
-    ctx.lineWidth = 4;
-    ctx.shadowBlur = 10;
+    ctx.lineWidth = 3.5;
+    ctx.shadowBlur = 9;
     for (let px = 0; px <= steps; px++) {
         const x = px / steps;
         const y = waveform(ref, elapsed, x);
-        const canvasY = midY - y * ampY;
+        const canvasY = (midY - 4) - y * (ampY * 0.8);
         if (px === 0) {
             ctx.moveTo(px, canvasY);
         } else {
@@ -327,17 +411,13 @@ export function updateOscilloscope(elapsed, hoverRef) {
     // Reset shadow
     ctx.shadowBlur = 0;
 
-    // Trigger marker: left edge tick
-    ctx.strokeStyle = 'rgba(0,255,136,0.6)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, 5);
-    ctx.stroke();
+    // Trigger markers: CH1 top-left, CH2 bottom-left
+    ctx.fillStyle = overclocked ? '#00ffff' : COLOR_TRACE;
+    ctx.fillRect(0, 0, 3, 4);
+    ctx.fillStyle = COLOR_CH2;
+    ctx.fillRect(0, H - 4, 3, 4);
 
-    // CRT scanlines — drawn IN the canvas: pseudo-elements (::before) can't
-    // render on a replaced element like <canvas>, so the overlay that the
-    // CSS intended lives here as every-other-pixel darkening instead.
+    // CRT scanlines — drawn IN the canvas
     ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
     for (let y = 0; y < H; y += 2) {
         ctx.fillRect(0, y, W, 1);

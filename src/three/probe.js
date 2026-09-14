@@ -14,6 +14,7 @@ import gsap from 'gsap';
 import { interactiveObjects, pulseBuzzer } from './components.js';
 import { focusProject } from '../scroll/journey.js';
 import { setScopeReadout, clearScopeReadout, clearHover, finePointer } from '../utils/hover.js';
+import { playContinuityBeep } from '../utils/sound.js';
 
 // Board surface (board thickness 0.16 in board.js — keep in sync).
 const SURFACE_Z = 0.085;
@@ -180,6 +181,9 @@ function updateTarget() {
     if (next) {
         highlightTarget(next);
         setScopeReadout(/** @type {string} */ (next.name), next.userData);
+        if (next.name === 'TP2') {
+            playContinuityBeep();
+        }
     } else {
         clearScopeReadout();
     }
@@ -194,6 +198,8 @@ export function measureProbeTarget() {
         focusProject(name);
     } else if (ud && ud.type === 'BUZZER') {
         pulseBuzzer();
+    } else if (name === 'TP2') {
+        playContinuityBeep();
     }
 }
 

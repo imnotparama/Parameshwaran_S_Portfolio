@@ -19,6 +19,7 @@ import { createProbe, updateProbe, pressProbeKey, releaseProbeKey, measureProbeT
 import { initPower, togglePower } from './src/three/power.js';
 import { initCursor } from './src/ui/cursor.js';
 import { initOscilloscope, updateOscilloscope } from './src/ui/oscilloscope.js';
+import { initLiveBench } from './src/ui/live-bench.js';
 import { initCommandPalette, openCommandPalette } from './src/ui/command-palette.js';
 import { initTelemetry, toggleSysinfo, toggleDebug, showDevNotes, updateTelemetry, markChipVerified, emitUartLog, emitSystemEvent } from './src/ui/telemetry.js';
 import { initTeardown, toggleTeardown, isTeardownActive } from './src/three/teardown.js';
@@ -202,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize oscilloscope HUD + hidden telemetry overlays
     initOscilloscope();
     initTelemetry();
+    initLiveBench();
 
     // 4. Construct board SMD/IC components
     createComponents(boardGroup);

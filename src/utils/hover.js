@@ -9,7 +9,7 @@ import gsap from 'gsap';
 import { interactiveObjects, pressTactile, energizeCapacitor, toggleDelidCpu } from '../three/components.js';
 import { highlightTrace } from '../three/traces.js';
 import { simView } from '../three/lcd-sim.js';
-import { hoverBlip, clickBlip, probeTone } from './sound.js';
+import { hoverBlip, clickBlip, probeTone, playContinuityBeep } from './sound.js';
 import { motionPrefs } from './motion-prefs.js';
 import { rotatePotentiometer } from '../three/potentiometer.js';
 import { playComponentTone } from './synth.js';
@@ -441,7 +441,11 @@ export function initHover(camera, scene) {
                     clickBlip();
                     lcdHandler();
                 } else if (obj.userData && (obj.userData.type === 'TESTPOINT' || obj.name === 'TP1' || obj.name === 'TP2')) {
-                    probeTone();
+                    if (obj.name === 'TP2') {
+                        playContinuityBeep();
+                    } else {
+                        probeTone();
+                    }
                     if (testpointHandler) testpointHandler(obj.name);
                 } else if (obj.userData && (obj.userData.type === 'TRIMPOT' || obj.name === 'RV1')) {
                     rotatePotentiometer(0.12);
@@ -631,8 +635,12 @@ function handleHoverEnter(mesh) {
     }
 
     // The component's own voice: a quiet instrument tick and chiptune synth note.
-    hoverBlip();
-    playComponentTone(name);
+    if (name === 'TP2') {
+        playContinuityBeep();
+    } else {
+        hoverBlip();
+        playComponentTone(name);
+    }
 
     // Mini hover light — subtle preview glow only
     if (hoverLight) {

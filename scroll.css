@@ -290,49 +290,106 @@ body.night-bench {
    while the pointer is over a board component (hover.js fills ref + values).
    Idle it reads SCOPE · AWAIT PROBE; body.hud-scope-live lights the chip
    signal-green so the readout behaves like the rest of the "live" language. */
+/* ─── HUD Scope Chip ─── */
 .hud-scope {
     display: inline-flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 3px 6px;
+    border: 1px solid rgba(236, 231, 216, 0.15);
+    border-radius: 3px;
+    background: rgba(9, 20, 15, 0.75);
+    font-family: var(--font-mono, monospace);
+    font-size: 8.5px;
+    letter-spacing: 0.8px;
+    transition: border-color var(--duration-fast) var(--ease-out);
+    position: relative;
+}
+
+.hud-scope-display {
+    display: flex;
     align-items: center;
     gap: 6px;
-    padding: 2px 6px;
-    border: 1px solid rgba(236, 231, 216, 0.12);
+}
+
+#hud-osc {
+    width: 140px;
+    height: 42px;
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    background: #020f06;
     border-radius: 2px;
-    background: rgba(9, 20, 15, 0.6);
-    font-size: 9px;
-    letter-spacing: 1px;
-    transition: border-color var(--duration-fast) var(--ease-out);
+    display: block;
 }
 
-.hud-scope-ref {
-    color: var(--enig-gold);
+.hud-scope-ch-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 8px;
 }
 
-.hud-scope-val {
-    color: var(--silkscreen-muted);
+.hud-scope-ch {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.hud-scope-ch.ch1 {
+    color: var(--signal, #3ee6a0);
+}
+
+.hud-scope-ch.ch2 {
+    color: #f59e0b;
+}
+
+.ch-led {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.ch1-led {
+    background: #3ee6a0;
+    box-shadow: 0 0 5px #3ee6a0;
+}
+
+.ch2-led {
+    background: #f59e0b;
+    box-shadow: 0 0 5px #f59e0b;
+}
+
+.hud-scope-logic-strip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 8px;
+    font-family: 'Fragment Mono', monospace;
+    background: rgba(0, 12, 6, 0.85);
+    border: 1px solid rgba(62, 230, 160, 0.18);
+    border-radius: 2px;
+    padding: 1px 4px;
+    width: 140px;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.logic-prefix {
+    color: var(--enig-gold, #c9a24b);
+    font-weight: 700;
+}
+
+.logic-data {
+    color: rgba(62, 230, 160, 0.9);
     font-variant-numeric: tabular-nums;
 }
 
 body.hud-scope-live .hud-scope {
-    border-color: rgba(62, 230, 160, 0.45);
+    border-color: rgba(62, 230, 160, 0.55);
+    box-shadow: 0 0 8px rgba(62, 230, 160, 0.15);
 }
 
-body.hud-scope-live .hud-scope-ref {
-    color: var(--signal);
-    text-shadow: 0 0 6px rgba(62, 230, 160, 0.55);
-}
-
-/* Live oscilloscope CRT waveform HUD — the scanlines are drawn INSIDE the
-   canvas (pseudo-elements can't render on a replaced <canvas> element), so
-   the CSS only sizes the element and frames it like the scope chip. */
-#hud-osc {
-    width: 120px;
-    height: 40px;
-    border: 1px solid rgba(62,230,160,0.3);
-    display: block;
-}
-
-/* The legend is right-packed next to the LinkedIn CTA — the scope chip is
-   the least essential segment, so narrow HUDs drop it rather than crowd. */
 @media (max-width: 1100px) {
     .hud-scope {
         display: none;
@@ -5322,6 +5379,149 @@ body.bench-mode-dim .vignette-overlay {
 
 .ds-io-val {
     color: rgba(220, 245, 230, 0.88);
+}
+
+/* ─── Live Simulation Bench Block ─── */
+.ds-bench-block {
+    background: rgba(4, 12, 8, 0.85);
+    border: 1px solid rgba(62, 230, 160, 0.25);
+    border-radius: 5px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+}
+
+.pulse-dot-green {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--signal, #3ee6a0);
+    box-shadow: 0 0 6px var(--signal, #3ee6a0);
+    margin-right: 4px;
+    animation: benchLedPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes benchLedPulse {
+    0%, 100% { opacity: 0.6; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.15); filter: drop-shadow(0 0 4px #3ee6a0); }
+}
+
+.ds-bench-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.ds-bench-btn {
+    background: rgba(62, 230, 160, 0.12);
+    border: 1px solid var(--signal, #3ee6a0);
+    color: var(--signal, #3ee6a0);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 5px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ds-bench-btn:hover {
+    background: var(--signal, #3ee6a0);
+    color: #041008;
+    box-shadow: 0 0 10px rgba(62, 230, 160, 0.4);
+}
+
+.ds-bench-btn:active {
+    transform: scale(0.97);
+}
+
+.ds-bench-clock-selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+}
+
+.ds-bench-clk-label {
+    color: var(--silkscreen-muted);
+    font-weight: 700;
+    margin-right: 2px;
+}
+
+.ds-bench-clk-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(220, 240, 230, 0.8);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    padding: 3px 6px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.ds-bench-clk-btn.active, .ds-bench-clk-btn:hover {
+    background: rgba(62, 230, 160, 0.2);
+    border-color: var(--signal, #3ee6a0);
+    color: var(--signal, #3ee6a0);
+}
+
+.ds-bench-meters {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+}
+
+.ds-bench-meter {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ds-meter-label {
+    font-family: var(--font-mono);
+    font-size: 7.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--silkscreen-muted);
+    text-transform: uppercase;
+}
+
+.ds-meter-val {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--signal, #3ee6a0);
+}
+
+.ds-bench-terminal {
+    background: rgba(0, 8, 4, 0.92);
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 3px;
+    padding: 6px 8px;
+    font-family: 'Fragment Mono', monospace;
+    font-size: 8.5px;
+    color: rgba(62, 230, 160, 0.85);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ds-bench-terminal-line {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Datasheet Footer Bar */

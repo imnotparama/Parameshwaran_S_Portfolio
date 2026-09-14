@@ -233,6 +233,15 @@ export function powerUpBeep() {
     blip(784, 0.1, 0.035, 'triangle'); // G5 — ready, a touch brighter
 }
 
+/**
+ * Multimeter continuity tone — 850Hz piezo tone when touching ground (TP2)
+ * or completing circuit test points. High-pitch diagnostic tone.
+ */
+export function playContinuityBeep() {
+    if (!enabled) return;
+    blip(850, 0.12, 0.045, 'square');
+}
+
 // ─── Electrical hum — scroll-velocity drone ───────────────────
 // A low mains-frequency drone that swells with scroll speed (the board's
 // power rail audibly energizes as you fly along the traces). Starts and

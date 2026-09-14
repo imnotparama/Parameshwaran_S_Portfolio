@@ -49,6 +49,10 @@ const pedestrians = [];
 let cctvBeamMesh = null;
 /** @type {THREE.Group | null} */
 let cctvCameraHead = null;
+/** @type {THREE.Mesh[]} */
+const crowdRadarRings = [];
+/** @type {THREE.Mesh | null} */
+let crowdPulseWaveMesh = null;
 
 // 2. Dialora handles
 /** @type {THREE.Group | null} */
@@ -59,6 +63,12 @@ const soundRings = [];
 const eqColumns = [];
 /** @type {THREE.Mesh | null} */
 let micStatusRing = null;
+/** @type {THREE.Mesh | null} */
+let dialoraPhoneticSphere = null;
+/** @type {THREE.Mesh | null} */
+let dialoraSynapseRing1 = null;
+/** @type {THREE.Mesh | null} */
+let dialoraSynapseRing2 = null;
 
 // 3. Smart Parking handles
 /** @type {THREE.Group | null} */
@@ -97,6 +107,8 @@ const dropletRipples = [];
 const waterProbes = [];
 /** @type {THREE.Mesh | null} */
 let waterSurfaceMesh = null;
+/** @type {THREE.Mesh[]} */
+const waterFloatSensors = [];
 
 // 6. PawPal handles
 /** @type {THREE.Group | null} */
@@ -268,6 +280,40 @@ export function initProjectHolograms(boardGroup) {
         stripe.position.set(x, 0, 0.325);
         crowdPulseGroup.add(stripe);
     }
+
+    // Concentric holographic crowd density radar scan rings
+    const radarRingGeo = new THREE.RingGeometry(0.12, 0.135, 32);
+    disposableResources.geometries.add(radarRingGeo);
+    const radarRingMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.7,
+        blending: THREE.AdditiveBlending
+    });
+    trackMat(crowdPulseGroup, radarRingMat);
+    for (let r = 0; r < 3; r++) {
+        const ring = new THREE.Mesh(radarRingGeo, radarRingMat);
+        ring.position.set(0, 0, 0.328);
+        crowdPulseGroup.add(ring);
+        crowdRadarRings.push(ring);
+    }
+
+    // Cylindrical holographic density boundary wave fence
+    const waveFenceGeo = new THREE.CylinderGeometry(0.38, 0.42, 0.12, 24, 1, true);
+    waveFenceGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(waveFenceGeo);
+    const waveFenceMat = new THREE.MeshBasicMaterial({
+        color: 0x0ea5e9,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending
+    });
+    trackMat(crowdPulseGroup, waveFenceMat);
+    crowdPulseWaveMesh = new THREE.Mesh(waveFenceGeo, waveFenceMat);
+    crowdPulseWaveMesh.position.set(0, 0, 0.36);
+    crowdPulseGroup.add(crowdPulseWaveMesh);
 
     // Street Corner Safety Bollards
     const bollardGeo = new THREE.CylinderGeometry(0.015, 0.018, 0.12, 8);
@@ -484,6 +530,47 @@ export function initProjectHolograms(boardGroup) {
     const popFilter = new THREE.Mesh(popFilterGeo, popFilterMat);
     popFilter.position.set(0, 0.07, 0.28);
     studioMicGroup.add(popFilter);
+
+    // 3D Geodesic Phonetic Waveform Sphere floating above mic
+    const phoneticSphereGeo = new THREE.IcosahedronGeometry(0.065, 1);
+    disposableResources.geometries.add(phoneticSphereGeo);
+    const phoneticSphereMat = new THREE.MeshStandardMaterial({
+        color: 0xf97316,
+        emissive: 0xf97316,
+        emissiveIntensity: 1.4,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.9
+    });
+    trackMat(dialoraGroup, phoneticSphereMat);
+    dialoraPhoneticSphere = new THREE.Mesh(phoneticSphereGeo, phoneticSphereMat);
+    dialoraPhoneticSphere.position.set(0, 0, 0.46);
+    dialoraGroup.add(dialoraPhoneticSphere);
+
+    // Orbital Neural Speech Synapse Rings
+    const synapseGeo = new THREE.TorusGeometry(0.13, 0.005, 8, 32);
+    disposableResources.geometries.add(synapseGeo);
+    const synapseMat1 = new THREE.MeshBasicMaterial({
+        color: 0xfdba74,
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending
+    });
+    const synapseMat2 = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending
+    });
+    trackMat(dialoraGroup, synapseMat1);
+    trackMat(dialoraGroup, synapseMat2);
+    dialoraSynapseRing1 = new THREE.Mesh(synapseGeo, synapseMat1);
+    dialoraSynapseRing1.position.set(0, 0, 0.38);
+    dialoraSynapseRing1.rotation.x = 0.5;
+    dialoraSynapseRing2 = new THREE.Mesh(synapseGeo, synapseMat2);
+    dialoraSynapseRing2.position.set(0, 0, 0.38);
+    dialoraSynapseRing2.rotation.y = -0.6;
+    dialoraGroup.add(dialoraSynapseRing1, dialoraSynapseRing2);
 
     // VAD Status Light Ring on the base
     const statusRingGeo = new THREE.RingGeometry(0.06, 0.085, 24);
@@ -982,6 +1069,29 @@ export function initProjectHolograms(boardGroup) {
         waterProbes.push(pr);
     }
 
+    // 3 Float sensor level indicator rings on the filtration cylinder
+    const floatRingGeo = new THREE.TorusGeometry(0.145, 0.007, 8, 24);
+    floatRingGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(floatRingGeo);
+    const floatZLevels = [0.38, 0.46, 0.54];
+    const floatColors = [0x22c55e, 0x06b6d4, 0x38bdf8];
+    floatZLevels.forEach((fz, idx) => {
+        const fMat = new THREE.MeshStandardMaterial({
+            color: floatColors[idx],
+            emissive: floatColors[idx],
+            emissiveIntensity: 0.9,
+            roughness: 0.2,
+            metalness: 0.8,
+            transparent: true,
+            opacity: 0.9
+        });
+        trackMat(blueGroundGroup, fMat);
+        const fRing = new THREE.Mesh(floatRingGeo, fMat);
+        fRing.position.set(0.22, 0, fz);
+        blueGroundGroup?.add(fRing);
+        waterFloatSensors.push(fRing);
+    });
+
     // =============================================================
     // 6. PawPal (PX1): Articulated Robotic Pet Companion & Heart HUD
     // =============================================================
@@ -1464,6 +1574,19 @@ export function updateProjectHolograms(elapsed) {
         if (cctvBeamMesh) {
             cctvBeamMesh.rotation.z = elapsed * 1.4;
         }
+
+        // Radar scan density wave pulsation
+        crowdRadarRings.forEach((r, idx) => {
+            const phase = (elapsed * 0.8 + idx * 0.33) % 1;
+            const s = 0.6 + phase * 2.2;
+            r.scale.set(s, s, s);
+            /** @type {any} */ (r.material).opacity = Math.max(0, (1 - phase) * 0.7);
+        });
+        if (crowdPulseWaveMesh) {
+            crowdPulseWaveMesh.rotation.z = elapsed * 0.5;
+            const wavePulse = 1.0 + Math.sin(elapsed * 4) * 0.08;
+            crowdPulseWaveMesh.scale.set(wavePulse, wavePulse, 1.0);
+        }
     }
 
     // 2. Dialora: Studio condenser mic, 24-bar circular EQ visualizer with peak hold & acoustic waves
@@ -1497,6 +1620,20 @@ export function updateProjectHolograms(elapsed) {
             ring.scale.set(rScale, rScale, rScale);
             ring.position.z = 0.5 + ringPhase * 0.12;
         });
+
+        // 3D Phonetic Waveform Sphere and Neural Synapse Arcs
+        if (dialoraPhoneticSphere) {
+            dialoraPhoneticSphere.rotation.x = elapsed * 1.5;
+            dialoraPhoneticSphere.rotation.y = elapsed * 2.1;
+            const pulse = 0.9 + Math.abs(Math.sin(elapsed * 8)) * 0.25;
+            dialoraPhoneticSphere.scale.set(pulse, pulse, pulse);
+        }
+        if (dialoraSynapseRing1) {
+            dialoraSynapseRing1.rotation.z = elapsed * 1.2;
+        }
+        if (dialoraSynapseRing2) {
+            dialoraSynapseRing2.rotation.z = -elapsed * 1.4;
+        }
     }
 
     // 3. Smart Parking: Sports car drives, steers wheels, barrier lifts, car parks & bay turns red
@@ -1623,6 +1760,12 @@ export function updateProjectHolograms(elapsed) {
         waterProbes.forEach((pr, idx) => {
             const probePulse = 0.8 + Math.sin(elapsed * 7 + idx * 1.2) * 0.3;
             pr.scale.setScalar(probePulse);
+        });
+
+        // Water float sensors
+        waterFloatSensors.forEach((fs, idx) => {
+            const activePulse = 0.7 + Math.sin(elapsed * 6 + idx * 1.5) * 0.4;
+            /** @type {any} */ (fs.material).emissiveIntensity = Math.max(0.2, activePulse);
         });
     }
 

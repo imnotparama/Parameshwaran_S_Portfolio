@@ -136,11 +136,21 @@
                 <span class="hud-mon-item" title="CPU Die Temperature">DIE: <strong id="hud-temp-val">41.2°C</strong></span>
                 <span class="hud-mon-item" title="3.30V Bus Voltage">VCC: <strong id="hud-rail-val">3.30V STABLE</strong></span>
             </div>
-            <!-- Live mini CRT oscilloscope HUD -->
-            <span class="hud-scope" id="hud-scope" aria-hidden="true" title="Oscilloscope Waveform HUD">
-                <canvas id="hud-osc" aria-hidden="true"></canvas>
-                <span class="hud-scope-ref" id="hud-scope-ref">LIVE</span><span class="hud-scope-val" id="hud-scope-val">ACTIVE</span>
-            </span>
+            <!-- Dual-Channel Live CRT Oscilloscope & Logic Sniffer Rack -->
+            <div class="hud-scope" id="hud-scope" role="region" aria-label="Dual-Channel Oscilloscope & Logic Analyzer">
+                <div class="hud-scope-display">
+                    <canvas id="hud-osc" aria-hidden="true"></canvas>
+                    <div class="hud-scope-ch-tags">
+                        <span class="hud-scope-ch ch1"><span class="ch-led ch1-led"></span>CH1: <strong id="hud-scope-ref">LIVE</strong></span>
+                        <span class="hud-scope-ch ch2"><span class="ch-led ch2-led"></span>CH2: <strong id="hud-scope-ch2-val">CLK 27M</strong></span>
+                    </div>
+                </div>
+                <div class="hud-scope-logic-strip" id="hud-scope-logic" title="Decoded Logic Analyzer Packet Stream">
+                    <span class="logic-prefix">LOGIC&gt;</span>
+                    <span class="logic-data" id="hud-scope-logic-data">[0x5A 0xA5 0x01 CRC-OK]</span>
+                </div>
+                <span class="hud-scope-val" id="hud-scope-val" style="display:none">ACTIVE</span>
+            </div>
             <!-- 3D Interactive Controls -->
             <button type="button" class="hud-btn-sub" id="teardown-toggle-btn" aria-pressed="false" aria-label="3D Layer View" title="View Board Layers">[LAYERS]</button>
             <button type="button" class="hud-btn-sub" id="theme-toggle-btn" aria-label="Change Color Theme" title="Color Theme">[THEME]</button>
@@ -643,6 +653,42 @@
                 <div class="ds-section-block">
                     <div class="ds-field-label">TECHNICAL SPECIFICATIONS</div>
                     <ul class="proj-spec" id="pdetail-spec"></ul>
+                </div>
+
+                <!-- Live Hardware Simulation Lab & Test Bench -->
+                <div class="ds-section-block ds-bench-block" id="pdetail-bench-block">
+                    <div class="ds-field-label"><span class="pulse-dot-green"></span> LIVE HARDWARE BENCH &amp; SIMULATION LAB</div>
+                    <div class="ds-bench-controls">
+                        <button type="button" class="ds-bench-btn" id="pdetail-bench-run" aria-label="Run Subsystem Benchmark">⚡ RUN SUBSYSTEM BENCHMARK</button>
+                        <div class="ds-bench-clock-selector" role="group" aria-label="Simulation Clock Multiplier">
+                            <span class="ds-bench-clk-label">CLOCK:</span>
+                            <button type="button" class="ds-bench-clk-btn active" id="bench-clk-1x" data-mult="1">1X</button>
+                            <button type="button" class="ds-bench-clk-btn" id="bench-clk-2x" data-mult="2">2X</button>
+                            <button type="button" class="ds-bench-clk-btn" id="bench-clk-4x" data-mult="4">4X</button>
+                        </div>
+                    </div>
+                    <div class="ds-bench-meters">
+                        <div class="ds-bench-meter">
+                            <span class="ds-meter-label">LATENCY</span>
+                            <span class="ds-meter-val" id="bench-val-latency">2.4 ms</span>
+                        </div>
+                        <div class="ds-bench-meter">
+                            <span class="ds-meter-label">THROUGHPUT</span>
+                            <span class="ds-meter-val" id="bench-val-throughput">128 pkt/s</span>
+                        </div>
+                        <div class="ds-bench-meter">
+                            <span class="ds-meter-label">THERMAL</span>
+                            <span class="ds-meter-val" id="bench-val-temp">39.8 °C</span>
+                        </div>
+                        <div class="ds-bench-meter">
+                            <span class="ds-meter-label">INTEGRITY</span>
+                            <span class="ds-meter-val" id="bench-val-integrity">100% OK</span>
+                        </div>
+                    </div>
+                    <div class="ds-bench-terminal">
+                        <div class="ds-bench-terminal-line" id="bench-term-line1">&gt; STANDBY: READY FOR VECTOR INJECTION</div>
+                        <div class="ds-bench-terminal-line" id="bench-term-line2">&gt; BUS CLOCK: 27.0 MHz SYNCHRONOUS</div>
+                    </div>
                 </div>
 
                 <!-- Toolchain & Technologies -->

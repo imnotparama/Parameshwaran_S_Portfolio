@@ -17,6 +17,7 @@ import { motionPrefs } from '../utils/motion-prefs.js';
 import { currentSurgeTone, moduleTouchdown, relayClick, clickBlip } from '../utils/sound.js';
 import { onSectionChanged, inspectProject } from '../three/hardware-orchestrator.js';
 import { hideProjectVisuals } from '../three/project-holograms.js';
+import { syncLiveBenchToProject } from '../ui/live-bench.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
@@ -844,6 +845,9 @@ function fillProjectDetailPanel(proj) {
 
   // Stagger element reveals
   staggerDatasheetFields(panel);
+
+  // Sync Live Simulation Bench to this project module
+  syncLiveBenchToProject(proj.ref);
 }
 
 /** Release focus. With glideBack, the camera returns to the current

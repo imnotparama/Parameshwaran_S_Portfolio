@@ -4,11 +4,24 @@ Hi! This file is the primary reference prompt and technical transfer guide for a
 
 ---
 
-## 🚦 NEXT SESSION — RESUME HERE (2026-08: Full-Page Section Snap & 3D Interactive Elevation)
+## 🚦 NEXT SESSION — RESUME HERE (2026-09: 5-Pillar Master Hardware & Simulation Overhaul)
 
-**Status: The portfolio features full-page smooth section-by-section snap scrolling (Hero ➔ About ➔ Projects ➔ Skills ➔ Experience ➔ Contact), interactive 3D hero quick actions (Nano-Rover, Turbo Overclock, 3D Teardown, Color Themes), animated retro audio equalizer, and dynamic section rim lighting. See `CLAUDE.md` in the project root for the master AI developer reference.**
+**Status: The portfolio features full-page smooth section-by-section snap scrolling (Hero ➔ About ➔ Projects ➔ Skills ➔ Experience ➔ Contact), 3D Horizontal (2.5D) Signal Runner on LCD1 & Arcade CRT, calibrated PBR titanium CPU heatspreader, interactive Contact Primary Uplink with live UART console & PPI radar sweep. All 14 smoke test phases pass with 0 errors. Preparing to execute the 5-Pillar Master Hardware & Simulation Overhaul.**
 
 ### Shipped in recent sessions (commit order, newest first)
+- `2026-09-14` — **Grand Finale Contact Overhaul & Motherboard Lighting Fix (`acec343`, `8f3d4fa`, `fa38d35`)**:
+  1. **CPU Center Lighting Fix**: Resolved blown-out white center on U1 by replacing unlit `MeshBasicMaterial` on `ihsPrintMat` with physical PBR `MeshStandardMaterial` (`roughness: 0.35`, `metalness: 0.2`). Cleared the `#cfd7e1` canvas background to render crisp dark laser silkscreen and emerald typography over calibrated brushed aerospace titanium (`lidMat`: `0x2e3842`, `metalness: 0.85`, `roughness: 0.42`), Pin 1 ENIG gold dot, and 2D matrix barcode.
+  2. **3D Microwave Wavefronts & Comms Beacon**: Added 3D spherical wavefront ripples around `ANT1`, electromagnetic carrier rings around `J1`, and a floating holographic wireframe comms beacon in `rf-wavefront.js`.
+  3. **Real-Time Hardware Telemetry Strip**: Live RTT ping counter (`12-15ms DIRECT`) with jitter, RF carrier band selector (`2.4GHz ISM` / `5.8GHz` / `Sub-GHz LoRa`), signal integrity gauge (`99.98%`), and Chennai station clock (`IST // UTC+05:30`).
+  4. **Dual-Mode View Switcher**: Toggles between **Direct Uplink** cards (with one-click `[COPY]` buttons and temporary `[COPIED TO BUFFER]` badges) and **Raw UART Console** teleprinter (`UART_TX>`) accepting commands (`ping`, `status`, `email`, `phone`, `linkedin`, `github`, `resume`, `delid`, `help`, `celebrate`, `radar`, `reboot`, `clear`).
+  5. **Animated ANT1 PPI Radar Sweep**: 2D canvas radar PPI sweep widget showing rotating radial sweep beam, concentric range rings, and visitor ping blip.
+  6. **Global Celebration Pulse (`triggerGlobalCelebrationPulse`)**: Dispatches a simultaneous optical wave along all 5 motherboard trace routes from U1 to U2, C1-C4, Y1, J1, and ANT1.
+  7. **Milestone Badge & Reboot Loop**: Top aerospace milestone chip (`MISSION ACCOMPLISHED // HARDWARE EXPLORATION 100% OPERATIONAL`) and smooth `[REBOOT MOTHERBOARD TOUR (RETURN TO HERO)]` CTA button.
+- `2026-09-14` — **3D Horizontal (2.5D) Cyber-Runner Overhaul (`dcb8582`)**:
+  1. **Panoramic 2.5D Side-Scroller**: Full horizontal side-scrolling running from left to right across 512×256 resolution on both motherboard `LCD1` and the arcade CRT.
+  2. **3D Cyber Gold Coins (Electrons)**: Spinning golden Bohr medallions with dual orbiting cyan Bohr satellites and dynamic bezier magnetic curve attraction.
+  3. **Procedural PCB Highway & Physical Obstacles**: ENIG gold rails with chevron pulses, 3D SMT resistors, can capacitors, laser gates, and substrate chasms.
+  4. **Unified Input Handlers & Zero-Emoji Policy**: Fixed launch bindings for Space, W, Enter, and Up across both screens; eliminated all casual emojis for aerospace engineering design language.
 - `2026-08` — **Living Hardware Operating System Transformation (`MASTER PLAN COMPLETE`)**:
   1. **Hardware State Machine**: Formal state tracking (`OFF` ➔ `BOOTING` ➔ `IDLE` ➔ `INSPECTING` ➔ `ACTIVE` ➔ `OVERCLOCK` ➔ `SLEEP` ➔ `SHUTDOWN`) with live state dispatching across all subsystems.
   2. **Live UART Serial Console Ribbon**: Fixed bottom streaming terminal with aligned microsecond hardware logs (`[09:14:02.118] BOOT Initializing PARAMA-DEV-BOARD v2.0...`), live flickering on inspection events.
