@@ -40,8 +40,6 @@ const SEGMENT_WIDTH = 4.0;
 const NUM_TILES = 8;
 const RAIL_DEPTH = 1.2;
 const TRACK_DEPTH = 2.0;
-const TRACK_WIDTH = 2.0;
-const RAIL_WIDTH = 1.2;
 
 /**
  * Map simulation pixel X (0..128) to 3D horizontal world space (-4.0..+4.0).
@@ -711,29 +709,30 @@ function buildSignalLostBanner() {
 
 function createResistorMesh() {
     const grp = new THREE.Group();
-    const bodyGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.52, 12);
-    bodyGeo.rotateZ(Math.PI / 2);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x383b40, roughness: 0.7 });
+    const bodyGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.72, 12);
+    bodyGeo.rotateX(Math.PI / 2);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x383b40, roughness: 0.6, metalness: 0.3 });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.set(0, 0.12, 0);
     grp.add(body);
 
-    const capGeo = new THREE.CylinderGeometry(0.155, 0.155, 0.08, 12);
-    capGeo.rotateZ(Math.PI / 2);
-    const capMat = new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 0.9, roughness: 0.2 });
-    const capL = new THREE.Mesh(capGeo, capMat);
-    capL.position.x = -0.23;
-    grp.add(capL);
+    const capGeo = new THREE.CylinderGeometry(0.135, 0.135, 0.09, 12);
+    capGeo.rotateX(Math.PI / 2);
+    const capMat = new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 0.92, roughness: 0.15 });
+    const capFront = new THREE.Mesh(capGeo, capMat);
+    capFront.position.set(0, 0.12, 0.36);
+    grp.add(capFront);
 
-    const capR = new THREE.Mesh(capGeo, capMat);
-    capR.position.x = 0.23;
-    grp.add(capR);
+    const capRear = new THREE.Mesh(capGeo, capMat);
+    capRear.position.set(0, 0.12, -0.36);
+    grp.add(capRear);
 
-    const bandGeo = new THREE.CylinderGeometry(0.145, 0.145, 0.04, 12);
-    bandGeo.rotateZ(Math.PI / 2);
+    const bandGeo = new THREE.CylinderGeometry(0.125, 0.125, 0.04, 12);
+    bandGeo.rotateX(Math.PI / 2);
     const colors = [0x111111, 0x8b4513, 0xff2200, 0xd4af37];
-    [-0.12, -0.04, 0.04, 0.12].forEach((xPos, idx) => {
+    [-0.18, -0.06, 0.06, 0.18].forEach((zPos, idx) => {
         const band = new THREE.Mesh(bandGeo, new THREE.MeshBasicMaterial({ color: colors[idx] }));
-        band.position.x = xPos;
+        band.position.set(0, 0.12, zPos);
         grp.add(band);
     });
 
@@ -743,32 +742,32 @@ function createResistorMesh() {
 
 function createCapacitorMesh() {
     const grp = new THREE.Group();
-    const canGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.58, 16);
+    const canGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.48, 16);
     const canMat = new THREE.MeshStandardMaterial({
         color: 0x48525e,
-        metalness: 0.85,
-        roughness: 0.25,
+        metalness: 0.88,
+        roughness: 0.2,
         emissive: 0x112233,
-        emissiveIntensity: 0.2
+        emissiveIntensity: 0.25
     });
     const can = new THREE.Mesh(canGeo, canMat);
-    can.position.y = 0.29;
+    can.position.set(0, 0.24, 0);
     grp.add(can);
 
-    const ventGeo = new THREE.BoxGeometry(0.3, 0.02, 0.05);
+    const ventGeo = new THREE.BoxGeometry(0.24, 0.02, 0.04);
     const ventMat = new THREE.MeshBasicMaterial({ color: 0x1f2429 });
     const vent1 = new THREE.Mesh(ventGeo, ventMat);
-    vent1.position.y = 0.585;
+    vent1.position.set(0, 0.485, 0);
     grp.add(vent1);
     const vent2 = new THREE.Mesh(ventGeo, ventMat);
-    vent2.position.y = 0.585;
+    vent2.position.set(0, 0.485, 0);
     vent2.rotation.y = Math.PI / 2;
     grp.add(vent2);
 
     const sparkNodeGeo = new THREE.OctahedronGeometry(0.06, 0);
     const sparkNodeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
     const sparkNode = new THREE.Mesh(sparkNodeGeo, sparkNodeMat);
-    sparkNode.position.y = 0.64;
+    sparkNode.position.set(0, 0.54, 0);
     grp.add(sparkNode);
 
     grp.userData = { type: 'capacitor', sparkNode };
@@ -777,36 +776,38 @@ function createCapacitorMesh() {
 
 function createBeamMesh() {
     const grp = new THREE.Group();
-    const pylonGeo = new THREE.CylinderGeometry(0.06, 0.08, 1.1, 6);
+    const pylonGeo = new THREE.CylinderGeometry(0.05, 0.07, 1.2, 8);
     const pylonMat = new THREE.MeshStandardMaterial({
-        color: 0x22262a,
+        color: 0x24282c,
         metalness: 0.7,
         roughness: 0.3
     });
 
-    const pylonL = new THREE.Mesh(pylonGeo, pylonMat);
-    pylonL.position.set(-TRACK_WIDTH / 2 + 0.1, 0.55, 0);
-    grp.add(pylonL);
+    // Front & Rear vertical pylons
+    const pylonFront = new THREE.Mesh(pylonGeo, pylonMat);
+    pylonFront.position.set(0, 0.60, 0.68);
+    grp.add(pylonFront);
 
-    const pylonR = new THREE.Mesh(pylonGeo, pylonMat);
-    pylonR.position.set(TRACK_WIDTH / 2 - 0.1, 0.55, 0);
-    grp.add(pylonR);
+    const pylonRear = new THREE.Mesh(pylonGeo, pylonMat);
+    pylonRear.position.set(0, 0.60, -0.68);
+    grp.add(pylonRear);
 
-    const beamGeo = new THREE.CylinderGeometry(0.04, 0.04, TRACK_WIDTH - 0.2, 8);
-    beamGeo.rotateZ(Math.PI / 2);
+    // Elevated horizontal laser beam along Z (height 0.85 — must slide under!)
+    const beamGeo = new THREE.CylinderGeometry(0.035, 0.035, 1.36, 8);
+    beamGeo.rotateX(Math.PI / 2);
     const beamMat = new THREE.MeshBasicMaterial({
         color: 0xff3366,
         transparent: true,
-        opacity: 0.9
+        opacity: 0.92
     });
     const beamMesh = new THREE.Mesh(beamGeo, beamMat);
-    beamMesh.position.set(0, 0.55, 0);
+    beamMesh.position.set(0, 0.85, 0);
     grp.add(beamMesh);
 
-    const coreBeamGeo = new THREE.CylinderGeometry(0.015, 0.015, TRACK_WIDTH - 0.2, 6);
-    coreBeamGeo.rotateZ(Math.PI / 2);
+    const coreBeamGeo = new THREE.CylinderGeometry(0.015, 0.015, 1.36, 6);
+    coreBeamGeo.rotateX(Math.PI / 2);
     const coreBeamMesh = new THREE.Mesh(coreBeamGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    coreBeamMesh.position.set(0, 0.55, 0);
+    coreBeamMesh.position.set(0, 0.85, 0);
     grp.add(coreBeamMesh);
 
     grp.userData = { type: 'beam', beamMesh };
@@ -815,20 +816,23 @@ function createBeamMesh() {
 
 function createGapMesh() {
     const grp = new THREE.Group();
-    const voidGeo = new THREE.BoxGeometry(RAIL_WIDTH + 0.12, 0.45, 1.35);
+    // Cutout chasm through the copper rail
+    const voidGeo = new THREE.BoxGeometry(0.95, 0.45, 1.35);
     const voidMat = new THREE.MeshBasicMaterial({ color: 0x000201 });
     const voidBox = new THREE.Mesh(voidGeo, voidMat);
-    voidBox.position.set(0, -0.22, 0);
+    voidBox.position.set(0, -0.15, 0);
     grp.add(voidBox);
 
+    // Frayed copper sparks at left and right fracture edges
     const frayGeo = new THREE.BoxGeometry(0.06, 0.06, 0.08);
     const frayMat = new THREE.MeshBasicMaterial({ color: 0x3ee6a0 });
-    const fray1 = new THREE.Mesh(frayGeo, frayMat);
-    fray1.position.set(0, 0.04, -0.68);
-    grp.add(fray1);
-    const fray2 = new THREE.Mesh(frayGeo, frayMat);
-    fray2.position.set(0, 0.04, 0.68);
-    grp.add(fray2);
+    const frayL = new THREE.Mesh(frayGeo, frayMat);
+    frayL.position.set(-0.48, 0.04, 0);
+    grp.add(frayL);
+
+    const frayR = new THREE.Mesh(frayGeo, frayMat);
+    frayR.position.set(0.48, 0.04, 0);
+    grp.add(frayR);
 
     grp.userData = { type: 'gap' };
     return grp;
@@ -836,19 +840,19 @@ function createGapMesh() {
 
 function createRelayMesh() {
     const grp = new THREE.Group();
-    const boxGeo = new THREE.BoxGeometry(0.62, 0.46, 0.38);
+    const boxGeo = new THREE.BoxGeometry(0.55, 0.42, 0.65);
     const boxMat = new THREE.MeshStandardMaterial({
         color: 0x1a2e22,
         metalness: 0.6,
         roughness: 0.4,
         emissive: 0x0a1e12,
-        emissiveIntensity: 0.2
+        emissiveIntensity: 0.25
     });
     const box = new THREE.Mesh(boxGeo, boxMat);
     box.position.set(0, 0.52, 0);
     grp.add(box);
 
-    const armGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.42, 8);
+    const armGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.38, 8);
     const armMat = new THREE.MeshStandardMaterial({ color: 0xd49b38, metalness: 0.9, roughness: 0.2 });
     const arm = new THREE.Mesh(armGeo, armMat);
     arm.position.set(0, 0.24, 0);
@@ -860,26 +864,26 @@ function createRelayMesh() {
 
 function createSpikeMesh() {
     const grp = new THREE.Group();
-    const spikeGeo = new THREE.ConeGeometry(0.14, 0.42, 4);
+    const spikeGeo = new THREE.ConeGeometry(0.12, 0.38, 4);
     const spikeMat = new THREE.MeshStandardMaterial({
         color: 0xffaa00,
         emissive: 0xff7700,
-        emissiveIntensity: 2.2,
+        emissiveIntensity: 2.4,
         roughness: 0.15,
         metalness: 0.8
     });
 
     const s1 = new THREE.Mesh(spikeGeo, spikeMat);
-    s1.position.set(-0.16, 0.21, 0);
+    s1.position.set(-0.14, 0.19, 0);
     grp.add(s1);
 
     const s2 = new THREE.Mesh(spikeGeo, spikeMat);
-    s2.position.set(0.16, 0.21, 0);
+    s2.position.set(0.14, 0.19, 0);
     grp.add(s2);
 
     const s3 = new THREE.Mesh(spikeGeo, spikeMat);
-    s3.scale.set(1.25, 1.25, 1.25);
-    s3.position.set(0, 0.26, 0);
+    s3.scale.set(1.2, 1.2, 1.2);
+    s3.position.set(0, 0.23, 0);
     grp.add(s3);
 
     grp.userData = { type: 'spike' };
@@ -1078,33 +1082,24 @@ function updateObstacles(delta, sim) {
     for (const a of sim.actors) {
         if (a.kind !== 'obstacle') continue;
 
-        const relX = a.x - 16;
-        const z3d = -relX * 0.38;
-
-        if (z3d > 4.0 || z3d < -55.0) continue;
+        const worldX = toWorldX(a.x + a.w / 2);
+        if (worldX < -6.0 || worldX > 6.0) continue;
 
         const mesh = getPooledObstacle(a.type);
-        mesh.position.z = z3d;
+        mesh.position.set(worldX, 0.20, 0.0);
 
         if (a.type === 'beam') {
-            mesh.position.set(0, 0, z3d);
             if (mesh.userData.beamMesh) {
-                mesh.userData.beamMesh.material.opacity = 0.7 + 0.3 * Math.sin(sim.dist * 0.4);
+                mesh.userData.beamMesh.material.opacity = 0.75 + 0.25 * Math.sin(sim.dist * 0.4);
             }
-        } else if (a.type === 'gap') {
-            mesh.position.set(0, 0, z3d);
         } else if (a.type === 'relay') {
-            mesh.position.set(0, 0, z3d);
             if (mesh.userData.arm) {
                 mesh.userData.arm.position.y = 0.24 + Math.sin(a.phase) * 0.12;
             }
         } else if (a.type === 'capacitor') {
-            mesh.position.set(0, 0, z3d);
             if (mesh.userData.sparkNode) {
                 mesh.userData.sparkNode.rotation.y += delta * 6.0;
             }
-        } else {
-            mesh.position.set(0, 0, z3d);
         }
     }
 }
