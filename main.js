@@ -2,7 +2,7 @@ import { detectWebGL, showFallbackUI, setupCleanup } from './src/ui/fallback.js'
 import { initScene, scene, camera, renderer, enableBloom, syncCanvasSize, setBloomBoost } from './src/three/scene.js';
 import { onTick, CRITICAL, STANDARD, DEFERRED } from './src/three/tick-scheduler.js';
 import { createBoard, boardGroup, updateBoardParallax, updateBenchSweep, updateHoverShadow } from './src/three/board.js';
-import { createComponents, updateLedArray, SWITCH_POS } from './src/three/components.js';
+import { createComponents, updateLedArray, SWITCH_POS, toggleDelidCpu, isCpuDelidded } from './src/three/components.js';
 import { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses } from './src/three/traces.js';
 import { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips, projectChips } from './src/three/project-chips.js';
@@ -702,6 +702,20 @@ document.addEventListener('DOMContentLoaded', () => {
         heroTurboBtn.addEventListener('click', () => {
             clickBlip();
             toggleOverclock();
+        });
+    }
+    const heroDelidBtn = document.getElementById('hero-delid-btn');
+    if (heroDelidBtn) {
+        heroDelidBtn.addEventListener('click', () => {
+            clickBlip();
+            const open = toggleDelidCpu();
+            const tag = heroDelidBtn.querySelector('.btn-tag');
+            const title = heroDelidBtn.querySelector('.btn-title');
+            if (tag && title) {
+                tag.textContent = open ? 'DIE' : 'IHS';
+                title.textContent = open ? 'Seat Lid' : 'Delid CPU';
+            }
+            showPcbToast(open ? 'CPU IHS DELIDDED // EXPOSED SILICON DIE' : 'CPU IHS SEATED // HEAT SPREADER LOCKED', 2200);
         });
     }
     const heroTeardownBtn = document.getElementById('hero-teardown-btn');

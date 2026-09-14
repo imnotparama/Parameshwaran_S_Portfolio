@@ -19,6 +19,10 @@ export let siliconDieMesh;
 export let ledMeshes = [];
 /** @type {THREE.Mesh | undefined} */
 export let cpuRadarRing;
+/** @type {THREE.Group | undefined} */
+export let cpuLidGroup;
+/** @type {boolean} */
+export let isCpuDelidded = false;
 
 /**
  * @typedef {{
@@ -421,67 +425,260 @@ export function createComponents(boardGroup) {
     cpuGroup.position.set(0, 1.0, surfaceZ);
     boardGroup.add(cpuGroup);
 
-    const cpuGeo = new THREE.BoxGeometry(2.4, 2.4, 0.22);
+    // 1a. Base Substrate (BGA Interposer)
+    const cpuGeo = new THREE.BoxGeometry(2.4, 2.4, 0.12);
     const cpuMesh = new THREE.Mesh(cpuGeo, chipMaterial.clone());
+    cpuMesh.position.set(0, 0, 0.06);
     cpuMesh.castShadow = true;
     cpuMesh.receiveShadow = true;
     cpuMesh.name = 'U1'; // Ref Designator
     cpuMesh.userData = { componentName: 'Main CPU (About Me)', type: 'CPU' };
     cpuGroup.add(cpuMesh);
     interactiveObjects.push(cpuMesh);
+    disposableResources.geometries.add(cpuGeo);
 
-    // Dynamic grid for silicon die glow on top surface (6x6 grid layout)
+    // 1b. Peripheral SMD 0402 Decoupling Capacitors surrounding the CPU socket
+    const smdCapGeo = new THREE.BoxGeometry(0.14, 0.08, 0.05);
+    const smdCapMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.6, metalness: 0.1 });
+    const smdEndGeo = new THREE.BoxGeometry(0.035, 0.082, 0.052);
+    const smdEndMat = new THREE.MeshStandardMaterial({ color: 0xd6dde4, roughness: 0.3, metalness: 0.85 });
+    disposableResources.geometries.add(smdCapGeo);
+    disposableResources.geometries.add(smdEndGeo);
+    disposableResources.materials.add(smdCapMat);
+    disposableResources.materials.add(smdEndMat);
+
+    const smdCoords = [
+        [-0.95, -0.6, 0], [-0.95, 0.6, 0], [0.95, -0.6, 0], [0.95, 0.6, 0],
+        [-0.6, -0.95, Math.PI / 2], [0.6, -0.95, Math.PI / 2], [-0.6, 0.95, Math.PI / 2], [0.6, 0.95, Math.PI / 2]
+    ];
+    smdCoords.forEach(([sx, sy, sRot]) => {
+        const smdGroup = new THREE.Group();
+        smdGroup.position.set(sx, sy, 0.12);
+        smdGroup.rotation.z = sRot;
+        const body = new THREE.Mesh(smdCapGeo, smdCapMat);
+        const endL = new THREE.Mesh(smdEndGeo, smdEndMat);
+        endL.position.x = -0.06;
+        const endR = new THREE.Mesh(smdEndGeo, smdEndMat);
+        endR.position.x = 0.06;
+        smdGroup.add(body, endL, endR);
+        cpuGroup.add(smdGroup);
+    });
+
+    // 1c. Exposed Silicon Die (The computing core beneath the lid)
+    const siliconDieBaseGeo = new THREE.BoxGeometry(1.24, 1.24, 0.04);
+    const siliconDieBaseMat = new THREE.MeshStandardMaterial({
+        color: 0x111c1e,
+        roughness: 0.18,
+        metalness: 0.92
+    });
+    disposableResources.geometries.add(siliconDieBaseGeo);
+    disposableResources.materials.add(siliconDieBaseMat);
+    const siliconDieBase = new THREE.Mesh(siliconDieBaseGeo, siliconDieBaseMat);
+    siliconDieBase.position.set(0, 0, 0.12);
+    cpuGroup.add(siliconDieBase);
+
+    // Dynamic grid for silicon die glow on top surface (High-res dual-core neural layout)
     const siliconCanvas = document.createElement('canvas');
-    siliconCanvas.width = 128;
-    siliconCanvas.height = 128;
+    siliconCanvas.width = 256;
+    siliconCanvas.height = 256;
     const sCtx = siliconCanvas.getContext('2d');
     if (sCtx) {
-        sCtx.clearRect(0, 0, 128, 128);
-        const cellSize = 128 / 6;
+        sCtx.clearRect(0, 0, 256, 256);
+        // Outer die boundary
+        sCtx.strokeStyle = 'rgba(62, 230, 160, 0.4)';
+        sCtx.lineWidth = 2;
+        sCtx.strokeRect(4, 4, 248, 248);
 
-        // Draw 6x6 grid lines
+        // Core 0 & Core 1 main computing units
+        sCtx.fillStyle = 'rgba(62, 230, 160, 0.22)';
+        sCtx.fillRect(16, 24, 104, 96); // Core 0
+        sCtx.fillRect(136, 24, 104, 96); // Core 1
+
+        // Core labels & micro-lines
+        sCtx.fillStyle = 'rgba(215, 255, 230, 0.8)';
+        sCtx.font = 'bold 11px monospace';
+        sCtx.fillText('CORE 0 [AI]', 24, 42);
+        sCtx.fillText('CORE 1 [SYS]', 144, 42);
+
+        // Micro-core grid lines
         sCtx.strokeStyle = 'rgba(62, 230, 160, 0.35)';
-        sCtx.lineWidth = 1.0;
-        for (let i = 0; i <= 6; i++) {
-            // Horizontal
-            sCtx.beginPath();
-            sCtx.moveTo(0, i * cellSize);
-            sCtx.lineTo(128, i * cellSize);
-            sCtx.stroke();
-            // Vertical
-            sCtx.beginPath();
-            sCtx.moveTo(i * cellSize, 0);
-            sCtx.lineTo(i * cellSize, 128);
-            sCtx.stroke();
+        sCtx.lineWidth = 1;
+        for (let i = 0; i < 5; i++) {
+            sCtx.strokeRect(24 + i * 18, 52, 14, 56);
+            sCtx.strokeRect(144 + i * 18, 52, 14, 56);
         }
 
-        // Draw cells (alternating fills & bright core)
-        for (let r = 0; r < 6; r++) {
-            for (let c = 0; c < 6; c++) {
-                const isCore = (r === 2 || r === 3) && (c === 2 || c === 3);
-                if (isCore) {
-                    sCtx.fillStyle = 'rgba(62, 230, 160, 0.45)';
-                    sCtx.fillRect(c * cellSize + 2, r * cellSize + 2, cellSize - 4, cellSize - 4);
-                } else if ((r + c) % 2 === 0) {
-                    sCtx.fillStyle = 'rgba(62, 230, 160, 0.1)';
-                    sCtx.fillRect(c * cellSize + 2, r * cellSize + 2, cellSize - 4, cellSize - 4);
-                }
-            }
-        }
+        // Shared L3 Cache Bank (Center lower strip)
+        sCtx.fillStyle = 'rgba(62, 230, 160, 0.15)';
+        sCtx.fillRect(16, 130, 224, 44);
+        sCtx.strokeStyle = 'rgba(62, 230, 160, 0.4)';
+        sCtx.strokeRect(16, 130, 224, 44);
+        sCtx.fillStyle = 'rgba(215, 255, 230, 0.7)';
+        sCtx.font = '9px monospace';
+        sCtx.fillText('SHARED 32MB L3 CACHE // 4.8 GHz INTERCONNECT BUS', 24, 156);
+
+        // Neural DMA / IO controller block
+        sCtx.fillStyle = 'rgba(20, 184, 166, 0.2)';
+        sCtx.fillRect(16, 184, 224, 56);
+        sCtx.strokeRect(16, 184, 224, 56);
+        sCtx.fillStyle = 'rgba(62, 230, 160, 0.85)';
+        sCtx.fillText('NEURAL TENSOR DMA // 64-BIT RISC-V MEM CONTROLLER', 24, 216);
     }
     const siliconTexture = new THREE.CanvasTexture(siliconCanvas);
-    const siliconGeo = new THREE.PlaneGeometry(1.6, 1.6);
+    disposableResources.textures.add(siliconTexture);
+    const siliconGeo = new THREE.PlaneGeometry(1.18, 1.18);
     const siliconMat = new THREE.MeshBasicMaterial({
         map: siliconTexture,
         transparent: true,
         color: 0x3ee6a0,
-        opacity: 0.8, // Brighter glowing silicon die
+        opacity: 0.85,
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
+    disposableResources.geometries.add(siliconGeo);
+    disposableResources.materials.add(siliconMat);
     siliconDieMesh = new THREE.Mesh(siliconGeo, siliconMat);
-    siliconDieMesh.position.set(0, 0, 0.115);
+    siliconDieMesh.position.set(0, 0, 0.142);
     cpuGroup.add(siliconDieMesh);
+
+    // 1d. Gold Wirebonds fanning from die to substrate
+    const wirePts = [];
+    const numWiresPerSide = 5;
+    for (let i = 0; i < numWiresPerSide; i++) {
+        const offset = (i - (numWiresPerSide - 1) / 2) * 0.22;
+        // Left
+        wirePts.push(new THREE.Vector3(-0.58, offset, 0.14), new THREE.Vector3(-0.95, offset * 1.3, 0.07));
+        // Right
+        wirePts.push(new THREE.Vector3(0.58, offset, 0.14), new THREE.Vector3(0.95, offset * 1.3, 0.07));
+        // Top
+        wirePts.push(new THREE.Vector3(offset, 0.58, 0.14), new THREE.Vector3(offset * 1.3, 0.95, 0.07));
+        // Bottom
+        wirePts.push(new THREE.Vector3(offset, -0.58, 0.14), new THREE.Vector3(offset * 1.3, -0.95, 0.07));
+    }
+    const wireGeo = new THREE.BufferGeometry().setFromPoints(wirePts);
+    const wireMat = new THREE.LineBasicMaterial({ color: 0xd4af37, transparent: true, opacity: 0.6 });
+    disposableResources.geometries.add(wireGeo);
+    disposableResources.materials.add(wireMat);
+    const wireMesh = new THREE.LineSegments(wireGeo, wireMat);
+    cpuGroup.add(wireMesh);
+
+    // 1e. Chamfered Metallic Integrated Heat Spreader (IHS) & Interactive Delid Lid
+    cpuLidGroup = new THREE.Group();
+    cpuLidGroup.position.set(0, 0, 0.12);
+    cpuGroup.add(cpuLidGroup);
+
+    // Beveled metallic lid plate
+    const lidBaseGeo = new THREE.BoxGeometry(2.14, 2.14, 0.04);
+    const lidTopGeo = new THREE.BoxGeometry(1.98, 1.98, 0.05);
+    const lidMat = new THREE.MeshStandardMaterial({
+        color: 0xdde4ec,
+        metalness: 0.88,
+        roughness: 0.24
+    });
+    disposableResources.geometries.add(lidBaseGeo);
+    disposableResources.geometries.add(lidTopGeo);
+    disposableResources.materials.add(lidMat);
+
+    const lidBaseMesh = new THREE.Mesh(lidBaseGeo, lidMat);
+    lidBaseMesh.position.set(0, 0, 0.02);
+    lidBaseMesh.castShadow = true;
+    const lidTopMesh = new THREE.Mesh(lidTopGeo, lidMat);
+    lidTopMesh.position.set(0, 0, 0.055);
+    lidTopMesh.castShadow = true;
+    cpuLidGroup.add(lidBaseMesh, lidTopMesh);
+
+    // Laser-Engraved Silkscreen Texture on IHS
+    const ihsCanvas = document.createElement('canvas');
+    ihsCanvas.width = 512;
+    ihsCanvas.height = 512;
+    const ihsCtx = ihsCanvas.getContext('2d');
+    if (ihsCtx) {
+        ihsCtx.fillStyle = '#cfd7e1';
+        ihsCtx.fillRect(0, 0, 512, 512);
+
+        // Brushed-metal micro-streaks
+        ihsCtx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        for (let i = 0; i < 40; i++) {
+            ihsCtx.fillRect(0, Math.random() * 512, 512, Math.random() * 3 + 1);
+        }
+
+        // Precision laser-etched border
+        ihsCtx.strokeStyle = 'rgba(28, 38, 46, 0.8)';
+        ihsCtx.lineWidth = 3;
+        ihsCtx.strokeRect(20, 20, 472, 472);
+        ihsCtx.strokeRect(28, 28, 456, 456);
+
+        // Corner thermal relief notches
+        ihsCtx.lineWidth = 2;
+        ihsCtx.beginPath();
+        ihsCtx.moveTo(20, 50); ihsCtx.lineTo(50, 20);
+        ihsCtx.moveTo(492, 50); ihsCtx.lineTo(462, 20);
+        ihsCtx.moveTo(20, 462); ihsCtx.lineTo(50, 492);
+        ihsCtx.moveTo(492, 462); ihsCtx.lineTo(462, 492);
+        ihsCtx.stroke();
+
+        // Laser text
+        ihsCtx.fillStyle = '#1c262e';
+        ihsCtx.font = 'bold 16px monospace';
+        ihsCtx.fillText('PARAMA LABS // SILICON ARCH', 44, 68);
+
+        ihsCtx.font = 'bold 34px monospace';
+        ihsCtx.fillText('PARAMA CORE-X', 44, 140);
+
+        ihsCtx.font = 'bold 15px monospace';
+        ihsCtx.fillStyle = '#2d3e48';
+        ihsCtx.fillText('64-BIT DUAL-CORE NEURAL ENGINE', 44, 175);
+        ihsCtx.fillText('4.80GHz TURBO · 32MB L3 · BGA-1151', 44, 205);
+        ihsCtx.fillText('REV 2.4 · ECE-2026 // FAB: SRM LABS', 44, 235);
+
+        // 2D DataMatrix barcode simulation
+        ihsCtx.fillStyle = '#1c262e';
+        for (let r = 0; r < 6; r++) {
+            for (let c = 0; c < 6; c++) {
+                if ((r * 7 + c * 11) % 3 !== 0) {
+                    ihsCtx.fillRect(380 + c * 12, 54 + r * 12, 10, 10);
+                }
+            }
+        }
+
+        // Pin 1 gold index mark
+        ihsCtx.beginPath();
+        ihsCtx.arc(46, 466, 12, 0, Math.PI * 2);
+        ihsCtx.fillStyle = '#b8860b';
+        ihsCtx.fill();
+        ihsCtx.strokeStyle = '#1c262e';
+        ihsCtx.lineWidth = 2;
+        ihsCtx.stroke();
+
+        // Bottom specs
+        ihsCtx.font = '12px monospace';
+        ihsCtx.fillStyle = '#3a4e5a';
+        ihsCtx.fillText('SEC_ID: U1 // THERMAL SPEC: 105C MAX', 44, 430);
+    }
+    const ihsTexture = new THREE.CanvasTexture(ihsCanvas);
+    disposableResources.textures.add(ihsTexture);
+    const ihsPrintGeo = new THREE.PlaneGeometry(1.94, 1.94);
+    const ihsPrintMat = new THREE.MeshBasicMaterial({
+        map: ihsTexture,
+        transparent: true,
+        opacity: 0.96
+    });
+    disposableResources.geometries.add(ihsPrintGeo);
+    disposableResources.materials.add(ihsPrintMat);
+    const ihsPrintMesh = new THREE.Mesh(ihsPrintGeo, ihsPrintMat);
+    ihsPrintMesh.position.set(0, 0, 0.082);
+    cpuLidGroup.add(ihsPrintMesh);
+
+    // Interactive raycast target for CPU Lid
+    const cpuLidHitGeo = new THREE.BoxGeometry(2.1, 2.1, 0.14);
+    const cpuLidHitMat = new THREE.MeshBasicMaterial({ visible: false });
+    disposableResources.geometries.add(cpuLidHitGeo);
+    disposableResources.materials.add(cpuLidHitMat);
+    const cpuLidMesh = new THREE.Mesh(cpuLidHitGeo, cpuLidHitMat);
+    cpuLidMesh.name = 'U1_LID';
+    cpuLidMesh.userData = { componentName: 'CPU Heat Spreader (IHS)', type: 'CPU_LID' };
+    cpuLidGroup.add(cpuLidMesh);
+    interactiveObjects.push(cpuLidMesh);
 
     // CPU Radar loading ring (Upgrade 3)
     const ringGeo = new THREE.RingGeometry(1.6, 1.7, 48, 1, 0, Math.PI * 1.55);
@@ -1643,3 +1840,64 @@ export function pressTactile(name) {
         }
     });
 }
+
+// ─── Delid CPU (Inspect bare silicon die) ─────────────────────
+/**
+ * Smoothly lift off the metallic Integrated Heat Spreader (IHS) to expose
+ * the mirror-finish silicon die and wirebonds beneath.
+ * @param {boolean} [openState]
+ */
+export function delidCpu(openState) {
+    if (openState === undefined) openState = !isCpuDelidded;
+    isCpuDelidded = Boolean(openState);
+    if (!cpuLidGroup) return;
+
+    gsap.killTweensOf(cpuLidGroup.position);
+    gsap.killTweensOf(cpuLidGroup.rotation);
+
+    switchClack();
+
+    if (isCpuDelidded) {
+        gsap.to(cpuLidGroup.position, {
+            z: 1.85,
+            y: -0.2,
+            duration: 0.8,
+            ease: 'back.out(1.6)',
+            overwrite: 'auto'
+        });
+        gsap.to(cpuLidGroup.rotation, {
+            x: 0.22,
+            y: -0.15,
+            z: 0.05,
+            duration: 0.8,
+            ease: 'power2.out',
+            overwrite: 'auto'
+        });
+    } else {
+        gsap.to(cpuLidGroup.position, {
+            z: 0.12,
+            y: 0,
+            duration: 0.65,
+            ease: 'bounce.out',
+            overwrite: 'auto'
+        });
+        gsap.to(cpuLidGroup.rotation, {
+            x: 0,
+            y: 0,
+            z: 0,
+            duration: 0.65,
+            ease: 'power2.inOut',
+            overwrite: 'auto'
+        });
+    }
+}
+
+/**
+ * Toggle the delidded state of the CPU.
+ * @returns {boolean} New delidded state
+ */
+export function toggleDelidCpu() {
+    delidCpu(!isCpuDelidded);
+    return isCpuDelidded;
+}
+

@@ -6,7 +6,7 @@
 // ============================================================
 import * as THREE from 'three';
 import gsap from 'gsap';
-import { interactiveObjects, pressTactile, energizeCapacitor } from '../three/components.js';
+import { interactiveObjects, pressTactile, energizeCapacitor, toggleDelidCpu } from '../three/components.js';
 import { highlightTrace } from '../three/traces.js';
 import { simView } from '../three/lcd-sim.js';
 import { hoverBlip, clickBlip, probeTone } from './sound.js';
@@ -93,7 +93,7 @@ let suppressHoverUntil = 0;
 // ─── PCB Hover Glow Color Map ───────────────────────────────
 /** @type {Record<string, number>} */
 const PCB_GLOW_MAP = {
-    'U1': 0x3ee6a0, 'U2': 0x00bfff, 'Y1': 0xaa44ff,
+    'U1': 0x3ee6a0, 'U1_LID': 0xdde4ec, 'U2': 0x00bfff, 'Y1': 0xaa44ff,
     'ANT1': 0x00ffff, 'J1': 0xff8800, 'VR1': 0xff4444,
     'RN1': 0x14b8a6, 'U3': 0x06b6d4, 'TP1': 0xd97706, 'TP2': 0xd97706,
     'C5': 0x10b981, 'RF1': 0x00ffff, 'HDR1': 0xffcc00,
@@ -108,6 +108,7 @@ const PCB_GLOW_MAP = {
 /** @type {Record<string, ScopeReading>} */
 const SCOPE_MAP = {
     'U1':     { v: '3.3V',      f: '27MHz',     state: 'RUNNING' },
+    'U1_LID': { v: 'GND',       f: 'IHS',       state: 'SHIELDED' },
     'U2':     { v: '1.1V',      f: '16MHz',     state: 'ACCEL' },
     'C1':     { v: '3.3V',      f: '100nF',     state: 'DECOUPLE' },
     'C2':     { v: '3.3V',      f: '100nF',     state: 'DECOUPLE' },
@@ -414,8 +415,9 @@ export function initHover(camera, scene) {
                 if (obj.userData && obj.userData.type === 'PROJECT' && obj.name && clickHandler) {
                     clickBlip();
                     clickHandler(obj.name);
-                } else if (obj.name === 'U1' || (obj.userData && obj.userData.type === 'CPU')) {
+                } else if (obj.name === 'U1' || obj.name === 'U1_LID' || (obj.userData && (obj.userData.type === 'CPU' || obj.userData.type === 'CPU_LID'))) {
                     clickBlip();
+                    toggleDelidCpu();
                     if (subsystemInspectHandler) subsystemInspectHandler('sec-about');
                 } else if (obj.name === 'U2' || (obj.userData && obj.userData.type === 'GPU')) {
                     clickBlip();
