@@ -12,7 +12,7 @@
 - **Aesthetic**: Retro-futuristic cyberpunk hardware laboratory — ENIG gold contacts, matte green solder mask, glowing copper traces, CRT phosphor oscilloscopes, glassmorphic HUD datasheets, and 8-bit chiptune sound design.
 - **Identity Standards**:
   - Serial Number: `PRM-2026-DEV-001` (Dynamically generated hardware serial)
-  - Motherboard Revision: `R2.0` | Firmware: `v2.3.1` | Build: `2026.08`
+  - Motherboard Revision: `R2.0` | Firmware: `v2.4.0` | Build: `2026.09`
   - Manufacturing Plate: `PARAMA LABS PRM-DEV-BOARD V2.0`
   - Name Branding: `PARAMESHWARAN S` (must remain on a single line on desktop headers)
   - Terminal Hotkeys: `sudo`, `help`, `matrix`, `konami`, `parama`
@@ -27,7 +27,9 @@
 | **3D Rendering** | Three.js (WebGL) | Custom procedural geometries, CanvasTexture silkscreens, multi-light studio rig, shadow mapping, UnrealBloomPass post-processing. |
 | **Animation Engine** | GSAP (GreenSock) + ScrollTrigger + ScrollToPlugin | Camera spline flights, section-by-section snap transitions, retro boot scanline sequences, UI entrance cascades. |
 | **Styling & UI** | Pure Vanilla CSS (`style.css`, `scroll.css`) | CSS custom property tokens, frosted glassmorphism (`backdrop-filter: blur`), CRT scanline overlays, responsive split-screen layouts. |
-| **Audio Synthesis** | Web Audio API (`sound.js`, `synth.js`) | Dynamic 8-bit square-wave oscillator synthesis, relay clicks, electrical hum drone, and power-up chimes. Muted by default. |
+| **Audio Synthesis** | Web Audio API (`sound.js`, `synth.js`) | Dynamic 8-bit oscillator synthesis, relay clicks, DC-DC inductor whine, RF packet chirps, continuity beeps, and power-up chimes. Muted by default. |
+| **Tactile Haptics** | Web Vibration API (`haptics.js`) | Tactical micro-vibrations for component hovers, switch clicks, multi-touch gestures, and benchmark completion confirmations. |
+| **PWA Engine** | Service Worker (`public/sw.js`) | Stale-While-Revalidate and pre-caching engine delivering resilient offline standalone execution. |
 | **Type Safety** | TypeScript (`// @ts-check` + JSDoc) | Complete checkJs coverage across all modules; validated via `npm run typecheck` (`tsc --noEmit`). |
 | **Build & Tooling** | Vite | Lightning-fast development server and optimized production rollup bundler. |
 
@@ -38,12 +40,16 @@
 ```
 c:\Users\hunte\Parameshwaran_S_Portfolio\
 ├── index.html                  # Semantic structure, HUD header, section templates, CRT filters
-├── main.js                     # System initialization, tick scheduler wiring, global hotkeys, boot launch
+├── main.js                     # System initialization, tick scheduler wiring, global hotkeys, boot launch, SW registration
 ├── style.css                   # Core design tokens, CRT scanlines, base glassmorphism, responsive grid
-├── scroll.css                  # Scroll journey layout, fixed datasheet sidebar, chip-tip HUD, animations
+├── scroll.css                  # Scroll journey layout, fixed datasheet sidebar, CAD/CAM rack, live bench meters
 ├── CLAUDE.md                   # AI Developer transfer blueprint (this file)
 ├── package.json                # Scripts: dev, build, preview, typecheck, smoke
 ├── jsconfig.json               # TypeScript / checkJs configuration
+├── public/
+│   ├── manifest.json           # Web App Manifest for standalone PWA installation
+│   ├── sw.js                   # Service Worker offline caching engine
+│   └── favicon.svg             # Vector hardware board icon
 ├── tests/
 │   └── smoke-tick.mjs          # Headless 14-phase deterministic test suite (zero DOM/WebGL dependency)
 └── src/
@@ -56,6 +62,7 @@ c:\Users\hunte\Parameshwaran_S_Portfolio\
     │   ├── scene.js            # PerspectiveCamera, lighting rig (key, fill, backlight, rim light), bloom composer
     │   ├── board.js            # PCB substrate, gold vias, copper pour, silkscreen canvas texture, parallax tilt
     │   ├── components.js       # 3D SMD chips (U1 CPU, U2, Y1, ANT1, J1, D1-D7 LEDs), silicon die, radar ring
+    │   ├── project-holograms.js# 3D project dioramas (density radar rings, phonetic waveform sphere, float sensors)
     │   ├── traces.js           # 3D copper traces, corner vias, active section trace energizing pulses
     │   ├── particles.js        # Glowing electron flow particles along trace routes, ambient gold flecks/dust
     │   ├── project-chips.js    # Data-driven 3D project chips (soldered vs breadboard jumpers with LED status)
@@ -65,7 +72,7 @@ c:\Users\hunte\Parameshwaran_S_Portfolio\
     │   ├── rover-physics.js    # Rover driving physics, collision detection, and project-chip raycast activation
     │   ├── playground-props.js # Interactive 3D playground obstacles (ramps, cones, hurdles)
     │   ├── overclock.js        # Turbo Overclock system (CPU overclock frequency, particle speed boost, heat bloom)
-    │   ├── teardown.js         # 3D Exploded Hardware Teardown view (separates core, mask, traces, and parts)
+    │   ├── teardown.js         # CAD/CAM 6-Layer Stackup Inspector, internal GND/PWR planes, X-Ray shader, laser guides
     │   ├── probe.js            # Interactive flying oscilloscope test probe with live voltage readout
     │   ├── potentiometer.js    # Soldermask color theme cycler (Classic Green, Matte Black, Royal Blue, Cyber Red)
     │   ├── power.js            # Power rail relay switch & Night-Bench mode (dimmed room lights, board float)
@@ -76,15 +83,17 @@ c:\Users\hunte\Parameshwaran_S_Portfolio\
     │   ├── boot.js             # Retro terminal power-on sequence: laser scanline, typewriter logs, status badges
     │   ├── command-palette.js  # Ctrl+K / Cmd+K BIOS terminal palette with fuzzy search
     │   ├── cursor.js           # Custom scope-probe crosshair cursor with active rail signal telemetry
-    │   ├── oscilloscope.js     # Live CRT waveform HUD canvas (sine, RF bursts, digital clocks, square pulses)
+    │   ├── oscilloscope.js     # Dual-Channel CRT waveform HUD (CH1 probe, CH2 ref) & live logic sniffer
+    │   ├── live-bench.js       # Interactive Subsystem Simulation Lab (clock tuning 1x-4x, test vectors, telemetry)
     │   ├── sections.js         # Dynamic DOM card renderer for Projects, Skills, Timeline, and Filter Bar
     │   ├── telemetry.js        # System telemetry HUD chip, live clock/temperature, and debug overlay
     │   └── fallback.js         # Graceful WebGL missing/unsupported degradation UI
     └── utils/
-        ├── sound.js            # Synthesized Web Audio SFX (relay clicks, electrical hum, power-up chimes)
+        ├── sound.js            # Synthesized Web Audio SFX (inductor whine, mechanical click, RF chirp, continuity beep)
+        ├── haptics.js          # Web Haptics tactile micro-vibrations (hapticTick, hapticClick, hapticSuccess, hapticAlert)
         ├── synth.js            # Square wave synthesizer and audio peak visualizer
         ├── buzzer.js           # Piezo buzzer horn sound generator
-        ├── hover.js            # 3D raycasting pointer hover & click handler, chip tooltip management
+        ├── hover.js            # 3D raycasting pointer hover, multi-touch pinch-zoom / twist-rotate, chip tooltip management
         ├── hash-nav.js         # Deep-linking URL hash mapper (`#/about`, `#/projects`, `#/skills`, etc.)
         ├── motion-prefs.js     # Accessibility reduced-motion and touch device detection
         └── analytics.js        # LinkedIn CTA conversion tracking
@@ -96,12 +105,16 @@ c:\Users\hunte\Parameshwaran_S_Portfolio\
 
 | Feature | Key / Action | Description |
 |:---|:---|:---|
+| **🔬 CAD/CAM 6-Layer Stackup** | `E` or Hero Button / HUD Rack | Explodes the board in 3D space into 6 discrete CAD/CAM layers (Silkscreen, Components, Top Cu, FR-4 Core, Internal GND, Internal PWR, Bottom Cu). Features dynamic Z-expansion slider, layer filter isolation (`ALL`, `SILK`, `TOP_CU`, `FR4`, `GND`, `PWR`, `BOT_CU`), and glowing through-hole laser guides. |
+| **☢️ X-Ray Fluoroscopy** | HUD Rack Button / `toggleXRayMode` | Inverts the board rendering into a high-contrast cyan fluoroscopic X-Ray inspection mode revealing internal copper routing. |
+| **📟 Dual-Channel Oscilloscope** | HUD Scope Rack | Visualizes live probe signal on CH1 (Green), hardware reference clock on CH2 (Amber), plus a live decoded logic sniffer packet strip (`[0x5A, 0xA5, 0x01, CRC-OK]`). |
+| **⚡ Subsystem Simulation Bench** | Inside Project Datasheets | Drives interactive 64-byte test vectors, clock multiplier scaling (1x, 2x, 4x), and live telemetry (latency, throughput, temperature, integrity). |
 | **🏎️ PCB Nano-Rover** | `R` or Hero Button | Drive a miniature 4-wheeled rover across the 3D board using `WASD` / `Arrow` keys. Running over chips focuses their datasheets! |
-| **⚡ Turbo Overclock** | `T` or Hero Button | Overclocks the microcontroller clock rate, boosts particle speeds, and intensifies emissive circuit bloom. |
-| **🔍 3D Hardware Teardown** | `E` or Hero Button | Explodes the board in 3D space, separating the fiberglass substrate, solder mask, copper traces, and SMD components into floating layers. |
+| **🔥 Turbo Overclock** | `T` or Hero Button | Overclocks the microcontroller clock rate, boosts particle speeds, and intensifies emissive circuit bloom. |
 | **🎨 Color Theme Cycler** | Hero Button / Command Palette | Cycles the PCB soldermask between Green, Matte Black, Royal Blue, and Cyber Red. |
 | **🕹️ 8-Bit Signal Snake** | Click on `LCD1` or `#/lcd` | An authentic retro Nokia-style Snake mini-game rendered directly onto the 3D LCD screen quad. |
-| **📟 Flying Scope Probe** | `WASD` (desktop) + `Enter` | Flies a test probe around the board in 3D. Pressing `Enter` measures the component and reads live voltage rails. |
+| **📐 Flying Scope Probe** | `WASD` (desktop) + `Enter` | Flies a test probe around the board in 3D. Pressing `Enter` measures the component and reads live voltage rails with acoustic continuity beeps. |
+| **📱 Mobile Touch Gestures & Haptics** | Touchscreens | 2-finger pinch-to-zoom and twist-to-rotate camera control with tactile micro-vibration feedback on chips, switches, and benchmarks. |
 | **💻 BIOS Command Palette** | `Ctrl+K` / `Cmd+K` / `[CMD]` | Phosphor-green terminal with fuzzy search across sections, utilities, direct links, and easter eggs. |
 | **🌙 Night-Bench Mode** | `P` or Command Palette | Switches off the laboratory bench lights; the board floats calmly in the dark with emissive traces glowing. |
 | **📊 Debug Telemetry** | `D` or Command Palette | Displays real-time FPS, frame budget, draw calls, and memory telemetry in a retro HUD badge. |

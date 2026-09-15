@@ -1100,4 +1100,15 @@ document.addEventListener('DOMContentLoaded', () => {
             clickBlip();
         }
     }, { passive: true });
+
+    // 22. PWA Offline Engine Service Worker Registration
+    if ('serviceWorker' in navigator && !isLiteMode()) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').then((reg) => {
+                emitUartLog('SYS', `PWA Offline Engine Active (Scope: ${reg.scope})`);
+            }).catch((_err) => {
+                // Offline fallback silent catch
+            });
+        });
+    }
 });

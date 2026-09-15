@@ -25,6 +25,7 @@ import { motionPrefs } from '../utils/motion-prefs.js';
 import { camera, disposableResources } from './scene.js';
 import { switchClack, clickBlip } from '../utils/sound.js';
 import { emitUartLog, emitSystemEvent } from '../ui/telemetry.js';
+import { hapticClick } from '../utils/haptics.js';
 
 let isExploded = false;
 let isXRay = false;
@@ -236,8 +237,9 @@ export function setTeardownState(active, onCameraRestore) {
     if (isExploded === active) return;
     isExploded = active;
 
-    // Play tactile mechanical switch clack
+    // Play tactile mechanical switch clack and haptic response
     switchClack();
+    hapticClick();
 
     // Toggle body class & HUD button state
     document.body.classList.toggle('teardown-active', isExploded);
@@ -372,6 +374,7 @@ export function setExplosionScale(factor) {
 export function setLayerFilter(layerKey) {
     activeLayerFilter = layerKey;
     clickBlip();
+    hapticClick();
 
     document.querySelectorAll('.cad-layer-btn').forEach(btn => {
         const b = /** @type {HTMLElement} */ (btn);
@@ -408,6 +411,7 @@ export function getActiveLayerFilter() {
 export function toggleXRayMode(forced) {
     isXRay = (forced !== undefined) ? forced : !isXRay;
     clickBlip();
+    hapticClick();
 
     document.body.classList.toggle('xray-active', isXRay);
     const xrayBtn = document.getElementById('cad-cam-xray-btn');

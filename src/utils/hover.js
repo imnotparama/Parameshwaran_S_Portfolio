@@ -10,6 +10,7 @@ import { interactiveObjects, pressTactile, energizeCapacitor, toggleDelidCpu } f
 import { highlightTrace } from '../three/traces.js';
 import { simView } from '../three/lcd-sim.js';
 import { hoverBlip, clickBlip, probeTone, playContinuityBeep, playMechanicalClick, playRfChirp, playInductorWhine } from './sound.js';
+import { hapticClick, hapticTick } from './haptics.js';
 import { motionPrefs } from './motion-prefs.js';
 import { rotatePotentiometer } from '../three/potentiometer.js';
 import { playComponentTone } from './synth.js';
@@ -365,22 +366,54 @@ export function initHover(camera, scene) {
         positionChipTip();
     });
 
-    // Touch support — touchstart/touchmove keep feeding parallax (and, on
-    // hybrids, the raycast while a finger is down), but ending the touch
-    // clears the hover so no glow survives the lift, and starts the
-    // synthetic-mousemove suppression window.
+    // Multi-touch pinch & twist tracking
+    let initialPinchDist = 0;
+    let initialPinchAngle = 0;
+    let isPinching = false;
+
+    // Touch support — touchstart/touchmove keep feeding parallax, handle 2-finger
+    // pinch zoom / rotate, and suppress synthetic mousemove after lift.
     window.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 0) updateMouseCoords(e.touches[0].clientX, e.touches[0].clientY);
+        if (e.touches.length === 2) {
+            isPinching = true;
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            initialPinchDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            initialPinchAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX);
+            hapticTick();
+        } else if (e.touches.length > 0) {
+            isPinching = false;
+            updateMouseCoords(e.touches[0].clientX, e.touches[0].clientY);
+        }
         suppressHoverUntil = nowMs() + HYBRID_TOUCH_WINDOW_MS;
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-        if (e.touches.length > 0) updateMouseCoords(e.touches[0].clientX, e.touches[0].clientY);
+        if (e.touches.length === 2 && isPinching && activeCamera) {
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            const distDelta = currentDist - initialPinchDist;
+            if (Math.abs(distDelta) > 5) {
+                // Smooth camera zoom clamp [2.8, 15.0]
+                activeCamera.position.z = clamp(activeCamera.position.z - (distDelta * 0.012), 2.8, 15.0);
+                initialPinchDist = currentDist;
+            }
+            const currentAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX);
+            const angleDelta = currentAngle - initialPinchAngle;
+            if (Math.abs(angleDelta) > 0.05) {
+                targetMouse.x = clamp(targetMouse.x + angleDelta * 0.4, -1.0, 1.0);
+                initialPinchAngle = currentAngle;
+            }
+        } else if (e.touches.length > 0 && !isPinching) {
+            updateMouseCoords(e.touches[0].clientX, e.touches[0].clientY);
+        }
     }, { passive: true });
 
     // A lifted/cancelled touch must not leave a hover glow behind — and the
     // synthetic mousemove + stale-aim raycast that follow must not re-light it.
     const endTouch = () => {
+        isPinching = false;
         suppressHoverUntil = nowMs() + HYBRID_TOUCH_WINDOW_MS;
         clearHover();
     };
@@ -412,6 +445,7 @@ export function initHover(camera, scene) {
 
             if (hits.length > 0) {
                 const obj = hits[0].object;
+                hapticClick();
                 if (obj.userData && obj.userData.type === 'PROJECT' && obj.name && clickHandler) {
                     clickBlip();
                     clickHandler(obj.name);

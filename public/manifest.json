@@ -1,17 +1,20 @@
 {
-  "name": "PARAMESHWARAN S — PCB Portfolio",
-  "short_name": "PS PCB Portfolio",
-  "description": "Interactive 3D PCB-themed portfolio of Parameshwaran S — AI Engineer, ML Developer, ECE Student",
+  "name": "PARAMESHWARAN S — 3D Hardware OS & PCB Portfolio",
+  "short_name": "Parama PCB OS",
+  "description": "Interactive 3D PCB development board & hardware OS of Parameshwaran S — ECE & Data Science, SRM University",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#050f05",
-  "theme_color": "#00ff88",
+  "orientation": "any",
+  "background_color": "#030705",
+  "theme_color": "#3ee6a0",
   "icons": [
     {
       "src": "/favicon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["portfolio", "technology", "education"]
+  "categories": ["portfolio", "technology", "education", "utilities"]
 }

@@ -6,6 +6,7 @@
 // ============================================================
 import { clickBlip } from '../utils/sound.js';
 import { emitUartLog, emitSystemEvent } from './telemetry.js';
+import { hapticClick, hapticSuccess } from '../utils/haptics.js';
 
 /**
  * @typedef {{
@@ -164,6 +165,7 @@ export function syncLiveBenchToProject(ref) {
 export function setBenchClockMultiplier(mult) {
     currentMult = mult;
     clickBlip();
+    hapticClick();
 
     document.querySelectorAll('.ds-bench-clk-btn').forEach(btn => {
         const b = /** @type {HTMLElement} */ (btn);
@@ -214,6 +216,7 @@ export function runSubsystemBenchmark() {
     if (isBenchmarking) return;
     isBenchmarking = true;
     clickBlip();
+    hapticClick();
 
     const profile = BENCH_PROFILES[activeRef] || BENCH_PROFILES['CP1'];
     emitUartLog('TEST', `Injecting 64-byte pseudo-random test vectors into ${profile.ref}...`);
@@ -246,6 +249,7 @@ export function runSubsystemBenchmark() {
         }
         isBenchmarking = false;
         clickBlip();
+        hapticSuccess();
         emitUartLog('PASS', `${profile.ref} Benchmark Complete: 0 ERRORS DETECTED`);
     }, 650);
 }
