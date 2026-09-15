@@ -1,12 +1,16 @@
 // @ts-check
 // ============================================================
-// 3D PCB Nano-Rover Mesh, Suspension & Skid Marks System
+// 3D PCB Nano-Rover High-Fidelity Vehicle Model & Laser Scanner
 //
 // 1. SMD Nano-Rover Vehicle Model:
-//    - Miniature 4-wheel rover with gold ENIG circuit chassis.
-//    - 4 rolling wheels with independent front steering angles.
-//    - Dual LED headlights throwing forward illumination cones.
-//    - Resistor exhaust ports with neon boost particles.
+//    - Aerospace carbon-fiber tub with ENIG gold roll cage & front aero splitter.
+//    - Independent front steering pivot spindles + rolling treaded tires with ENIG hubcaps.
+//    - 360° rotating LiDAR turret on roof with green laser emitter lens.
+//    - Dynamic 3D laser projection cone & scanning reticle on PCB surface.
+//    - Dual forward projector headlights throwing illumination cones.
+//    - Reactive rear LED brake/tail-lights (flares bright red on deceleration/reverse).
+//    - Dual ceramic resistor boost exhaust thrusters with electric plasma flare.
+//    - Cyan neon underglow casting dynamic illumination onto soldermask.
 //
 // 2. Drift Tire Skid Mark Decals:
 //    - Lays decaying tire tracks on the soldermask when drifting.
@@ -17,18 +21,45 @@ import { disposableResources } from './scene.js';
 
 /** @type {THREE.Group | null} */
 export let roverGroup = null;
-/** @type {THREE.Mesh | null} */
+
+// Steering Pivot Groups (to decouple steering yaw from wheel rolling pitch)
+/** @type {THREE.Group | null} */
+let flPivot = null;
+/** @type {THREE.Group | null} */
+let frPivot = null;
+
+// Wheels
+/** @type {THREE.Group | null} */
 let flWheel = null;
-/** @type {THREE.Mesh | null} */
+/** @type {THREE.Group | null} */
 let frWheel = null;
-/** @type {THREE.Mesh | null} */
+/** @type {THREE.Group | null} */
 let blWheel = null;
-/** @type {THREE.Mesh | null} */
+/** @type {THREE.Group | null} */
 let brWheel = null;
+
+// Headlights & Tail-lights
 /** @type {THREE.PointLight | null} */
 let headlightL = null;
 /** @type {THREE.PointLight | null} */
 let headlightR = null;
+/** @type {THREE.MeshStandardMaterial | null} */
+let taillightMat = null;
+
+// Boost Thrusters
+/** @type {THREE.MeshBasicMaterial | null} */
+let boostGlowMat = null;
+
+// Rotating LiDAR Turret & Laser Scanner
+/** @type {THREE.Group | null} */
+let lidarTurret = null;
+/** @type {THREE.Mesh | null} */
+let laserBeamMesh = null;
+/** @type {THREE.Group | null} */
+let laserReticleGroup = null;
+/** @type {THREE.Vector3 | null} */
+let laserTargetWorldPos = null;
+let isLaserLocked = false;
 
 // Skid mark decal pool
 const MAX_SKIDS = 32;
@@ -40,75 +71,174 @@ const dummySkid = new THREE.Object3D();
 let skidIndex = 0;
 
 /**
- * Construct the 3D Nano-Rover vehicle.
+ * Set the laser scanner target coordinates (e.g. over a PCB component).
+ * @param {THREE.Vector3 | null} targetPos
+ * @param {boolean} locked
+ */
+export function setRoverLaserTarget(targetPos, locked = false) {
+    if (targetPos) {
+        if (!laserTargetWorldPos) laserTargetWorldPos = new THREE.Vector3();
+        laserTargetWorldPos.copy(targetPos);
+        isLaserLocked = locked;
+    } else {
+        laserTargetWorldPos = null;
+        isLaserLocked = false;
+    }
+}
+
+/**
+ * Construct the high-fidelity 3D Nano-Rover vehicle.
  * @param {THREE.Group} boardGroup
  * @returns {THREE.Group}
  */
 export function createRover(boardGroup) {
     roverGroup = new THREE.Group();
-    roverGroup.position.set(0, -5.5, 0.22); // Spawn near bottom
+    roverGroup.position.set(0, -5.5, 0.22); // Spawn near bottom center
     roverGroup.visible = false;
 
-    // 1. Chassis Body (SMD Chip style with bevel)
-    const bodyGeo = new THREE.BoxGeometry(0.48, 0.72, 0.16);
-    disposableResources.geometries.add(bodyGeo);
-
+    // ─── 1. Main Carbon-Fiber Chassis Tub ────────────────────────
+    const bodyGeo = new THREE.BoxGeometry(0.50, 0.74, 0.16);
     const bodyMat = new THREE.MeshStandardMaterial({
-        color: 0x18181b,
-        metalness: 0.6,
-        roughness: 0.3,
-        emissive: 0x0a2b0a,
-        emissiveIntensity: 0.2
+        color: 0x141418,
+        metalness: 0.85,
+        roughness: 0.25,
+        emissive: 0x051008,
+        emissiveIntensity: 0.3
     });
+    disposableResources.geometries.add(bodyGeo);
     disposableResources.materials.add(bodyMat);
 
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     bodyMesh.castShadow = true;
     roverGroup.add(bodyMesh);
 
-    // Top Silicon Die / Gold Roof Accent
-    const roofGeo = new THREE.PlaneGeometry(0.32, 0.44);
-    const roofMat = new THREE.MeshStandardMaterial({
-        color: 0xc9a24b,
+    // Front Aero Splitter (ENIG Gold accented)
+    const splitterGeo = new THREE.BoxGeometry(0.56, 0.12, 0.04);
+    const goldMat = new THREE.MeshStandardMaterial({
+        color: 0xd4af37,
         metalness: 0.95,
         roughness: 0.15,
-        emissive: 0xc9a24b,
-        emissiveIntensity: 0.4
+        emissive: 0x997a15,
+        emissiveIntensity: 0.35
     });
+    disposableResources.geometries.add(splitterGeo);
+    disposableResources.materials.add(goldMat);
+
+    const splitterMesh = new THREE.Mesh(splitterGeo, goldMat);
+    splitterMesh.position.set(0, 0.38, -0.05);
+    roverGroup.add(splitterMesh);
+
+    // Rear Aero Diffuser
+    const diffuserGeo = new THREE.BoxGeometry(0.48, 0.10, 0.06);
+    disposableResources.geometries.add(diffuserGeo);
+    const diffuserMesh = new THREE.Mesh(diffuserGeo, bodyMat);
+    diffuserMesh.position.set(0, -0.38, -0.04);
+    roverGroup.add(diffuserMesh);
+
+    // Top Silicon Die / Gold Roof Accent
+    const roofGeo = new THREE.PlaneGeometry(0.34, 0.46);
     disposableResources.geometries.add(roofGeo);
-    disposableResources.materials.add(roofMat);
-    const roofMesh = new THREE.Mesh(roofGeo, roofMat);
-    roofMesh.position.z = 0.081;
+    const roofMesh = new THREE.Mesh(roofGeo, goldMat);
+    roofMesh.position.z = 0.082;
     roverGroup.add(roofMesh);
 
-    // 2. Wheels (4 rubber cylinders)
-    const wheelGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.08, 16);
-    wheelGeo.rotateZ(Math.PI / 2);
-    disposableResources.geometries.add(wheelGeo);
+    // ─── 2. ENIG Gold Roll Cage Exoskeleton ─────────────────────
+    const cageBarMat = goldMat;
+    const cageGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.48, 8);
+    cageGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(cageGeo);
 
-    const wheelMat = new THREE.MeshStandardMaterial({
-        color: 0x09090b,
-        metalness: 0.1,
-        roughness: 0.9
+    const leftBar = new THREE.Mesh(cageGeo, cageBarMat);
+    leftBar.position.set(-0.20, 0, 0.14);
+    const rightBar = new THREE.Mesh(cageGeo, cageBarMat);
+    rightBar.position.set(0.20, 0, 0.14);
+    roverGroup.add(leftBar);
+    roverGroup.add(rightBar);
+
+    // Cross brace
+    const crossGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.40, 8);
+    crossGeo.rotateZ(Math.PI / 2);
+    disposableResources.geometries.add(crossGeo);
+    const crossBarF = new THREE.Mesh(crossGeo, cageBarMat);
+    crossBarF.position.set(0, 0.22, 0.14);
+    const crossBarR = new THREE.Mesh(crossGeo, cageBarMat);
+    crossBarR.position.set(0, -0.22, 0.14);
+    roverGroup.add(crossBarF);
+    roverGroup.add(crossBarR);
+
+    // ─── 3. Neon Cyan Underglow Mesh & Light ────────────────────
+    const underglowGeo = new THREE.PlaneGeometry(0.54, 0.78);
+    const underglowMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffcc,
+        transparent: true,
+        opacity: 0.42,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
     });
-    disposableResources.materials.add(wheelMat);
+    disposableResources.geometries.add(underglowGeo);
+    disposableResources.materials.add(underglowMat);
 
-    flWheel = new THREE.Mesh(wheelGeo, wheelMat);
-    frWheel = new THREE.Mesh(wheelGeo, wheelMat);
-    blWheel = new THREE.Mesh(wheelGeo, wheelMat);
-    brWheel = new THREE.Mesh(wheelGeo, wheelMat);
+    const underglowMesh = new THREE.Mesh(underglowGeo, underglowMat);
+    underglowMesh.position.z = -0.075;
+    roverGroup.add(underglowMesh);
 
-    flWheel.position.set(-0.28, 0.24, -0.02);
-    frWheel.position.set(0.28, 0.24, -0.02);
-    blWheel.position.set(-0.28, -0.24, -0.02);
-    brWheel.position.set(0.28, -0.24, -0.02);
+    const underglowLight = new THREE.PointLight(0x00ffcc, 0.9, 1.8);
+    underglowLight.position.set(0, 0, -0.06);
+    roverGroup.add(underglowLight);
 
-    roverGroup.add(flWheel);
-    roverGroup.add(frWheel);
+    // ─── 4. Treaded Wheels with ENIG Hubcaps ─────────────────────
+    const tireGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.09, 16);
+    tireGeo.rotateZ(Math.PI / 2);
+    disposableResources.geometries.add(tireGeo);
+
+    const tireMat = new THREE.MeshStandardMaterial({
+        color: 0x09090b,
+        metalness: 0.15,
+        roughness: 0.85
+    });
+    disposableResources.materials.add(tireMat);
+
+    const hubcapGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.095, 12);
+    hubcapGeo.rotateZ(Math.PI / 2);
+    disposableResources.geometries.add(hubcapGeo);
+
+    /**
+     * Create a compound wheel with tire + gold hubcap.
+     * @returns {THREE.Group}
+     */
+    function createWheelAssembly() {
+        const wGroup = new THREE.Group();
+        const tire = new THREE.Mesh(tireGeo, tireMat);
+        tire.castShadow = true;
+        const cap = new THREE.Mesh(hubcapGeo, goldMat);
+        wGroup.add(tire);
+        wGroup.add(cap);
+        return wGroup;
+    }
+
+    // Front Steering Spindles (Pivots)
+    flPivot = new THREE.Group();
+    frPivot = new THREE.Group();
+    flPivot.position.set(-0.29, 0.24, -0.02);
+    frPivot.position.set(0.29, 0.24, -0.02);
+
+    flWheel = createWheelAssembly();
+    frWheel = createWheelAssembly();
+    flPivot.add(flWheel);
+    frPivot.add(frWheel);
+
+    roverGroup.add(flPivot);
+    roverGroup.add(frPivot);
+
+    // Rear Wheels (Direct mount)
+    blWheel = createWheelAssembly();
+    brWheel = createWheelAssembly();
+    blWheel.position.set(-0.29, -0.24, -0.02);
+    brWheel.position.set(0.29, -0.24, -0.02);
     roverGroup.add(blWheel);
     roverGroup.add(brWheel);
 
-    // 3. Headlights (Twin LEDs throwing light cones)
+    // ─── 5. Forward Projector Headlights ─────────────────────────
     const headMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
     const headGeo = new THREE.SphereGeometry(0.04, 8, 8);
     disposableResources.geometries.add(headGeo);
@@ -116,21 +246,164 @@ export function createRover(boardGroup) {
 
     const hlMeshL = new THREE.Mesh(headGeo, headMat);
     const hlMeshR = new THREE.Mesh(headGeo, headMat);
-    hlMeshL.position.set(-0.16, 0.36, 0.02);
-    hlMeshR.position.set(0.16, 0.36, 0.02);
+    hlMeshL.position.set(-0.16, 0.38, 0.02);
+    hlMeshR.position.set(0.16, 0.38, 0.02);
     roverGroup.add(hlMeshL);
     roverGroup.add(hlMeshR);
 
-    headlightL = new THREE.PointLight(0x00ffff, 1.2, 3.5);
-    headlightR = new THREE.PointLight(0x00ffff, 1.2, 3.5);
-    headlightL.position.set(-0.16, 0.5, 0.06);
-    headlightR.position.set(0.16, 0.5, 0.06);
+    headlightL = new THREE.PointLight(0x00ffff, 1.4, 3.8);
+    headlightR = new THREE.PointLight(0x00ffff, 1.4, 3.8);
+    headlightL.position.set(-0.16, 0.52, 0.06);
+    headlightR.position.set(0.16, 0.52, 0.06);
     roverGroup.add(headlightL);
     roverGroup.add(headlightR);
 
+    // ─── 6. Reactive Rear Brake & Tail-Lights ────────────────────
+    taillightMat = new THREE.MeshStandardMaterial({
+        color: 0x660011,
+        metalness: 0.3,
+        roughness: 0.2,
+        emissive: 0xcc0022,
+        emissiveIntensity: 0.6
+    });
+    disposableResources.materials.add(taillightMat);
+
+    const tailGeo = new THREE.BoxGeometry(0.08, 0.03, 0.04);
+    disposableResources.geometries.add(tailGeo);
+
+    const tlMeshL = new THREE.Mesh(tailGeo, taillightMat);
+    const tlMeshR = new THREE.Mesh(tailGeo, taillightMat);
+    tlMeshL.position.set(-0.17, -0.38, 0.03);
+    tlMeshR.position.set(0.17, -0.38, 0.03);
+    roverGroup.add(tlMeshL);
+    roverGroup.add(tlMeshR);
+
+    // ─── 7. Resistor Boost Thrusters ────────────────────────────
+    const boosterGeo = new THREE.CylinderGeometry(0.035, 0.045, 0.09, 12);
+    boosterGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(boosterGeo);
+
+    const boosterMat = new THREE.MeshStandardMaterial({
+        color: 0x222226,
+        metalness: 0.8,
+        roughness: 0.3
+    });
+    disposableResources.materials.add(boosterMat);
+
+    boostGlowMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffcc,
+        transparent: true,
+        opacity: 0.25
+    });
+    disposableResources.materials.add(boostGlowMat);
+
+    const boosterL = new THREE.Mesh(boosterGeo, boosterMat);
+    const boosterR = new THREE.Mesh(boosterGeo, boosterMat);
+    boosterL.position.set(-0.10, -0.40, -0.02);
+    boosterR.position.set(0.10, -0.40, -0.02);
+
+    const boostGlowGeo = new THREE.ConeGeometry(0.04, 0.16, 8);
+    boostGlowGeo.rotateX(-Math.PI / 2);
+    disposableResources.geometries.add(boostGlowGeo);
+
+    const boostFlareL = new THREE.Mesh(boostGlowGeo, boostGlowMat);
+    const boostFlareR = new THREE.Mesh(boostGlowGeo, boostGlowMat);
+    boostFlareL.position.set(0, -0.10, 0);
+    boostFlareR.position.set(0, -0.10, 0);
+    boosterL.add(boostFlareL);
+    boosterR.add(boostFlareR);
+
+    roverGroup.add(boosterL);
+    roverGroup.add(boosterR);
+
+    // ─── 8. 360° Rotating LiDAR Turret & 3D Laser Scanner ────────
+    lidarTurret = new THREE.Group();
+    lidarTurret.position.set(0, 0.04, 0.12);
+
+    const turretBaseGeo = new THREE.CylinderGeometry(0.09, 0.10, 0.04, 16);
+    turretBaseGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(turretBaseGeo);
+    const turretBaseMat = new THREE.MeshStandardMaterial({
+        color: 0x202024,
+        metalness: 0.7,
+        roughness: 0.3
+    });
+    disposableResources.materials.add(turretBaseMat);
+    const turretBase = new THREE.Mesh(turretBaseGeo, turretBaseMat);
+    lidarTurret.add(turretBase);
+
+    // Rotating Dome
+    const domeGeo = new THREE.CylinderGeometry(0.065, 0.075, 0.05, 16);
+    domeGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(domeGeo);
+    const domeMat = new THREE.MeshStandardMaterial({
+        color: 0x0d0d10,
+        metalness: 0.9,
+        roughness: 0.15
+    });
+    disposableResources.materials.add(domeMat);
+    const domeMesh = new THREE.Mesh(domeGeo, domeMat);
+    domeMesh.position.z = 0.03;
+    lidarTurret.add(domeMesh);
+
+    // Optical Lens Slit (Laser Emitter)
+    const lensGeo = new THREE.BoxGeometry(0.04, 0.08, 0.02);
+    const lensMat = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
+    disposableResources.geometries.add(lensGeo);
+    disposableResources.materials.add(lensMat);
+    const lensMesh = new THREE.Mesh(lensGeo, lensMat);
+    lensMesh.position.set(0, 0.04, 0.035);
+    lidarTurret.add(lensMesh);
+
+    roverGroup.add(lidarTurret);
+
+    // ─── 9. Dynamic 3D Laser Projection Cone & Surface Reticle ───
+    const laserBeamGeo = new THREE.CylinderGeometry(0.02, 0.28, 0.36, 16, 1, true);
+    laserBeamGeo.rotateX(Math.PI / 2);
+    disposableResources.geometries.add(laserBeamGeo);
+
+    const laserBeamMat = new THREE.MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+    });
+    disposableResources.materials.add(laserBeamMat);
+
+    laserBeamMesh = new THREE.Mesh(laserBeamGeo, laserBeamMat);
+    laserBeamMesh.position.set(0, 0, -0.16);
+    lidarTurret.add(laserBeamMesh);
+
+    // Laser Surface Targeting Reticle (flat on PCB surface)
+    laserReticleGroup = new THREE.Group();
+    laserReticleGroup.position.set(0, 0, -0.21);
+
+    const ringOuterGeo = new THREE.RingGeometry(0.24, 0.27, 32);
+    disposableResources.geometries.add(ringOuterGeo);
+    const ringInnerGeo = new THREE.RingGeometry(0.06, 0.08, 16);
+    disposableResources.geometries.add(ringInnerGeo);
+
+    const reticleMat = new THREE.MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0.65,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+    });
+    disposableResources.materials.add(reticleMat);
+
+    const ringOuter = new THREE.Mesh(ringOuterGeo, reticleMat);
+    const ringInner = new THREE.Mesh(ringInnerGeo, reticleMat);
+    laserReticleGroup.add(ringOuter);
+    laserReticleGroup.add(ringInner);
+    roverGroup.add(laserReticleGroup);
+
     boardGroup.add(roverGroup);
 
-    // 4. Drift Skid Marks Decal Pool
+    // ─── 10. Drift Skid Marks Decal Pool ─────────────────────────
     const skidGeo = new THREE.PlaneGeometry(0.08, 0.16);
     disposableResources.geometries.add(skidGeo);
 
@@ -171,29 +444,29 @@ export function addSkidMark(pos, rotZ) {
 }
 
 /**
- * Update wheel roll rotation, steering angle, and suspension tilt.
- * @param {{ pos: THREE.Vector3, vel: THREE.Vector3, angle: number, steer: number, speed: number, pitch: number, roll: number, isDrifting: boolean }} state
+ * Update wheel roll rotation, steering angle, suspension tilt, rotating LiDAR, and laser visuals.
+ * @param {{ pos: THREE.Vector3, vel: THREE.Vector3, angle: number, steer: number, speed: number, pitch: number, roll: number, isDrifting: boolean, isBoosting?: boolean }} state
  * @param {number} delta
  */
 export function updateRoverVisuals(state, delta) {
     if (!roverGroup || !roverGroup.visible) return;
 
-    // Apply Position & Yaw Angle
+    // 1. Apply Position & Yaw Angle
     roverGroup.position.set(state.pos.x, state.pos.y, state.pos.z);
     roverGroup.rotation.z = state.angle;
 
-    // Apply Suspension Pitch & Roll Tilts
+    // 2. Apply Suspension Pitch & Roll Tilts
     roverGroup.rotation.x = state.pitch;
     roverGroup.rotation.y = state.roll;
 
-    // Front Wheel Steering Angle
-    if (flWheel && frWheel) {
-        flWheel.rotation.z = state.steer;
-        frWheel.rotation.z = state.steer;
+    // 3. Front Wheel Steering Angle (applied cleanly to pivot spindles)
+    if (flPivot && frPivot) {
+        flPivot.rotation.z = state.steer;
+        frPivot.rotation.z = state.steer;
     }
 
-    // Wheel Rolling Rotation based on speed
-    const wheelRotDelta = (state.speed * delta) / 0.11;
+    // 4. Wheel Rolling Rotation based on speed
+    const wheelRotDelta = (state.speed * delta) / 0.12;
     if (flWheel && frWheel && blWheel && brWheel) {
         flWheel.rotation.x += wheelRotDelta;
         frWheel.rotation.x += wheelRotDelta;
@@ -201,12 +474,43 @@ export function updateRoverVisuals(state, delta) {
         brWheel.rotation.x += wheelRotDelta;
     }
 
-    // Add Drift Skid Mark if drifting
+    // 5. 360° Rotating LiDAR Turret
+    if (lidarTurret) {
+        const spinRate = isLaserLocked ? 1.5 : (6.28 + Math.abs(state.speed) * 0.8);
+        lidarTurret.rotation.z += delta * spinRate;
+    }
+
+    // 6. Laser Scanner Beam & Reticle Pulsing
+    if (laserReticleGroup) {
+        const pulse = 1.0 + Math.sin(Date.now() * 0.008) * 0.12;
+        laserReticleGroup.scale.set(pulse, pulse, 1.0);
+        laserReticleGroup.rotation.z += delta * 1.8;
+    }
+
+    // 7. Reactive Rear Brake & Tail-Lights
+    if (taillightMat) {
+        const isBrakingOrReversing = state.speed < -0.05 || (state.vel && state.vel.dot(new THREE.Vector3(0, 1, 0)) < 0);
+        if (isBrakingOrReversing) {
+            taillightMat.emissive.setHex(0xff0022);
+            taillightMat.emissiveIntensity = 2.4;
+        } else {
+            taillightMat.emissive.setHex(0xcc0022);
+            taillightMat.emissiveIntensity = 0.6;
+        }
+    }
+
+    // 8. Resistor Boost Thrusters Glow
+    if (boostGlowMat) {
+        const targetOpacity = state.isBoosting ? 0.95 : 0.15;
+        boostGlowMat.opacity += (targetOpacity - boostGlowMat.opacity) * Math.min(1.0, delta * 12);
+    }
+
+    // 9. Add Drift Skid Mark if drifting
     if (state.isDrifting && Math.random() < 0.4) {
         addSkidMark(state.pos, state.angle);
     }
 
-    // Update Skid Marks Decals
+    // 10. Update Skid Marks Decals
     const sm = skidMesh;
     if (sm) {
         skidDecals.forEach((skid, i) => {
