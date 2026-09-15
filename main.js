@@ -414,14 +414,6 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleTeardown(() => scrollToSection(getActiveSectionId()));
         });
     }
-    const turboBtn = document.getElementById('turbo-toggle-btn');
-    if (turboBtn) {
-        turboBtn.addEventListener('click', () => {
-            clickBlip();
-            toggleOverclock();
-            setThermalLoad(document.body.classList.contains('overclock-active') ? 74 : 42);
-        });
-    }
     const themeBtn = document.getElementById('theme-toggle-btn');
     if (themeBtn) {
         themeBtn.addEventListener('click', () => {
@@ -699,13 +691,6 @@ document.addEventListener('DOMContentLoaded', () => {
         heroRoverBtn.addEventListener('click', () => {
             clickBlip();
             toggleRover(() => scrollToSection(getActiveSectionId()));
-        });
-    }
-    const heroTurboBtn = document.getElementById('hero-turbo-btn');
-    if (heroTurboBtn) {
-        heroTurboBtn.addEventListener('click', () => {
-            clickBlip();
-            toggleOverclock();
         });
     }
     const heroDelidBtn = document.getElementById('hero-delid-btn');
@@ -1017,11 +1002,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // 3D Exploded Hardware Teardown view (E key)
             e.preventDefault();
             toggleTeardown(() => scrollToSection(getActiveSectionId()));
-        } else if (!isProbeModeActive() && key === 't') {
-            // Turbo Overclock mode (T key)
-            e.preventDefault();
-            toggleOverclock();
-            setThermalLoad(document.body.classList.contains('overclock-active') ? 74 : 42);
         } else if (!isProbeModeActive() && key === 'h') {
             // FLIR Thermal Infrared Camera mode (H key)
             e.preventDefault();
@@ -1081,9 +1061,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     emitSystemEvent('Matrix Mode', 'CRT Phosphor Diagnostic Test');
                     document.body.classList.toggle('matrix-rain');
                 } else if (cmd === 'konami') {
-                    toggleOverclock();
-                    emitUartLog('SYS', 'DEVELOPER OVERLOAD ENGAGED');
-                    emitSystemEvent('God Mode', '100MHz Turbo Overclock Active');
+                    triggerGlobalCelebrationPulse();
+                    emitUartLog('SYS', 'DEVELOPER CHEAT ENGAGED');
+                    emitSystemEvent('God Mode', 'Developer System Surge Active');
                 }
                 break;
             }

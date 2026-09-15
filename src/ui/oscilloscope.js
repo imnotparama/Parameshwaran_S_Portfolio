@@ -19,7 +19,6 @@
 // Called per frame from main.js tick loop; no-ops when scope canvas missing.
 // ============================================================
 import { getRunnerScope } from '../three/lcd.js';
-import { isOverclockActive } from '../three/overclock.js';
 import { getClockFrequency } from '../three/potentiometer.js';
 
 /** @type {HTMLCanvasElement | null} */
@@ -335,7 +334,6 @@ export function updateOscilloscope(elapsed, hoverRef) {
     }
     lastScopeActive = lcdScope.active;
 
-    const overclocked = isOverclockActive();
     const freqMhz = getClockFrequency();
 
     // Update Channel 2 clock readout
@@ -366,21 +364,16 @@ export function updateOscilloscope(elapsed, hoverRef) {
     }
     ctx.stroke();
 
-    // ─── CHANNEL 1: Probed Component Signal (Phosphor Green / Cyan) ─
+    // ─── CHANNEL 1: Probed Component Signal (Phosphor Green) ───
     ctx.beginPath();
-    ctx.strokeStyle = overclocked ? '#00ffff' : COLOR_TRACE;
-    ctx.lineWidth = overclocked ? 2.0 : 1.5;
-    ctx.shadowColor = overclocked ? 'rgba(0, 255, 255, 0.8)' : COLOR_GLOW;
-    ctx.shadowBlur = overclocked ? 8 : 5;
+    ctx.strokeStyle = COLOR_TRACE;
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = COLOR_GLOW;
+    ctx.shadowBlur = 5;
 
     for (let px = 0; px <= steps; px++) {
         const x = px / steps;  // 0..1
-        let y = waveform(ref, elapsed, x);
-        if (overclocked) {
-            // Overclock saw-tooth burst modulation
-            const saw = ((x * (freqMhz / 5) + elapsed * 10) % 1) * 1.4 - 0.7;
-            y = y * 0.5 + saw * 0.5 + noise(elapsed * 20 + x * 30, 0.1);
-        }
+        const y = waveform(ref, elapsed, x);
         // Slightly offset up for channel separation
         const canvasY = (midY - 4) - y * (ampY * 0.8);
         if (px === 0) {
@@ -412,7 +405,7 @@ export function updateOscilloscope(elapsed, hoverRef) {
     ctx.shadowBlur = 0;
 
     // Trigger markers: CH1 top-left, CH2 bottom-left
-    ctx.fillStyle = overclocked ? '#00ffff' : COLOR_TRACE;
+    ctx.fillStyle = COLOR_TRACE;
     ctx.fillRect(0, 0, 3, 4);
     ctx.fillStyle = COLOR_CH2;
     ctx.fillRect(0, H - 4, 3, 4);

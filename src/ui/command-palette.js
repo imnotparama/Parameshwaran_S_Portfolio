@@ -41,8 +41,7 @@ function buildCommands() {
         { icon: '⚙', label: 'Engineering Architecture & Specs (About Project)', hint: 'WebGL · Telemetry · Stack', exec: () => deps && deps.toggleArch && deps.toggleArch() },
         // ── Utilities
         { icon: '⊚', label: 'Drive PCB Nano-Rover',           hint: 'R · Drive Mode', exec: () => deps && deps.toggleRover && deps.toggleRover() },
-        { icon: '◫', label: '3D Hardware Teardown (Explode)', hint: 'E · 5-Layer',   exec: () => deps && deps.toggleTeardown && deps.toggleTeardown() },
-        { icon: '⌁', label: 'Turbo Overclock (100MHz / 5V)', hint: 'T · High-Voltage', exec: () => deps && deps.toggleOverclock && deps.toggleOverclock() },
+        { icon: '◫', label: '3D Hardware Teardown (Explode)', hint: 'E · 6-Layer',   exec: () => deps && deps.toggleTeardown && deps.toggleTeardown() },
         { icon: '◈', label: 'Cycle Board Theme',             hint: 'ENIG / 24K / Cyber / Stealth', exec: () => deps && deps.cycleTheme && deps.cycleTheme() },
         { icon: '◉', label: 'Toggle Night Bench',             hint: 'P · PWR LED',   exec: () => deps && deps.togglePower() },
         { icon: '◐', label: 'Low-Glare Bench Mode (Dim Bloom)', hint: 'Reduced Glare · 0.35x Bloom', exec: () => deps && deps.toggleBench && deps.toggleBench() },

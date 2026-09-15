@@ -637,15 +637,15 @@ export function createComponents(boardGroup) {
         ihsCtx.font = 'bold 16px monospace';
         ihsCtx.fillText('PARAMA LABS // SILICON ARCH', 44, 68);
 
-        ihsCtx.font = 'bold 34px monospace';
+        ihsCtx.font = 'bold 32px monospace';
         ihsCtx.fillStyle = '#e2ecf5';
-        ihsCtx.fillText('PARAMA CORE-X', 44, 140);
+        ihsCtx.fillText('PARAMESHWARAN S', 44, 140);
 
         ihsCtx.font = 'bold 15px monospace';
         ihsCtx.fillStyle = '#94a3b8';
-        ihsCtx.fillText('64-BIT DUAL-CORE NEURAL ENGINE', 44, 175);
-        ihsCtx.fillText('4.80GHz TURBO · 32MB L3 · BGA-1151', 44, 205);
-        ihsCtx.fillText('REV 2.4 · ECE-2026 // FAB: SRM LABS', 44, 235);
+        ihsCtx.fillText('DATA SCIENCE & HARDWARE SYSTEMS', 44, 175);
+        ihsCtx.fillText('ARM CORTEX ARCH // PRM-MCU', 44, 205);
+        ihsCtx.fillText('REV 2.4 · ECE-2026 // SRM UNIVERSITY', 44, 235);
 
         // 2D DataMatrix barcode simulation
         ihsCtx.fillStyle = '#3ee6a0';

@@ -108,9 +108,7 @@ c:\Users\hunte\Parameshwaran_S_Portfolio\
 | **🔬 CAD/CAM 6-Layer Stackup** | `E` or Hero Button / HUD Rack | Explodes the board in 3D space into 6 discrete CAD/CAM layers (Silkscreen, Components, Top Cu, FR-4 Core, Internal GND, Internal PWR, Bottom Cu). Features dynamic Z-expansion slider, layer filter isolation (`ALL`, `SILK`, `TOP_CU`, `FR4`, `GND`, `PWR`, `BOT_CU`), and glowing through-hole laser guides. |
 | **☢️ X-Ray Fluoroscopy** | HUD Rack Button / `toggleXRayMode` | Inverts the board rendering into a high-contrast cyan fluoroscopic X-Ray inspection mode revealing internal copper routing. |
 | **📟 Dual-Channel Oscilloscope** | HUD Scope Rack | Visualizes live probe signal on CH1 (Green), hardware reference clock on CH2 (Amber), plus a live decoded logic sniffer packet strip (`[0x5A, 0xA5, 0x01, CRC-OK]`). |
-| **⚡ Subsystem Simulation Bench** | Inside Project Datasheets | Drives interactive 64-byte test vectors, clock multiplier scaling (1x, 2x, 4x), and live telemetry (latency, throughput, temperature, integrity). |
 | **🏎️ PCB Nano-Rover** | `R` or Hero Button | Drive a miniature 4-wheeled rover across the 3D board using `WASD` / `Arrow` keys. Running over chips focuses their datasheets! |
-| **🔥 Turbo Overclock** | `T` or Hero Button | Overclocks the microcontroller clock rate, boosts particle speeds, and intensifies emissive circuit bloom. |
 | **🎨 Color Theme Cycler** | Hero Button / Command Palette | Cycles the PCB soldermask between Green, Matte Black, Royal Blue, and Cyber Red. |
 | **🕹️ 8-Bit Signal Snake** | Click on `LCD1` or `#/lcd` | An authentic retro Nokia-style Snake mini-game rendered directly onto the 3D LCD screen quad. |
 | **📐 Flying Scope Probe** | `WASD` (desktop) + `Enter` | Flies a test probe around the board in 3D. Pressing `Enter` measures the component and reads live voltage rails with acoustic continuity beeps. |

@@ -12,11 +12,10 @@
 
 import { portfolioData } from '../data/portfolio.js';
 import { getBestScore } from '../three/lcd.js';
-import { isOverclockActive } from '../three/overclock.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
 import gsap from 'gsap';
 
-/** @typedef {'OFF' | 'BOOTING' | 'IDLE' | 'INSPECTING' | 'ACTIVE' | 'OVERCLOCK' | 'SLEEP' | 'SHUTDOWN'} BoardState */
+/** @typedef {'OFF' | 'BOOTING' | 'IDLE' | 'INSPECTING' | 'ACTIVE' | 'SLEEP' | 'SHUTDOWN'} BoardState */
 
 /** @type {BoardState} */
 let currentBoardState = 'BOOTING';
@@ -249,12 +248,10 @@ function fmtUptime(s) {
  * @param {number} delta
  */
 export function updateTelemetry(elapsed, delta) {
-    const isOc = isOverclockActive();
     const up = fmtUptime(elapsed);
 
-    // Live Temperature calculation
-    // Base 41.2°C, rises up to 78.5°C in Overclock mode
-    const baseTemp = isOc ? 78.5 : 41.2;
+    // Live Temperature calculation (Nominal 41.2°C ambient)
+    const baseTemp = 41.2;
     const tempWobble = Math.sin(elapsed * 0.05) * 1.2 + Math.sin(elapsed * 0.011) * 0.5;
     const currentTemp = (baseTemp + tempWobble).toFixed(1);
 

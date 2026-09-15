@@ -214,83 +214,9 @@
                 <p class="hero-claim text-pretty">ECE student and systems developer specializing in <span class="sig-word">computer vision</span>, <span class="sig-word">backend systems</span>, and <span class="sig-word">high-performance interactive software</span>.</p>
                 <div class="badge-row" id="hero-badges"></div>
 
-                <!-- Live Silicon Telemetry & Overclock Station -->
-                <div class="hero-silicon-station" id="hero-silicon-station">
-                    <div class="silicon-station-header">
-                        <span class="station-title"><span class="pulse-led live"></span> REAL-TIME SILICON TELEMETRY</span>
-                        <span class="station-chip-tag">PARAMA CORE-X // BGA-1151</span>
-                    </div>
-
-                    <!-- Dual-Core Telemetry Grid -->
-                    <div class="core-telemetry-grid">
-                        <div class="core-meter-card" id="meter-core0">
-                            <div class="core-meter-top">
-                                <span class="core-name">CORE 0 [AI/CV]</span>
-                                <span class="core-freq" id="core0-freq">4.80 GHz</span>
-                            </div>
-                            <div class="core-bar-track">
-                                <div class="core-bar-fill" id="core0-bar" style="width: 76%;"></div>
-                            </div>
-                            <div class="core-metrics">
-                                <span>LOAD: <b id="core0-load">76%</b></span>
-                                <span>TEMP: <b id="core0-temp">48°C</b></span>
-                                <span>VOLT: <b id="core0-volt">1.18V</b></span>
-                            </div>
-                        </div>
-
-                        <div class="core-meter-card" id="meter-core1">
-                            <div class="core-meter-top">
-                                <span class="core-name">CORE 1 [SYS/RTOS]</span>
-                                <span class="core-freq" id="core1-freq">3.60 GHz</span>
-                            </div>
-                            <div class="core-bar-track">
-                                <div class="core-bar-fill" id="core1-bar" style="width: 42%;"></div>
-                            </div>
-                            <div class="core-metrics">
-                                <span>LOAD: <b id="core1-load">42%</b></span>
-                                <span>TEMP: <b id="core1-temp">41°C</b></span>
-                                <span>VOLT: <b id="core1-volt">1.05V</b></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Overclock Throttle & Benchmark Controls -->
-                    <div class="station-controls-row">
-                        <div class="overclock-slider-wrap">
-                            <div class="slider-label-row">
-                                <span class="slider-label">CLOCK MULTIPLIER:</span>
-                                <span class="slider-val" id="hero-clock-mult-val">1.0x (NOMINAL)</span>
-                            </div>
-                            <input type="range" min="1.0" max="2.5" step="0.1" value="1.0" class="cyber-range" id="hero-clock-slider" aria-label="CPU Clock Multiplier">
-                        </div>
-                        <button type="button" class="btn-benchmark" id="btn-run-benchmark" title="Run 4-Second Silicon Stress Test">
-                            <span class="benchmark-icon">⚡</span>
-                            <span class="benchmark-text">STRESS TEST</span>
-                        </button>
-                    </div>
-
-                    <!-- Mini RTOS Log Stream -->
-                    <div class="mini-rtos-terminal" id="hero-rtos-terminal">
-                        <div class="rtos-term-header">
-                            <span>KERNEL STREAM // ttyS0</span>
-                            <span class="rtos-status">ONLINE 115200 8N1</span>
-                        </div>
-                        <div class="rtos-term-body" id="hero-rtos-logs">
-                            <div class="log-line">[SYS] PARAMA-RTOS v2.4 initialized at 0x80000000</div>
-                            <div class="log-line">[CLK] PLL Lock achieved: Base 100MHz · Bus 400MHz</div>
-                            <div class="log-line">[DMA] Neural accelerator ring buffer mapped (64MB)</div>
-                            <div class="log-line">[POST] All 8 peripheral expansion modules verified OK</div>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="hero-quick-actions" aria-label="Interactive 3D hardware modes">
                     <span class="quick-actions-label">INTERACTIVE 3D FEATURES //</span>
                     <div class="quick-action-pills">
-                        <button type="button" class="quick-action-btn" id="hero-delid-btn" title="Inspect Bare Silicon Die (Delid CPU)">
-                            <span class="btn-tag">IHS</span>
-                            <span class="btn-title">Delid CPU</span>
-                        </button>
                         <button type="button" class="quick-action-btn" id="hero-teardown-btn" title="View 3D Board Layers">
                             <span class="btn-tag">3D</span>
                             <span class="btn-title">View Layers</span>
@@ -677,41 +603,7 @@
                     <ul class="proj-spec" id="pdetail-spec"></ul>
                 </div>
 
-                <!-- Live Hardware Simulation Lab & Test Bench -->
-                <div class="ds-section-block ds-bench-block" id="pdetail-bench-block">
-                    <div class="ds-field-label"><span class="pulse-dot-green"></span> LIVE HARDWARE BENCH &amp; SIMULATION LAB</div>
-                    <div class="ds-bench-controls">
-                        <button type="button" class="ds-bench-btn" id="pdetail-bench-run" aria-label="Run Subsystem Benchmark">⚡ RUN SUBSYSTEM BENCHMARK</button>
-                        <div class="ds-bench-clock-selector" role="group" aria-label="Simulation Clock Multiplier">
-                            <span class="ds-bench-clk-label">CLOCK:</span>
-                            <button type="button" class="ds-bench-clk-btn active" id="bench-clk-1x" data-mult="1">1X</button>
-                            <button type="button" class="ds-bench-clk-btn" id="bench-clk-2x" data-mult="2">2X</button>
-                            <button type="button" class="ds-bench-clk-btn" id="bench-clk-4x" data-mult="4">4X</button>
-                        </div>
-                    </div>
-                    <div class="ds-bench-meters">
-                        <div class="ds-bench-meter">
-                            <span class="ds-meter-label">LATENCY</span>
-                            <span class="ds-meter-val" id="bench-val-latency">2.4 ms</span>
-                        </div>
-                        <div class="ds-bench-meter">
-                            <span class="ds-meter-label">THROUGHPUT</span>
-                            <span class="ds-meter-val" id="bench-val-throughput">128 pkt/s</span>
-                        </div>
-                        <div class="ds-bench-meter">
-                            <span class="ds-meter-label">THERMAL</span>
-                            <span class="ds-meter-val" id="bench-val-temp">39.8 °C</span>
-                        </div>
-                        <div class="ds-bench-meter">
-                            <span class="ds-meter-label">INTEGRITY</span>
-                            <span class="ds-meter-val" id="bench-val-integrity">100% OK</span>
-                        </div>
-                    </div>
-                    <div class="ds-bench-terminal">
-                        <div class="ds-bench-terminal-line" id="bench-term-line1">&gt; STANDBY: READY FOR VECTOR INJECTION</div>
-                        <div class="ds-bench-terminal-line" id="bench-term-line2">&gt; BUS CLOCK: 27.0 MHz SYNCHRONOUS</div>
-                    </div>
-                </div>
+                <!-- Technical Specifications -->
 
                 <!-- Toolchain & Technologies -->
                 <div class="ds-section-block">
@@ -1113,7 +1005,7 @@
                     </div>
                     <h3 class="arch-card-title">State Machine &amp; Modules</h3>
                     <ul class="arch-card-list">
-                        <li><strong>State Machine:</strong> 8 formal states (<code>OFF</code>, <code>BOOTING</code>, <code>IDLE</code>, <code>INSPECTING</code>, <code>ACTIVE</code>, <code>OVERCLOCK</code>, <code>SLEEP</code>, <code>SHUTDOWN</code>)</li>
+                        <li><strong>State Machine:</strong> 7 formal states (<code>OFF</code>, <code>BOOTING</code>, <code>IDLE</code>, <code>INSPECTING</code>, <code>ACTIVE</code>, <code>SLEEP</code>, <code>SHUTDOWN</code>)</li>
                         <li><strong>8 Project Modules:</strong> CrowdPulse (CP1), Dialora (DL1), Smart Parking (SP1), BusIT (BT1), AquaDot (AQD1), PawPal (PX1), EcoMentor (EM1), ML Reps (ML1)</li>
                         <li><strong>Memory Management:</strong> Designed to avoid unnecessary allocations during the render loop using pre-allocated scratch registers</li>
                         <li><strong>Tick Scheduler:</strong> Tiered priority scheduling (CRITICAL, STANDARD, DEFERRED)</li>
