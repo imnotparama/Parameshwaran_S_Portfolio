@@ -1135,6 +1135,58 @@
         </div>
     </div>
 
+    <!-- 3D Nano-Rover Mission HUD & Live Component Proximity Dossier -->
+    <aside id="rover-hud" class="rover-hud" aria-label="3D Nano-Rover Telemetry & Proximity Scanner" hidden>
+        <div class="rover-hud-topbar">
+            <div class="rover-brand-strip">
+                <span class="rover-live-dot"></span>
+                <span class="rover-brand-title">3D PCB NANO-ROVER MISSION // TELEMETRY LINK</span>
+            </div>
+            <div class="rover-gauges">
+                <span class="rover-gauge-item">SPEED: <strong id="rover-val-speed">0.0 U/S</strong></span>
+                <span class="rover-gauge-item">HEADING: <strong id="rover-val-heading">90°</strong></span>
+                <span class="rover-gauge-item">BOOST: <strong id="rover-val-boost">READY</strong></span>
+            </div>
+            <button type="button" class="rover-exit-btn" id="rover-exit-btn" aria-label="Exit Rover Drive Mode">
+                <span>RETURN TO SCROLL [ESC]</span>
+            </button>
+        </div>
+
+        <!-- Floating Component Proximity Dossier Card -->
+        <div id="rover-inspect-card" class="rover-inspect-card" hidden>
+            <div class="dossier-header">
+                <div class="dossier-scanner-beacon">
+                    <span class="beacon-pulse"></span>
+                    <span class="beacon-label">PROXIMITY SCANNER LOCKED</span>
+                </div>
+                <span class="dossier-badge" id="dossier-badge">ACADEMIC HONORS</span>
+            </div>
+            <h3 class="dossier-title" id="dossier-title">B.Tech Electronics &amp; Communication (Data Science)</h3>
+            <p class="dossier-desc" id="dossier-desc">4-year rigorous engineering curriculum at SRM Institute of Science and Technology...</p>
+            <div class="dossier-metrics" id="dossier-metrics">
+                <span class="dossier-metric-pill">CGPA: 9.48 / 10.0</span>
+                <span class="dossier-metric-pill">Class Rank: Top 2%</span>
+            </div>
+            <div class="dossier-footer">
+                <button type="button" class="dossier-action-btn" id="dossier-action-btn">
+                    <span id="dossier-action-text">INSPECT DATASHEET [ENTER]</span>
+                    <span class="btn-arr">➔</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom Controls Legend Ribbon -->
+        <div class="rover-controls-bar" aria-label="Rover controls">
+            <span class="rover-key-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> DRIVE</span>
+            <span class="rover-key-divider">|</span>
+            <span class="rover-key-hint"><kbd>SPACE</kbd> BOOST / DRIFT</span>
+            <span class="rover-key-divider">|</span>
+            <span class="rover-key-hint"><kbd>ENTER</kbd> INSPECT DETAILS</span>
+            <span class="rover-key-divider">|</span>
+            <span class="rover-key-hint"><kbd>ESC</kbd> EXIT</span>
+        </div>
+    </aside>
+
     <!-- Universal PCB Action Feedback Toast -->
     <div id="pcb-toast" class="pcb-toast" aria-live="polite" hidden></div>
 

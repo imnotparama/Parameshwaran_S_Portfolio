@@ -5751,4 +5751,289 @@ body.xray-active #canvas-container {
     filter: contrast(1.4) brightness(1.15) hue-rotate(15deg);
 }
 
+/* ================================================================
+ * 3D PCB Nano-Rover Mission HUD & Live Proximity Dossier Card
+ * ================================================================ */
+body.rover-active #main-content {
+    opacity: 0.16;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+body.rover-active #threejs-canvas {
+    cursor: crosshair;
+}
+
+.rover-hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 920;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px;
+    font-family: var(--font-mono, monospace);
+}
+
+.rover-hud[hidden] {
+    display: none !important;
+}
+
+.rover-hud-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: rgba(8, 12, 18, 0.88);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-radius: 6px;
+    padding: 8px 18px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65), 0 0 15px rgba(62, 230, 160, 0.1);
+    pointer-events: auto;
+    max-width: 1080px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.rover-brand-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rover-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3ee6a0;
+    box-shadow: 0 0 8px #3ee6a0;
+    animation: pulse-beacon 1.2s infinite ease-in-out;
+}
+
+.rover-brand-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: #e2ecf5;
+}
+
+.rover-gauges {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.rover-gauge-item strong {
+    color: #38bdf8;
+    font-weight: 700;
+}
+
+.rover-exit-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    color: #fca5a5;
+    font-size: 10.5px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+}
+
+.rover-exit-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: #ef4444;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Floating Proximity Dossier Card */
+.rover-inspect-card {
+    position: fixed;
+    right: 28px;
+    bottom: 80px;
+    width: 440px;
+    max-width: calc(100vw - 36px);
+    background: rgba(9, 14, 23, 0.94);
+    border: 1px solid rgba(62, 230, 160, 0.5);
+    border-radius: 8px;
+    padding: 18px 20px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.75), 0 0 32px rgba(62, 230, 160, 0.18);
+    pointer-events: auto;
+    z-index: 925;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+}
+
+.rover-inspect-card[hidden] {
+    display: none !important;
+}
+
+.dossier-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.dossier-scanner-beacon {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9.5px;
+    color: #3ee6a0;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.beacon-pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #3ee6a0;
+    box-shadow: 0 0 8px #3ee6a0;
+    animation: pulse-beacon 0.8s infinite alternate;
+}
+
+.dossier-badge {
+    font-size: 9px;
+    font-weight: 700;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 3px;
+    padding: 2px 6px;
+    letter-spacing: 0.8px;
+}
+
+.dossier-title {
+    font-family: var(--font-heading, sans-serif);
+    font-size: 15.5px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 8px;
+    line-height: 1.35;
+    letter-spacing: 0.2px;
+}
+
+.dossier-desc {
+    font-family: var(--font-body, sans-serif);
+    font-size: 12px;
+    color: rgba(203, 213, 225, 0.92);
+    line-height: 1.5;
+    margin: 0 0 12px;
+}
+
+.dossier-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.dossier-metric-pill {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 3px;
+    padding: 3px 7px;
+    font-size: 10px;
+    color: #38bdf8;
+    font-family: var(--font-mono);
+}
+
+.dossier-action-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, rgba(62, 230, 160, 0.22), rgba(20, 184, 166, 0.4));
+    border: 1px solid #3ee6a0;
+    border-radius: 4px;
+    padding: 9px 14px;
+    color: #ffffff;
+    font-family: var(--font-heading);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.dossier-action-btn:hover {
+    background: linear-gradient(135deg, rgba(62, 230, 160, 0.35), rgba(20, 184, 166, 0.55));
+    box-shadow: 0 0 16px rgba(62, 230, 160, 0.35);
+    transform: translateY(-1px);
+}
+
+/* Bottom Controls Legend Bar */
+.rover-controls-bar {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(6, 10, 16, 0.9);
+    border: 1px solid rgba(62, 230, 160, 0.32);
+    border-radius: 9999px;
+    padding: 7px 22px;
+    backdrop-filter: blur(14px);
+    color: #94a3b8;
+    font-size: 10.5px;
+    z-index: 920;
+    pointer-events: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+    white-space: nowrap;
+}
+
+.rover-controls-bar kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: bold;
+    color: #3ee6a0;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-radius: 3px;
+    margin: 0 2px;
+}
+
+.rover-key-divider {
+    color: rgba(255, 255, 255, 0.18);
+}
+
+@keyframes pulse-beacon {
+    0% { transform: scale(0.9); opacity: 0.7; }
+    100% { transform: scale(1.15); opacity: 1; }
+}
+
+@media (max-width: 768px) {
+    .rover-inspect-card {
+        right: 12px;
+        left: 12px;
+        width: auto;
+        bottom: 74px;
+        padding: 14px;
+    }
+    .rover-controls-bar {
+        font-size: 9px;
+        padding: 6px 14px;
+        gap: 8px;
+    }
+    .rover-gauges {
+        display: none;
+    }
+}
+
+
 

@@ -28,7 +28,7 @@ import { initOverclock, updateOverclock, toggleOverclock } from './src/three/ove
 import { updateAudioPeak, playBuzzerPianoNote } from './src/utils/synth.js';
 import { createRover } from './src/three/rover.js';
 import { initPlaygroundProps } from './src/three/playground-props.js';
-import { activateRover, deactivateRover, toggleRover, isRoverModeActive, handleRoverKeyDown, handleRoverKeyUp, updateRoverPhysics } from './src/three/rover-physics.js';
+import { activateRover, deactivateRover, toggleRover, isRoverModeActive, handleRoverKeyDown, handleRoverKeyUp, updateRoverPhysics, setRoverActionHandler } from './src/three/rover-physics.js';
 import { LINKEDIN_URL, GITHUB_URL, RESUME_URL, isLiteMode } from './src/config.js';
 import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
@@ -407,6 +407,28 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleRover(() => scrollToSection(getActiveSectionId()));
         });
     }
+    setRoverActionHandler((item) => {
+        emitUartLog('ROVER', `Proximity Scan Action: ${item.title}`);
+        if (item.actionType === 'project') {
+            markChipVerified(item.actionTarget);
+            inspectProject(item.actionTarget);
+            focusProject(item.actionTarget);
+        } else if (item.actionType === 'section') {
+            scrollToSection(item.actionTarget);
+        } else if (item.actionType === 'modal') {
+            openArchModal();
+        } else if (item.actionType === 'function') {
+            if (item.actionTarget === 'lcd') focusLcdCamera();
+            else if (item.actionTarget === 'buzzer') {
+                pulseBuzzer();
+                playBuzzerPianoNote();
+            } else if (item.actionTarget === 'tp1') {
+                showPcbToast('TP1 CONTACT: +5.02V VCC RAIL // RIPPLE 7.4mV');
+            } else if (item.actionTarget === 'tp2') {
+                showPcbToast('TP2 CONTACT: 0.00V GND REFERENCE // 0.02Ω');
+            }
+        }
+    });
     const teardownBtn = document.getElementById('teardown-toggle-btn');
     if (teardownBtn) {
         teardownBtn.addEventListener('click', () => {

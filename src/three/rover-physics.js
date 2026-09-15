@@ -1,28 +1,32 @@
 // @ts-check
 // ============================================================
-// Nano-Rover Arcade Kinematics & Playground Controller
+// Nano-Rover Arcade Kinematics & Proximity Scanner Engine
 //
 // 1. Arcade Vehicle Kinematics:
-//    - Acceleration, reverse, braking, and spring steering.
+//    - Acceleration, reverse, progressive braking, and spring steering.
 //    - Drift physics with centrifugal lateral slip.
 //    - Boundary clamping keeping the vehicle on the PCB board.
 //
 // 2. Interactive Systems:
 //    - Trace Boost Rails: Driving over copper traces triggers speed boosts.
-//    - Project Chip Docking: Parking at a project chip opens its datasheet.
+//    - Real-World Component Proximity Engine:
+//        Detects when rover drives over motherboard components and displays
+//        rich developer details in a floating Dossier HUD card (no raw component names).
+//    - 3D Laser Turret Lock:
+//        Aims the rover's 3D laser scanner beam at the target component.
 //    - Prop Collisions: Knocks over solder pins & launches off jump ramps.
 //    - Camera Tracking: Camera glides to follow the rover in 3D.
 // ============================================================
 
 import * as THREE from 'three';
 import gsap from 'gsap';
-import { roverGroup, updateRoverVisuals } from './rover.js';
+import { roverGroup, updateRoverVisuals, setRoverLaserTarget } from './rover.js';
 import { checkPropCollisions, updatePlaygroundProps, resetPins } from './playground-props.js';
 import { traceData } from './traces.js';
-import { projectChips } from './project-chips.js';
 import { camera } from './scene.js';
-import { hoverBlip, clickBlip, switchClack } from '../utils/sound.js';
+import { hoverBlip, switchClack } from '../utils/sound.js';
 import { playSynthNote } from '../utils/synth.js';
+import { findNearbyRoverComponent } from '../data/rover-dossier.js';
 
 let isActive = false;
 
@@ -53,7 +57,89 @@ const keys = {
 
 // Saved camera state
 const savedCameraPos = new THREE.Vector3();
-let chipDockCooldown = 0;
+
+/** @type {import('../data/rover-dossier.js').RoverDossierItem | null} */
+let activeDossierItem = null;
+let lastDossierId = '';
+/** @type {((item: import('../data/rover-dossier.js').RoverDossierItem) => void) | null} */
+let roverActionHandler = null;
+
+// DOM Element Caches
+/** @type {HTMLElement | null} */
+let roverHudEl = null;
+/** @type {HTMLElement | null} */
+let inspectCardEl = null;
+/** @type {HTMLElement | null} */
+let speedValEl = null;
+/** @type {HTMLElement | null} */
+let headingValEl = null;
+/** @type {HTMLElement | null} */
+let boostValEl = null;
+/** @type {HTMLElement | null} */
+let dossierBadgeEl = null;
+/** @type {HTMLElement | null} */
+let dossierTitleEl = null;
+/** @type {HTMLElement | null} */
+let dossierDescEl = null;
+/** @type {HTMLElement | null} */
+let dossierMetricsEl = null;
+/** @type {HTMLElement | null} */
+let dossierActionTextEl = null;
+
+let isHudBound = false;
+
+/**
+ * Bind HUD DOM buttons once on document availability.
+ */
+function bindHudEvents() {
+    if (isHudBound || typeof document === 'undefined') return;
+    isHudBound = true;
+
+    roverHudEl = document.getElementById('rover-hud');
+    inspectCardEl = document.getElementById('rover-inspect-card');
+    speedValEl = document.getElementById('rover-val-speed');
+    headingValEl = document.getElementById('rover-val-heading');
+    boostValEl = document.getElementById('rover-val-boost');
+    dossierBadgeEl = document.getElementById('dossier-badge');
+    dossierTitleEl = document.getElementById('dossier-title');
+    dossierDescEl = document.getElementById('dossier-desc');
+    dossierMetricsEl = document.getElementById('dossier-metrics');
+    dossierActionTextEl = document.getElementById('dossier-action-text');
+
+    const exitBtn = document.getElementById('rover-exit-btn');
+    if (exitBtn) {
+        exitBtn.addEventListener('click', () => {
+            deactivateRover();
+        });
+    }
+
+    const actionBtn = document.getElementById('dossier-action-btn');
+    if (actionBtn) {
+        actionBtn.addEventListener('click', () => {
+            triggerDossierAction();
+        });
+    }
+}
+
+/**
+ * Register external handler for rover dossier actions (navigation, project inspection).
+ * @param {(item: import('../data/rover-dossier.js').RoverDossierItem) => void} handler
+ */
+export function setRoverActionHandler(handler) {
+    roverActionHandler = handler;
+}
+
+/**
+ * Execute the currently focused component dossier action.
+ */
+export function triggerDossierAction() {
+    if (!activeDossierItem) return;
+    playSynthNote(659.25, 0.25, 0.08);
+    hoverBlip();
+    if (roverActionHandler) {
+        roverActionHandler(activeDossierItem);
+    }
+}
 
 /**
  * Check if Rover drive mode is currently active.
@@ -72,14 +158,17 @@ export function activateRover() {
 
     switchClack();
     hoverBlip();
+    bindHudEvents();
 
     if (roverGroup) roverGroup.visible = true;
-    document.body.classList.add('rover-active');
-
-    const roverBtn = document.getElementById('rover-toggle-btn');
-    if (roverBtn) {
-        roverBtn.setAttribute('aria-pressed', 'true');
-        roverBtn.classList.add('active');
+    if (typeof document !== 'undefined') {
+        document.body.classList.add('rover-active');
+        const roverBtn = document.getElementById('rover-toggle-btn');
+        if (roverBtn) {
+            roverBtn.setAttribute('aria-pressed', 'true');
+            roverBtn.classList.add('active');
+        }
+        if (roverHudEl) roverHudEl.removeAttribute('hidden');
     }
 
     if (camera) {
@@ -92,6 +181,9 @@ export function activateRover() {
     state.speed = 0;
     state.jumpZ = 0;
     state.jumpVelZ = 0;
+    activeDossierItem = null;
+    lastDossierId = '';
+    setRoverLaserTarget(null, false);
     resetPins();
 }
 
@@ -106,13 +198,20 @@ export function deactivateRover(onRestore) {
     switchClack();
 
     if (roverGroup) roverGroup.visible = false;
-    document.body.classList.remove('rover-active');
-
-    const roverBtn = document.getElementById('rover-toggle-btn');
-    if (roverBtn) {
-        roverBtn.setAttribute('aria-pressed', 'false');
-        roverBtn.classList.remove('active');
+    if (typeof document !== 'undefined') {
+        document.body.classList.remove('rover-active');
+        const roverBtn = document.getElementById('rover-toggle-btn');
+        if (roverBtn) {
+            roverBtn.setAttribute('aria-pressed', 'false');
+            roverBtn.classList.remove('active');
+        }
+        if (roverHudEl) roverHudEl.setAttribute('hidden', '');
+        if (inspectCardEl) inspectCardEl.setAttribute('hidden', '');
     }
+
+    activeDossierItem = null;
+    lastDossierId = '';
+    setRoverLaserTarget(null, false);
 
     if (onRestore) {
         onRestore();
@@ -147,6 +246,10 @@ export function handleRoverKeyDown(key) {
     if (k === 'a' || key === 'ArrowLeft') keys.left = true;
     if (k === 'd' || key === 'ArrowRight') keys.right = true;
     if (key === ' ' || key === 'Shift') keys.drift = true;
+
+    if (key === 'Enter') {
+        triggerDossierAction();
+    }
 }
 
 /**
@@ -163,11 +266,11 @@ export function handleRoverKeyUp(key) {
 }
 
 /**
- * Update Rover kinematics, collisions, and camera per frame.
+ * Update Rover kinematics, collisions, proximity scanning, and camera per frame.
  * @param {number} delta Frame delta time in seconds
- * @param {(chipRef: string) => void} [onProjectDock]
+ * @param {(chipRef: string) => void} [_onProjectDock] Legacy dock hook
  */
-export function updateRoverPhysics(delta, onProjectDock) {
+export function updateRoverPhysics(delta, _onProjectDock) {
     if (!isActive) return;
 
     // 1. Acceleration & Braking
@@ -256,7 +359,6 @@ export function updateRoverPhysics(delta, onProjectDock) {
         if (state.jumpZ <= 0) {
             state.jumpZ = 0;
             state.jumpVelZ = 0;
-            clickBlip(); // landing thud
         }
     }
     state.pos.z = 0.22 + state.jumpZ;
@@ -268,18 +370,51 @@ export function updateRoverPhysics(delta, onProjectDock) {
     state.pitch = THREE.MathUtils.lerp(state.pitch, (keys.forward ? 0.06 : (keys.reverse ? -0.06 : 0)), 0.15);
     state.roll = THREE.MathUtils.lerp(state.roll, -state.steer * 0.15, 0.15);
 
-    // 8. Project Chip Docking Detection
-    if (chipDockCooldown > 0) chipDockCooldown -= delta;
-    if (chipDockCooldown <= 0 && onProjectDock && Math.abs(state.speed) < 0.4) {
-        for (const [ref, chip] of Object.entries(projectChips)) {
-            const dist = Math.hypot(state.pos.x - chip.pos.x, state.pos.y - chip.pos.y);
-            if (dist < 0.55) {
-                chipDockCooldown = 4.0; // cooldown
-                playSynthNote(659.25, 0.3, 0.1);
-                onProjectDock(ref);
-                break;
+    // 8. Motherboard Component Proximity Scanner & 3D Laser Lock
+    const nearby = findNearbyRoverComponent(state.pos.x, state.pos.y);
+    if (nearby) {
+        activeDossierItem = nearby.item;
+        const targetPos = new THREE.Vector3(nearby.item.pos.x, nearby.item.pos.y, nearby.item.pos.z || 0.1);
+        setRoverLaserTarget(targetPos, true);
+
+        // Update Dossier card DOM if changing targets
+        if (nearby.item.id !== lastDossierId) {
+            lastDossierId = nearby.item.id;
+            playSynthNote(784.0, 0.08, 0.04); // Sonar scan blip
+
+            if (dossierBadgeEl) dossierBadgeEl.textContent = nearby.item.badge;
+            if (dossierTitleEl) dossierTitleEl.textContent = nearby.item.title;
+            if (dossierDescEl) dossierDescEl.textContent = nearby.item.summary;
+            if (dossierActionTextEl) dossierActionTextEl.textContent = nearby.item.actionLabel;
+
+            const metricsEl = dossierMetricsEl;
+            if (metricsEl) {
+                metricsEl.innerHTML = '';
+                nearby.item.metrics.forEach(m => {
+                    const pill = document.createElement('span');
+                    pill.className = 'dossier-metric-pill';
+                    pill.textContent = m;
+                    metricsEl.appendChild(pill);
+                });
             }
+
+            if (inspectCardEl) inspectCardEl.removeAttribute('hidden');
         }
+    } else {
+        if (activeDossierItem) {
+            activeDossierItem = null;
+            lastDossierId = '';
+            setRoverLaserTarget(null, false);
+            if (inspectCardEl) inspectCardEl.setAttribute('hidden', '');
+        }
+    }
+
+    // Update HUD Telemetry Gauges
+    if (speedValEl) speedValEl.textContent = `${Math.abs(state.speed * 8.5).toFixed(1)} U/S`;
+    if (headingValEl) headingValEl.textContent = `${Math.round(((state.angle * 180) / Math.PI + 360) % 360)}°`;
+    if (boostValEl) {
+        boostValEl.textContent = state.isBoosting ? 'SUPERCHARGED' : (state.isDrifting ? 'DRIFT CHARGE' : 'READY');
+        boostValEl.style.color = state.isBoosting ? '#3ee6a0' : (state.isDrifting ? '#f59e0b' : '#38bdf8');
     }
 
     // Update 3D Rover Visuals
