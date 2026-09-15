@@ -339,6 +339,33 @@ export const SWITCH_POS = [[4.7, 2.9], [4.7, 0.9], [4.7, -1.9]];
 /** @type {LedPulse[]} */
 const ledPulseDrivers = [];
 
+/**
+ * Sequential runway chase animation across D1-D7 LEDs when rover drives nearby.
+ */
+let lastRunwayChaseTime = 0;
+export function triggerLedRunwayChase() {
+    if (motionPrefs.reduced) return;
+    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+    if (now - lastRunwayChaseTime < 1800) return; // Debounce 1.8s
+    lastRunwayChaseTime = now;
+
+    ledPulseDrivers.forEach((d, idx) => {
+        gsap.killTweensOf(d.mat);
+        gsap.to(d.mat, {
+            emissiveIntensity: 2.2,
+            duration: 0.12,
+            delay: idx * 0.09,
+            onComplete: () => {
+                gsap.to(d.mat, {
+                    emissiveIntensity: LED_PULSE_BASE,
+                    duration: 0.6,
+                    ease: 'power2.out'
+                });
+            }
+        });
+    });
+}
+
 /** Per-frame LED array pulse. The active section's ambient signature tunes
  *  the tempo (ledFreq) and brightness (ledAmp) — the CPU core breathes fast
  *  and bright, the RF section stays calm and steady. Section id is optional:

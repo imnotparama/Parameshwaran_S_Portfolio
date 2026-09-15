@@ -22,11 +22,13 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { roverGroup, updateRoverVisuals, setRoverLaserTarget } from './rover.js';
 import { checkPropCollisions, updatePlaygroundProps, resetPins } from './playground-props.js';
-import { traceData } from './traces.js';
+import { traceData, energizeTraceAtPoint } from './traces.js';
 import { camera } from './scene.js';
 import { hoverBlip, switchClack } from '../utils/sound.js';
 import { playSynthNote } from '../utils/synth.js';
 import { findNearbyRoverComponent } from '../data/rover-dossier.js';
+import { triggerLedRunwayChase, triggerCapacitorOverdrive, pulseBuzzer } from './components.js';
+import { showProjectVisual, hideProjectVisuals } from './project-holograms.js';
 
 let isActive = false;
 
@@ -212,6 +214,7 @@ export function deactivateRover(onRestore) {
     activeDossierItem = null;
     lastDossierId = '';
     setRoverLaserTarget(null, false);
+    hideProjectVisuals();
 
     if (onRestore) {
         onRestore();
@@ -323,7 +326,7 @@ export function updateRoverPhysics(delta, _onProjectDock) {
         state.speed *= -0.3;
     }
 
-    // 5. Check Copper Trace Boost Rails
+    // 5. Check Copper Trace Boost Rails & Conduction Lighting
     let nearTrace = false;
     traceData.forEach(route => {
         for (let i = 0; i < route.points.length - 1; i++) {
@@ -335,6 +338,11 @@ export function updateRoverPhysics(delta, _onProjectDock) {
             }
         }
     });
+
+    // Dynamic Copper Conduction Lighting under Wheels
+    if (Math.abs(state.speed) > 0.25) {
+        energizeTraceAtPoint(state.pos, 0.65);
+    }
 
     if (nearTrace && Math.abs(state.speed) > 1.0) {
         if (!state.isBoosting) {
@@ -370,12 +378,28 @@ export function updateRoverPhysics(delta, _onProjectDock) {
     state.pitch = THREE.MathUtils.lerp(state.pitch, (keys.forward ? 0.06 : (keys.reverse ? -0.06 : 0)), 0.15);
     state.roll = THREE.MathUtils.lerp(state.roll, -state.steer * 0.15, 0.15);
 
-    // 8. Motherboard Component Proximity Scanner & 3D Laser Lock
+    // 8. Motherboard Component Proximity Scanner & Interactive Reactions
     const nearby = findNearbyRoverComponent(state.pos.x, state.pos.y);
     if (nearby) {
         activeDossierItem = nearby.item;
         const targetPos = new THREE.Vector3(nearby.item.pos.x, nearby.item.pos.y, nearby.item.pos.z || 0.1);
         setRoverLaserTarget(targetPos, true);
+
+        // Project 3D Hologram Diorama over project chips
+        if (nearby.item.actionType === 'project') {
+            showProjectVisual(nearby.item.actionTarget, targetPos);
+        } else {
+            hideProjectVisuals();
+        }
+
+        // Hardware Subsystem Proximity Reactions
+        if (nearby.item.id === 'D1-D7') {
+            triggerLedRunwayChase();
+        } else if (nearby.item.id === 'C1-C4') {
+            triggerCapacitorOverdrive();
+        } else if (nearby.item.id === 'BZ1' && Math.abs(state.speed) > 1.2) {
+            pulseBuzzer();
+        }
 
         // Update Dossier card DOM if changing targets
         if (nearby.item.id !== lastDossierId) {
@@ -405,6 +429,7 @@ export function updateRoverPhysics(delta, _onProjectDock) {
             activeDossierItem = null;
             lastDossierId = '';
             setRoverLaserTarget(null, false);
+            hideProjectVisuals();
             if (inspectCardEl) inspectCardEl.setAttribute('hidden', '');
         }
     }
