@@ -61,14 +61,23 @@ let laserReticleGroup = null;
 let laserTargetWorldPos = null;
 let isLaserLocked = false;
 
-// Skid mark decal pool
-const MAX_SKIDS = 32;
+// Skid mark decal pool (64 tracks = 32 dual pairs)
+const MAX_SKIDS = 64;
 /** @type {THREE.InstancedMesh | null} */
 let skidMesh = null;
 /** @type {Array<{ pos: THREE.Vector3, rotZ: number, life: number }>} */
 const skidDecals = [];
 const dummySkid = new THREE.Object3D();
 let skidIndex = 0;
+
+// Ionized Wheel Friction Micro-Sparks Pool
+const MAX_SPARKS = 32;
+/** @type {THREE.InstancedMesh | null} */
+let sparkMesh = null;
+/** @type {Array<{ pos: THREE.Vector3, vel: THREE.Vector3, life: number, maxLife: number }>} */
+const sparkParticles = [];
+const dummySpark = new THREE.Object3D();
+let sparkIndex = 0;
 
 /**
  * Set the laser scanner target coordinates (e.g. over a PCB component).
@@ -403,14 +412,14 @@ export function createRover(boardGroup) {
 
     boardGroup.add(roverGroup);
 
-    // ─── 10. Drift Skid Marks Decal Pool ─────────────────────────
-    const skidGeo = new THREE.PlaneGeometry(0.08, 0.16);
+    // ─── 10. Dual Drift Skid Marks Decal Pool ───────────────────
+    const skidGeo = new THREE.PlaneGeometry(0.05, 0.14);
     disposableResources.geometries.add(skidGeo);
 
     const skidMat = new THREE.MeshBasicMaterial({
-        color: 0x020a04,
+        color: 0x020804,
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.55,
         depthWrite: false
     });
     disposableResources.materials.add(skidMat);
@@ -426,11 +435,78 @@ export function createRover(boardGroup) {
     }
     boardGroup.add(skidMesh);
 
+    // ─── 11. Ionized Wheel Friction Micro-Sparks Pool ───────────
+    const sparkGeo = new THREE.PlaneGeometry(0.024, 0.024);
+    disposableResources.geometries.add(sparkGeo);
+
+    const sparkMat = new THREE.MeshBasicMaterial({
+        color: 0xffd700,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    disposableResources.materials.add(sparkMat);
+
+    sparkMesh = new THREE.InstancedMesh(sparkGeo, sparkMat, MAX_SPARKS);
+    sparkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    disposableResources.geometries.add(sparkMesh.geometry);
+    disposableResources.materials.add(sparkMesh.material);
+
+    sparkParticles.length = 0;
+    for (let i = 0; i < MAX_SPARKS; i++) {
+        sparkParticles.push({
+            pos: new THREE.Vector3(0, 0, -100),
+            vel: new THREE.Vector3(0, 0, 0),
+            life: 0,
+            maxLife: 0.35
+        });
+    }
+    boardGroup.add(sparkMesh);
+
     return roverGroup;
 }
 
 /**
- * Drop a skid mark decal at current position during hard drift.
+ * Drop dual skid mark decals under left and right rear tires.
+ * @param {number} leftX
+ * @param {number} leftY
+ * @param {number} rightX
+ * @param {number} rightY
+ * @param {number} rotZ
+ */
+export function addDualSkidMarks(leftX, leftY, rightX, rightY, rotZ) {
+    if (!skidMesh) return;
+    const s1 = skidDecals[skidIndex];
+    s1.pos.set(leftX, leftY, 0.081);
+    s1.rotZ = rotZ;
+    s1.life = 1.0;
+    skidIndex = (skidIndex + 1) % MAX_SKIDS;
+
+    const s2 = skidDecals[skidIndex];
+    s2.pos.set(rightX, rightY, 0.081);
+    s2.rotZ = rotZ;
+    s2.life = 1.0;
+    skidIndex = (skidIndex + 1) % MAX_SKIDS;
+}
+
+/**
+ * Emit ionized micro-spark particle at rear wheel contact point.
+ * @param {number} x
+ * @param {number} y
+ */
+export function addWheelSpark(x, y) {
+    if (!sparkMesh) return;
+    const sp = sparkParticles[sparkIndex];
+    sp.pos.set(x + (Math.random() - 0.5) * 0.04, y + (Math.random() - 0.5) * 0.04, 0.10);
+    sp.vel.set((Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 1.6, 0.9 + Math.random() * 1.2);
+    sp.life = 0.22 + Math.random() * 0.14;
+    sp.maxLife = sp.life;
+    sparkIndex = (sparkIndex + 1) % MAX_SPARKS;
+}
+
+/**
+ * Drop a skid mark decal at current position during hard drift (backward compatibility).
  * @param {THREE.Vector3} pos
  * @param {number} rotZ
  */
@@ -445,7 +521,7 @@ export function addSkidMark(pos, rotZ) {
 
 /**
  * Update wheel roll rotation, steering angle, suspension tilt, rotating LiDAR, and laser visuals.
- * @param {{ pos: THREE.Vector3, vel: THREE.Vector3, angle: number, steer: number, speed: number, pitch: number, roll: number, isDrifting: boolean, isBoosting?: boolean }} state
+ * @param {{ pos: THREE.Vector3, vel: THREE.Vector3, angle: number, steer: number, speed: number, pitch: number, roll: number, isDrifting: boolean, isBoosting?: boolean, jumpZ?: number, terrain?: { id: string } }} state
  * @param {number} delta
  */
 export function updateRoverVisuals(state, delta) {
@@ -505,20 +581,40 @@ export function updateRoverVisuals(state, delta) {
         boostGlowMat.opacity += (targetOpacity - boostGlowMat.opacity) * Math.min(1.0, delta * 12);
     }
 
-    // 9. Add Drift Skid Mark if drifting
-    if (state.isDrifting && Math.random() < 0.4) {
-        addSkidMark(state.pos, state.angle);
+    // 9. Dual Rear Wheel Skid Marks & Ionized Sparks
+    const isHardBraking = state.speed < -0.15;
+    const isAirborne = (state.jumpZ || 0) > 0.06;
+    const shouldSkid = (state.isDrifting || isHardBraking) && Math.abs(state.speed) > 1.2 && !isAirborne;
+
+    if (shouldSkid && Math.random() < 0.65) {
+        const cosA = Math.cos(state.angle);
+        const sinA = Math.sin(state.angle);
+        // Left rear wheel in rover local space: (-0.28, -0.36)
+        const leftX = state.pos.x + (-0.28 * cosA - (-0.36) * sinA);
+        const leftY = state.pos.y + (-0.28 * sinA + (-0.36) * cosA);
+        // Right rear wheel in rover local space: (0.28, -0.36)
+        const rightX = state.pos.x + (0.28 * cosA - (-0.36) * sinA);
+        const rightY = state.pos.y + (0.28 * sinA + (-0.36) * cosA);
+
+        addDualSkidMarks(leftX, leftY, rightX, rightY, state.angle);
+
+        // Ionized copper friction sparks if on copper trace/plane
+        if (state.terrain && state.terrain.id === 'copper' && Math.random() < 0.85) {
+            addWheelSpark(leftX, leftY);
+            addWheelSpark(rightX, rightY);
+        }
     }
 
-    // 10. Update Skid Marks Decals
+    // 10. Update Skid Marks Decals (Smooth fade over ~3.5s)
     const sm = skidMesh;
     if (sm) {
         skidDecals.forEach((skid, i) => {
             if (skid.life > 0) {
-                skid.life -= delta * 0.25; // fade over 4 seconds
+                skid.life -= delta * 0.28;
                 dummySkid.position.copy(skid.pos);
                 dummySkid.rotation.z = skid.rotZ;
-                dummySkid.scale.set(1, 1, 1);
+                const scaleY = Math.max(0.01, Math.min(1.0, skid.life * 1.5));
+                dummySkid.scale.set(1, scaleY, 1);
             } else {
                 dummySkid.position.set(0, 0, -100);
             }
@@ -526,5 +622,27 @@ export function updateRoverVisuals(state, delta) {
             sm.setMatrixAt(i, dummySkid.matrix);
         });
         sm.instanceMatrix.needsUpdate = true;
+    }
+
+    // 11. Update Ionized Wheel Sparks
+    const spm = sparkMesh;
+    if (spm) {
+        sparkParticles.forEach((sp, i) => {
+            if (sp.life > 0) {
+                sp.life -= delta;
+                sp.pos.x += sp.vel.x * delta;
+                sp.pos.y += sp.vel.y * delta;
+                sp.pos.z += sp.vel.z * delta;
+                sp.vel.z -= 6.5 * delta; // Gravity pull back to PCB surface
+                dummySpark.position.copy(sp.pos);
+                const progress = Math.max(0.01, sp.life / sp.maxLife);
+                dummySpark.scale.setScalar(progress);
+            } else {
+                dummySpark.position.set(0, 0, -100);
+            }
+            dummySpark.updateMatrix();
+            spm.setMatrixAt(i, dummySpark.matrix);
+        });
+        spm.instanceMatrix.needsUpdate = true;
     }
 }

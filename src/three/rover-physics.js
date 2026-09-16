@@ -31,13 +31,74 @@ import { triggerLedRunwayChase, triggerCapacitorOverdrive, pulseBuzzer } from '.
 import { showProjectVisual, hideProjectVisuals } from './project-holograms.js';
 import { initRoverTouch, showRoverTouchControls, hideRoverTouchControls } from '../ui/rover-touch.js';
 
+export const TERRAIN_TYPES = {
+    COPPER: {
+        id: 'copper',
+        name: 'COPPER BUS / ENIG',
+        shortName: 'COPPER RAIL',
+        grip: 0.72,
+        accelMult: 1.35,
+        maxSpeedMult: 1.25,
+        friction: 0.96,
+        color: '#f59e0b'
+    },
+    SOLDERMASK: {
+        id: 'soldermask',
+        name: 'SOLDERMASK (LPI)',
+        shortName: 'SOLDERMASK',
+        grip: 1.0,
+        accelMult: 1.0,
+        maxSpeedMult: 1.0,
+        friction: 0.92,
+        color: '#3ee6a0'
+    },
+    SUBSTRATE: {
+        id: 'substrate',
+        name: 'FR-4 SUBSTRATE',
+        shortName: 'SUBSTRATE',
+        grip: 1.25,
+        accelMult: 0.82,
+        maxSpeedMult: 0.85,
+        friction: 0.85,
+        color: '#94a3b8'
+    }
+};
+
+/**
+ * Determine the motherboard surface material under coordinates (x, y).
+ * @param {number} x
+ * @param {number} y
+ * @returns {typeof TERRAIN_TYPES[keyof typeof TERRAIN_TYPES]}
+ */
+export function getRoverTerrainAt(x, y) {
+    // 1. CPU ground pour or copper traces
+    if (Math.abs(x) < 1.7 && Math.abs(y - 2.5) < 1.7) {
+        return TERRAIN_TYPES.COPPER;
+    }
+    for (let r = 0; r < traceData.length; r++) {
+        const route = traceData[r];
+        for (let i = 0; i < route.points.length; i++) {
+            const p = route.points[i];
+            if (Math.hypot(x - p.x, y - p.y) < 0.38) {
+                return TERRAIN_TYPES.COPPER;
+            }
+        }
+    }
+    // 2. PCB edge bevels / mounting hole corners
+    if (Math.abs(x) > 4.1 || Math.abs(y) > 5.8) {
+        return TERRAIN_TYPES.SUBSTRATE;
+    }
+    // 3. Central soldermask
+    return TERRAIN_TYPES.SOLDERMASK;
+}
+
 let isActive = false;
 
 // Kinematics State
 const state = {
     pos: new THREE.Vector3(0, -5.5, 0.22),
     vel: new THREE.Vector3(),
-    angle: Math.PI / 2, // Facing UP towards CPU
+    angle: 0, // Facing UP towards CPU
     speed: 0,
     steer: 0,
     pitch: 0,
@@ -46,7 +107,8 @@ const state = {
     boost: 1.0,
     isBoosting: false,
     jumpZ: 0,
-    jumpVelZ: 0
+    jumpVelZ: 0,
+    terrain: TERRAIN_TYPES.SOLDERMASK
 };
 
 // Input state
@@ -79,6 +141,8 @@ let headingValEl = null;
 /** @type {HTMLElement | null} */
 let boostValEl = null;
 /** @type {HTMLElement | null} */
+let surfaceValEl = null;
+/** @type {HTMLElement | null} */
 let dossierBadgeEl = null;
 /** @type {HTMLElement | null} */
 let dossierTitleEl = null;
@@ -103,6 +167,7 @@ function bindHudEvents() {
     speedValEl = document.getElementById('rover-val-speed');
     headingValEl = document.getElementById('rover-val-heading');
     boostValEl = document.getElementById('rover-val-boost');
+    surfaceValEl = document.getElementById('rover-val-surface');
     dossierBadgeEl = document.getElementById('dossier-badge');
     dossierTitleEl = document.getElementById('dossier-title');
     dossierDescEl = document.getElementById('dossier-desc');
@@ -212,7 +277,7 @@ export function activateRover() {
 
     // Reset rover position to bottom center
     state.pos.set(0, -5.5, 0.22);
-    state.angle = Math.PI / 2;
+    state.angle = 0; // Facing UP (+Y) directly towards CPU
     state.speed = 0;
     state.jumpZ = 0;
     state.jumpVelZ = 0;
@@ -318,18 +383,22 @@ export function handleRoverKeyUp(key) {
 export function updateRoverPhysics(delta, _onProjectDock) {
     if (!isActive) return;
 
-    // 1. Acceleration & Progressive Braking
-    const accel = 9.2;
-    const maxSpeed = state.isBoosting ? 7.5 : 4.6;
+    // Detect Current Motherboard Terrain Surface
+    const terrain = getRoverTerrainAt(state.pos.x, state.pos.y);
+    state.terrain = terrain;
+
+    // 1. Acceleration & Progressive Braking (scaled by surface traction)
+    const baseAccel = 9.2 * terrain.accelMult;
+    const maxSpeed = (state.isBoosting ? 7.5 : 4.6) * terrain.maxSpeedMult;
     const revSpeed = -2.4;
 
     if (keys.forward) {
-        state.speed = Math.min(maxSpeed, state.speed + accel * delta);
+        state.speed = Math.min(maxSpeed, state.speed + baseAccel * delta);
     } else if (keys.reverse) {
-        state.speed = Math.max(revSpeed, state.speed - accel * 1.3 * delta);
+        state.speed = Math.max(revSpeed, state.speed - baseAccel * 1.3 * delta);
     } else {
-        // Natural rolling resistance
-        state.speed *= Math.pow(0.92, delta * 60);
+        // Natural rolling resistance adjusted by surface friction
+        state.speed *= Math.pow(terrain.friction, delta * 60);
         if (Math.abs(state.speed) < 0.02) state.speed = 0;
     }
 
@@ -342,11 +411,12 @@ export function updateRoverPhysics(delta, _onProjectDock) {
 
     state.steer += (targetSteer - state.steer) * (1 - Math.pow(0.78, delta * 60));
 
-    // Turn yaw angle with drift slip
+    // Turn yaw angle with drift slip (copper has lower grip, enabling slick drift curves)
     if (Math.abs(state.speed) > 0.05) {
+        const driftThreshold = 0.38 * terrain.grip;
         const turnSpeed = state.steer * (state.speed > 0 ? 1 : -1) * (3.4 - speedRatio * 0.4);
         state.angle += turnSpeed * delta;
-        state.isDrifting = keys.drift || (Math.abs(state.steer) > 0.38 && Math.abs(state.speed) > 2.4);
+        state.isDrifting = keys.drift || (Math.abs(state.steer) > driftThreshold && Math.abs(state.speed) > 2.0);
     } else {
         state.isDrifting = false;
     }
@@ -488,6 +558,10 @@ export function updateRoverPhysics(delta, _onProjectDock) {
     if (boostValEl) {
         boostValEl.textContent = state.isBoosting ? 'SUPERCHARGED' : (state.isDrifting ? 'DRIFT CHARGE' : 'READY');
         boostValEl.style.color = state.isBoosting ? '#3ee6a0' : (state.isDrifting ? '#f59e0b' : '#38bdf8');
+    }
+    if (surfaceValEl) {
+        surfaceValEl.textContent = terrain.shortName;
+        surfaceValEl.style.color = terrain.color;
     }
 
     // Update 3D Rover Visuals
