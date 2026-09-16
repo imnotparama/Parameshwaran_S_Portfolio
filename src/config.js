@@ -28,16 +28,24 @@ export const PLAUSIBLE_DOMAIN =
 export const CTA_TRACKING_ENDPOINT =
     (import.meta.env && import.meta.env.VITE_CTA_TRACKING_ENDPOINT) || '';
 
-// Lite mode: reduced motion preference OR small viewport → skip
-// scroll-jacked camera flight and serve a simpler experience.
+// Lite mode: strictly for users with a reduced-motion preference.
+// Mobile devices now run the full, responsive 3D journey experience.
 export function prefersReducedMotion() {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 export function isSmallViewport() {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 768;
+}
+
+export function isMobileViewport() {
+    if (typeof window === 'undefined') return false;
     return window.innerWidth < 768;
 }
 
 export function isLiteMode() {
-    return prefersReducedMotion() || isSmallViewport();
+    return prefersReducedMotion();
 }
+

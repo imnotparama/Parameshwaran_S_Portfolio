@@ -426,6 +426,8 @@ export function getCameraConfigForStop(sectionId) {
 function alignHeroToPanel(pos, look) {
   const { w, h } = getCanvasViewportSize();
   if (!w || !h) return;
+  // On mobile screens (< 768px), canvas owns the top half, so center the board nicely in the canvas viewport
+  if (typeof window !== 'undefined' && window.innerWidth < 768) return;
   const panelCenterPx = h / 2 + 30; // (84 + (h - 108) / 2) = h/2 + 30
   // Project the board center with a throwaway camera at the candidate pose.
   const cam = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
@@ -1124,7 +1126,7 @@ function setActivePanel(panelId) {
   const activePanelEl = panelId ? document.getElementById(panelId) : null;
   const panelHasOwnCta = !!(activePanelEl && activePanelEl.querySelector('.cta-linkedin'));
   document.body.classList.toggle('hud-cta-hidden', !!panelId && panelHasOwnCta);
-  document.querySelectorAll('.hud-nav .nav-btn').forEach((btn) => {
+  document.querySelectorAll('.hud-nav .nav-btn, .mobile-dock-btn').forEach((btn) => {
     btn.classList.toggle('nav-active', btn.getAttribute('data-section') === secId);
   });
   // One-shot gold sweep on the activated panel's datasheet title

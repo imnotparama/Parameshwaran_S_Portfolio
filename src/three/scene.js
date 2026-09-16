@@ -331,7 +331,7 @@ export function getCanvasViewportSize() {
     const mobile = window.innerWidth < 768;
     return {
         w: mobile ? window.innerWidth : Math.round(window.innerWidth * 0.58),
-        h: mobile ? Math.round(window.innerHeight * 0.48) : window.innerHeight
+        h: mobile ? Math.round(window.innerHeight * 0.44) : window.innerHeight
     };
 }
 
@@ -346,9 +346,17 @@ export function syncCanvasSize() {
     const { w, h } = getCanvasViewportSize();
     if (!w || !h) return;
     camera.aspect = w / h;
+    // Responsive portrait FOV: if the aspect ratio is tall & narrow (portrait mobile),
+    // widen the field of view so the entire dev board width fits comfortably.
+    if (camera.aspect < 1.0) {
+        camera.fov = Math.min(62, Math.max(45, 45 / (camera.aspect * 1.15)));
+    } else {
+        camera.fov = 45;
+    }
     camera.updateProjectionMatrix();
+    const maxDpr = window.innerWidth < 768 ? 1.75 : 2;
     renderer.setSize(w, h, false); // updateStyle false — CSS owns layout
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDpr));
     // Re-apply the current quality level so composer resolution follows.
     if (composer && keyLight) {
         applyQualityLevel(qualityLevel, keyLight, null);
@@ -374,7 +382,9 @@ export function initScene(canvasElement) {
     // Aspect comes from the canvas container (left-58% split / mobile strip),
     // not the window — the board must frame correctly inside the region.
     const { w: viewW, h: viewH } = getCanvasViewportSize();
-    camera = new THREE.PerspectiveCamera(45, viewW / viewH, 0.1, 1000);
+    const aspect = viewW / viewH;
+    const initialFov = aspect < 1.0 ? Math.min(62, Math.max(45, 45 / (aspect * 1.15))) : 45;
+    camera = new THREE.PerspectiveCamera(initialFov, aspect, 0.1, 1000);
     camera.position.set(0, -1.8, 5.8);
     camera.lookAt(0, 0.4, 0.085);
     scene.add(camera);

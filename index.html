@@ -120,53 +120,119 @@
         <canvas id="threejs-canvas" role="img" aria-label="Interactive 3D printed circuit board development board"></canvas>
     </div>
 
-    <!-- Fixed Header: Clean brand identity + hardware inspection nav + telemetry -->
+    <!-- Fixed Header: Ultra-sleek cyber-aerospace floating glass HUD -->
     <header id="hud-bar" role="banner">
         <div class="hud-brand">
             <a class="hud-name" href="#sec-hero" data-section="sec-hero">PARAMESHWARAN&nbsp;S</a>
-            <span class="status-pill"><span class="pulse-dot"></span> DEV BOARD ONLINE</span>
+            <span class="status-pill"><span class="pulse-dot"></span> ONLINE</span>
         </div>
+
+        <!-- Desktop Navigation: Floating Pill Capsule -->
         <nav class="hud-nav" aria-label="Board Inspection Subsystems">
-            <button class="nav-btn" data-section="sec-about" aria-label="Core Processor (U1 CPU)">[CORE CPU]</button>
-            <button class="nav-btn" data-section="sec-projects" aria-label="Installed Modules (U2 / Chips)">[MODULES]</button>
-            <button class="nav-btn" data-section="sec-skills" aria-label="Component Banks (C1-C4)">[BANKS]</button>
-            <button class="nav-btn" data-section="sec-experience" aria-label="Firmware Updates (Y1)">[FW UPDATES]</button>
-            <button class="nav-btn" data-section="sec-contact" aria-label="Transmission Interface (J1/ANT1)">[TX / RX]</button>
+            <button class="nav-btn" data-section="sec-about" aria-label="Core Processor (U1 CPU)"><span class="nav-label">CPU</span></button>
+            <button class="nav-btn" data-section="sec-projects" aria-label="Installed Modules (U2 / Chips)"><span class="nav-label">MODULES</span></button>
+            <button class="nav-btn" data-section="sec-skills" aria-label="Component Banks (C1-C4)"><span class="nav-label">BANKS</span></button>
+            <button class="nav-btn" data-section="sec-experience" aria-label="Firmware Updates (Y1)"><span class="nav-label">FIRMWARE</span></button>
+            <button class="nav-btn" data-section="sec-contact" aria-label="Transmission Interface (J1/ANT1)"><span class="nav-label">TX / RX</span></button>
         </nav>
-        <div class="hud-legend">
-            <!-- Real-time Live Hardware Telemetry HUD -->
-            <div class="hud-hardware-mon" aria-label="Live Board Telemetry">
-                <span class="hud-mon-item" title="CPU Die Temperature">DIE: <strong id="hud-temp-val">41.2°C</strong></span>
-                <span class="hud-mon-item" title="3.30V Bus Voltage">VCC: <strong id="hud-rail-val">3.30V STABLE</strong></span>
-            </div>
-            <!-- Dual-Channel Live CRT Oscilloscope & Logic Sniffer Rack -->
-            <div class="hud-scope" id="hud-scope" role="region" aria-label="Dual-Channel Oscilloscope & Logic Analyzer">
-                <div class="hud-scope-display">
+
+        <div class="hud-instruments-group">
+            <!-- Telemetry & Mini Oscilloscope Capsule -->
+            <div class="hud-telemetry-capsule" id="hud-telemetry-capsule" role="region" aria-label="Live Board Telemetry">
+                <div class="hud-telemetry-compact">
                     <canvas id="hud-osc" aria-hidden="true"></canvas>
+                    <div class="hud-hardware-mon" aria-label="Live Board Telemetry">
+                        <span class="hud-mon-item" title="CPU Die Temperature"><strong id="hud-temp-val">41.2°C</strong></span>
+                        <span class="hud-mon-sep">·</span>
+                        <span class="hud-mon-item" title="3.30V Bus Voltage"><strong id="hud-rail-val">3.3V</strong></span>
+                    </div>
+                </div>
+
+                <!-- Hover Diagnostics Popover: Detailed dual-channel trace & decoded packet stream -->
+                <div class="hud-scope" id="hud-scope" role="region" aria-label="Dual-Channel Oscilloscope & Logic Analyzer">
                     <div class="hud-scope-ch-tags">
                         <span class="hud-scope-ch ch1"><span class="ch-led ch1-led"></span>CH1: <strong id="hud-scope-ref">LIVE</strong></span>
                         <span class="hud-scope-ch ch2"><span class="ch-led ch2-led"></span>CH2: <strong id="hud-scope-ch2-val">CLK 27M</strong></span>
                     </div>
+                    <div class="hud-scope-logic-strip" id="hud-scope-logic" title="Decoded Logic Analyzer Packet Stream">
+                        <span class="logic-prefix">LOGIC&gt;</span>
+                        <span class="logic-data" id="hud-scope-logic-data">[0x5A 0xA5 0x01 CRC-OK]</span>
+                    </div>
+                    <span class="hud-scope-val" id="hud-scope-val" style="display:none">ACTIVE</span>
                 </div>
-                <div class="hud-scope-logic-strip" id="hud-scope-logic" title="Decoded Logic Analyzer Packet Stream">
-                    <span class="logic-prefix">LOGIC&gt;</span>
-                    <span class="logic-data" id="hud-scope-logic-data">[0x5A 0xA5 0x01 CRC-OK]</span>
-                </div>
-                <span class="hud-scope-val" id="hud-scope-val" style="display:none">ACTIVE</span>
             </div>
-            <!-- 3D Interactive Controls -->
-            <button type="button" class="hud-btn-sub" id="teardown-toggle-btn" aria-pressed="false" aria-label="3D Layer View" title="View Board Layers">[LAYERS]</button>
-            <button type="button" class="hud-btn-sub" id="theme-toggle-btn" aria-label="Change Color Theme" title="Color Theme">[THEME]</button>
-            <button type="button" class="hud-cmd" id="cmd-palette-btn" aria-label="Quick Search / Menu (Ctrl+K)" title="Menu (Ctrl+K)">[MENU]</button>
-            <button type="button" class="hud-sound" id="sound-toggle" aria-pressed="false" aria-label="Toggle audio" title="Hardware Audio">
-                <span class="eq-bars" aria-hidden="true">
-                    <i class="eq-bar"></i><i class="eq-bar"></i><i class="eq-bar"></i>
-                </span>
-                <span id="sound-toggle-text">AUDIO&nbsp;OFF</span>
+
+            <!-- Action Controls Group -->
+            <div class="hud-actions-group">
+                <button type="button" class="hud-btn-sub" id="teardown-toggle-btn" aria-pressed="false" aria-label="3D Layer View" title="View Board Layers">LAYERS</button>
+                <button type="button" class="hud-btn-sub" id="theme-toggle-btn" aria-label="Change Color Theme" title="Color Theme">THEME</button>
+                <button type="button" class="hud-cmd" id="cmd-palette-btn" aria-label="Quick Search / Menu (Ctrl+K)" title="Menu (Ctrl+K)">MENU <kbd class="hud-kbd">⌘K</kbd></button>
+                <button type="button" class="hud-sound" id="sound-toggle" aria-pressed="false" aria-label="Toggle audio" title="Hardware Audio">
+                    <span class="eq-bars" aria-hidden="true">
+                        <i class="eq-bar"></i><i class="eq-bar"></i><i class="eq-bar"></i>
+                    </span>
+                    <span id="sound-toggle-text">AUDIO</span>
+                </button>
+            </div>
+
+            <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Connect on LinkedIn">LINKEDIN →</a>
+
+            <!-- Mobile Cyber Menu Trigger -->
+            <button type="button" id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Open Cyber Menu" aria-expanded="false">
+                <span class="menu-bar"></span>
+                <span class="menu-bar"></span>
             </button>
         </div>
-        <a id="cta-linkedin-hud" class="cta-linkedin" href="#" target="_blank" rel="noopener noreferrer" aria-label="Connect on LinkedIn">CONNECT ON LINKEDIN →</a>
     </header>
+
+    <!-- Mobile Slide-out Cyber Drawer -->
+    <aside id="mobile-cyber-drawer" class="mobile-cyber-drawer" aria-label="Mobile Controls Drawer" hidden>
+        <div class="drawer-backdrop" id="drawer-backdrop"></div>
+        <div class="drawer-content">
+            <div class="drawer-header">
+                <span class="drawer-title">// HARDWARE CONTROL BUS</span>
+                <button type="button" id="drawer-close-btn" class="drawer-close-btn" aria-label="Close Menu">✕</button>
+            </div>
+            <div class="drawer-body">
+                <div class="drawer-section">
+                    <div class="drawer-section-title">SYSTEM SUBSYSTEMS</div>
+                    <div class="drawer-nav-list">
+                        <button class="drawer-nav-item" data-section="sec-hero"><span>[01]</span> HERO // OVERVIEW</button>
+                        <button class="drawer-nav-item" data-section="sec-about"><span>[02]</span> CORE CPU // U1 PROCESSOR</button>
+                        <button class="drawer-nav-item" data-section="sec-projects"><span>[03]</span> EXPANSION MODULES // U2 CHIPS</button>
+                        <button class="drawer-nav-item" data-section="sec-skills"><span>[04]</span> COMPONENT BANKS // C1-C4 CAPACITORS</button>
+                        <button class="drawer-nav-item" data-section="sec-experience"><span>[05]</span> FIRMWARE // Y1 OSCILLATOR</button>
+                        <button class="drawer-nav-item" data-section="sec-contact"><span>[06]</span> TRANSCEIVER // ANT1 INTERFACE</button>
+                    </div>
+                </div>
+                <div class="drawer-section">
+                    <div class="drawer-section-title">HARDWARE UTILITIES</div>
+                    <div class="drawer-actions-grid">
+                        <button type="button" id="drawer-theme-btn" class="drawer-action-btn">THEME: CYCLE</button>
+                        <button type="button" id="drawer-layers-btn" class="drawer-action-btn">3D CAD LAYERS</button>
+                        <button type="button" id="drawer-sound-btn" class="drawer-action-btn">HARDWARE AUDIO</button>
+                        <button type="button" id="drawer-palette-btn" class="drawer-action-btn">COMMAND MENU (⌘K)</button>
+                    </div>
+                </div>
+                <div class="drawer-section">
+                    <div class="drawer-section-title">DIRECT UPLINKS</div>
+                    <div class="drawer-links">
+                        <a class="drawer-link-btn js-linkedin" href="#" target="_blank" rel="noopener noreferrer">CONNECT ON LINKEDIN →</a>
+                        <button type="button" class="drawer-link-btn js-resume-btn">DOWNLOAD RESUME (PDF) ↗</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Mobile Floating Bottom Thumb Dock -->
+    <nav id="hud-mobile-dock" class="hud-mobile-dock" aria-label="Mobile Section Navigation">
+        <button class="mobile-dock-btn" data-section="sec-about" aria-label="Core CPU"><span class="dock-dot"></span>CPU</button>
+        <button class="mobile-dock-btn" data-section="sec-projects" aria-label="Modules"><span class="dock-dot"></span>MODULES</button>
+        <button class="mobile-dock-btn" data-section="sec-skills" aria-label="Banks"><span class="dock-dot"></span>BANKS</button>
+        <button class="mobile-dock-btn" data-section="sec-experience" aria-label="Firmware"><span class="dock-dot"></span>FIRMWARE</button>
+        <button class="mobile-dock-btn" data-section="sec-contact" aria-label="Transceiver"><span class="dock-dot"></span>TX/RX</button>
+    </nav>
 
     <!-- CAD/CAM Layer Stackup & X-Ray Inspector Bar (Active during [LAYERS] Teardown) -->
     <div id="cad-cam-rack" class="cad-cam-rack" aria-label="CAD/CAM Layer Stackup Inspector" hidden>

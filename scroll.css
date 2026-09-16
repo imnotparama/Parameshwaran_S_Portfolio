@@ -61,6 +61,7 @@ body.full-journey #canvas-container {
 }
 
 /* ─── Fixed HUD bar ─────────────────────────────────────── */
+/* ─── Ultra-Sleek Floating Glass HUD bar ───────────────── */
 #hud-bar {
     position: fixed;
     top: 0;
@@ -70,30 +71,25 @@ body.full-journey #canvas-container {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    /* The bar itself may wrap its ROWS (name+nav on row 1, legend+CTA on
-       row 2 at narrow widths) — but the nav inside NEVER wraps (see
-       .hud-nav flex-wrap: nowrap). Row wrapping is the deliberate,
-       explicit breakpoint behavior; nav-internal wrapping is not. */
-    flex-wrap: wrap;
-    row-gap: 6px;
-    gap: 16px;
-    padding: 12px 22px;
-    background: linear-gradient(to bottom, rgba(6, 14, 10, 0.94), rgba(6, 14, 10, 0.55) 75%, transparent);
-    border-bottom: 1px solid rgba(236, 231, 216, 0.08);
+    height: 48px;
+    padding: 0 20px;
+    box-sizing: border-box;
+    background: rgba(3, 11, 7, 0.82);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid rgba(62, 230, 160, 0.14);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
     opacity: 0; /* revealed by boot */
     pointer-events: none;
+    transition: background 0.3s ease, border-color 0.3s ease, height 0.3s ease;
 }
 
 #hud-bar.hud-ready {
     opacity: 1;
-    /* !important: boot.js sets an inline pointer-events:none via gsap.set and never
-       clears it; without this the fixed HUD (nav, brand, LinkedIn CTA) is unclickable. */
     pointer-events: auto !important;
 }
 
-/* Hide the HUD LinkedIn button whenever the active panel carries its own CTA
-   (hero, about, contact) — guarantees exactly ONE LinkedIn button per section.
-   visibility: hidden removes the invisible CTA from the tab order. */
+/* Hide HUD LinkedIn button when active section embeds its own CTA */
 body.hud-cta-hidden #cta-linkedin-hud {
     opacity: 0 !important;
     pointer-events: none !important;
@@ -105,13 +101,14 @@ body.hud-cta-hidden #cta-linkedin-hud {
 .hud-brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    flex: none;
 }
 
 .hud-name {
     color: var(--silkscreen);
     text-decoration: none;
-    font-size: 15px;
+    font-size: 13.5px;
     letter-spacing: 2px;
     font-weight: 700;
     font-family: var(--font-heading);
@@ -122,25 +119,27 @@ body.hud-cta-hidden #cta-linkedin-hud {
 .hud-name:hover,
 .hud-name:focus-visible {
     color: var(--signal);
+    text-shadow: 0 0 10px rgba(62, 230, 160, 0.6);
 }
 
 .status-pill {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 500;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 600;
     color: #3ee6a0;
-    background: rgba(62, 230, 160, 0.12);
-    border: 1px solid rgba(62, 230, 160, 0.3);
+    background: rgba(62, 230, 160, 0.1);
+    border: 1px solid rgba(62, 230, 160, 0.28);
     border-radius: 999px;
-    padding: 3px 10px;
-    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
 }
 
 .pulse-dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: #3ee6a0;
     box-shadow: 0 0 8px #3ee6a0;
@@ -149,56 +148,44 @@ body.hud-cta-hidden #cta-linkedin-hud {
 
 @keyframes pulse-glow {
     0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.3); opacity: 0.5; }
+    50% { transform: scale(1.35); opacity: 0.45; }
 }
 
+/* ─── Floating Center Navigation Capsule ──────────────── */
 .hud-nav {
     display: flex;
+    align-items: center;
     flex-wrap: nowrap;
-    flex: 1 1 auto;
-    min-width: 0;
-    gap: 6px;
-    justify-content: center;
+    gap: 3px;
+    background: rgba(3, 16, 9, 0.65);
+    border: 1px solid rgba(62, 230, 160, 0.16);
+    border-radius: 999px;
+    padding: 3px 4px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .hud-nav .nav-btn {
-    background: rgba(255, 255, 255, 0.02);
+    background: transparent;
     border: 1px solid transparent;
-    color: rgba(230, 245, 235, 0.75);
-    font-family: var(--font-heading);
-    font-size: 13px;
+    color: rgba(215, 255, 230, 0.72);
+    font-family: var(--font-heading, sans-serif);
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.8px;
     cursor: pointer;
-    padding: 6px 14px;
+    padding: 5px 12px;
     border-radius: 999px;
     white-space: nowrap;
     transition: all var(--duration-fast) var(--ease-out);
+    position: relative;
 }
 
 .hud-nav .nav-btn:hover {
     color: #ffffff;
     background: rgba(62, 230, 160, 0.12);
     border-color: rgba(62, 230, 160, 0.3);
-    transform: translateY(-1px);
 }
 
-.hud-nav .nav-btn.nav-active {
-    color: #06190f;
-    background: var(--signal);
-    border-color: var(--signal);
-    font-weight: 700;
-    box-shadow: 0 0 14px rgba(62, 230, 160, 0.4);
-}
-
-.hud-nav .nav-btn:hover {
-    color: var(--silkscreen);
-    background-color: rgba(236, 231, 216, 0.06);
-}
-
-/* Plan 004: hover LIFT gated behind (hover: hover) and (pointer: fine) — touch
-   taps shouldn't leave a sticky lift. Color/bg feedback stays ungated (it's the
-   only "hovered" cue a tap can't fake). */
 @media (hover: hover) and (pointer: fine) {
     .hud-nav .nav-btn:hover {
         transform: translateY(-1px);
@@ -209,139 +196,139 @@ body.hud-cta-hidden #cta-linkedin-hud {
     transform: translateY(0);
 }
 
-/* Active section = ENIG gold pad under the silkscreen legend */
 .hud-nav .nav-btn.nav-active {
-    color: var(--enig-gold);
-    background-color: rgba(201, 162, 75, 0.10);
-}
-
-.hud-nav .nav-btn.nav-active::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    bottom: 0;
-    width: 16px;
-    height: 2px;
-    background: var(--enig-gold);
-    transform: translateX(-50%);
-    opacity: 1;
-    transition: opacity var(--duration-fast) var(--ease-out);
+    color: #3ee6a0;
+    background: rgba(62, 230, 160, 0.18);
+    border-color: rgba(62, 230, 160, 0.45);
+    font-weight: 700;
+    box-shadow: 0 0 12px rgba(62, 230, 160, 0.25), inset 0 0 8px rgba(62, 230, 160, 0.12);
 }
 
 .hud-nav .nav-btn:focus-visible {
-    outline: 2px solid var(--silkscreen);
+    outline: 2px solid var(--signal);
     outline-offset: 2px;
 }
 
-/* Silkscreen legend — REV marking + power LED (lights when the board is on) */
-.hud-legend {
+/* ─── Right Instruments & Actions ─────────────────────── */
+.hud-instruments-group {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    color: var(--silkscreen-muted);
-    white-space: nowrap;
-}
-
-/* Night bench power switch — the PWR LED is a button now (power.js cuts the
-   bench lights on click/P). The 8px dot is the content box (background-clip),
-   the transparent padding extends the hit target to ~20px so it clears the
-   WCAG 2.5.5 minimum target size without growing the visual dot. */
-.pwr-led {
-    width: 8px;
-    height: 8px;
-    padding: 6px;
-    border: none;
-    border-radius: 50%;
-    background-clip: content-box;
-    background-color: rgba(158, 180, 163, 0.3);
-    cursor: pointer;
-    transition: background-color var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out);
-}
-
-.pwr-led:hover {
-    box-shadow: 0 0 10px rgba(62, 230, 160, 0.55);
-}
-
-.pwr-led:focus-visible {
-    outline: 2px solid var(--silkscreen);
-    outline-offset: 2px;
-}
-
-#hud-bar.hud-ready .pwr-led {
-    background-color: var(--signal);
-    box-shadow: 0 0 8px var(--signal);
-}
-
-/* Night bench — the room lights are out on the 3D side (power.js); the DOM
-   page follows suit so the sidebar chrome never glows brighter than the
-   board's emissive traces. */
-body.night-bench {
-    background: #020403;
-}
-
-.rev-mark {
-    opacity: 0.75;
-}
-
-/* Live scope readout — the probe's measurement, shown in the HUD legend
-   while the pointer is over a board component (hover.js fills ref + values).
-   Idle it reads SCOPE · AWAIT PROBE; body.hud-scope-live lights the chip
-   signal-green so the readout behaves like the rest of the "live" language. */
-/* ─── HUD Scope Chip ─── */
-.hud-scope {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 3px 6px;
-    border: 1px solid rgba(236, 231, 216, 0.15);
-    border-radius: 3px;
-    background: rgba(9, 20, 15, 0.75);
-    font-family: var(--font-mono, monospace);
-    font-size: 8.5px;
-    letter-spacing: 0.8px;
-    transition: border-color var(--duration-fast) var(--ease-out);
+    gap: 8px;
     position: relative;
+    flex: none;
 }
 
-.hud-scope-display {
+/* Live Telemetry & Mini Oscilloscope Capsule */
+.hud-telemetry-capsule {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.hud-telemetry-compact {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
+    height: 28px;
+    background: rgba(3, 14, 8, 0.75);
+    border: 1px solid rgba(62, 230, 160, 0.22);
+    border-radius: 6px;
+    padding: 2px 8px 2px 4px;
+    cursor: pointer;
+    transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.hud-telemetry-compact:hover {
+    border-color: rgba(62, 230, 160, 0.55);
+    box-shadow: 0 0 12px rgba(62, 230, 160, 0.2);
 }
 
 #hud-osc {
-    width: 140px;
-    height: 42px;
+    width: 58px;
+    height: 20px;
     border: 1px solid rgba(62, 230, 160, 0.35);
     background: #020f06;
-    border-radius: 2px;
+    border-radius: 3px;
     display: block;
+}
+
+.hud-telemetry-capsule .hud-hardware-mon {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono, monospace);
+    font-size: 9.5px;
+    letter-spacing: 0.5px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: rgba(215, 255, 230, 0.85);
+}
+
+.hud-mon-sep {
+    opacity: 0.4;
+    color: rgba(62, 230, 160, 0.6);
+}
+
+.hud-mon-item strong {
+    color: var(--signal, #3ee6a0);
+    font-weight: 600;
+}
+
+.hud-mon-item strong.rail-fault {
+    color: #f43f5e !important;
+    text-shadow: 0 0 6px rgba(244, 63, 94, 0.8);
+}
+
+/* Hover Diagnostics Popover: Detailed Dual-Channel CRT & Decoded Logic Stream */
+.hud-scope {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 75;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 220px;
+    padding: 10px 12px;
+    background: rgba(3, 14, 8, 0.96);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-radius: 8px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(62, 230, 160, 0.12);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-6px);
+    transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+
+.hud-telemetry-capsule:hover .hud-scope,
+.hud-telemetry-capsule:focus-within .hud-scope,
+.hud-telemetry-capsule.active .hud-scope {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
 }
 
 .hud-scope-ch-tags {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    font-size: 8px;
+    gap: 3px;
+    font-family: var(--font-mono, monospace);
+    font-size: 9px;
+    letter-spacing: 0.5px;
 }
 
 .hud-scope-ch {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     white-space: nowrap;
 }
 
-.hud-scope-ch.ch1 {
-    color: var(--signal, #3ee6a0);
-}
-
-.hud-scope-ch.ch2 {
-    color: #f59e0b;
-}
+.hud-scope-ch.ch1 { color: var(--signal, #3ee6a0); }
+.hud-scope-ch.ch2 { color: #f59e0b; }
 
 .ch-led {
     width: 5px;
@@ -349,28 +336,19 @@ body.night-bench {
     border-radius: 50%;
     display: inline-block;
 }
-
-.ch1-led {
-    background: #3ee6a0;
-    box-shadow: 0 0 5px #3ee6a0;
-}
-
-.ch2-led {
-    background: #f59e0b;
-    box-shadow: 0 0 5px #f59e0b;
-}
+.ch1-led { background: #3ee6a0; box-shadow: 0 0 6px #3ee6a0; }
+.ch2-led { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
 
 .hud-scope-logic-strip {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 8px;
+    gap: 6px;
+    font-size: 8.5px;
     font-family: 'Fragment Mono', monospace;
-    background: rgba(0, 12, 6, 0.85);
-    border: 1px solid rgba(62, 230, 160, 0.18);
-    border-radius: 2px;
-    padding: 1px 4px;
-    width: 140px;
+    background: rgba(0, 12, 6, 0.95);
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 3px;
+    padding: 3px 6px;
     overflow: hidden;
     white-space: nowrap;
 }
@@ -381,20 +359,385 @@ body.night-bench {
 }
 
 .logic-data {
-    color: rgba(62, 230, 160, 0.9);
+    color: rgba(62, 230, 160, 0.95);
     font-variant-numeric: tabular-nums;
 }
 
-body.hud-scope-live .hud-scope {
-    border-color: rgba(62, 230, 160, 0.55);
-    box-shadow: 0 0 8px rgba(62, 230, 160, 0.15);
+/* ─── Action Controls Group ────────────────────────────── */
+.hud-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(3, 16, 9, 0.65);
+    border: 1px solid rgba(62, 230, 160, 0.16);
+    border-radius: 6px;
+    padding: 2px 4px;
+    height: 28px;
+    box-sizing: border-box;
 }
 
-@media (max-width: 1100px) {
-    .hud-scope {
-        display: none;
-    }
+.hud-btn-sub,
+.hud-cmd,
+.hud-sound {
+    font-family: var(--font-mono, monospace);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    padding: 3px 7px;
+    color: rgba(215, 255, 230, 0.72);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    white-space: nowrap;
+    transition: all var(--duration-fast) var(--ease-out);
 }
+
+.hud-btn-sub:hover,
+.hud-cmd:hover,
+.hud-sound:hover {
+    color: #ffffff;
+    background: rgba(62, 230, 160, 0.12);
+    border-color: rgba(62, 230, 160, 0.3);
+}
+
+.hud-kbd {
+    font-size: 8px;
+    padding: 1px 3px;
+    background: rgba(62, 230, 160, 0.15);
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    border-radius: 2px;
+    color: var(--signal, #3ee6a0);
+    font-family: inherit;
+}
+
+.hud-btn-sub.active,
+body.teardown-active #teardown-toggle-btn {
+    color: var(--signal, #3ee6a0);
+    background: rgba(62, 230, 160, 0.2);
+    border-color: rgba(62, 230, 160, 0.5);
+    box-shadow: 0 0 8px rgba(62, 230, 160, 0.3);
+}
+
+body.sound-on #sound-toggle {
+    color: var(--signal, #3ee6a0);
+    border-color: rgba(62, 230, 160, 0.4);
+    background: rgba(62, 230, 160, 0.15);
+}
+
+.eq-bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 1.5px;
+    height: 10px;
+}
+
+.eq-bar {
+    width: 2px;
+    height: 4px;
+    background: currentColor;
+    border-radius: 1px;
+    transition: height 0.15s ease;
+}
+
+body.sound-on .eq-bar:nth-child(1) { animation: eq-bounce 0.8s ease infinite alternate; }
+body.sound-on .eq-bar:nth-child(2) { animation: eq-bounce 0.6s ease infinite 0.2s alternate; }
+body.sound-on .eq-bar:nth-child(3) { animation: eq-bounce 0.9s ease infinite 0.4s alternate; }
+
+@keyframes eq-bounce {
+    0% { height: 2px; }
+    100% { height: 9px; }
+}
+
+/* Night bench mode */
+body.night-bench {
+    background: #020403;
+}
+
+/* Mobile Cyber Menu Button */
+.mobile-menu-btn {
+    display: none;
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    border-radius: 6px;
+    background: rgba(4, 16, 10, 0.7);
+    cursor: pointer;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0;
+    transition: all var(--duration-fast) var(--ease-out);
+}
+
+.mobile-menu-btn .menu-bar {
+    width: 16px;
+    height: 2px;
+    background: var(--signal, #3ee6a0);
+    border-radius: 1px;
+    transition: all 0.25s var(--ease-out);
+}
+
+.mobile-menu-btn.active .menu-bar:nth-child(1) {
+    transform: translateY(3.5px) rotate(45deg);
+}
+
+.mobile-menu-btn.active .menu-bar:nth-child(2) {
+    transform: translateY(-3.5px) rotate(-45deg);
+}
+
+/* Mobile Slide-out Cyber Drawer */
+.mobile-cyber-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    pointer-events: none;
+    transition: visibility 0.3s;
+}
+
+.mobile-cyber-drawer:not([hidden]) {
+    pointer-events: auto;
+}
+
+.drawer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(1, 8, 4, 0.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.drawer-content {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(320px, 85vw);
+    background: linear-gradient(180deg, rgba(4, 16, 10, 0.98), rgba(2, 10, 6, 0.99));
+    border-left: 1px solid rgba(62, 230, 160, 0.25);
+    box-shadow: -10px 0 35px rgba(0, 0, 0, 0.8), 0 0 20px rgba(62, 230, 160, 0.08);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 20px 18px;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+.mobile-cyber-drawer.open .drawer-backdrop {
+    opacity: 1;
+}
+
+.mobile-cyber-drawer.open .drawer-content {
+    transform: translateX(0);
+}
+
+.drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.18);
+    margin-bottom: 18px;
+}
+
+.drawer-title {
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--signal, #3ee6a0);
+}
+
+.drawer-close-btn {
+    background: none;
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    border-radius: 4px;
+    color: rgba(62, 230, 160, 0.8);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.drawer-section {
+    margin-bottom: 22px;
+}
+
+.drawer-section-title {
+    font-family: var(--font-mono, monospace);
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--enig-gold, #c9a24b);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+}
+
+.drawer-nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.drawer-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: rgba(62, 230, 160, 0.05);
+    border: 1px solid rgba(62, 230, 160, 0.15);
+    border-radius: 6px;
+    color: rgba(215, 255, 230, 0.85);
+    font-family: var(--font-mono, monospace);
+    font-size: 10.5px;
+    text-align: left;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-out);
+}
+
+.drawer-nav-item:hover,
+.drawer-nav-item:active {
+    background: rgba(62, 230, 160, 0.16);
+    border-color: rgba(62, 230, 160, 0.45);
+    color: #ffffff;
+    transform: translateX(3px);
+}
+
+.drawer-nav-item span {
+    color: var(--signal, #3ee6a0);
+    font-weight: 700;
+}
+
+.drawer-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.drawer-action-btn {
+    padding: 10px 8px;
+    background: rgba(3, 18, 10, 0.8);
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 6px;
+    color: rgba(215, 255, 230, 0.8);
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-out);
+}
+
+.drawer-action-btn:hover,
+.drawer-action-btn:active {
+    border-color: var(--signal, #3ee6a0);
+    color: #ffffff;
+    background: rgba(62, 230, 160, 0.14);
+}
+
+.drawer-links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.drawer-link-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 11px;
+    background: var(--enig-gold, #c9a24b);
+    color: #030a05;
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-decoration: none;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 14px rgba(201, 162, 75, 0.25);
+}
+
+.drawer-link-btn.js-resume-btn {
+    background: rgba(62, 230, 160, 0.12);
+    color: var(--signal, #3ee6a0);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    box-shadow: none;
+}
+
+/* Mobile Floating Bottom Thumb Dock */
+.hud-mobile-dock {
+    display: none;
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 80;
+    width: min(calc(100vw - 20px), 430px);
+    background: rgba(3, 14, 8, 0.88);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(62, 230, 160, 0.25);
+    border-radius: 999px;
+    padding: 3px 4px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75), 0 0 20px rgba(62, 230, 160, 0.15);
+    box-sizing: border-box;
+}
+
+.mobile-dock-btn {
+    flex: 1;
+    min-width: 0;
+    height: 36px;
+    border-radius: 999px;
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: rgba(215, 255, 230, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 2px;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-out);
+    white-space: nowrap;
+}
+
+.dock-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(62, 230, 160, 0.4);
+    transition: all var(--duration-fast) var(--ease-out);
+}
+
+.mobile-dock-btn.nav-active {
+    background: rgba(62, 230, 160, 0.22);
+    color: #3ee6a0;
+    border-color: rgba(62, 230, 160, 0.55);
+    box-shadow: 0 0 12px rgba(62, 230, 160, 0.35);
+}
+
+.mobile-dock-btn.nav-active .dock-dot {
+    background: #3ee6a0;
+    box-shadow: 0 0 6px #3ee6a0;
+}
+
 
 /* Flying-probe hint — the discoverability affordance for the WASD probe.
    Hidden until boot completes (hud-ready), fades out forever after the
@@ -3258,25 +3601,192 @@ body.lite-mode .journey-sec:not(#sec-hero) {
     background: rgba(3, 9, 3, 0.86);
 }
 
-/* ─── Mobile & tablet responsiveness ──────────────────── */
-/* Below 768px the site runs lite mode (config.isSmallViewport) — the
-   side-by-side split is never attempted. The board becomes a reduced-height
-   top strip and the panels stack in normal document flow below it. */
+/* ─── Mobile & Tablet Cyber-Responsive Layer ───────────── */
 @media (max-width: 767px) {
-    #canvas-container {
+    /* 1. Interactive 3D Canvas pinned in top 44vh viewport */
+    body.full-journey #canvas-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
         width: 100vw;
-        height: 48vh;
+        height: 44vh;
         min-height: 0;
+        z-index: 1;
+    }
+
+    /* 2. Floating Frosted Glass Datasheet Sheet in lower half */
+    body.full-journey .ds-panel {
+        position: fixed;
+        top: 41vh;
+        bottom: 58px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-width: none;
+        margin: 0;
+        border-radius: 18px 18px 8px 8px;
+        padding: 20px 16px 28px;
+        background: linear-gradient(175deg, rgba(6, 18, 12, 0.96) 0%, rgba(3, 10, 7, 0.98) 100%);
+        backdrop-filter: blur(32px) saturate(180%);
+        -webkit-backdrop-filter: blur(32px) saturate(180%);
+        border: 1px solid rgba(62, 230, 160, 0.28);
+        box-shadow: 0 25px 70px rgba(0, 0, 0, 0.95), 0 0 24px rgba(62, 230, 160, 0.1);
+        z-index: 30;
+    }
+
+    /* Tactile Pull Handle at top of floating datasheet */
+    body.full-journey .ds-panel::after {
+        content: '';
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 38px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(62, 230, 160, 0.4);
+    }
+
+    /* Mobile scroll tracks: 100vh height per section for smooth thumb-swiping */
+    .journey-sec,
+    .journey-sec-tall,
+    #sec-hero {
+        min-height: 100vh;
+    }
+
+    /* 3. Streamlined Top Header on mobile */
+    #hud-bar {
+        height: 42px;
+        padding: 0 12px;
+    }
+
+    #hud-bar .hud-nav {
+        display: none !important;
+    }
+
+    #hud-bar .hud-actions-group {
+        display: none !important;
+    }
+
+    #cta-linkedin-hud {
+        display: none !important;
+    }
+
+    .mobile-menu-btn {
+        display: flex;
+    }
+
+    /* 4. Floating Bottom Cyber Thumb-Dock */
+    .hud-mobile-dock {
+        display: flex;
+    }
+
+    .hud-name {
+        font-size: 11.5px;
+        letter-spacing: 1.5px;
+    }
+
+    .status-pill {
+        font-size: 9px;
+        padding: 2px 6px;
+    }
+
+    .hud-telemetry-compact {
+        height: 25px;
+        padding: 2px 6px 2px 3px;
+        gap: 5px;
+    }
+
+    #hud-osc {
+        width: 46px;
+        height: 18px;
+    }
+
+    .hud-telemetry-capsule .hud-hardware-mon {
+        font-size: 8.5px;
+        gap: 3px;
+    }
+
+    /* Hide desktop connector SVG line on mobile */
+    .connector-svg {
+        display: none !important;
+    }
+
+    /* 5. Mobile Content Adaptations */
+    .proj-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+
+    .hero-stat-row,
+    .hero-badge-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .hero-stat-chip {
+        padding: 8px 10px;
+        text-align: center;
+    }
+
+    .hero-cta-row {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 8px;
+    }
+
+    .hero-cta-row .cta-linkedin,
+    .hero-cta-row .cta-secondary {
+        width: 100%;
+        justify-content: center;
+        box-sizing: border-box;
+    }
+
+    /* Mobile CAD/CAM layer rack */
+    #cad-cam-rack {
+        bottom: 58px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-width: none;
+        padding: 8px 12px;
+    }
+
+    .cad-cam-layers {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
     }
 }
 
-@media (max-width: 900px) {
-    #hud-bar { flex-wrap: wrap; justify-content: center; padding: 10px 12px; gap: 6px; }
-    #cta-linkedin-hud { font-size: 11px; padding: 7px 12px; }
-    .hud-nav .nav-btn { font-size: 11px; padding: 4px 6px; }
-    .hud-name { font-size: 12px; }
-    .connector-svg { display: none !important; }
+/* Tablet split layout tuning (768px – 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+    body.full-journey #canvas-container {
+        width: 52%;
+    }
+
+    body.full-journey .ds-panel {
+        left: calc(52% + 14px);
+        right: 14px;
+        top: 68px;
+        bottom: 16px;
+        padding: 20px;
+    }
+
+    #hud-bar .hud-nav .nav-btn {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+
+    #hud-bar .hud-name {
+        font-size: 12px;
+    }
 }
+
 
 /* ─── Probe-contact hover layer (game-feel) ──────────────────
    The board reads as a live instrument: every hover is a CONTACT EVENT,

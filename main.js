@@ -464,8 +464,14 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         document.body.classList.add('full-journey');
     }
+    if (window.innerWidth < 768) {
+        document.body.classList.add('mobile-viewport');
+    }
+    window.addEventListener('resize', () => {
+        document.body.classList.toggle('mobile-viewport', window.innerWidth < 768);
+    }, { passive: true });
     // The mode class resizes the canvas region (desktop split: left 58%;
-    // mobile: 48vh strip) — initScene measured it full-width before the class
+    // mobile: 44vh strip) — initScene measured it full-width before the class
     // existed, so re-sync renderer/camera/composer to the actual region now.
     syncCanvasSize();
 
@@ -981,6 +987,112 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const cmdBtn = document.getElementById('cmd-palette-btn');
     if (cmdBtn) cmdBtn.addEventListener('click', openCommandPalette);
+
+    // 18b. Mobile Cyber Drawer & Dock navigation wiring
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const mobileDrawer = /** @type {HTMLElement | null} */ (document.getElementById('mobile-cyber-drawer'));
+    const drawerCloseBtn = document.getElementById('drawer-close-btn');
+    const drawerBackdrop = document.getElementById('drawer-backdrop');
+
+    const openDrawer = () => {
+        if (!mobileDrawer) return;
+        mobileDrawer.hidden = false;
+        requestAnimationFrame(() => {
+            mobileDrawer.classList.add('open');
+            mobileMenuBtn?.classList.add('active');
+            mobileMenuBtn?.setAttribute('aria-expanded', 'true');
+        });
+    };
+
+    const closeDrawer = () => {
+        if (!mobileDrawer) return;
+        mobileDrawer.classList.remove('open');
+        mobileMenuBtn?.classList.remove('active');
+        mobileMenuBtn?.setAttribute('aria-expanded', 'false');
+        setTimeout(() => {
+            if (!mobileDrawer.classList.contains('open')) mobileDrawer.hidden = true;
+        }, 300);
+    };
+
+    if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', () => {
+            if (mobileDrawer?.classList.contains('open')) closeDrawer();
+            else openDrawer();
+        });
+    }
+    if (drawerCloseBtn) drawerCloseBtn.addEventListener('click', closeDrawer);
+    if (drawerBackdrop) drawerBackdrop.addEventListener('click', closeDrawer);
+
+    // Mobile drawer navigation items
+    document.querySelectorAll('.drawer-nav-item').forEach((item) => {
+        item.addEventListener('click', () => {
+            const sec = item.getAttribute('data-section');
+            closeDrawer();
+            if (sec) {
+                clickBlip();
+                scrollToSection(sec);
+            }
+        });
+    });
+
+    // Mobile drawer action triggers
+    const drawerThemeBtn = document.getElementById('drawer-theme-btn');
+    if (drawerThemeBtn) {
+        drawerThemeBtn.addEventListener('click', () => {
+            cycleTheme();
+            clickBlip();
+        });
+    }
+    const drawerLayersBtn = document.getElementById('drawer-layers-btn');
+    if (drawerLayersBtn) {
+        drawerLayersBtn.addEventListener('click', () => {
+            closeDrawer();
+            toggleTeardown(() => scrollToSection(getActiveSectionId()));
+            clickBlip();
+        });
+    }
+    const drawerSoundBtn = document.getElementById('drawer-sound-btn');
+    if (drawerSoundBtn) {
+        drawerSoundBtn.addEventListener('click', () => {
+            toggleSound();
+            clickBlip();
+        });
+    }
+    const drawerPaletteBtn = document.getElementById('drawer-palette-btn');
+    if (drawerPaletteBtn) {
+        drawerPaletteBtn.addEventListener('click', () => {
+            closeDrawer();
+            openCommandPalette();
+        });
+    }
+
+    // Mobile Bottom Thumb Dock Buttons
+    document.querySelectorAll('.mobile-dock-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const secId = btn.getAttribute('data-section');
+            if (secId) {
+                clickBlip();
+                scrollToSection(secId);
+            }
+        });
+    });
+
+    // Mobile Telemetry Capsule tap toggle
+    const telemCapsule = document.getElementById('hud-telemetry-capsule');
+    if (telemCapsule) {
+        telemCapsule.addEventListener('click', (e) => {
+            if (window.innerWidth < 1024) {
+                e.stopPropagation();
+                telemCapsule.classList.toggle('active');
+            }
+        });
+        document.addEventListener('click', (e) => {
+            if (telemCapsule.classList.contains('active') && !telemCapsule.contains(/** @type {Node} */ (e.target))) {
+                telemCapsule.classList.remove('active');
+            }
+        });
+    }
+
     // Ctrl+K / Cmd+K — the standard palette shortcut. Not gated on form
     // focus: it's a deliberate global command, and the palette closes itself
     // on Esc. Guarded so a modifier-less 'k' still scrolls normally.
