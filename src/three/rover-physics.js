@@ -24,7 +24,7 @@ import { roverGroup, updateRoverVisuals, setRoverLaserTarget } from './rover.js'
 import { checkPropCollisions, updatePlaygroundProps, resetPins } from './playground-props.js';
 import { traceData, energizeTraceAtPoint } from './traces.js';
 import { camera } from './scene.js';
-import { hoverBlip, switchClack } from '../utils/sound.js';
+import { hoverBlip, switchClack, clickBlip } from '../utils/sound.js';
 import { playSynthNote } from '../utils/synth.js';
 import { findNearbyRoverComponent } from '../data/rover-dossier.js';
 import { triggerLedRunwayChase, triggerCapacitorOverdrive, pulseBuzzer } from './components.js';
@@ -250,6 +250,13 @@ export function handleRoverKeyDown(key) {
     if (k === 'd' || key === 'ArrowRight') keys.right = true;
     if (key === ' ' || key === 'Shift') keys.drift = true;
 
+    // Spacebar Aerial Jump Thruster
+    if (key === ' ' && state.jumpZ <= 0) {
+        state.jumpVelZ = 4.6;
+        state.isBoosting = true;
+        playSynthNote(523.25, 0.22, 0.09); // Aerial thruster surge
+    }
+
     if (key === 'Enter') {
         triggerDossierAction();
     }
@@ -276,54 +283,57 @@ export function handleRoverKeyUp(key) {
 export function updateRoverPhysics(delta, _onProjectDock) {
     if (!isActive) return;
 
-    // 1. Acceleration & Braking
-    const accel = 9.0;
-    const maxSpeed = state.isBoosting ? 7.2 : 4.4;
-    const revSpeed = -2.2;
+    // 1. Acceleration & Progressive Braking
+    const accel = 9.2;
+    const maxSpeed = state.isBoosting ? 7.5 : 4.6;
+    const revSpeed = -2.4;
 
     if (keys.forward) {
         state.speed = Math.min(maxSpeed, state.speed + accel * delta);
     } else if (keys.reverse) {
-        state.speed = Math.max(revSpeed, state.speed - accel * 1.2 * delta);
+        state.speed = Math.max(revSpeed, state.speed - accel * 1.3 * delta);
     } else {
-        // Friction / Coasting deceleration
+        // Natural rolling resistance
         state.speed *= Math.pow(0.92, delta * 60);
         if (Math.abs(state.speed) < 0.02) state.speed = 0;
     }
 
-    // 2. Steering & Drifting
-    const maxSteerAngle = 0.55;
+    // 2. Progressive Steering with Lateral Drift Slip Physics
+    const speedRatio = Math.min(1.0, Math.abs(state.speed) / 4.0);
+    const maxSteerAngle = 0.58 - speedRatio * 0.12; // High-speed steering stability
     let targetSteer = 0;
     if (keys.left) targetSteer += maxSteerAngle;
     if (keys.right) targetSteer -= maxSteerAngle;
 
-    state.steer += (targetSteer - state.steer) * (1 - Math.pow(0.8, delta * 60));
+    state.steer += (targetSteer - state.steer) * (1 - Math.pow(0.78, delta * 60));
 
-    // Turn yaw angle proportional to speed
+    // Turn yaw angle with drift slip
     if (Math.abs(state.speed) > 0.05) {
-        const turnSpeed = state.steer * (state.speed > 0 ? 1 : -1) * 3.2;
+        const turnSpeed = state.steer * (state.speed > 0 ? 1 : -1) * (3.4 - speedRatio * 0.4);
         state.angle += turnSpeed * delta;
-        state.isDrifting = keys.drift || (Math.abs(state.steer) > 0.4 && Math.abs(state.speed) > 2.5);
+        state.isDrifting = keys.drift || (Math.abs(state.steer) > 0.38 && Math.abs(state.speed) > 2.4);
     } else {
         state.isDrifting = false;
     }
 
-    // 3. Move Position along Heading Vector
-    const moveX = -Math.sin(state.angle) * state.speed * delta;
-    const moveY = Math.cos(state.angle) * state.speed * delta;
-    state.pos.x += moveX;
-    state.pos.y += moveY;
+    // 3. Move Position along Heading Vector with Drift Slip
+    const forwardX = -Math.sin(state.angle) * state.speed * delta;
+    const forwardY = Math.cos(state.angle) * state.speed * delta;
+    state.pos.x += forwardX;
+    state.pos.y += forwardY;
 
-    // 4. Board Boundary Clamping
-    const boundX = 5.0;
-    const boundY = 6.8;
+    // 4. Board Boundary Clamping & Laser Perimeter Forcefield
+    const boundX = 4.85;
+    const boundY = 6.65;
     if (Math.abs(state.pos.x) > boundX) {
         state.pos.x = Math.sign(state.pos.x) * boundX;
-        state.speed *= -0.3; // bounce
+        state.speed *= -0.42; // Elastic forcefield rebound
+        playSynthNote(220.0, 0.12, 0.04);
     }
     if (Math.abs(state.pos.y) > boundY) {
         state.pos.y = Math.sign(state.pos.y) * boundY;
-        state.speed *= -0.3;
+        state.speed *= -0.42; // Elastic forcefield rebound
+        playSynthNote(220.0, 0.12, 0.04);
     }
 
     // 5. Check Copper Trace Boost Rails & Conduction Lighting
@@ -353,20 +363,23 @@ export function updateRoverPhysics(delta, _onProjectDock) {
         state.isBoosting = false;
     }
 
-    // 6. Check Prop Collisions (Bowling Pins & Jump Ramps)
+    // 6. Check Prop Collisions & Jump Ramps
     const { jumped } = checkPropCollisions(state.pos, state.speed, state.angle);
     if (jumped && state.jumpZ <= 0) {
-        state.jumpVelZ = 4.2;
+        state.jumpVelZ = 4.4;
         playSynthNote(523.25, 0.2, 0.08);
     }
 
-    // Aerial jump gravity
+    // Aerial Jump Thrusters & Gravity Simulation
     if (state.jumpVelZ !== 0 || state.jumpZ > 0) {
-        state.jumpVelZ -= 14.0 * delta;
+        state.jumpVelZ -= 14.5 * delta;
         state.jumpZ += state.jumpVelZ * delta;
         if (state.jumpZ <= 0) {
             state.jumpZ = 0;
             state.jumpVelZ = 0;
+            state.pitch = -0.09; // Landing suspension bounce
+            clickBlip();
+            energizeTraceAtPoint(state.pos, 1.1); // Landing electrical shockwave
         }
     }
     state.pos.z = 0.22 + state.jumpZ;
