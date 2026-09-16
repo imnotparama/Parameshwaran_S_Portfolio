@@ -1149,6 +1149,9 @@
                 <span class="rover-gauge-item">SURFACE: <strong id="rover-val-surface">SOLDERMASK</strong></span>
             </div>
             <div class="rover-hud-actions">
+                <button type="button" class="rover-photo-btn" id="rover-photo-btn" aria-label="Toggle Macro Photo Mode">
+                    <span id="rover-photo-btn-text">PHOTO MODE [P]</span>
+                </button>
                 <button type="button" class="rover-tour-btn" id="rover-tour-btn" aria-label="Toggle Autonomous Tour Autopilot">
                     <span id="rover-tour-btn-text">AUTOPILOT TOUR [T]</span>
                 </button>
@@ -1181,11 +1184,37 @@
             </div>
         </div>
 
+        <!-- Photo Mode Viewfinder & Shutter Overlay -->
+        <div id="rover-photo-viewfinder" class="rover-photo-viewfinder" hidden>
+            <div class="viewfinder-bracket bracket-tl"></div>
+            <div class="viewfinder-bracket bracket-tr"></div>
+            <div class="viewfinder-bracket bracket-bl"></div>
+            <div class="viewfinder-bracket bracket-br"></div>
+            <div class="viewfinder-grid">
+                <div></div><div></div><div></div>
+                <div></div><div></div><div></div>
+                <div></div><div></div><div></div>
+            </div>
+            <div class="viewfinder-crosshair"></div>
+            <div class="viewfinder-telemetry">
+                <span>LENS: <strong>50mm MACRO f/1.8</strong></span>
+                <span>ISO: <strong>100</strong></span>
+                <span>SHUTTER: <strong>1/2000s</strong></span>
+                <span>WATERMARK: <strong>PARAMA LABS // NANO-ROVER</strong></span>
+                <button type="button" class="viewfinder-shutter-btn" id="viewfinder-shutter-btn" aria-label="Capture High-Res Snapshot">
+                    📸 SNAPSHOT [SPACE]
+                </button>
+            </div>
+        </div>
+        <div id="rover-photo-flash" class="rover-photo-flash" aria-hidden="true"></div>
+
         <!-- Bottom Controls Legend Ribbon -->
         <div class="rover-controls-bar" aria-label="Rover controls">
             <span class="rover-key-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> DRIVE</span>
             <span class="rover-key-divider">|</span>
             <span class="rover-key-hint"><kbd>SPACE</kbd> BOOST / DRIFT</span>
+            <span class="rover-key-divider">|</span>
+            <span class="rover-key-hint"><kbd>P</kbd> PHOTO MODE</span>
             <span class="rover-key-divider">|</span>
             <span class="rover-key-hint"><kbd>T</kbd> AUTOPILOT TOUR</span>
             <span class="rover-key-divider">|</span>

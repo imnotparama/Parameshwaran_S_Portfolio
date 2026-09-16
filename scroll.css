@@ -5887,6 +5887,154 @@ body.rover-active #threejs-canvas {
     box-shadow: 0 0 16px rgba(62, 230, 160, 0.35);
 }
 
+.rover-photo-btn {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    color: #fcd34d;
+    font-size: 10.5px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+}
+
+.rover-photo-btn:hover {
+    background: rgba(245, 158, 11, 0.3);
+    border-color: #f59e0b;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+}
+
+.rover-photo-btn.active {
+    background: rgba(245, 158, 11, 0.3);
+    border-color: #fbbf24;
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.5);
+}
+
+/* Photo Mode Viewfinder Overlay */
+.rover-photo-viewfinder {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 920;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 32px;
+}
+
+.rover-photo-viewfinder[hidden] {
+    display: none !important;
+}
+
+/* Corner Reticle Brackets */
+.viewfinder-bracket {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    border-color: rgba(62, 230, 160, 0.75);
+    border-style: solid;
+}
+.bracket-tl { top: 48px; left: 48px; border-width: 2px 0 0 2px; }
+.bracket-tr { top: 48px; right: 48px; border-width: 2px 2px 0 0; }
+.bracket-bl { bottom: 64px; left: 48px; border-width: 0 0 2px 2px; }
+.bracket-br { bottom: 64px; right: 48px; border-width: 0 2px 2px 0; }
+
+/* Rule of Thirds Grid */
+.viewfinder-grid {
+    position: absolute;
+    inset: 56px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    border: 1px solid rgba(62, 230, 160, 0.08);
+}
+.viewfinder-grid > div {
+    border: 1px dashed rgba(62, 230, 160, 0.12);
+}
+
+/* Center Crosshair */
+.viewfinder-crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+}
+.viewfinder-crosshair::before,
+.viewfinder-crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(62, 230, 160, 0.85);
+}
+.viewfinder-crosshair::before {
+    top: 50%; left: 0; right: 0; height: 1px;
+}
+.viewfinder-crosshair::after {
+    left: 50%; top: 0; bottom: 0; width: 1px;
+}
+
+/* Metadata telemetry banner */
+.viewfinder-telemetry {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: rgba(9, 14, 23, 0.88);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #94a3b8;
+    backdrop-filter: blur(12px);
+    pointer-events: auto;
+}
+
+.viewfinder-telemetry strong {
+    color: #38bdf8;
+}
+
+.viewfinder-shutter-btn {
+    background: #3ee6a0;
+    color: #05140b;
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 11px;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.viewfinder-shutter-btn:hover {
+    background: #4efbb2;
+    box-shadow: 0 0 16px rgba(62, 230, 160, 0.6);
+}
+
+.rover-photo-flash {
+    position: fixed;
+    inset: 0;
+    background: #ffffff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1200;
+    transition: opacity 0.4s ease-out;
+}
+.rover-photo-flash.active {
+    opacity: 0.85;
+    transition: opacity 0.04s ease-in;
+}
+
 /* Floating Proximity Dossier Card */
 .rover-inspect-card {
     position: fixed;

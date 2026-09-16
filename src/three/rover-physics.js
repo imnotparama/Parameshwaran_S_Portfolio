@@ -23,8 +23,8 @@ import gsap from 'gsap';
 import { roverGroup, updateRoverVisuals, setRoverLaserTarget } from './rover.js';
 import { checkPropCollisions, updatePlaygroundProps, resetPins } from './playground-props.js';
 import { traceData, energizeTraceAtPoint } from './traces.js';
-import { camera } from './scene.js';
-import { hoverBlip, switchClack, clickBlip, updateRoverMotorSound, stopRoverMotorSound } from '../utils/sound.js';
+import { camera, composer, renderer, scene } from './scene.js';
+import { hoverBlip, switchClack, clickBlip, relayClick, updateRoverMotorSound, stopRoverMotorSound } from '../utils/sound.js';
 import { playSynthNote } from '../utils/synth.js';
 import { findNearbyRoverComponent } from '../data/rover-dossier.js';
 import { triggerLedRunwayChase, triggerCapacitorOverdrive, pulseBuzzer } from './components.js';
@@ -148,6 +148,12 @@ let isAutopilot = false;
 let currentWaypointIndex = 0;
 let waypointDwellTimer = 0;
 
+// Photo Mode state
+let isPhotoMode = false;
+let photoOrbitAngle = 0;
+const photoOrbitRadius = 3.6;
+let photoOrbitHeight = 1.8;
+
 // Kinematics State
 const state = {
     pos: new THREE.Vector3(0, -5.5, 0.22),
@@ -242,6 +248,20 @@ function bindHudEvents() {
         });
     }
 
+    const photoBtn = document.getElementById('rover-photo-btn');
+    if (photoBtn) {
+        photoBtn.addEventListener('click', () => {
+            togglePhotoMode();
+        });
+    }
+
+    const shutterBtn = document.getElementById('viewfinder-shutter-btn');
+    if (shutterBtn) {
+        shutterBtn.addEventListener('click', () => {
+            captureRoverPhoto();
+        });
+    }
+
     const actionBtn = document.getElementById('dossier-action-btn');
     if (actionBtn) {
         actionBtn.addEventListener('click', () => {
@@ -277,6 +297,89 @@ export function toggleTourAutopilot(enable) {
         if (text) {
             text.textContent = isAutopilot ? 'DISENGAGE [T]' : 'AUTOPILOT TOUR [T]';
         }
+    }
+}
+
+/**
+ * Toggle cinematic macro Photo Mode.
+ * @param {boolean} [enable]
+ */
+export function togglePhotoMode(enable) {
+    const nextState = enable !== undefined ? enable : !isPhotoMode;
+    if (nextState === isPhotoMode) return;
+    isPhotoMode = nextState;
+
+    if (isPhotoMode) {
+        photoOrbitAngle = state.angle - Math.PI / 2;
+        photoOrbitHeight = 1.8;
+        playSynthNote(784.0, 0.12, 0.06); // G5 shutter chime
+        stopRoverMotorSound();
+    } else {
+        playSynthNote(523.25, 0.12, 0.05); // C5 chime
+    }
+
+    if (typeof document !== 'undefined') {
+        const photoBtn = document.getElementById('rover-photo-btn');
+        const photoText = document.getElementById('rover-photo-btn-text');
+        const viewfinder = document.getElementById('rover-photo-viewfinder');
+        const card = document.getElementById('rover-inspect-card');
+
+        if (photoBtn) {
+            if (isPhotoMode) photoBtn.classList.add('active');
+            else photoBtn.classList.remove('active');
+        }
+        if (photoText) {
+            photoText.textContent = isPhotoMode ? 'EXIT PHOTO [P]' : 'PHOTO MODE [P]';
+        }
+        if (viewfinder) {
+            if (isPhotoMode) viewfinder.removeAttribute('hidden');
+            else viewfinder.setAttribute('hidden', '');
+        }
+        if (card && isPhotoMode) {
+            card.setAttribute('hidden', '');
+        }
+    }
+}
+
+/**
+ * Capture high-resolution macro photo snapshot of the Nano-Rover.
+ */
+export function captureRoverPhoto() {
+    if (typeof document === 'undefined') return;
+    const canvas = document.getElementById('threejs-canvas');
+    if (!canvas || !(canvas instanceof HTMLCanvasElement)) return;
+
+    // Trigger an immediate render pass so WebGL drawing buffer is populated
+    if (composer) {
+        composer.render();
+    } else if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
+
+    try {
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `nano-rover-prm-${Date.now().toString().slice(-6)}.png`;
+        link.href = dataUrl;
+        if (document.body && typeof document.body.appendChild === 'function') {
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        relayClick();
+        playSynthNote(880, 0.08, 0.04);
+
+        // Visual shutter flash feedback
+        const flashEl = document.getElementById('rover-photo-flash');
+        if (flashEl) {
+            flashEl.classList.add('active');
+            setTimeout(() => {
+                flashEl.classList.remove('active');
+            }, 90);
+        }
+    } catch (err) {
+        console.warn('Photo snapshot capture unavailable:', err);
     }
 }
 
@@ -391,6 +494,7 @@ export function deactivateRover(onRestore) {
 
     switchClack();
     toggleTourAutopilot(false);
+    togglePhotoMode(false);
     stopRoverMotorSound();
     hideRoverTouchControls();
 
@@ -440,6 +544,27 @@ export function toggleRover(onRestore) {
 export function handleRoverKeyDown(key) {
     const k = key.toLowerCase();
 
+    if (k === 'p') {
+        togglePhotoMode();
+        return;
+    }
+
+    if (isPhotoMode) {
+        if (key === ' ' || key === 'Enter') {
+            captureRoverPhoto();
+            return;
+        }
+        if (key === 'Escape') {
+            togglePhotoMode(false);
+            return;
+        }
+        if (k === 'a' || key === 'ArrowLeft') photoOrbitAngle -= 0.08;
+        if (k === 'd' || key === 'ArrowRight') photoOrbitAngle += 0.08;
+        if (k === 'w' || key === 'ArrowUp') photoOrbitHeight = Math.min(3.6, photoOrbitHeight + 0.12);
+        if (k === 's' || key === 'ArrowDown') photoOrbitHeight = Math.max(0.6, photoOrbitHeight - 0.12);
+        return;
+    }
+
     if (k === 't') {
         toggleTourAutopilot();
         return;
@@ -488,6 +613,21 @@ export function handleRoverKeyUp(key) {
  */
 export function updateRoverPhysics(delta, _onProjectDock) {
     if (!isActive) return;
+
+    // Cinematic Photo Mode Orbit & Freeze Frame
+    if (isPhotoMode) {
+        if (camera) {
+            const targetCamX = state.pos.x + Math.sin(photoOrbitAngle) * photoOrbitRadius;
+            const targetCamY = state.pos.y - Math.cos(photoOrbitAngle) * photoOrbitRadius;
+            const targetCamZ = state.pos.z + photoOrbitHeight;
+            camera.position.x += (targetCamX - camera.position.x) * (1 - Math.pow(0.85, delta * 60));
+            camera.position.y += (targetCamY - camera.position.y) * (1 - Math.pow(0.85, delta * 60));
+            camera.position.z += (targetCamZ - camera.position.z) * (1 - Math.pow(0.85, delta * 60));
+            camera.lookAt(state.pos.x, state.pos.y, state.pos.z + 0.08);
+        }
+        updateRoverVisuals(state, delta);
+        return;
+    }
 
     // Detect Current Motherboard Terrain Surface
     const terrain = getRoverTerrainAt(state.pos.x, state.pos.y);
