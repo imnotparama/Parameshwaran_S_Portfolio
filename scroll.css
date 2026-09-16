@@ -681,12 +681,12 @@ body.night-bench {
 .hud-mobile-dock {
     display: none;
     position: fixed;
-    bottom: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%);
     z-index: 80;
     width: min(calc(100vw - 20px), 430px);
-    background: rgba(3, 14, 8, 0.88);
+    background: rgba(3, 14, 8, 0.9);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     border: 1px solid rgba(62, 230, 160, 0.25);
@@ -696,10 +696,27 @@ body.night-bench {
     box-sizing: border-box;
 }
 
+.hud-mobile-dock .dock-indicator {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 0;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(62, 230, 160, 0.25) 0%, rgba(62, 230, 160, 0.1) 100%);
+    border: 1px solid rgba(62, 230, 160, 0.55);
+    box-shadow: 0 0 14px rgba(62, 230, 160, 0.35);
+    pointer-events: none;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), width 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+    opacity: 0;
+    z-index: 0;
+}
+
 .mobile-dock-btn {
+    position: relative;
+    z-index: 1;
     flex: 1;
     min-width: 0;
-    height: 36px;
+    height: 38px;
     border-radius: 999px;
     font-family: var(--font-mono, monospace);
     font-size: 10px;
@@ -716,6 +733,7 @@ body.night-bench {
     cursor: pointer;
     transition: all var(--duration-fast) var(--ease-out);
     white-space: nowrap;
+    touch-action: manipulation;
 }
 
 .dock-dot {
@@ -727,10 +745,7 @@ body.night-bench {
 }
 
 .mobile-dock-btn.nav-active {
-    background: rgba(62, 230, 160, 0.22);
     color: #3ee6a0;
-    border-color: rgba(62, 230, 160, 0.55);
-    box-shadow: 0 0 12px rgba(62, 230, 160, 0.35);
 }
 
 .mobile-dock-btn.nav-active .dock-dot {
@@ -3602,50 +3617,155 @@ body.lite-mode .journey-sec:not(#sec-hero) {
 }
 
 /* ─── Mobile & Tablet Cyber-Responsive Layer ───────────── */
+/* ─── Mobile & Tablet Cyber-Responsive Layer ───────────── */
+:root {
+    --app-dvh: 100vh;
+}
+@supports (height: 100dvh) {
+    :root {
+        --app-dvh: 100dvh;
+    }
+}
+
+.mobile-mode-toggle {
+    display: none;
+}
+
 @media (max-width: 767px) {
-    /* 1. Interactive 3D Canvas pinned in top 44vh viewport */
+    /* 1. Interactive 3D Canvas pinned with dynamic height */
     body.full-journey #canvas-container {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
         width: 100vw;
-        height: 44vh;
+        height: calc(var(--app-dvh) * 0.44);
         min-height: 0;
         z-index: 1;
+        transition: height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+        touch-action: none;
     }
 
-    /* 2. Floating Frosted Glass Datasheet Sheet in lower half */
+    /* PEEK MODE: Canvas takes 86% of viewport for full 3D interaction */
+    body.full-journey.mobile-sheet-peek #canvas-container {
+        height: calc(var(--app-dvh) - 78px - env(safe-area-inset-bottom, 0px));
+    }
+
+    /* EXPANDED MODE: Reading mode takes over */
+    body.full-journey.mobile-sheet-expanded #canvas-container {
+        height: 44px;
+        opacity: 0.15;
+    }
+
+    /* 2. Floating Frosted Glass Datasheet Sheet */
     body.full-journey .ds-panel {
         position: fixed;
-        top: 41vh;
-        bottom: 58px;
+        top: calc(var(--app-dvh) * 0.42);
+        bottom: calc(56px + env(safe-area-inset-bottom, 0px));
         left: 8px;
         right: 8px;
         width: auto;
         max-width: none;
         margin: 0;
-        border-radius: 18px 18px 8px 8px;
-        padding: 20px 16px 28px;
+        border-radius: 20px 20px 10px 10px;
+        padding: 14px 16px 28px;
         background: linear-gradient(175deg, rgba(6, 18, 12, 0.96) 0%, rgba(3, 10, 7, 0.98) 100%);
         backdrop-filter: blur(32px) saturate(180%);
         -webkit-backdrop-filter: blur(32px) saturate(180%);
-        border: 1px solid rgba(62, 230, 160, 0.28);
-        box-shadow: 0 25px 70px rgba(0, 0, 0, 0.95), 0 0 24px rgba(62, 230, 160, 0.1);
+        border: 1px solid rgba(62, 230, 160, 0.3);
+        box-shadow: 0 25px 70px rgba(0, 0, 0, 0.95), 0 0 24px rgba(62, 230, 160, 0.12);
         z-index: 30;
+        transition: top 0.35s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* PEEK MODE: Sheet sits at bottom mini-strip */
+    body.full-journey.mobile-sheet-peek .ds-panel {
+        top: calc(var(--app-dvh) - 74px - env(safe-area-inset-bottom, 0px));
+        overflow: hidden !important;
+        padding-top: 6px;
+    }
+
+    /* EXPANDED MODE: Full-height reading mode */
+    body.full-journey.mobile-sheet-expanded .ds-panel {
+        top: 46px;
+        bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+        overflow-y: auto !important;
     }
 
     /* Tactile Pull Handle at top of floating datasheet */
-    body.full-journey .ds-panel::after {
-        content: '';
-        position: absolute;
-        top: 8px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 38px;
-        height: 4px;
-        border-radius: 2px;
-        background: rgba(62, 230, 160, 0.4);
+    .mobile-sheet-drag-handle {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        padding: 6px 12px 8px;
+        margin: -10px -14px 12px;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+        border-bottom: 1px solid rgba(62, 230, 160, 0.15);
+        background: rgba(3, 10, 7, 0.65);
+        border-radius: 18px 18px 0 0;
+    }
+
+    .sheet-drag-pill {
+        width: 44px;
+        height: 5px;
+        border-radius: 3px;
+        background: rgba(62, 230, 160, 0.7);
+        box-shadow: 0 0 8px rgba(62, 230, 160, 0.35);
+        transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .mobile-sheet-drag-handle:active .sheet-drag-pill {
+        transform: scaleX(1.2);
+        background: #3ee6a0;
+    }
+
+    .sheet-drag-cue {
+        font-family: var(--font-mono, monospace);
+        font-size: 8px;
+        letter-spacing: 1.2px;
+        color: rgba(62, 230, 160, 0.85);
+        font-weight: 700;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    /* Mobile Floating Mode Quick-Toggle FAB */
+    .mobile-mode-toggle {
+        position: fixed;
+        right: 12px;
+        bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(6, 18, 12, 0.92);
+        border: 1px solid rgba(62, 230, 160, 0.5);
+        color: #3ee6a0;
+        font-family: var(--font-mono, monospace);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.65), 0 0 12px rgba(62, 230, 160, 0.25);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        cursor: pointer;
+        transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        touch-action: manipulation;
+    }
+
+    .mobile-mode-toggle:active {
+        transform: scale(0.92);
+        background: rgba(62, 230, 160, 0.22);
+        border-color: #3ee6a0;
     }
 
     /* Mobile scroll tracks: 100vh height per section for smooth thumb-swiping */
@@ -3713,7 +3833,7 @@ body.lite-mode .journey-sec:not(#sec-hero) {
         display: none !important;
     }
 
-    /* 5. Mobile Content Adaptations */
+    /* 5. Mobile Content & Typography Adaptations */
     .proj-grid {
         grid-template-columns: 1fr !important;
         gap: 12px;
@@ -3730,6 +3850,9 @@ body.lite-mode .journey-sec:not(#sec-hero) {
     .hero-stat-chip {
         padding: 8px 10px;
         text-align: center;
+        border-radius: 8px;
+        background: rgba(6, 18, 12, 0.85);
+        border: 1px solid rgba(62, 230, 160, 0.2);
     }
 
     .hero-cta-row {
@@ -3742,13 +3865,20 @@ body.lite-mode .journey-sec:not(#sec-hero) {
     .hero-cta-row .cta-linkedin,
     .hero-cta-row .cta-secondary {
         width: 100%;
+        min-height: 44px;
         justify-content: center;
         box-sizing: border-box;
+        touch-action: manipulation;
+    }
+
+    /* Prevent auto-zoom on input focus on iOS Safari */
+    input, textarea, select {
+        font-size: 16px !important;
     }
 
     /* Mobile CAD/CAM layer rack */
     #cad-cam-rack {
-        bottom: 58px;
+        bottom: calc(58px + env(safe-area-inset-bottom, 0px));
         left: 8px;
         right: 8px;
         width: auto;

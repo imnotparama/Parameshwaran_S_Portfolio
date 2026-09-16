@@ -34,7 +34,8 @@ import { initLinkedInTracking } from './src/utils/analytics.js';
 import { renderSections } from './src/ui/sections.js';
 import { initHardwareOrchestrator, onSectionChanged, inspectProject, updateHardwareOrchestrator, disturbDroplets, launchPaperAirplane } from './src/three/hardware-orchestrator.js';
 import { triggerRfBurst } from './src/three/rf-wavefront.js';
-import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode, focusLcdCamera } from './src/scroll/journey.js';
+import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode, focusLcdCamera, updateMobileDockIndicator } from './src/scroll/journey.js';
+import { initMobileSheet } from './src/utils/mobile-sheet.js';
 import { SECTION_HASHES, hashToSectionId } from './src/utils/hash-nav.js';
 import { initContactTerminal } from './src/ui/contact-terminal.js';
 import { initContactBoardRotation, resetContactBoardRotation } from './src/three/contact-board-rotation.js';
@@ -639,6 +640,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Honor a deep link (#/about, #/projects) on first load
         if (window.location.hash) applyHashNavigation();
         // Note: hud-ready class is already set inside runBootSequence step 3
+
+        // Initialize dynamic 3-state mobile bottom sheet & dock
+        initMobileSheet();
+        updateMobileDockIndicator();
     });
 
     // 13. Register memory cleanup on page unload
@@ -681,6 +686,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // Previously three independent listeners (scene 100ms, journey 200ms,
     // sig-path immediate) raced — ordering between them was luck, and a stale
     // read could leave the hero/contact framing z off until the next resize.
+    // Dynamic Viewport Height tracker (prevents iOS/Android address bar jumping)
+    function updateDynamicViewport() {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        document.documentElement.style.setProperty('--app-dvh', `${window.innerHeight}px`);
+    }
+    updateDynamicViewport();
+    window.addEventListener('resize', updateDynamicViewport, { passive: true });
+    window.addEventListener('orientationchange', () => {
+        setTimeout(() => {
+            updateDynamicViewport();
+            syncCanvasSize();
+            updateMobileDockIndicator();
+        }, 150);
+    }, { passive: true });
+
     let resizeTimer = 0;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
@@ -688,6 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
             syncCanvasSize();
             resizeJourney();
             scheduleSigPath();
+            updateMobileDockIndicator();
         }, 120);
     }, { passive: true });
     scheduleSigPath();
@@ -1073,6 +1095,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (secId) {
                 clickBlip();
                 scrollToSection(secId);
+                setTimeout(updateMobileDockIndicator, 60);
             }
         });
     });

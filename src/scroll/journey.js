@@ -1095,6 +1095,25 @@ function typewritePanel(panel) {
   });
 }
 
+/**
+ * Smoothly position the glowing sliding pill indicator in the mobile dock.
+ */
+export function updateMobileDockIndicator() {
+  const dock = document.getElementById('hud-mobile-dock');
+  const indicator = document.getElementById('dock-indicator');
+  if (!dock || !indicator) return;
+  const activeBtn = /** @type {HTMLElement | null} */ (dock.querySelector('.mobile-dock-btn.nav-active'));
+  if (activeBtn) {
+    const dockRect = dock.getBoundingClientRect();
+    const btnRect = activeBtn.getBoundingClientRect();
+    indicator.style.opacity = '1';
+    indicator.style.transform = `translateX(${btnRect.left - dockRect.left}px)`;
+    indicator.style.width = `${btnRect.width}px`;
+  } else {
+    indicator.style.opacity = '0';
+  }
+}
+
 // ─── Panel + nav activation ─────────────────────────────────
 /** @param {string | null} panelId */
 function setActivePanel(panelId) {
@@ -1129,6 +1148,7 @@ function setActivePanel(panelId) {
   document.querySelectorAll('.hud-nav .nav-btn, .mobile-dock-btn').forEach((btn) => {
     btn.classList.toggle('nav-active', btn.getAttribute('data-section') === secId);
   });
+  updateMobileDockIndicator();
   // One-shot gold sweep on the activated panel's datasheet title
   // (gradient-text-sweep — same background-clip:text twin mechanism as the
   // boot's hero sweep: raised, backgroundPosition 100%→0% (left→right

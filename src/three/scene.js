@@ -354,7 +354,7 @@ export function syncCanvasSize() {
         camera.fov = 45;
     }
     camera.updateProjectionMatrix();
-    const maxDpr = window.innerWidth < 768 ? 1.75 : 2;
+    const maxDpr = window.innerWidth < 768 ? 1.6 : 2;
     renderer.setSize(w, h, false); // updateStyle false — CSS owns layout
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDpr));
     // Re-apply the current quality level so composer resolution follows.
@@ -398,7 +398,8 @@ export function initScene(canvasElement) {
     // updateStyle false — CSS owns layout (58% split / mobile strip); the
     // drawing buffer is set explicitly to the container size.
     renderer.setSize(viewW, viewH, false);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const maxDpr = window.innerWidth < 768 ? 1.6 : 2;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDpr));
     renderer.shadowMap.enabled = true;
     // PCFSoftShadowMap was removed in r185 (deprecation warning) — PCF is the
     // supported soft variant now.

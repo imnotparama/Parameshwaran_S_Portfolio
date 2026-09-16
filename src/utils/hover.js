@@ -16,6 +16,7 @@ import { rotatePotentiometer } from '../three/potentiometer.js';
 import { playComponentTone } from './synth.js';
 import { setDroneTarget } from '../three/drone.js';
 import { wasContactBoardDragged } from '../three/contact-board-rotation.js';
+import { getMobileSheetState, setMobileSheetState } from './mobile-sheet.js';
 
 // ─── Exports ────────────────────────────────────────────────
 export const mouse = new THREE.Vector2();
@@ -432,14 +433,20 @@ export function initHover(camera, scene) {
         // Local capture — checkJs can't narrow a module-level let across the
         // closure even though it was assigned above (same pattern as board.js).
         const canvas = hoverCanvas;
-        canvas.addEventListener('click', (e) => {
+
+        /**
+         * Dispatch interactive hit on clicked or tapped 3D components.
+         * @param {number} clientX
+         * @param {number} clientY
+         */
+        const processComponentHit = (clientX, clientY) => {
             if (wasContactBoardDragged()) return;
-            if (!clickHandler || !raycaster || !activeCamera) return;
+            if (!raycaster || !activeCamera) return;
             const rect = canvas.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) return;
             const ndc = new THREE.Vector2(
-                ((e.clientX - rect.left) / rect.width) * 2 - 1,
-                -((e.clientY - rect.top) / rect.height) * 2 + 1
+                ((clientX - rect.left) / rect.width) * 2 - 1,
+                -((clientY - rect.top) / rect.height) * 2 + 1
             );
             raycaster.setFromCamera(ndc, activeCamera);
             const targets = interactiveObjects.filter((obj) => obj.userData && obj.userData.isInteractive);
@@ -448,6 +455,12 @@ export function initHover(camera, scene) {
             if (hits.length > 0) {
                 const obj = hits[0].object;
                 hapticClick();
+
+                // On mobile, if the sheet is in peek mode, automatically expand to split mode so specs are visible
+                if (window.innerWidth < 768 && getMobileSheetState() === 'peek') {
+                    setMobileSheetState('split');
+                }
+
                 if (obj.userData && obj.userData.type === 'PROJECT' && obj.name && clickHandler) {
                     clickBlip();
                     clickHandler(obj.name);
@@ -501,6 +514,54 @@ export function initHover(camera, scene) {
                     if (inductorHandler) inductorHandler();
                 }
             }
+        };
+
+        // Mobile touch tracking on 3D canvas
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchStartTime = 0;
+        let lastCanvasTouchX = 0;
+        let lastCanvasTouchY = 0;
+        let isCanvasDragging = false;
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                lastCanvasTouchX = touchStartX;
+                lastCanvasTouchY = touchStartY;
+                touchStartTime = Date.now();
+                isCanvasDragging = true;
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (isCanvasDragging && e.touches.length === 1 && !isPinching) {
+                const t = e.touches[0];
+                const dx = t.clientX - lastCanvasTouchX;
+                const dy = t.clientY - lastCanvasTouchY;
+                lastCanvasTouchX = t.clientX;
+                lastCanvasTouchY = t.clientY;
+                // 1-finger canvas orbit tilt on mobile
+                targetMouse.x = clamp(targetMouse.x + dx * 0.006, -1.2, 1.2);
+                targetMouse.y = clamp(targetMouse.y - dy * 0.006, -1.2, 1.2);
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', () => {
+            if (isCanvasDragging) {
+                isCanvasDragging = false;
+                const deltaDist = Math.hypot(lastCanvasTouchX - touchStartX, lastCanvasTouchY - touchStartY);
+                const duration = Date.now() - touchStartTime;
+                // Tap detected (small finger movement and short duration)
+                if (deltaDist < 14 && duration < 300) {
+                    processComponentHit(touchStartX, touchStartY);
+                }
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('click', (e) => {
+            processComponentHit(e.clientX, e.clientY);
         });
     }
 }

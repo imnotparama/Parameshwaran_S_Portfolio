@@ -225,8 +225,15 @@
         </div>
     </aside>
 
+    <!-- Mobile Floating Mode Quick-Toggle FAB -->
+    <button type="button" id="mobile-mode-toggle" class="mobile-mode-toggle" aria-label="Toggle 3D View vs Datasheet">
+        <span class="mode-icon">⚡</span>
+        <span class="mode-text">3D PCB</span>
+    </button>
+
     <!-- Mobile Floating Bottom Thumb Dock -->
     <nav id="hud-mobile-dock" class="hud-mobile-dock" aria-label="Mobile Section Navigation">
+        <div class="dock-indicator" id="dock-indicator" aria-hidden="true"></div>
         <button class="mobile-dock-btn" data-section="sec-about" aria-label="Core CPU"><span class="dock-dot"></span>CPU</button>
         <button class="mobile-dock-btn" data-section="sec-projects" aria-label="Modules"><span class="dock-dot"></span>MODULES</button>
         <button class="mobile-dock-btn" data-section="sec-skills" aria-label="Banks"><span class="dock-dot"></span>BANKS</button>
@@ -271,6 +278,7 @@
         <!-- HERO — Motherboard Landing & Quick Hardware Actions -->
         <section class="journey-sec" id="sec-hero" data-panel="panel-hero">
             <div class="ds-panel hero-panel" id="panel-hero">
+                <div class="mobile-sheet-drag-handle" role="button" tabindex="0" aria-label="Toggle datasheet height"><span class="sheet-drag-pill"></span><span class="sheet-drag-cue">▲ DRAG UP FOR FULL SPECS</span></div>
                 <div class="hero-top-badge"><span class="badge-dot"></span> PARAMA LABS · PRM-DEV-BOARD V2.0 · SRM UNIVERSITY</div>
                 <div class="headline-stack">
                     <h1 id="user-name">PARAMESHWARAN&nbsp;S</h1>
@@ -315,6 +323,7 @@
         <!-- ABOUT — Core Processor U1 Datasheet -->
         <section class="journey-sec" id="sec-about" data-panel="panel-about">
             <div class="ds-panel" id="panel-about">
+                <div class="mobile-sheet-drag-handle" role="button" tabindex="0" aria-label="Toggle datasheet height"><span class="sheet-drag-pill"></span><span class="sheet-drag-cue">▲ DRAG UP FOR FULL SPECS</span></div>
                 <div class="panel-eyebrow">// DATASHEET: CORE PROCESSOR (U1)</div>
                 <div class="headline-stack ds-title-stack">
                     <h2 class="ds-title">Core Architecture</h2>
@@ -419,6 +428,7 @@
         <!-- PROJECTS — Installed System Modules -->
         <section class="journey-sec journey-sec-tall" id="sec-projects" data-panel="panel-projects">
             <div class="ds-panel ds-panel-wide" id="panel-projects">
+                <div class="mobile-sheet-drag-handle" role="button" tabindex="0" aria-label="Toggle datasheet height"><span class="sheet-drag-pill"></span><span class="sheet-drag-cue">▲ DRAG UP FOR FULL SPECS</span></div>
                 <div class="panel-eyebrow">// DATASHEET: INSTALLED SYSTEM MODULES</div>
                 <div class="headline-stack ds-title-stack">
                     <h2 class="ds-title">Installed Modules</h2>
@@ -431,6 +441,7 @@
         <!-- SKILLS — Component Banks (C1-C4) -->
         <section class="journey-sec" id="sec-skills" data-panel="panel-skills">
             <div class="ds-panel" id="panel-skills">
+                <div class="mobile-sheet-drag-handle" role="button" tabindex="0" aria-label="Toggle datasheet height"><span class="sheet-drag-pill"></span><span class="sheet-drag-cue">▲ DRAG UP FOR FULL SPECS</span></div>
                 <div class="panel-eyebrow">// DATASHEET: COMPONENT BANKS (C1–C4)</div>
                 <div class="headline-stack ds-title-stack">
                     <h2 class="ds-title">Technical Capabilities</h2>
@@ -443,6 +454,7 @@
         <!-- EXPERIENCE — Firmware Updates & Changelog -->
         <section class="journey-sec" id="sec-experience" data-panel="panel-experience">
             <div class="ds-panel" id="panel-experience">
+                <div class="mobile-sheet-drag-handle" role="button" tabindex="0" aria-label="Toggle datasheet height"><span class="sheet-drag-pill"></span><span class="sheet-drag-cue">▲ DRAG UP FOR FULL SPECS</span></div>
                 <div class="panel-eyebrow">// SPI FLASH ROM &amp; FIRMWARE CHANGELOG (U3 / RN1 / J1)</div>
                 <div class="headline-stack ds-title-stack">
                     <h2 class="ds-title">Firmware Updates</h2>
@@ -462,6 +474,7 @@
             </div>
 
             <div class="ds-panel contact-panel" id="panel-contact">
+                <div class="mobile-sheet-drag-handle" role="button" tabindex="0" aria-label="Toggle datasheet height"><span class="sheet-drag-pill"></span><span class="sheet-drag-cue">▲ DRAG UP FOR FULL SPECS</span></div>
                 <div class="milestone-badge">
                     <span class="milestone-status-led"></span>
                     <span class="milestone-text">MISSION ACCOMPLISHED // HARDWARE EXPLORATION 100% OPERATIONAL</span>
@@ -623,7 +636,8 @@
         <!-- Focused Module Detail Panel (Mission-Grade Engineering Datasheet) -->
         <section class="journey-sec" id="sec-project-detail" data-panel="panel-project-detail">
             <div class="ds-panel ds-datasheet-panel" id="panel-project-detail" role="dialog" aria-modal="false" aria-label="Focused module details">
-                <button type="button" class="panel-close" id="btn-project-close" aria-label="Close module details">✕</button>
+                <div class="mobile-sheet-drag-handle" role="button" tabindex="0" aria-label="Toggle datasheet height"><span class="sheet-drag-pill"></span><span class="sheet-drag-cue">▲ DRAG UP FOR FULL SPECS</span></div>
+                <div class="ds-head"><button type="button" class="panel-close" id="btn-project-close" aria-label="Close module details">✕</button></div>
                 
                 <!-- Progressive Subsystem Handshake Banner -->
                 <div class="ds-handshake-bar" id="pdetail-handshake">
