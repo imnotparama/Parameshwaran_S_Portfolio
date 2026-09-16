@@ -24,11 +24,12 @@ import { roverGroup, updateRoverVisuals, setRoverLaserTarget } from './rover.js'
 import { checkPropCollisions, updatePlaygroundProps, resetPins } from './playground-props.js';
 import { traceData, energizeTraceAtPoint } from './traces.js';
 import { camera } from './scene.js';
-import { hoverBlip, switchClack, clickBlip } from '../utils/sound.js';
+import { hoverBlip, switchClack, clickBlip, updateRoverMotorSound, stopRoverMotorSound } from '../utils/sound.js';
 import { playSynthNote } from '../utils/synth.js';
 import { findNearbyRoverComponent } from '../data/rover-dossier.js';
 import { triggerLedRunwayChase, triggerCapacitorOverdrive, pulseBuzzer } from './components.js';
 import { showProjectVisual, hideProjectVisuals } from './project-holograms.js';
+import { initRoverTouch, showRoverTouchControls, hideRoverTouchControls } from '../ui/rover-touch.js';
 
 let isActive = false;
 
@@ -177,6 +178,38 @@ export function activateRover() {
         savedCameraPos.copy(camera.position);
     }
 
+    // Initialize and display mobile virtual touch controls if touch device
+    initRoverTouch(
+        (forward, reverse, left, right) => {
+            keys.forward = forward;
+            keys.reverse = reverse;
+            keys.left = left;
+            keys.right = right;
+        },
+        () => {
+            // Jump button handler
+            if (state.jumpZ <= 0) {
+                state.jumpVelZ = 4.6;
+                state.isBoosting = true;
+                playSynthNote(523.25, 0.22, 0.09);
+            }
+        },
+        () => {
+            // Inspect button handler
+            triggerDossierAction();
+        },
+        () => {
+            // Horn button handler
+            pulseBuzzer();
+            playSynthNote(880, 0.15, 0.08);
+        },
+        () => {
+            // Exit button handler
+            deactivateRover();
+        }
+    );
+    showRoverTouchControls();
+
     // Reset rover position to bottom center
     state.pos.set(0, -5.5, 0.22);
     state.angle = Math.PI / 2;
@@ -198,6 +231,8 @@ export function deactivateRover(onRestore) {
     isActive = false;
 
     switchClack();
+    stopRoverMotorSound();
+    hideRoverTouchControls();
 
     if (roverGroup) roverGroup.visible = false;
     if (typeof document !== 'undefined') {
@@ -457,6 +492,9 @@ export function updateRoverPhysics(delta, _onProjectDock) {
 
     // Update 3D Rover Visuals
     updateRoverVisuals(state, delta);
+
+    // Dynamic Brushless EV Motor Audio Synthesis
+    updateRoverMotorSound(state.speed, state.isBoosting, state.speed < -0.05);
 
     // 9. Camera Smooth Tracking
     if (camera) {

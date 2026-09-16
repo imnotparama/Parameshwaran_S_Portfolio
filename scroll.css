@@ -6026,14 +6026,137 @@ body.rover-active #threejs-canvas {
         padding: 14px;
     }
     .rover-controls-bar {
-        font-size: 9px;
-        padding: 6px 14px;
-        gap: 8px;
+        display: none;
     }
     .rover-gauges {
         display: none;
     }
 }
+
+/* ================================================================
+ * Mobile Virtual Touch Joystick & Action Cluster
+ * ================================================================ */
+.rover-touch-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 930;
+}
+
+.rover-touch-overlay[hidden] {
+    display: none !important;
+}
+
+.rover-stick-zone {
+    position: fixed;
+    bottom: 24px;
+    left: 20px;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.rover-stick-base {
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(14, 22, 33, 0.75), rgba(6, 10, 16, 0.92));
+    border: 2px solid rgba(62, 230, 160, 0.45);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), inset 0 0 16px rgba(62, 230, 160, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    touch-action: none;
+}
+
+.rover-stick-crosshair {
+    position: absolute;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: 1px dashed rgba(62, 230, 160, 0.28);
+    pointer-events: none;
+}
+
+.rover-stick-knob {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #5eead4, #0d9488);
+    box-shadow: 0 4px 16px rgba(62, 230, 160, 0.55), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+    border: 2px solid #ffffff;
+    pointer-events: none;
+    will-change: transform;
+}
+
+.rover-stick-label {
+    font-family: var(--font-mono, monospace);
+    font-size: 8.5px;
+    color: #3ee6a0;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+
+.rover-touch-actions {
+    position: fixed;
+    bottom: 24px;
+    right: 20px;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-end;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.rover-action-touch-btn {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: rgba(9, 14, 23, 0.88);
+    border: 2px solid rgba(62, 230, 160, 0.45);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(62, 230, 160, 0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: #ffffff;
+    cursor: pointer;
+    backdrop-filter: blur(14px);
+    touch-action: none;
+    transition: transform 0.1s ease, background 0.1s ease;
+}
+
+.rover-action-touch-btn:active {
+    transform: scale(0.92);
+    background: rgba(62, 230, 160, 0.25);
+    border-color: #3ee6a0;
+}
+
+.touch-btn-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.touch-btn-tag {
+    font-family: var(--font-mono, monospace);
+    font-size: 7.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #38bdf8;
+}
+
+.btn-jump .touch-btn-tag {
+    color: #facc15;
+}
+
 
 
 

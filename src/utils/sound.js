@@ -424,4 +424,72 @@ export function playCpuTurboChime() {
     }
 }
 
+// ─── 3D Rover Brushless Electric Motor Synthesizer ────────────
+/** @type {OscillatorNode | null} */
+let roverMotorOsc = null;
+/** @type {GainNode | null} */
+let roverMotorGain = null;
+/** @type {BiquadFilterNode | null} */
+let roverMotorFilter = null;
+
+/**
+ * Dynamic brushless EV motor sound for the 3D PCB Nano-Rover.
+ * Tracks rover velocity with smooth frequency modulation and low-pass filtering.
+ * @param {number} speed Rover speed magnitude
+ * @param {boolean} [isBoosting]
+ * @param {boolean} [isBraking]
+ */
+export function updateRoverMotorSound(speed, isBoosting = false, isBraking = false) {
+    if (!enabled) {
+        if (roverMotorGain && audioCtx) {
+            roverMotorGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+        }
+        return;
+    }
+    const ctx = getCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    if (!roverMotorOsc || !roverMotorGain || !roverMotorFilter) {
+        roverMotorOsc = ctx.createOscillator();
+        roverMotorOsc.type = 'sawtooth';
+        roverMotorOsc.frequency.value = 75; // Idle electric hum
+
+        roverMotorFilter = ctx.createBiquadFilter();
+        roverMotorFilter.type = 'lowpass';
+        roverMotorFilter.frequency.value = 280;
+
+        roverMotorGain = ctx.createGain();
+        roverMotorGain.gain.value = 0;
+
+        roverMotorOsc.connect(roverMotorFilter);
+        roverMotorFilter.connect(roverMotorGain);
+        roverMotorGain.connect(ctx.destination);
+        roverMotorOsc.start();
+    }
+
+    const absSpeed = Math.abs(speed);
+    // Base frequency tracks velocity: 75Hz at rest up to 360Hz at high speed
+    const targetFreq = 75 + absSpeed * 45 + (isBoosting ? 65 : 0) + (isBraking ? -20 : 0);
+    roverMotorOsc.frequency.setTargetAtTime(Math.max(50, targetFreq), ctx.currentTime, 0.08);
+
+    // Filter cut-off opens up as motor spins faster
+    const targetFilter = 240 + absSpeed * 120 + (isBoosting ? 200 : 0);
+    roverMotorFilter.frequency.setTargetAtTime(targetFilter, ctx.currentTime, 0.08);
+
+    // Gain scales smoothly with velocity (subtle instrument purr, never overpowering)
+    const targetGain = Math.min(0.045, Math.max(0.008, absSpeed * 0.012 + (isBoosting ? 0.015 : 0)));
+    roverMotorGain.gain.setTargetAtTime(targetGain, ctx.currentTime, 0.06);
+}
+
+/**
+ * Stop rover motor sound immediately when exiting rover drive mode.
+ */
+export function stopRoverMotorSound() {
+    if (!roverMotorGain || !audioCtx) return;
+    try {
+        roverMotorGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+    } catch {}
+}
+
 
