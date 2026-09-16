@@ -20,7 +20,7 @@
 
 import * as THREE from 'three';
 import gsap from 'gsap';
-import { roverGroup, updateRoverVisuals, setRoverLaserTarget } from './rover.js';
+import { roverGroup, updateRoverVisuals, setRoverLaserTarget, cycleRoverLivery, applyRoverLivery, ROVER_LIVERIES } from './rover.js';
 import { checkPropCollisions, updatePlaygroundProps, resetPins } from './playground-props.js';
 import { traceData, energizeTraceAtPoint } from './traces.js';
 import { camera, composer, renderer, scene } from './scene.js';
@@ -255,6 +255,13 @@ function bindHudEvents() {
         });
     }
 
+    const paintBtn = document.getElementById('rover-paint-btn');
+    if (paintBtn) {
+        paintBtn.addEventListener('click', () => {
+            cycleLivery();
+        });
+    }
+
     const shutterBtn = document.getElementById('viewfinder-shutter-btn');
     if (shutterBtn) {
         shutterBtn.addEventListener('click', () => {
@@ -339,6 +346,26 @@ export function togglePhotoMode(enable) {
             card.setAttribute('hidden', '');
         }
     }
+}
+
+/**
+ * Cycle to the next chassis paint livery.
+ */
+export function cycleLivery() {
+    const livery = cycleRoverLivery();
+    playSynthNote(784.0, 0.1, 0.05);
+    hoverBlip();
+    if (typeof document !== 'undefined') {
+        const paintText = document.getElementById('rover-paint-btn-text');
+        if (paintText) {
+            paintText.textContent = `PAINT: ${livery.name} [C]`;
+        }
+    }
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('rover-livery', livery.id);
+        }
+    } catch {}
 }
 
 /**
@@ -482,6 +509,23 @@ export function activateRover() {
     lastDossierId = '';
     setRoverLaserTarget(null, false);
     resetPins();
+
+    // Restore saved livery preference
+    try {
+        if (typeof localStorage !== 'undefined') {
+            const savedId = localStorage.getItem('rover-livery');
+            if (savedId) {
+                const matched = ROVER_LIVERIES.find(l => l.id === savedId);
+                if (matched) {
+                    applyRoverLivery(matched);
+                    if (typeof document !== 'undefined') {
+                        const paintText = document.getElementById('rover-paint-btn-text');
+                        if (paintText) paintText.textContent = `PAINT: ${matched.name} [C]`;
+                    }
+                }
+            }
+        }
+    } catch {}
 }
 
 /**
@@ -543,6 +587,11 @@ export function toggleRover(onRestore) {
  */
 export function handleRoverKeyDown(key) {
     const k = key.toLowerCase();
+
+    if (k === 'c') {
+        cycleLivery();
+        return;
+    }
 
     if (k === 'p') {
         togglePhotoMode();

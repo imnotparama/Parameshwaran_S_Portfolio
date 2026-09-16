@@ -5887,6 +5887,27 @@ body.rover-active #threejs-canvas {
     box-shadow: 0 0 16px rgba(62, 230, 160, 0.35);
 }
 
+.rover-paint-btn {
+    background: rgba(168, 85, 247, 0.15);
+    border: 1px solid rgba(168, 85, 247, 0.45);
+    color: #d8b4fe;
+    font-size: 10.5px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+}
+
+.rover-paint-btn:hover {
+    background: rgba(168, 85, 247, 0.3);
+    border-color: #a855f7;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+}
+
 .rover-photo-btn {
     background: rgba(245, 158, 11, 0.15);
     border: 1px solid rgba(245, 158, 11, 0.45);

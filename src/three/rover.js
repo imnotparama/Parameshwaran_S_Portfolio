@@ -46,6 +46,12 @@ let headlightR = null;
 /** @type {THREE.MeshStandardMaterial | null} */
 let taillightMat = null;
 
+// Chassis & Cage Materials for Paint Bay customization
+/** @type {THREE.MeshStandardMaterial | null} */
+let chassisBodyMat = null;
+/** @type {THREE.MeshStandardMaterial | null} */
+let rollCageMat = null;
+
 // Boost Thrusters
 /** @type {THREE.MeshBasicMaterial | null} */
 let boostGlowMat = null;
@@ -60,6 +66,55 @@ let laserReticleGroup = null;
 /** @type {THREE.Vector3 | null} */
 let laserTargetWorldPos = null;
 let isLaserLocked = false;
+
+export const ROVER_LIVERIES = [
+    {
+        id: 'stealth-enig',
+        name: 'STEALTH ENIG',
+        bodyColor: 0x141418,
+        bodyEmissive: 0x051008,
+        cageColor: 0xd4af37,
+        cageEmissive: 0x997a15,
+        laserColor: 0x00ff88,
+        headlightColor: 0x00ffff,
+        boostColor: 0x00ffcc
+    },
+    {
+        id: 'cyber-neon',
+        name: 'CYBER NEON',
+        bodyColor: 0x07111e,
+        bodyEmissive: 0x021a2e,
+        cageColor: 0x00e5ff,
+        cageEmissive: 0x0088aa,
+        laserColor: 0x00f0ff,
+        headlightColor: 0x38bdf8,
+        boostColor: 0x06b6d4
+    },
+    {
+        id: 'solar-gold',
+        name: 'SOLAR ENIG GOLD',
+        bodyColor: 0xd4af37,
+        bodyEmissive: 0x664408,
+        cageColor: 0x111114,
+        cageEmissive: 0x040404,
+        laserColor: 0xf59e0b,
+        headlightColor: 0xfef08a,
+        boostColor: 0xf97316
+    },
+    {
+        id: 'ceramic-white',
+        name: 'CERAMIC CLEANROOM',
+        bodyColor: 0xf1f5f9,
+        bodyEmissive: 0x334155,
+        cageColor: 0xf43f5e,
+        cageEmissive: 0x881337,
+        laserColor: 0xa855f7,
+        headlightColor: 0xffffff,
+        boostColor: 0xec4899
+    }
+];
+
+let currentLiveryIndex = 0;
 
 // Skid mark decal pool (64 tracks = 32 dual pairs)
 const MAX_SKIDS = 64;
@@ -107,7 +162,7 @@ export function createRover(boardGroup) {
 
     // ─── 1. Main Carbon-Fiber Chassis Tub ────────────────────────
     const bodyGeo = new THREE.BoxGeometry(0.50, 0.74, 0.16);
-    const bodyMat = new THREE.MeshStandardMaterial({
+    chassisBodyMat = new THREE.MeshStandardMaterial({
         color: 0x141418,
         metalness: 0.85,
         roughness: 0.25,
@@ -115,15 +170,15 @@ export function createRover(boardGroup) {
         emissiveIntensity: 0.3
     });
     disposableResources.geometries.add(bodyGeo);
-    disposableResources.materials.add(bodyMat);
+    disposableResources.materials.add(chassisBodyMat);
 
-    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+    const bodyMesh = new THREE.Mesh(bodyGeo, chassisBodyMat);
     bodyMesh.castShadow = true;
     roverGroup.add(bodyMesh);
 
     // Front Aero Splitter (ENIG Gold accented)
     const splitterGeo = new THREE.BoxGeometry(0.56, 0.12, 0.04);
-    const goldMat = new THREE.MeshStandardMaterial({
+    rollCageMat = new THREE.MeshStandardMaterial({
         color: 0xd4af37,
         metalness: 0.95,
         roughness: 0.15,
@@ -131,28 +186,28 @@ export function createRover(boardGroup) {
         emissiveIntensity: 0.35
     });
     disposableResources.geometries.add(splitterGeo);
-    disposableResources.materials.add(goldMat);
+    disposableResources.materials.add(rollCageMat);
 
-    const splitterMesh = new THREE.Mesh(splitterGeo, goldMat);
+    const splitterMesh = new THREE.Mesh(splitterGeo, rollCageMat);
     splitterMesh.position.set(0, 0.38, -0.05);
     roverGroup.add(splitterMesh);
 
     // Rear Aero Diffuser
     const diffuserGeo = new THREE.BoxGeometry(0.48, 0.10, 0.06);
     disposableResources.geometries.add(diffuserGeo);
-    const diffuserMesh = new THREE.Mesh(diffuserGeo, bodyMat);
+    const diffuserMesh = new THREE.Mesh(diffuserGeo, chassisBodyMat);
     diffuserMesh.position.set(0, -0.38, -0.04);
     roverGroup.add(diffuserMesh);
 
     // Top Silicon Die / Gold Roof Accent
     const roofGeo = new THREE.PlaneGeometry(0.34, 0.46);
     disposableResources.geometries.add(roofGeo);
-    const roofMesh = new THREE.Mesh(roofGeo, goldMat);
+    const roofMesh = new THREE.Mesh(roofGeo, rollCageMat);
     roofMesh.position.z = 0.082;
     roverGroup.add(roofMesh);
 
     // ─── 2. ENIG Gold Roll Cage Exoskeleton ─────────────────────
-    const cageBarMat = goldMat;
+    const cageBarMat = rollCageMat;
     const cageGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.48, 8);
     cageGeo.rotateX(Math.PI / 2);
     disposableResources.geometries.add(cageGeo);
@@ -219,7 +274,7 @@ export function createRover(boardGroup) {
         const wGroup = new THREE.Group();
         const tire = new THREE.Mesh(tireGeo, tireMat);
         tire.castShadow = true;
-        const cap = new THREE.Mesh(hubcapGeo, goldMat);
+        const cap = new THREE.Mesh(hubcapGeo, rollCageMat || undefined);
         wGroup.add(tire);
         wGroup.add(cap);
         return wGroup;
@@ -465,6 +520,61 @@ export function createRover(boardGroup) {
     boardGroup.add(sparkMesh);
 
     return roverGroup;
+}
+
+/**
+ * Apply livery styling to the 3D Nano-Rover materials and lights.
+ * @param {typeof ROVER_LIVERIES[number]} livery
+ */
+export function applyRoverLivery(livery) {
+    if (!livery) return;
+    const idx = ROVER_LIVERIES.findIndex(l => l.id === livery.id);
+    if (idx !== -1) currentLiveryIndex = idx;
+
+    if (chassisBodyMat) {
+        chassisBodyMat.color.setHex(livery.bodyColor);
+        chassisBodyMat.emissive.setHex(livery.bodyEmissive);
+    }
+    if (rollCageMat) {
+        rollCageMat.color.setHex(livery.cageColor);
+        rollCageMat.emissive.setHex(livery.cageEmissive);
+    }
+    if (laserBeamMesh && laserBeamMesh.material instanceof THREE.Material) {
+        /** @type {any} */ (laserBeamMesh.material).color.setHex(livery.laserColor);
+    }
+    if (laserReticleGroup) {
+        laserReticleGroup.children.forEach(child => {
+            if (child instanceof THREE.Mesh && child.material && 'color' in child.material) {
+                /** @type {any} */ (child.material).color.setHex(livery.laserColor);
+            }
+        });
+    }
+    if (headlightL && headlightR) {
+        headlightL.color.setHex(livery.headlightColor);
+        headlightR.color.setHex(livery.headlightColor);
+    }
+    if (boostGlowMat) {
+        boostGlowMat.color.setHex(livery.boostColor);
+    }
+}
+
+/**
+ * Cycle to next paint bay finish.
+ * @returns {typeof ROVER_LIVERIES[number]}
+ */
+export function cycleRoverLivery() {
+    currentLiveryIndex = (currentLiveryIndex + 1) % ROVER_LIVERIES.length;
+    const livery = ROVER_LIVERIES[currentLiveryIndex];
+    applyRoverLivery(livery);
+    return livery;
+}
+
+/**
+ * Get the active rover livery.
+ * @returns {typeof ROVER_LIVERIES[number]}
+ */
+export function getCurrentRoverLivery() {
+    return ROVER_LIVERIES[currentLiveryIndex];
 }
 
 /**
