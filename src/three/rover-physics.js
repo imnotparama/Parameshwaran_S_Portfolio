@@ -92,7 +92,61 @@ export function getRoverTerrainAt(x, y) {
     return TERRAIN_TYPES.SOLDERMASK;
 }
 
+export const TOUR_WAYPOINTS = [
+    {
+        name: 'EDUCATION & CORE PROCESSOR',
+        pos: { x: 0, y: 1.0 },
+        dwellSec: 3.5,
+        componentId: 'U1'
+    },
+    {
+        name: 'APPLIED AI & VISION CLUSTER',
+        pos: { x: -3.2, y: 4.5 },
+        dwellSec: 3.2,
+        componentId: 'U2'
+    },
+    {
+        name: 'CROWDPULSE AI DIORAMA',
+        pos: { x: -4.88, y: 2.9 },
+        dwellSec: 3.6,
+        componentId: 'CP1'
+    },
+    {
+        name: 'DIALORA OFFLINE VOICE AGENT',
+        pos: { x: -4.20, y: 2.9 },
+        dwellSec: 3.6,
+        componentId: 'DL1'
+    },
+    {
+        name: 'RUNWAY LED INTERACTION ARRAY',
+        pos: { x: -3.6, y: -1.2 },
+        dwellSec: 2.8,
+        componentId: 'D1-D7'
+    },
+    {
+        name: 'HIGH-Q CAPACITOR OVERDRIVE BANK',
+        pos: { x: 1.8, y: -1.5 },
+        dwellSec: 2.8,
+        componentId: 'C1-C4'
+    },
+    {
+        name: '32.768 KHZ TCXO CRYSTAL',
+        pos: { x: 1.6, y: 0.5 },
+        dwellSec: 2.6,
+        componentId: 'Y1'
+    },
+    {
+        name: 'MISSION TELEMETRY BASE',
+        pos: { x: 0, y: -5.5 },
+        dwellSec: 2.5,
+        componentId: null
+    }
+];
+
 let isActive = false;
+let isAutopilot = false;
+let currentWaypointIndex = 0;
+let waypointDwellTimer = 0;
 
 // Kinematics State
 const state = {
@@ -181,11 +235,48 @@ function bindHudEvents() {
         });
     }
 
+    const tourBtn = document.getElementById('rover-tour-btn');
+    if (tourBtn) {
+        tourBtn.addEventListener('click', () => {
+            toggleTourAutopilot();
+        });
+    }
+
     const actionBtn = document.getElementById('dossier-action-btn');
     if (actionBtn) {
         actionBtn.addEventListener('click', () => {
             triggerDossierAction();
         });
+    }
+}
+
+/**
+ * Toggle autonomous milestone tour autopilot.
+ * @param {boolean} [enable]
+ */
+export function toggleTourAutopilot(enable) {
+    const nextState = enable !== undefined ? enable : !isAutopilot;
+    if (nextState === isAutopilot) return;
+    isAutopilot = nextState;
+
+    if (isAutopilot) {
+        currentWaypointIndex = 0;
+        waypointDwellTimer = 0;
+        playSynthNote(587.33, 0.18, 0.08); // Ascending D5 chime
+    } else {
+        playSynthNote(392.0, 0.14, 0.06); // G4 chime
+    }
+
+    if (typeof document !== 'undefined') {
+        const btn = document.getElementById('rover-tour-btn');
+        const text = document.getElementById('rover-tour-btn-text');
+        if (btn) {
+            if (isAutopilot) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+        if (text) {
+            text.textContent = isAutopilot ? 'DISENGAGE [T]' : 'AUTOPILOT TOUR [T]';
+        }
     }
 }
 
@@ -246,6 +337,9 @@ export function activateRover() {
     // Initialize and display mobile virtual touch controls if touch device
     initRoverTouch(
         (forward, reverse, left, right) => {
+            if (isAutopilot && (forward || reverse || left || right)) {
+                toggleTourAutopilot(false);
+            }
             keys.forward = forward;
             keys.reverse = reverse;
             keys.left = left;
@@ -296,6 +390,7 @@ export function deactivateRover(onRestore) {
     isActive = false;
 
     switchClack();
+    toggleTourAutopilot(false);
     stopRoverMotorSound();
     hideRoverTouchControls();
 
@@ -344,6 +439,17 @@ export function toggleRover(onRestore) {
  */
 export function handleRoverKeyDown(key) {
     const k = key.toLowerCase();
+
+    if (k === 't') {
+        toggleTourAutopilot();
+        return;
+    }
+
+    // Any manual steering/throttle input automatically disengages Autopilot
+    if (isAutopilot && (k === 'w' || k === 's' || k === 'a' || k === 'd' || key.startsWith('Arrow') || key === ' ')) {
+        toggleTourAutopilot(false);
+    }
+
     if (k === 'w' || key === 'ArrowUp') keys.forward = true;
     if (k === 's' || key === 'ArrowDown') keys.reverse = true;
     if (k === 'a' || key === 'ArrowLeft') keys.left = true;
@@ -387,38 +493,85 @@ export function updateRoverPhysics(delta, _onProjectDock) {
     const terrain = getRoverTerrainAt(state.pos.x, state.pos.y);
     state.terrain = terrain;
 
-    // 1. Acceleration & Progressive Braking (scaled by surface traction)
-    const baseAccel = 9.2 * terrain.accelMult;
-    const maxSpeed = (state.isBoosting ? 7.5 : 4.6) * terrain.maxSpeedMult;
-    const revSpeed = -2.4;
+    // 1. & 2. Kinematics (Autonomous Autopilot OR Manual User Drive)
+    if (isAutopilot) {
+        const wp = TOUR_WAYPOINTS[currentWaypointIndex];
+        const dx = wp.pos.x - state.pos.x;
+        const dy = wp.pos.y - state.pos.y;
+        const dist = Math.hypot(dx, dy);
 
-    if (keys.forward) {
-        state.speed = Math.min(maxSpeed, state.speed + baseAccel * delta);
-    } else if (keys.reverse) {
-        state.speed = Math.max(revSpeed, state.speed - baseAccel * 1.3 * delta);
+        // Desired angle towards target waypoint
+        const targetAngle = Math.atan2(-dx, dy);
+        let angleDiff = targetAngle - state.angle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+        // Progressive auto-steering
+        const autoSteer = Math.max(-0.58, Math.min(0.58, angleDiff * 2.2));
+        state.steer += (autoSteer - state.steer) * (1 - Math.pow(0.70, delta * 60));
+
+        const speedRatio = Math.min(1.0, Math.abs(state.speed) / 4.0);
+
+        if (dist > 0.45) {
+            waypointDwellTimer = 0;
+            let cruiseSpeed = Math.min(3.4, Math.max(1.3, dist * 1.4));
+            if (Math.abs(angleDiff) > 0.7) cruiseSpeed *= 0.55; // Slow down for tight turns
+            state.speed += (cruiseSpeed - state.speed) * (1 - Math.pow(0.86, delta * 60));
+            const turnSpeed = state.steer * (state.speed > 0 ? 1 : -1) * (3.6 - speedRatio * 0.4);
+            state.angle += turnSpeed * delta;
+            state.isDrifting = false;
+        } else {
+            // Arrived at milestone waypoint: brake gently and dwell
+            state.speed *= Math.pow(0.80, delta * 60);
+            if (Math.abs(state.speed) < 0.05) state.speed = 0;
+            waypointDwellTimer += delta;
+
+            if (boostValEl) {
+                const remaining = Math.max(0, wp.dwellSec - waypointDwellTimer).toFixed(1);
+                boostValEl.textContent = `TOUR: ${wp.name} [${remaining}S]`;
+                boostValEl.style.color = '#38bdf8';
+            }
+
+            if (waypointDwellTimer >= wp.dwellSec) {
+                currentWaypointIndex = (currentWaypointIndex + 1) % TOUR_WAYPOINTS.length;
+                waypointDwellTimer = 0;
+                playSynthNote(659.25, 0.14, 0.07); // E5 milestone progression chime
+            }
+        }
     } else {
-        // Natural rolling resistance adjusted by surface friction
-        state.speed *= Math.pow(terrain.friction, delta * 60);
-        if (Math.abs(state.speed) < 0.02) state.speed = 0;
-    }
+        // Manual Driving Kinematics
+        const baseAccel = 9.2 * terrain.accelMult;
+        const maxSpeed = (state.isBoosting ? 7.5 : 4.6) * terrain.maxSpeedMult;
+        const revSpeed = -2.4;
 
-    // 2. Progressive Steering with Lateral Drift Slip Physics
-    const speedRatio = Math.min(1.0, Math.abs(state.speed) / 4.0);
-    const maxSteerAngle = 0.58 - speedRatio * 0.12; // High-speed steering stability
-    let targetSteer = 0;
-    if (keys.left) targetSteer += maxSteerAngle;
-    if (keys.right) targetSteer -= maxSteerAngle;
+        if (keys.forward) {
+            state.speed = Math.min(maxSpeed, state.speed + baseAccel * delta);
+        } else if (keys.reverse) {
+            state.speed = Math.max(revSpeed, state.speed - baseAccel * 1.3 * delta);
+        } else {
+            // Natural rolling resistance adjusted by surface friction
+            state.speed *= Math.pow(terrain.friction, delta * 60);
+            if (Math.abs(state.speed) < 0.02) state.speed = 0;
+        }
 
-    state.steer += (targetSteer - state.steer) * (1 - Math.pow(0.78, delta * 60));
+        // Progressive Steering with Lateral Drift Slip Physics
+        const speedRatio = Math.min(1.0, Math.abs(state.speed) / 4.0);
+        const maxSteerAngle = 0.58 - speedRatio * 0.12; // High-speed steering stability
+        let targetSteer = 0;
+        if (keys.left) targetSteer += maxSteerAngle;
+        if (keys.right) targetSteer -= maxSteerAngle;
 
-    // Turn yaw angle with drift slip (copper has lower grip, enabling slick drift curves)
-    if (Math.abs(state.speed) > 0.05) {
-        const driftThreshold = 0.38 * terrain.grip;
-        const turnSpeed = state.steer * (state.speed > 0 ? 1 : -1) * (3.4 - speedRatio * 0.4);
-        state.angle += turnSpeed * delta;
-        state.isDrifting = keys.drift || (Math.abs(state.steer) > driftThreshold && Math.abs(state.speed) > 2.0);
-    } else {
-        state.isDrifting = false;
+        state.steer += (targetSteer - state.steer) * (1 - Math.pow(0.78, delta * 60));
+
+        // Turn yaw angle with drift slip (copper has lower grip, enabling slick drift curves)
+        if (Math.abs(state.speed) > 0.05) {
+            const driftThreshold = 0.38 * terrain.grip;
+            const turnSpeed = state.steer * (state.speed > 0 ? 1 : -1) * (3.4 - speedRatio * 0.4);
+            state.angle += turnSpeed * delta;
+            state.isDrifting = keys.drift || (Math.abs(state.steer) > driftThreshold && Math.abs(state.speed) > 2.0);
+        } else {
+            state.isDrifting = false;
+        }
     }
 
     // 3. Move Position along Heading Vector with Drift Slip

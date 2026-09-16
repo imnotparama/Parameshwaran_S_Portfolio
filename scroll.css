@@ -5853,6 +5853,40 @@ body.rover-active #threejs-canvas {
     box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
 }
 
+.rover-hud-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rover-tour-btn {
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    color: #7dd3fc;
+    font-size: 10.5px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+}
+
+.rover-tour-btn:hover {
+    background: rgba(56, 189, 248, 0.3);
+    border-color: #38bdf8;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+}
+
+.rover-tour-btn.active {
+    background: rgba(62, 230, 160, 0.22);
+    border-color: #3ee6a0;
+    color: #3ee6a0;
+    box-shadow: 0 0 16px rgba(62, 230, 160, 0.35);
+}
+
 /* Floating Proximity Dossier Card */
 .rover-inspect-card {
     position: fixed;

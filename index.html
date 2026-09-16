@@ -1148,9 +1148,14 @@
                 <span class="rover-gauge-item">BOOST: <strong id="rover-val-boost">READY</strong></span>
                 <span class="rover-gauge-item">SURFACE: <strong id="rover-val-surface">SOLDERMASK</strong></span>
             </div>
-            <button type="button" class="rover-exit-btn" id="rover-exit-btn" aria-label="Exit Rover Drive Mode">
-                <span>RETURN TO SCROLL [ESC]</span>
-            </button>
+            <div class="rover-hud-actions">
+                <button type="button" class="rover-tour-btn" id="rover-tour-btn" aria-label="Toggle Autonomous Tour Autopilot">
+                    <span id="rover-tour-btn-text">AUTOPILOT TOUR [T]</span>
+                </button>
+                <button type="button" class="rover-exit-btn" id="rover-exit-btn" aria-label="Exit Rover Drive Mode">
+                    <span>RETURN TO SCROLL [ESC]</span>
+                </button>
+            </div>
         </div>
 
         <!-- Floating Component Proximity Dossier Card -->
@@ -1181,6 +1186,8 @@
             <span class="rover-key-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> DRIVE</span>
             <span class="rover-key-divider">|</span>
             <span class="rover-key-hint"><kbd>SPACE</kbd> BOOST / DRIFT</span>
+            <span class="rover-key-divider">|</span>
+            <span class="rover-key-hint"><kbd>T</kbd> AUTOPILOT TOUR</span>
             <span class="rover-key-divider">|</span>
             <span class="rover-key-hint"><kbd>ENTER</kbd> INSPECT DETAILS</span>
             <span class="rover-key-divider">|</span>
