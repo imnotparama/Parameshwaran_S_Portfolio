@@ -383,6 +383,13 @@ function getFullBoardFramingZ() {
 // panel's center line).
 /** @param {string} sectionId */
 export function getCameraConfigForStop(sectionId) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  if (isMobile && sectionId === 'sec-hero') {
+    return {
+      pos: new THREE.Vector3(0, -0.4, 11.8),
+      look: new THREE.Vector3(0, 0.6, 0.085)
+    };
+  }
   // Explicit override wins — sections whose default framing is wrong for
   // their part (Experience/J1) declare their own pose here.
   const custom = CUSTOM_CAMERAS[sectionId];

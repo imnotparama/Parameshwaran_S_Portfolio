@@ -346,9 +346,10 @@ export function syncCanvasSize() {
     const { w, h } = getCanvasViewportSize();
     if (!w || !h) return;
     camera.aspect = w / h;
-    // Responsive portrait FOV: if the aspect ratio is tall & narrow (portrait mobile),
-    // widen the field of view so the entire dev board width fits comfortably.
-    if (camera.aspect < 1.0) {
+    // Responsive portrait FOV: on mobile devices, use wider FOV to frame motherboard in upper viewport
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        camera.fov = 52;
+    } else if (camera.aspect < 1.0) {
         camera.fov = Math.min(62, Math.max(45, 45 / (camera.aspect * 1.15)));
     } else {
         camera.fov = 45;
@@ -383,10 +384,11 @@ export function initScene(canvasElement) {
     // not the window — the board must frame correctly inside the region.
     const { w: viewW, h: viewH } = getCanvasViewportSize();
     const aspect = viewW / viewH;
-    const initialFov = aspect < 1.0 ? Math.min(62, Math.max(45, 45 / (aspect * 1.15))) : 45;
+    const mobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const initialFov = mobile ? 52 : (aspect < 1.0 ? Math.min(62, Math.max(45, 45 / (aspect * 1.15))) : 45);
     camera = new THREE.PerspectiveCamera(initialFov, aspect, 0.1, 1000);
-    camera.position.set(0, -1.8, 5.8);
-    camera.lookAt(0, 0.4, 0.085);
+    camera.position.set(0, mobile ? -0.4 : -1.8, mobile ? 11.8 : 5.8);
+    camera.lookAt(0, mobile ? 0.6 : 0.4, 0.085);
     scene.add(camera);
 
     // 3. Initialize WebGL Renderer
