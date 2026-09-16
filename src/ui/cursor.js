@@ -120,7 +120,13 @@ function tick(/** @type {number} */ now) {
             }
         } else {
             const active = document.querySelector('.ds-panel.panel-active');
-            signal = active ? (SIGNAL_MAP[active.id] || DEFAULT_SIGNAL) : DEFAULT_SIGNAL;
+            if (document.body.classList.contains('board-rotating')) {
+                signal = 'ROTATING 3D';
+            } else if (active && active.id === 'panel-contact' && (!hoverEl || (hoverEl instanceof Element && (hoverEl.id === 'threejs-canvas' || hoverEl.id === 'canvas-container')))) {
+                signal = 'DRAG 3D';
+            } else {
+                signal = active ? (SIGNAL_MAP[active.id] || DEFAULT_SIGNAL) : DEFAULT_SIGNAL;
+            }
         }
         if (signal !== lastSignal) {
             lastSignal = signal;

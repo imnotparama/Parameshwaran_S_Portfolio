@@ -37,6 +37,7 @@ import { triggerRfBurst } from './src/three/rf-wavefront.js';
 import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode, focusLcdCamera } from './src/scroll/journey.js';
 import { SECTION_HASHES, hashToSectionId } from './src/utils/hash-nav.js';
 import { initContactTerminal } from './src/ui/contact-terminal.js';
+import { initContactBoardRotation, resetContactBoardRotation } from './src/three/contact-board-rotation.js';
 
 // ─── Hash-based deep links ─────────────────────────────────
 // Each section gets a shareable URL (#/about, #/projects, ...). Nav clicks
@@ -293,6 +294,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // 8. Bind hover raycast checking
     initHover(camera, scene);
 
+    // 8c. Contact page 3D Board Free Rotation (strictly active on sec-contact)
+    const threeCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('threejs-canvas'));
+    if (threeCanvas) {
+        initContactBoardRotation(threeCanvas);
+    }
+    const boardResetBtn = document.getElementById('board-reset-btn');
+    if (boardResetBtn) {
+        boardResetBtn.addEventListener('click', () => {
+            clickBlip();
+            resetContactBoardRotation();
+        });
+    }
+
     // 8a. Scope-probe custom cursor (pointer:fine desktop only — lite mode
     // keeps the native cursor for reduced-motion and touch users).
     if (!isLiteMode() && window.matchMedia('(pointer: fine)').matches) {
@@ -506,6 +520,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (_activeSectionId && _activeSectionId !== _lastSectionScan) {
             onSectionChanged(_activeSectionId);
             _lastSectionScan = _activeSectionId;
+            const boardHintEl = document.getElementById('board-3d-hint');
+            if (boardHintEl) {
+                boardHintEl.classList.toggle('visible', _activeSectionId === 'sec-contact');
+            }
         }
         _boardFx = getBoardFx();
         _selfTest = updateIdleSelfTest(delta);

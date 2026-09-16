@@ -5540,6 +5540,95 @@ body.bench-mode-dim .vignette-overlay {
     background: rgba(14, 28, 20, 0.95);
 }
 
+/* ─── 3D Board Interactive Rotation Affordance Hint (sec-contact only) ─── */
+.board-3d-hint {
+    position: fixed;
+    bottom: 34px;
+    left: 29%;
+    transform: translateX(-50%) translateY(16px);
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: rgba(6, 18, 12, 0.88);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-radius: 20px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 16px rgba(62, 230, 160, 0.15);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1), transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    font-family: var(--font-mono, monospace);
+    user-select: none;
+}
+
+#panel-contact.panel-active ~ .board-3d-hint,
+.board-3d-hint.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+}
+
+.board-3d-hint-icon {
+    font-size: 14px;
+    color: #3ee6a0;
+    animation: rotateHintIcon 4s linear infinite;
+    display: inline-block;
+}
+
+@keyframes rotateHintIcon {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.board-3d-hint-text {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: #e2e8f0;
+    text-transform: uppercase;
+}
+
+.board-3d-reset-btn {
+    background: rgba(62, 230, 160, 0.12);
+    border: 1px solid rgba(62, 230, 160, 0.4);
+    border-radius: 10px;
+    color: #3ee6a0;
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.board-3d-reset-btn:hover {
+    background: rgba(62, 230, 160, 0.28);
+    border-color: #3ee6a0;
+    box-shadow: 0 0 12px rgba(62, 230, 160, 0.45);
+    color: #ffffff;
+}
+
+body.board-rotating {
+    user-select: none;
+    cursor: grabbing !important;
+}
+
+@media (max-width: 1024px) {
+    .board-3d-hint {
+        left: 50%;
+        bottom: 53vh;
+        padding: 6px 12px;
+        gap: 8px;
+    }
+    .board-3d-hint-text {
+        font-size: 10px;
+    }
+}
+
 /* 3D Project Diorama Live Badges */
 .proj-live-badge {
     display: inline-flex;

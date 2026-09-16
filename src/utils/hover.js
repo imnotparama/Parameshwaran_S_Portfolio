@@ -15,6 +15,7 @@ import { motionPrefs } from './motion-prefs.js';
 import { rotatePotentiometer } from '../three/potentiometer.js';
 import { playComponentTone } from './synth.js';
 import { setDroneTarget } from '../three/drone.js';
+import { wasContactBoardDragged } from '../three/contact-board-rotation.js';
 
 // ─── Exports ────────────────────────────────────────────────
 export const mouse = new THREE.Vector2();
@@ -432,6 +433,7 @@ export function initHover(camera, scene) {
         // closure even though it was assigned above (same pattern as board.js).
         const canvas = hoverCanvas;
         canvas.addEventListener('click', (e) => {
+            if (wasContactBoardDragged()) return;
             if (!clickHandler || !raycaster || !activeCamera) return;
             const rect = canvas.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) return;

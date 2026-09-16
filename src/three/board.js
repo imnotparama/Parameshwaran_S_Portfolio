@@ -8,6 +8,9 @@ import { motionPrefs } from '../utils/motion-prefs.js';
 import { siliconDieMesh } from './components.js';
 import { registerTeardownObject, LAYER_OFFSETS } from './teardown.js';
 import { registerThemeMaterial } from './potentiometer.js';
+import { updateContactBoardRotation, resetContactBoardRotation } from './contact-board-rotation.js';
+
+export { resetContactBoardRotation };
 
 /** @type {THREE.Group | undefined} */
 export let boardGroup;
@@ -767,13 +770,30 @@ export function updateBoardParallax(elapsed, mouse, delta, activeSecId, journeyL
         // Journey mode: the camera frames the view; the board gets a silky-smooth
         // spatial parallax tilt toward the cursor across all sections.
         const isHeroOrAbout = activeSecId === 'sec-about' || activeSecId === 'sec-hero';
+        const isContact = activeSecId === 'sec-contact';
         const tiltScale = isHeroOrAbout ? 0.034 : 0.024;
         const maxTilt = isHeroOrAbout ? 0.03 : 0.024;
         const targetRotX = THREE.MathUtils.clamp(-mouse.y * tiltScale, -maxTilt, maxTilt);
         const targetRotY = THREE.MathUtils.clamp(mouse.x * tiltScale, -maxTilt, maxTilt);
         const k = isHeroOrAbout ? 0.055 : 0.04;
-        boardGroup.rotation.x += (targetRotX - boardGroup.rotation.x) * lerpFactor(k, delta);
-        boardGroup.rotation.y += (targetRotY - boardGroup.rotation.y) * lerpFactor(k, delta);
+
+        // Contact board free 3D rotation (active ONLY on sec-contact)
+        const contactRot = updateContactBoardRotation(delta || 0.016, activeSecId);
+
+        if (isContact) {
+            // User drag rotation takes primary control, softly blended with cursor tilt
+            const combinedRotX = contactRot.rotX + targetRotX * 0.35;
+            const combinedRotY = contactRot.rotY + targetRotY * 0.35;
+            boardGroup.rotation.x += (combinedRotX - boardGroup.rotation.x) * lerpFactor(0.12, delta);
+            boardGroup.rotation.y += (combinedRotY - boardGroup.rotation.y) * lerpFactor(0.12, delta);
+        } else {
+            // On other sections, strictly obey the bounded parallax tilt;
+            // contactRot smoothly decays back to 0 so exiting sec-contact transitions cleanly.
+            const combinedRotX = contactRot.rotX + targetRotX;
+            const combinedRotY = contactRot.rotY + targetRotY;
+            boardGroup.rotation.x += (combinedRotX - boardGroup.rotation.x) * lerpFactor(k, delta);
+            boardGroup.rotation.y += (combinedRotY - boardGroup.rotation.y) * lerpFactor(k, delta);
+        }
 
         // Levitation: the board hangs in the air, drifting slowly. The parallax
         // tilt (rotation.x/y) composes with the roll (rotation.z) — different
