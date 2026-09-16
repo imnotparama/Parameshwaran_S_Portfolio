@@ -1260,9 +1260,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('serviceWorker' in navigator && !isLiteMode()) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/sw.js').then((reg) => {
+                reg.update(); // Force immediate update check
                 emitUartLog('SYS', `PWA Offline Engine Active (Scope: ${reg.scope})`);
             }).catch((_err) => {
                 // Offline fallback silent catch
+            });
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
             });
         });
     }

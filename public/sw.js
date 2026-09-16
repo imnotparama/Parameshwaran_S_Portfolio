@@ -1,30 +1,29 @@
 // ============================================================
 // Service Worker: Parama PCB Hardware OS Offline Engine
-// Provides robust offline caching for the 3D board, styles & logic.
+// Network-First for HTML documents, stale-while-revalidate for assets
 // ============================================================
 
-const CACHE_NAME = 'parama-pcb-os-v2.4';
+const CACHE_NAME = 'parama-pcb-os-v3.0';
 const PRECACHE_ASSETS = [
     '/',
     '/index.html',
     '/manifest.json',
-    '/favicon.svg',
-    '/style.css',
-    '/scroll.css'
+    '/favicon.svg'
 ];
 
-// 1. Install: Precache core shell assets
+// 1. Install: Precache core shell assets & take control immediately
 self.addEventListener('install', (event) => {
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(PRECACHE_ASSETS).catch((err) => {
                 console.warn('[SW] Precache partial error:', err);
             });
-        }).then(() => self.skipWaiting())
+        })
     );
 });
 
-// 2. Activate: Clear legacy cache versions
+// 2. Activate: Delete all legacy cache versions immediately
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) => {
@@ -35,42 +34,44 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// 3. Fetch: Stale-While-Revalidate & Cache-First strategy
+// 3. Fetch strategy:
+// Navigation (HTML document): Network-First (so updates appear instantly), fallback to cache
+// Static assets: Stale-While-Revalidate
 self.addEventListener('fetch', (event) => {
     const request = event.request;
     if (request.method !== 'GET') return;
 
-    // Ignore cross-origin non-GET or browser extension schemes
     const url = new URL(request.url);
     if (!url.protocol.startsWith('http')) return;
 
-    event.respondWith(
-        caches.match(request).then((cachedResponse) => {
-            if (cachedResponse) {
-                // Fetch in background to revalidate cache
-                fetch(request).then((networkResponse) => {
-                    if (networkResponse && networkResponse.status === 200) {
-                        caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
-                    }
-                }).catch(() => {});
-                return cachedResponse;
-            }
-
-            return fetch(request).then((networkResponse) => {
-                if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-                    return networkResponse;
+    // Navigation requests (HTML): Always fetch fresh from network
+    if (request.mode === 'navigate') {
+        event.respondWith(
+            fetch(request).then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200) {
+                    const copy = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
                 }
-                const responseToCache = networkResponse.clone();
-                caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(request, responseToCache);
-                });
                 return networkResponse;
             }).catch(() => {
-                // Offline fallback for navigation requests
-                if (request.mode === 'navigate') {
-                    return caches.match('/index.html');
+                return caches.match('/index.html') || caches.match('/');
+            })
+        );
+        return;
+    }
+
+    // Static assets: Stale-While-Revalidate
+    event.respondWith(
+        caches.match(request).then((cachedResponse) => {
+            const fetchPromise = fetch(request).then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200) {
+                    const copy = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
                 }
-            });
+                return networkResponse;
+            }).catch(() => {});
+
+            return cachedResponse || fetchPromise;
         })
     );
 });
