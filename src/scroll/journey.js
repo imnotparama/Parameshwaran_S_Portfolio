@@ -862,13 +862,18 @@ function fillProjectDetailPanel(proj) {
 /** Release focus. With glideBack, the camera returns to the current
  *  section's stop pose (Esc / close button); on scroll the scrub owns the
  *  camera instead, so no glide. @param {boolean} [glideBack] */
-function clearFocus(glideBack = false) {
-  if (!focusedChip) return;
+export function clearFocus(glideBack = false) {
+  if (!focusedChip && activePanelId !== 'panel-project-detail') return;
   clearHandshakeTimers();
   // LCD1's game owns the keyboard while focused — releasing the focus
   // (Esc, re-click, scroll, or a chip click) must hand the keys back.
-  if (focusedChip.ref === 'LCD1') exitLcd();
+  if (focusedChip && focusedChip.ref === 'LCD1') exitLcd();
   focusedChip = null;
+
+  // Immediately deactivate detail panel and restore active section panel
+  const targetPanelId = currentSectionId ? currentSectionId.replace('sec-', 'panel-') : 'panel-hero';
+  setActivePanel(targetPanelId);
+
   if (glideBack && cameraRef) {
     const cfg = getCameraConfigForStop(currentSectionId);
     glideCameraTo(cfg.pos, cfg.look, 0.65);
@@ -1501,6 +1506,12 @@ export function isFocusMode() {
 export function scrollToSection(sectionId) {
   const el = document.getElementById(sectionId);
   if (!el) return;
+
+  // Release any active chip or LCD focus immediately so detail panel unmounts
+  if (focusedChip || activePanelId === 'panel-project-detail') {
+    clearFocus(false);
+  }
+
   // Land exactly on the section's stop pose: with the one-screen-per-leg
   // geometry the camera arrives when the section fills the viewport (its top
   // hits the viewport top), so the target is the section's offsetTop — the
@@ -1509,6 +1520,20 @@ export function scrollToSection(sectionId) {
   const y = sectionId === 'sec-hero'
     ? 0
     : el.offsetTop;
+
+  // If already parked at or within 2px of this section's scroll position:
+  // ScrollTrigger won't fire an onUpdate because scroll distance is 0.
+  // Ensure the section state, active panel, and camera stop are restored immediately.
+  if (typeof window !== 'undefined' && Math.abs(window.scrollY - y) <= 2) {
+    currentSectionId = sectionId;
+    const panelId = sectionId.replace('sec-', 'panel-');
+    setActivePanel(panelId);
+    if (cameraRef) {
+      const cfg = getCameraConfigForStop(sectionId);
+      glideCameraTo(cfg.pos, cfg.look, 0.65);
+    }
+    return;
+  }
   // A wheel/snap glide in flight is superseded by direct navigation (the
   // overwrite kills it; a killed tween never fires onComplete, so the snap
   // layer is reset explicitly here — otherwise a nav click mid-glide would
