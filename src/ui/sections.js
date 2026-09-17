@@ -226,19 +226,36 @@ function applyProjectFilter(filter, clickedBtn) {
     cards.forEach((card) => {
         const match = filter === 'ALL' || card.dataset.category === filter;
         card.classList.toggle('proj-filtered', !match);
+        gsap.killTweensOf(card);
         if (motionPrefs.reduced) {
-            card.style.opacity = match ? '' : '0.2';
-            card.style.transform = match ? '' : 'scale(0.95)';
+            card.style.display = match ? '' : 'none';
+            card.style.opacity = match ? '' : '0';
             return;
         }
-        gsap.killTweensOf(card);
-        gsap.to(card, {
-            opacity: match ? 1 : 0,
-            duration: 0.22,
-            ease: 'power1.out',
-            clearProps: match ? 'opacity,visibility' : 'visibility',
-            overwrite: 'auto'
-        });
+        if (match) {
+            card.style.display = '';
+            gsap.to(card, {
+                opacity: 1,
+                scale: 1,
+                duration: 0.22,
+                ease: 'power1.out',
+                clearProps: 'opacity,scale,visibility',
+                overwrite: 'auto'
+            });
+        } else {
+            gsap.to(card, {
+                opacity: 0,
+                scale: 0.96,
+                duration: 0.18,
+                ease: 'power1.out',
+                overwrite: 'auto',
+                onComplete: () => {
+                    if (card.classList.contains('proj-filtered')) {
+                        card.style.display = 'none';
+                    }
+                }
+            });
+        }
     });
 
     setProjectFilter(filter);

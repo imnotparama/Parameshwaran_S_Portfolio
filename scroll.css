@@ -5369,6 +5369,10 @@ body.bench-mode-dim .vignette-overlay {
     flex-direction: column;
 }
 
+.proj-ds.proj-filtered {
+    pointer-events: none !important;
+}
+
 .arch-card-telemetry {
     background: rgba(3, 16, 10, 0.85);
     border-color: rgba(62, 230, 160, 0.35);
