@@ -2,7 +2,7 @@ import { detectWebGL, showFallbackUI, setupCleanup } from './src/ui/fallback.js'
 import { initScene, scene, camera, renderer, enableBloom, syncCanvasSize, setBloomBoost } from './src/three/scene.js';
 import { onTick, CRITICAL, STANDARD, DEFERRED } from './src/three/tick-scheduler.js';
 import { createBoard, boardGroup, updateBoardParallax, updateBenchSweep, updateHoverShadow } from './src/three/board.js';
-import { createComponents, updateLedArray, SWITCH_POS, toggleDelidCpu, isCpuDelidded } from './src/three/components.js';
+import { createComponents, updateLedArray, SWITCH_POS, toggleDelidCpu, delidCpu, isCpuDelidded } from './src/three/components.js';
 import { createTraces, updateTraceCurrent, updateTraceRipple, updateAmbientPulses } from './src/three/traces.js';
 import { createParticles, updateParticles, updateAmbientDust, updateAmbientGoldFlecks } from './src/three/particles.js';
 import { createProjectChips, updateProjectChips, projectChips } from './src/three/project-chips.js';
@@ -22,7 +22,7 @@ import { initOscilloscope, updateOscilloscope } from './src/ui/oscilloscope.js';
 import { initLiveBench } from './src/ui/live-bench.js';
 import { initCommandPalette, openCommandPalette } from './src/ui/command-palette.js';
 import { initTelemetry, toggleSysinfo, toggleDebug, showDevNotes, updateTelemetry, markChipVerified, emitUartLog, emitSystemEvent } from './src/ui/telemetry.js';
-import { initTeardown, toggleTeardown, isTeardownActive } from './src/three/teardown.js';
+import { initTeardown, toggleTeardown, isTeardownActive, setTeardownState } from './src/three/teardown.js';
 import { cycleTheme, getClockFrequency } from './src/three/potentiometer.js';
 import { initOverclock, updateOverclock, toggleOverclock } from './src/three/overclock.js';
 import { updateAudioPeak, playBuzzerPianoNote } from './src/utils/synth.js';
@@ -35,7 +35,7 @@ import { renderSections } from './src/ui/sections.js';
 import { initHardwareOrchestrator, onSectionChanged, inspectProject, updateHardwareOrchestrator, disturbDroplets, launchPaperAirplane } from './src/three/hardware-orchestrator.js';
 import { triggerRfBurst } from './src/three/rf-wavefront.js';
 import { initJourney, scrollToSection, updateJourneyEffects, focusProject, exitFocusMode, getActiveSectionId, resizeJourney, isFocusMode, focusLcdCamera, updateMobileDockIndicator } from './src/scroll/journey.js';
-import { initMobileSheet } from './src/utils/mobile-sheet.js';
+import { initMobileSheet, getMobileSheetState, setMobileSheetState } from './src/utils/mobile-sheet.js';
 import { SECTION_HASHES, hashToSectionId } from './src/utils/hash-nav.js';
 import { initContactTerminal } from './src/ui/contact-terminal.js';
 import { initContactBoardRotation, resetContactBoardRotation } from './src/three/contact-board-rotation.js';
@@ -71,9 +71,26 @@ function applyHashNavigation() {
     if (secId) scrollToSection(secId);
 }
 
+let closeDrawerFn = null;
+let closeArchModalFn = null;
+
 function navigateToSection(sectionId) {
     const slug = SECTION_HASHES[sectionId];
     if (slug === undefined) return;
+
+    // Clean up any active takeover / overlay states
+    if (isRoverModeActive()) deactivateRover();
+    if (isTeardownActive()) setTeardownState(false);
+    if (isProbeModeActive()) deactivateProbe();
+    if (isCpuDelidded && sectionId !== 'sec-about') delidCpu(false);
+    if (typeof closeArchModalFn === 'function') closeArchModalFn();
+    if (typeof closeDrawerFn === 'function') closeDrawerFn();
+
+    // Reset mobile bottom sheet to split so the 3D board arrival is visible
+    if (typeof window !== 'undefined' && window.innerWidth < 768 && getMobileSheetState() === 'expanded') {
+        setMobileSheetState('split');
+    }
+
     const targetHash = slug ? `#/${slug}` : '';
     if (window.location.hash !== targetHash) {
         const base = window.location.pathname + window.location.search;
@@ -305,6 +322,13 @@ document.addEventListener('DOMContentLoaded', () => {
         boardResetBtn.addEventListener('click', () => {
             clickBlip();
             resetContactBoardRotation();
+            if (isCpuDelidded) delidCpu(false);
+            if (isTeardownActive()) setTeardownState(false);
+            if (isRoverModeActive()) deactivateRover();
+            if (typeof closeArchModalFn === 'function') closeArchModalFn();
+            if (typeof closeDrawerFn === 'function') closeDrawerFn();
+            exitFocusMode();
+            navigateToSection('sec-hero');
         });
     }
 
@@ -323,7 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
         focusProject(ref);
     });
     setSubsystemInspectHandler((sectionId) => {
-        scrollToSection(sectionId);
+        navigateToSection(sectionId);
     });
     // BZ1 — the musical buzzer piano: clicking plays pentatonic notes & rings
     setBuzzerHandler(() => {
@@ -898,6 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
         archModal.hidden = true;
         clickBlip();
     }
+    closeArchModalFn = closeArchModal;
 
     function toggleArchModal() {
         if (archModalOpen) closeArchModal();
@@ -1035,6 +1060,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!mobileDrawer.classList.contains('open')) mobileDrawer.hidden = true;
         }, 300);
     };
+    closeDrawerFn = closeDrawer;
 
     if (mobileMenuBtn) {
         mobileMenuBtn.addEventListener('click', () => {
@@ -1052,7 +1078,7 @@ document.addEventListener('DOMContentLoaded', () => {
             closeDrawer();
             if (sec) {
                 clickBlip();
-                scrollToSection(sec);
+                navigateToSection(sec);
             }
         });
     });
@@ -1094,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const secId = btn.getAttribute('data-section');
             if (secId) {
                 clickBlip();
-                scrollToSection(secId);
+                navigateToSection(secId);
                 setTimeout(updateMobileDockIndicator, 60);
             }
         });
