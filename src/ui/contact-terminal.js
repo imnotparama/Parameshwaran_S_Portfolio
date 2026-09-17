@@ -197,6 +197,10 @@ export function initContactTerminal() {
         rebootBtn.addEventListener('click', (e) => {
             e.preventDefault();
             clickBlip();
+            if (typeof window !== 'undefined' && window.location.hash) {
+                const base = window.location.pathname + window.location.search;
+                history.pushState(null, '', base);
+            }
             scrollToSection('sec-hero');
         });
     }
@@ -393,6 +397,10 @@ function executeTerminalCommand(rawCmd, logEl) {
             break;
         case 'reboot':
             resp.innerHTML = `SYSTEM_REBOOT: Re-orienting to hero macro inspection view...`;
+            if (typeof window !== 'undefined' && window.location.hash) {
+                const base = window.location.pathname + window.location.search;
+                history.pushState(null, '', base);
+            }
             setTimeout(() => { scrollToSection('sec-hero'); }, 500);
             break;
         case 'clear':

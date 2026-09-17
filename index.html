@@ -245,7 +245,10 @@
     <div id="cad-cam-rack" class="cad-cam-rack" aria-label="CAD/CAM Layer Stackup Inspector" hidden>
         <div class="cad-cam-header">
             <span class="cad-cam-ref">CAD/CAM // 6-LAYER STACKUP</span>
-            <button type="button" class="cad-cam-btn xray-btn" id="cad-cam-xray-btn" aria-pressed="false" title="Fluoroscopic X-Ray Trace Mode">X-RAY</button>
+            <div class="cad-cam-actions">
+                <button type="button" class="cad-cam-btn xray-btn" id="cad-cam-xray-btn" aria-pressed="false" title="Fluoroscopic X-Ray Trace Mode">X-RAY</button>
+                <button type="button" class="cad-cam-btn close-btn" id="cad-cam-close-btn" aria-label="Exit Teardown">✕ EXIT</button>
+            </div>
         </div>
         <div class="cad-cam-layers" role="group" aria-label="Layer Isolation">
             <button type="button" class="cad-layer-btn active" data-layer="ALL">ALL</button>

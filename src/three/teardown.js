@@ -181,6 +181,13 @@ function initTeardownUI() {
         });
     }
 
+    const closeBtn = document.getElementById('cad-cam-close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            setTeardownState(false);
+        });
+    }
+
     const slider = /** @type {HTMLInputElement | null} */ (document.getElementById('cad-cam-z-slider'));
     if (slider) {
         slider.addEventListener('input', (e) => {

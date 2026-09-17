@@ -3892,6 +3892,13 @@ body.lite-mode .journey-sec:not(#sec-hero) {
         -webkit-overflow-scrolling: touch;
         padding-bottom: 2px;
     }
+
+    body.teardown-active .mobile-bottom-dock,
+    body.teardown-active .mobile-mode-toggle,
+    body.rover-active .mobile-bottom-dock,
+    body.rover-active .mobile-mode-toggle {
+        display: none !important;
+    }
 }
 
 /* Tablet split layout tuning (768px – 1024px) */
@@ -6380,6 +6387,31 @@ body.board-rotating {
     box-shadow: 0 0 8px var(--signal, #3ee6a0);
 }
 
+.cad-cam-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cad-cam-btn.close-btn {
+    background: rgba(244, 63, 94, 0.12);
+    border: 1px solid rgba(244, 63, 94, 0.4);
+    color: #f43f5e;
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cad-cam-btn.close-btn:hover {
+    background: #f43f5e;
+    color: #ffffff;
+    box-shadow: 0 0 8px rgba(244, 63, 94, 0.5);
+}
+
 .cad-cam-layers {
     display: flex;
     gap: 4px;
@@ -6446,6 +6478,12 @@ body.xray-active #canvas-container {
 /* ================================================================
  * 3D PCB Nano-Rover Mission HUD & Live Proximity Dossier Card
  * ================================================================ */
+body.teardown-active #main-content {
+    opacity: 0.12;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
 body.rover-active #main-content {
     opacity: 0.16;
     pointer-events: none;
