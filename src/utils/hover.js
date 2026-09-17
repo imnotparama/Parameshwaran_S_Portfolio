@@ -6,7 +6,7 @@
 // ============================================================
 import * as THREE from 'three';
 import gsap from 'gsap';
-import { interactiveObjects, pressTactile, energizeCapacitor, toggleDelidCpu } from '../three/components.js';
+import { interactiveObjects, pressTactile, energizeCapacitor, toggleDelidCpu, delidCpu, isCpuDelidded } from '../three/components.js';
 import { highlightTrace } from '../three/traces.js';
 import { simView } from '../three/lcd-sim.js';
 import { hoverBlip, clickBlip, probeTone, playContinuityBeep, playMechanicalClick, playRfChirp, playInductorWhine } from './sound.js';
@@ -459,6 +459,11 @@ export function initHover(camera, scene) {
                 // On mobile, if the sheet is in peek mode, automatically expand to split mode so specs are visible
                 if (window.innerWidth < 768 && getMobileSheetState() === 'peek') {
                     setMobileSheetState('split');
+                }
+
+                // If CPU lid was opened and user clicks another component, replace the lid
+                if (isCpuDelidded && obj.name !== 'U1' && obj.name !== 'U1_LID') {
+                    delidCpu(false);
                 }
 
                 if (obj.userData && obj.userData.type === 'PROJECT' && obj.name && clickHandler) {
