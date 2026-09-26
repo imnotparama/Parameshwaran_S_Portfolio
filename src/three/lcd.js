@@ -56,8 +56,9 @@
 // ============================================================
 import * as THREE from 'three';
 import { disposableResources } from './scene.js';
-import { interactiveObjects } from './components.js';
+import { interactiveObjects, energizeCapacitor } from './components.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
+import { clickBlip } from '../utils/sound.js';
 import { dockDrone, undockDrone } from './drone.js';
 import { setPinsGameFocus } from './playground-props.js';
 import { energizeTraceAtPoint } from './traces.js';
@@ -1124,13 +1125,31 @@ export function exitLcd() {
             const el = document.getElementById(id);
             if (el) el.classList.remove('btn-pressed');
         });
+        logUart('[SYS] Diagnostic routine completed', 'info');
+        logUart('[LCD] Display subsystem verified · Bus released', 'info');
+        logUart('[EEPROM] Diagnostic session archived to non-volatile memory', 'info');
     }
     undockDrone();
     setPinsGameFocus(false);
     powerOffLcd();
 }
 
+let actionLedBoost = 0;
 
+function handleJumpAction() {
+    doJump();
+    energizeTraceAtPoint(LCD_LOCAL, 1.8);
+    clickBlip();
+    actionLedBoost = 0.8;
+    logUart('[LCD] Packet Routed · Trace Surge Active', 'pulse');
+}
+
+function handleDashAction() {
+    doDash();
+    energizeCapacitor('C1', 2.2);
+    actionLedBoost = 1.2;
+    logUart('[SPI] High-Current Burst // Transceiver Overclock', 'burst');
+}
 
 /** Per-frame tick — steps the game, redraws the screen when the frame
  *  changed, and keeps the bezel power LED lit while the game is live. Runs
@@ -1150,15 +1169,17 @@ export function updateLcdScreen(elapsed, delta) {
     if (delta > 0) {
         const inst = 1 / delta;
         setFpsSmooth(S.fpsSmooth > 0 ? S.fpsSmooth + (inst - S.fpsSmooth) * Math.min(1, delta * 3) : inst);
+        actionLedBoost = Math.max(0, actionLedBoost - delta * 3.5);
     }
     // Bezel power LED — the power indicator: bright while a run is live,
     // dimmer while the machine is on, near-off when powered down.
     if (bezelLedMat) {
-        bezelLedMat.emissiveIntensity = S.state === 'playing' || S.state === 'count' ? 1.6
+        const baseIntensity = S.state === 'playing' || S.state === 'count' ? 1.6
             : S.state === 'paused' ? 1.0
             : S.state === 'boot' || S.state === 'ready' ? 0.9
             : S.state === 'over' ? 0.6
             : 0.15;
+        bezelLedMat.emissiveIntensity = baseIntensity + (motionPrefs.reduced ? 0 : actionLedBoost);
     }
     // Screen glow — the halo brightens and pulses while a run is live, dims
     // to a steady low while paused, and fades back to nothing at rest (the
@@ -1474,7 +1495,7 @@ export function createLcd(boardGroup) {
 
         bindBtn('arcade-btn-jump', () => {
             const st = getState();
-            if (st === 'playing') doJump();
+            if (st === 'playing') handleJumpAction();
             else if (st === 'count') skipCountdown();
             else if (st === 'ready' || st === 'over') startRun();
             else if (st === 'paused') resumeRun();
@@ -1487,7 +1508,7 @@ export function createLcd(boardGroup) {
         });
 
         bindBtn('arcade-btn-dash', () => {
-            doDash();
+            handleDashAction();
         });
 
         bindBtn('arcade-btn-restart', () => {
@@ -1596,7 +1617,7 @@ export function createLcd(boardGroup) {
                 skipCountdown();
                 return;
             }
-            doJump();
+            handleJumpAction();
             return;
         }
         if (isSlide) {
@@ -1608,7 +1629,7 @@ export function createLcd(boardGroup) {
         if (isDash) {
             setBtnPressed('arcade-btn-dash', true);
             e.preventDefault();
-            doDash();
+            handleDashAction();
             return;
         }
     });
@@ -1686,7 +1707,7 @@ export function createLcd(boardGroup) {
             // the LCD at the lift point and drop focus mid-run.
             if (e.cancelable) e.preventDefault();
             if (dy < -SWIPE_PX) {
-                doJump();          // swipe up = jump
+                handleJumpAction();          // swipe up = jump
             } else if (dy > SWIPE_PX) {
                 doSlide();         // swipe down = slide
             }
@@ -1704,7 +1725,7 @@ export function createLcd(boardGroup) {
         } else if (st === 'playing') {
             // Tap while running = jump (the primary touch action).
             if (e.cancelable) e.preventDefault();
-            doJump();
+            handleJumpAction();
         } else if (st === 'paused') {
             // Tap while paused = resume.
             if (e.cancelable) e.preventDefault();
