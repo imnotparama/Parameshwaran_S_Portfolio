@@ -716,150 +716,143 @@
     <!-- LCD game minimized CTA -->
     <a class="lcd-game-minicta" id="lcd-game-minicta" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile">LINKEDIN →</a>
 
-    <!-- LCD Arcade Station: Dual-Screen Cyberpunk Cabinet -->
-    <section id="lcd-arcade-station" class="lcd-arcade-station" aria-label="Signal Runner Dual-Screen Arcade Cabinet">
-        <div class="arcade-cabinet-frame">
+    <!-- LCD Hardware Diagnostic Station & Telemetry Deck -->
+    <section id="lcd-arcade-station" class="lcd-diagnostic-station" aria-label="Signal Runner Hardware Diagnostic Station">
+        <div class="diag-deck-frame">
             <!-- Header bar -->
-            <div class="arcade-header">
-                <div class="arcade-title-group">
-                    <span class="arcade-ref">DIAGNOSTIC DISPLAY // LCD1 2.4"</span>
-                    <h2 class="arcade-title">SIGNAL RUNNER <span class="arcade-ver">DUAL-SCREEN CRT</span></h2>
+            <div class="diag-header">
+                <div class="diag-title-group">
+                    <span class="diag-ref">DIAGNOSTIC DISPLAY // LCD1 2.4" ST7789V</span>
+                    <h2 class="diag-title">SIGNAL RUNNER <span class="diag-badge">BUS DIAGNOSTIC</span></h2>
+                    <span class="diag-sub">MISSION: Reconnect communication bus traces across PCB substrate</span>
                 </div>
-                <div class="arcade-live-badge">
-                    <span class="arcade-live-dot"></span>
-                    <span class="arcade-live-text">SYNC: ACTIVE</span>
-                </div>
-            </div>
-
-            <!-- Mirrored CRT Screen Container -->
-            <div class="arcade-crt-wrapper">
-                <div class="arcade-crt-bezel">
-                    <div class="arcade-crt-glass">
-                        <canvas id="arcade-crt-canvas" width="512" height="256" aria-label="Mirrored Signal Runner CRT Screen"></canvas>
-                        <div class="arcade-crt-scanlines" aria-hidden="true"></div>
-                        <div class="arcade-crt-vignette" aria-hidden="true"></div>
-                        <div class="arcade-crt-glare" aria-hidden="true"></div>
+                <div class="diag-header-actions">
+                    <div class="diag-live-status">
+                        <span class="diag-live-dot"></span>
+                        <span class="diag-live-text">3.30V RAIL · 60Hz NOMINAL</span>
                     </div>
-                </div>
-                <div class="arcade-crt-footer-labels">
-                    <span>RASTER: 512×256 60Hz</span>
-                    <span>PHOSPHOR: P1-GREEN</span>
-                    <span>BUS: U1-SYNC</span>
-                </div>
-            </div>
-
-            <!-- Tactile Arcade Controls Pad -->
-            <div class="arcade-controls-pad" role="group" aria-label="Arcade tactile gamepad controls">
-                <button type="button" class="arcade-btn btn-jump" id="arcade-btn-jump" aria-label="Jump or double jump">
-                    <span class="arcade-btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg></span>
-                    <span class="arcade-btn-label">JUMP</span>
-                    <span class="arcade-btn-hint">W / SPACE</span>
-                </button>
-                <button type="button" class="arcade-btn btn-slide" id="arcade-btn-slide" aria-label="Slide under obstacles">
-                    <span class="arcade-btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
-                    <span class="arcade-btn-label">SLIDE</span>
-                    <span class="arcade-btn-hint">S / DOWN</span>
-                </button>
-                <button type="button" class="arcade-btn btn-dash" id="arcade-btn-dash" aria-label="Invulnerable speed dash">
-                    <span class="arcade-btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg></span>
-                    <span class="arcade-btn-label">DASH</span>
-                    <span class="arcade-btn-hint">D / SHIFT</span>
-                </button>
-                <button type="button" class="arcade-btn btn-restart" id="arcade-btn-restart" aria-label="Start or restart run">
-                    <span class="arcade-btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></span>
-                    <span class="arcade-btn-label">RESTART</span>
-                    <span class="arcade-btn-hint">ENTER</span>
-                </button>
-                <button type="button" class="arcade-btn btn-exit" id="arcade-btn-exit" aria-label="Exit arcade mode">
-                    <span class="arcade-btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></span>
-                    <span class="arcade-btn-label">EXIT</span>
-                    <span class="arcade-btn-hint">ESC</span>
-                </button>
-            </div>
-
-            <!-- Live Scoreboard & Telemetry Deck -->
-            <div class="arcade-telemetry-deck">
-                <div class="arcade-metric-grid">
-                    <div class="arcade-metric-card">
-                        <div class="arcade-metric-label">DISTANCE</div>
-                        <div class="arcade-metric-val" id="arcade-dist">0000 m</div>
-                    </div>
-                    <div class="arcade-metric-card">
-                        <div class="arcade-metric-label">SIGNAL / ELECTRONS</div>
-                        <div class="arcade-metric-val" id="arcade-sig">0000 (0)</div>
-                    </div>
-                    <div class="arcade-metric-card">
-                        <div class="arcade-metric-label">VELOCITY</div>
-                        <div class="arcade-metric-val" id="arcade-speed">160 px/s</div>
-                    </div>
-                    <div class="arcade-metric-card">
-                        <div class="arcade-metric-label">ACTIVE COMBO</div>
-                        <div class="arcade-metric-val" id="arcade-combo">x1 [READY]</div>
-                    </div>
-                    <div class="arcade-metric-card highlight">
-                        <div class="arcade-metric-label">ALL-TIME RECORD</div>
-                        <div class="arcade-metric-val" id="arcade-best">---- m</div>
-                    </div>
-                </div>
-
-                <!-- Signal Integrity Shield Meter -->
-                <div class="arcade-integrity-deck">
-                    <div class="arcade-integrity-header">
-                        <span class="arcade-integrity-label">HARDWARE INTEGRITY</span>
-                        <span class="arcade-integrity-val" id="arcade-integrity-text">100% NOMINAL</span>
-                    </div>
-                    <div class="arcade-integrity-track">
-                        <div class="arcade-integrity-bar" id="arcade-integrity-fill" style="width: 100%;"></div>
-                    </div>
-                </div>
-
-                <!-- Active Power-Up Badges Grid -->
-                <div class="arcade-powerups-grid">
-                    <div class="arcade-power-badge" id="badge-overclock" data-power="overclock">
-                        <span class="arcade-power-tag tag-oc">2X</span>
-                        <div class="arcade-power-info">
-                            <span class="arcade-power-name">OVERCLOCK 2X</span>
-                            <span class="arcade-power-state">STANDBY</span>
-                        </div>
-                    </div>
-                    <div class="arcade-power-badge" id="badge-magnet" data-power="magnet">
-                        <span class="arcade-power-tag tag-mag">MAG</span>
-                        <div class="arcade-power-info">
-                            <span class="arcade-power-name">MAGNET FLUX</span>
-                            <span class="arcade-power-state">STANDBY</span>
-                        </div>
-                    </div>
-                    <div class="arcade-power-badge" id="badge-shield" data-power="shield">
-                        <span class="arcade-power-tag tag-def">DEF</span>
-                        <div class="arcade-power-info">
-                            <span class="arcade-power-name">SHIELD ARRAY</span>
-                            <span class="arcade-power-state">STANDBY</span>
-                        </div>
-                    </div>
-                    <div class="arcade-power-badge" id="badge-turbo" data-power="turbo">
-                        <span class="arcade-power-tag tag-spd">SPD</span>
-                        <div class="arcade-power-info">
-                            <span class="arcade-power-name">TURBO CHARGE</span>
-                            <span class="arcade-power-state">STANDBY</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Hall of Fame Local Leaderboard -->
-                <div class="arcade-leaderboard-deck">
-                    <div class="arcade-leaderboard-header">
-                        <span class="arcade-lb-title">HALL OF FAME // LOCAL RUNS</span>
-                        <span class="arcade-lb-rank" id="arcade-player-rank">RANK: INITIALIZING</span>
-                    </div>
-                    <div class="arcade-lb-list" id="arcade-lb-list">
-                        <!-- Populated dynamically from localStorage leaderboard -->
-                    </div>
-                    <div class="arcade-share-bar">
-                        <button type="button" class="arcade-share-btn" id="arcade-btn-share" aria-label="Copy formatted ASCII score brag card to clipboard">
-                            <span class="arcade-share-tag">[EXPORT]</span>
-                            <span class="arcade-share-text" id="arcade-share-text">COPY ASCII BRAG CARD</span>
+                    <div class="diag-quick-actions">
+                        <button type="button" class="diag-btn-action" id="arcade-btn-restart" aria-label="Restart diagnostics">
+                            <span class="diag-btn-key">R / ENTER</span>
+                            <span class="diag-btn-txt">RESTART</span>
+                        </button>
+                        <button type="button" class="diag-btn-action btn-danger" id="arcade-btn-exit" aria-label="Exit diagnostic mode">
+                            <span class="diag-btn-key">ESC</span>
+                            <span class="diag-btn-txt">RELEASE</span>
                         </button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Primary Telemetry & Signal Integrity Deck -->
+            <div class="diag-telemetry-deck">
+                <!-- Hardware Integrity Gauge -->
+                <div class="diag-integrity-box">
+                    <div class="diag-integrity-header">
+                        <span class="diag-integ-label">SIGNAL INTEGRITY / BUS CONTINUITY</span>
+                        <span class="diag-integ-val" id="arcade-integrity-text">100.0% NOMINAL</span>
+                    </div>
+                    <div class="diag-integrity-track">
+                        <div class="diag-integrity-bar" id="arcade-integrity-fill" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Engineering Metrics Grid (compact, professional KiCad-inspired readouts) -->
+                <div class="diag-metric-grid">
+                    <div class="diag-metric-card">
+                        <div class="diag-metric-label">TRACE DISTANCE</div>
+                        <div class="diag-metric-val" id="arcade-dist">0000 m</div>
+                    </div>
+                    <div class="diag-metric-card">
+                        <div class="diag-metric-label">SIGNAL / PACKETS</div>
+                        <div class="diag-metric-val" id="arcade-sig">0000 [0 PKTS]</div>
+                    </div>
+                    <div class="diag-metric-card">
+                        <div class="diag-metric-label">BUS CLOCK / VELOCITY</div>
+                        <div class="diag-metric-val" id="arcade-speed">160 px/s</div>
+                    </div>
+                    <div class="diag-metric-card">
+                        <div class="diag-metric-label">PACKET BURST CHAIN</div>
+                        <div class="diag-metric-val" id="arcade-combo">x1 [SYNC]</div>
+                    </div>
+                    <div class="diag-metric-card highlight">
+                        <div class="diag-metric-label">BENCHMARK RECORD</div>
+                        <div class="diag-metric-val" id="arcade-best">---- m</div>
+                    </div>
+                    <div class="diag-metric-card">
+                        <div class="diag-metric-label">DIAGNOSTIC STATUS</div>
+                        <div class="diag-metric-val status-val" id="arcade-player-rank">BUS SYNC OK</div>
+                    </div>
+                </div>
+
+                <!-- Hardware Subsystems Status Array (compact inline chip pin flags) -->
+                <div class="diag-subsystems-row">
+                    <div class="diag-subsystem-badge" id="badge-overclock" data-power="overclock">
+                        <span class="diag-subsystem-pin">OC·2X</span>
+                        <span class="diag-subsystem-name">CORE CLK</span>
+                        <span class="arcade-power-state">STANDBY</span>
+                    </div>
+                    <div class="diag-subsystem-badge" id="badge-magnet" data-power="magnet">
+                        <span class="diag-subsystem-pin">MAG</span>
+                        <span class="diag-subsystem-name">FLUX INDUCTOR</span>
+                        <span class="arcade-power-state">STANDBY</span>
+                    </div>
+                    <div class="diag-subsystem-badge" id="badge-shield" data-power="shield">
+                        <span class="diag-subsystem-pin">DEF</span>
+                        <span class="diag-subsystem-name">ISOLATION BUS</span>
+                        <span class="arcade-power-state">STANDBY</span>
+                    </div>
+                    <div class="diag-subsystem-badge" id="badge-turbo" data-power="turbo">
+                        <span class="diag-subsystem-pin">SPD</span>
+                        <span class="diag-subsystem-name">HIGH-CURRENT</span>
+                        <span class="arcade-power-state">STANDBY</span>
+                    </div>
+                </div>
+
+                <!-- Live Firmware UART Log Stream -->
+                <div class="diag-uart-container">
+                    <div class="diag-uart-header">
+                        <span class="diag-uart-title">LIVE UART // 115200 BAUD · SPI/I2C BUS MONITOR</span>
+                        <span class="diag-uart-baud">CLK: 16.00MHz · VCORE: 1.15V</span>
+                    </div>
+                    <div class="diag-uart-window" id="diag-uart-stream" aria-live="polite">
+                        <div class="uart-line">[SYS] Boot sequence initialized: ST7789V 2.4" LCD 60Hz</div>
+                        <div class="uart-line">[BUS] SPI master mode locked at 16.0MHz</div>
+                        <div class="uart-line">[DIAG] Ready. Awaiting pulse injector trigger...</div>
+                    </div>
+                </div>
+
+                <!-- Local EEPROM Non-Volatile Logbook -->
+                <div class="diag-eeprom-container">
+                    <div class="diag-eeprom-header">
+                        <span class="diag-eeprom-title">LOCAL EEPROM // NON-VOLATILE DIAGNOSTIC RUNS</span>
+                        <span class="diag-eeprom-meta">AT24C256 · PAGE 0x00</span>
+                    </div>
+                    <div class="diag-eeprom-list" id="arcade-lb-list">
+                        <!-- Populated dynamically from localStorage leaderboard -->
+                    </div>
+                    <div class="diag-export-row">
+                        <button type="button" class="diag-export-btn" id="arcade-btn-share" aria-label="Export formatted ASCII diagnostic telemetry report">
+                            <span class="diag-export-icon">[EXPORT]</span>
+                            <span class="arcade-share-text" id="arcade-share-text">COPY DIAGNOSTIC AUDIT LOG</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sleek Tactile Keymap Reference Bar -->
+                <div class="diag-keymap-strip" role="group" aria-label="Diagnostic pulse injection controls">
+                    <button type="button" class="diag-key-btn" id="arcade-btn-jump" aria-label="Pulse jump">
+                        <span class="diag-key-tag">W / SPACE</span>
+                        <span class="diag-key-name">PULSE JUMP</span>
+                    </button>
+                    <button type="button" class="diag-key-btn" id="arcade-btn-slide" aria-label="Bus clearance slide">
+                        <span class="diag-key-tag">S / DOWN</span>
+                        <span class="diag-key-name">BUS CLEARANCE</span>
+                    </button>
+                    <button type="button" class="diag-key-btn" id="arcade-btn-dash" aria-label="High current burst">
+                        <span class="diag-key-tag">D / SHIFT</span>
+                        <span class="diag-key-name">BURST DASH</span>
+                    </button>
                 </div>
             </div>
         </div>

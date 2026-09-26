@@ -712,7 +712,7 @@ export function getRunnerScope() {
 }
 
 /**
- * Generate a shareable retro ASCII achievement brag card.
+ * Generate a shareable retro ASCII diagnostic telemetry report.
  * @param {ReturnType<typeof simView>} sim
  * @returns {string}
  */
@@ -721,24 +721,24 @@ export function generateAsciiBragCard(sim) {
     const score = sim.score || 0;
     const electrons = sim.electrons || 0;
     const maxCombo = sim.maxCombo || 1;
-    const rank = dist >= 1000 ? 'RANK S // SILICON ARCHITECT'
-        : dist >= 500 ? 'RANK A // HARDWARE HACKER'
-        : dist >= 250 ? 'RANK B // CIRCUIT TESTER'
-        : dist >= 100 ? 'RANK C // SOLDER ROOKIE'
-        : 'RANK D // PROBE IDLE';
+    const grade = dist >= 1000 ? 'GRADE S // SILICON ARCHITECT'
+        : dist >= 500 ? 'GRADE A // RECONNECTED'
+        : dist >= 250 ? 'GRADE B // TRACE VERIFIED'
+        : dist >= 100 ? 'GRADE C // CONTINUITY OK'
+        : 'GRADE D // PROBE INITIALIZED';
 
     return [
         '┌────────────────────────────────────────────────────────┐',
-        '│ :: PARAMESHWARAN_DEV_BOARD // SIGNAL RUNNER v2.4 CRT   │',
+        '│ :: PARAM_DEV_BOARD // LCD1 BUS DIAGNOSTIC AUDIT LOG     │',
         '├────────────────────────────────────────────────────────┤',
-        `│ DISTANCE:   ${String(dist).padStart(5, ' ')} m                                  │`,
-        `│ SIGNAL:     ${String(score).padStart(5, ' ')} pts                                │`,
-        `│ ELECTRONS:  ${String(electrons).padStart(5, ' ')} bits                               │`,
-        `│ PEAK COMBO: x${String(maxCombo).padEnd(2, ' ')}                                        │`,
-        `│ STATUS:     ${rank.padEnd(42, ' ')}│`,
-        '│ HARDWARE:   ARM Cortex-M4 // 3.3V RAIL // 16MHz BUS    │',
+        `│ TRACE DISTANCE:    ${String(dist).padStart(5, ' ')} m                               │`,
+        `│ SIGNAL INTEGRITY:  ${String(score).padStart(5, ' ')} %                                 │`,
+        `│ PACKETS ROUTED:    ${String(electrons).padStart(5, ' ')} pkts                              │`,
+        `│ PEAK BURST DEPTH:  x${String(maxCombo).padEnd(2, ' ')}                                        │`,
+        `│ DIAGNOSTIC GRADE:  ${grade.padEnd(36, ' ')}│`,
+        '│ HARDWARE BUS:      ST7789V 2.4" LCD // 16MHz SPI // 3.3V│',
         '├────────────────────────────────────────────────────────┤',
-        '│ PLAY: https://imnotparama.github.io/Parameshwaran_S_Portfolio/#/lcd │',
+        '│ AUDIT URL: https://imnotparama.github.io/Parameshwaran_S_Portfolio/#/lcd │',
         '└────────────────────────────────────────────────────────┘'
     ].join('\n');
 }
@@ -771,6 +771,7 @@ export function focusLcd(replayBoot = false) {
     setPinsGameFocus(true);
     reducedStaticDrawn = false;
     renderLeaderboard(simView());
+    logUart('[SYS] LCD1 2.4" ST7789V subsystem online', 'pulse');
 }
 
 /** Leaderboard HTML list population — called on focus and game over
@@ -784,20 +785,22 @@ function renderLeaderboard(sim) {
     const entries = Array.isArray(sim.leaderboard) && sim.leaderboard.length > 0
         ? sim.leaderboard
         : [
-            { dist: Math.max(250, sim.bestScore || 250), score: Math.max(41, sim.bestScore || 41), date: Date.now() - 86400000 },
-            { dist: 180, score: 32, date: Date.now() - 172800000 },
-            { dist: 120, score: 20, date: Date.now() - 259200000 }
+            { dist: Math.max(250, sim.bestScore || 250), score: Math.max(41, sim.bestScore || 41), electrons: 38, date: Date.now() - 86400000 },
+            { dist: 180, score: 32, electrons: 24, date: Date.now() - 172800000 },
+            { dist: 120, score: 20, electrons: 15, date: Date.now() - 259200000 }
         ];
 
     list.innerHTML = entries.slice(0, 4).map((entry, idx) => {
         const topClass = idx === 0 ? 'arcade-lb-row top-1' : 'arcade-lb-row';
-        const rankBadge = `#${idx + 1}`;
-        const distStr = `${String(Math.floor(entry.dist || entry.score || 0)).padStart(4, '0')}m`;
+        const runId = `RUN 0${idx + 1}`;
+        const distVal = Math.floor(entry.dist || entry.score || 0);
+        const distStr = `${String(distVal).padStart(4, '0')}m`;
+        const pkts = entry.electrons || Math.floor((entry.score || 0) * 0.85);
         const dateStr = entry.date ? new Date(entry.date).toISOString().slice(5, 10) : 'CALIB';
         return `<div class="${topClass}">
-            <span class="arcade-lb-rank-badge">${rankBadge}</span>
+            <span class="arcade-lb-rank-badge">${runId}</span>
             <span class="arcade-lb-score">${distStr}</span>
-            <span class="arcade-lb-meta">SIG:${entry.score || 0} · ${dateStr}</span>
+            <span class="arcade-lb-meta">SIG:${entry.score || 0}% · ${pkts} PKTS · ${dateStr}</span>
         </div>`;
     }).join('');
 }
@@ -953,13 +956,37 @@ function drawCrtOverlay(ctx, sim, w, h) {
     ctx.restore();
 }
 
-/** Synchronize the mirrored CRT arcade screen and telemetry deck
+let lastUartDistLogged = 0;
+let lastUartStateLogged = '';
+
+/**
+ * Append a timestamped diagnostic event into the live UART stream.
+ * @param {string} msg
+ * @param {'info'|'warn'|'fault'|'burst'|'pulse'} [type]
+ */
+export function logUart(msg, type = 'info') {
+    if (typeof document === 'undefined') return;
+    const stream = document.getElementById('diag-uart-stream');
+    if (!stream) return;
+
+    const now = (performance.now() / 1000).toFixed(3);
+    const line = document.createElement('div');
+    line.className = `uart-line ${type}`;
+    line.textContent = `[+${now}s] ${msg}`;
+    stream.appendChild(line);
+    while (stream.children.length > 25 && stream.firstElementChild) {
+        stream.removeChild(stream.firstElementChild);
+    }
+    stream.scrollTop = stream.scrollHeight;
+}
+
+/** Synchronize the hardware diagnostic station and telemetry deck
  *  @param {ReturnType<typeof simView>} sim */
 function updateArcadeStation(sim) {
     if (typeof document === 'undefined') return;
     if (!document.body.classList.contains('lcd-game-focus')) return;
 
-    // 1. Mirror directly from gameCanvas (which contains the full 512×256 3D game + CRT overlay)
+    // 1. Mirror directly from gameCanvas if crt element exists (optional fallback)
     const crt = /** @type {HTMLCanvasElement | null} */ (document.getElementById('arcade-crt-canvas'));
     if (crt && gameCanvas) {
         const ctx = crt.getContext('2d');
@@ -969,45 +996,45 @@ function updateArcadeStation(sim) {
         }
     }
 
-    // 2. Metrics (distance, score, velocity, combo, best)
+    // 2. Metrics (distance, signal packets, velocity, combo, best)
     const distEl = document.getElementById('arcade-dist');
     if (distEl) distEl.textContent = `${String(Math.floor(sim.dist)).padStart(4, '0')} m`;
 
     const sigEl = document.getElementById('arcade-sig');
-    if (sigEl) sigEl.textContent = `${String(sim.score).padStart(4, '0')} (${sim.electrons})`;
+    if (sigEl) sigEl.textContent = `${String(sim.score).padStart(4, '0')} [${sim.electrons} PKTS]`;
 
     const speedEl = document.getElementById('arcade-speed');
     if (speedEl) speedEl.textContent = `${Math.round(sim.curSpeed)} px/s`;
 
     const comboEl = document.getElementById('arcade-combo');
-    if (comboEl) comboEl.textContent = `x${sim.combo} ${sim.combo > 1 ? '[BURST]' : '[READY]'}`;
+    if (comboEl) comboEl.textContent = `x${sim.combo} ${sim.combo > 1 ? '[BURST]' : '[SYNC]'}`;
 
     const bestEl = document.getElementById('arcade-best');
     if (bestEl) bestEl.textContent = sim.bestScore > 0 ? `${String(sim.bestScore).padStart(4, '0')} m` : '---- m';
 
-    // 3. Hardware Integrity
+    // 3. Hardware Integrity Gauge
     const integText = document.getElementById('arcade-integrity-text');
     const integFill = /** @type {HTMLElement | null} */ (document.getElementById('arcade-integrity-fill'));
     if (integText && integFill) {
         if (sim.state === 'over') {
-            integText.textContent = '0% // FAULT DETECTED';
+            integText.textContent = '0.0% // BUS DESYNC DETECTED';
             integText.style.color = '#ff4d4d';
             integFill.style.width = '0%';
             integFill.style.background = '#ff4d4d';
         } else if (sim.shield) {
-            integText.textContent = '100% // ARRAY SHIELDED';
+            integText.textContent = '100.0% // ISOLATION ACTIVE';
             integText.style.color = '#3ee6a0';
             integFill.style.width = '100%';
             integFill.style.background = 'linear-gradient(90deg, #10794a, #00ffff)';
         } else {
-            integText.textContent = '100% // NOMINAL';
+            integText.textContent = '100.0% NOMINAL // 3.30V RAIL';
             integText.style.color = '#3ee6a0';
             integFill.style.width = '100%';
             integFill.style.background = 'linear-gradient(90deg, #10794a, #3ee6a0)';
         }
     }
 
-    // 4. Power-up Badges
+    // 4. Power-up / Hardware Subsystem Badges
     /**
      * @param {string} id
      * @param {boolean} active
@@ -1018,7 +1045,7 @@ function updateArcadeStation(sim) {
         if (active) {
             if (!badge.classList.contains('active')) badge.classList.add('active');
             const stateSpan = badge.querySelector('.arcade-power-state');
-            if (stateSpan) stateSpan.textContent = 'ACTIVE';
+            if (stateSpan) stateSpan.textContent = 'ENGAGED';
         } else {
             if (badge.classList.contains('active')) badge.classList.remove('active');
             const stateSpan = badge.querySelector('.arcade-power-state');
@@ -1031,16 +1058,33 @@ function updateArcadeStation(sim) {
     updateBadge('badge-shield', sim.shield);
     updateBadge('badge-turbo', sim.turbo > 0);
 
-    // 5. Leaderboard and Player Rank
+    // 5. Leaderboard and Diagnostic Status
     const rankEl = document.getElementById('arcade-player-rank');
     if (rankEl) {
         const d = sim.dist;
-        const rank = d >= 1000 ? 'RANK S // ARCHITECT'
-            : d >= 500 ? 'RANK A // HACKER'
-            : d >= 250 ? 'RANK B // TESTER'
-            : d >= 100 ? 'RANK C // ROOKIE'
-            : 'RANK D // PROBE';
-        if (rankEl.textContent !== rank) rankEl.textContent = rank;
+        const status = sim.state === 'over' ? 'FAULT // BUS LOST'
+            : d >= 1000 ? 'GRADE S // SILICON MASTER'
+            : d >= 500 ? 'GRADE A // RECONNECTED'
+            : d >= 250 ? 'GRADE B // TRACE VERIFIED'
+            : d >= 100 ? 'GRADE C // CONTINUITY OK'
+            : 'GRADE D // BUS SYNC OK';
+        if (rankEl.textContent !== status) rankEl.textContent = status;
+    }
+
+    // 6. Live UART telemetry streaming on state transitions and checkpoints
+    if (sim.state !== lastUartStateLogged) {
+        lastUartStateLogged = sim.state;
+        if (sim.state === 'playing') {
+            logUart('[DIAG] Diagnostic routine started · Pulse stream active', 'pulse');
+        } else if (sim.state === 'paused') {
+            logUart('[SYS] Bus clock paused by user interrupt', 'warn');
+        } else if (sim.state === 'over') {
+            logUart(`[FAULT] Bus desync at offset ${Math.floor(sim.dist)}m · Diagnostic failed`, 'fault');
+        }
+    }
+    if (sim.state === 'playing' && Math.floor(sim.dist / 100) > Math.floor(lastUartDistLogged / 100)) {
+        lastUartDistLogged = sim.dist;
+        logUart(`[BUS] Trace continuity verified at ${Math.floor(sim.dist)}m · Integrity 100%`, 'info');
     }
 }
 

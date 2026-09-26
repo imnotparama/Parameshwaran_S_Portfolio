@@ -4160,466 +4160,437 @@ body.lcd-game-focus .lcd-game-minicta:hover {
     color: #fff;
 }
 
-/* ─── LCD Arcade Station: Dual-Screen Cyberpunk Cabinet ───── */
-.lcd-arcade-station {
+/* ─── LCD Hardware Diagnostic Station & Telemetry Deck ───── */
+.lcd-arcade-station,
+.lcd-diagnostic-station {
     display: none;
     position: fixed;
-    top: 84px;
-    bottom: 24px;
-    left: calc(58% + 24px);
-    right: 24px;
+    top: 80px;
+    bottom: 20px;
+    left: calc(58% + 20px);
+    right: 20px;
     max-width: 760px;
     z-index: 30;
     pointer-events: none;
     opacity: 0;
     transition: opacity var(--duration-base, 0.3s) var(--ease-out);
-    background: linear-gradient(145deg, rgba(2, 16, 9, 0.96) 0%, rgba(1, 10, 5, 0.98) 100%);
-    border: 1px solid rgba(62, 230, 160, 0.32);
-    border-radius: 8px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), inset 0 0 35px rgba(2, 24, 12, 0.6), 0 0 25px rgba(62, 230, 160, 0.14);
-    padding: 18px 20px;
+    background: linear-gradient(155deg, rgba(2, 14, 8, 0.97) 0%, rgba(1, 8, 4, 0.99) 100%);
+    border: 1px solid rgba(62, 230, 160, 0.28);
+    border-radius: 6px;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.85), inset 0 0 30px rgba(1, 18, 9, 0.6), 0 0 20px rgba(62, 230, 160, 0.08);
+    padding: 14px 16px;
     overflow-y: auto;
-    font-family: var(--font-mono);
+    font-family: var(--font-mono, "JetBrains Mono", Consolas, monospace);
     color: var(--text-primary, #e6edf3);
 }
 
-.lcd-arcade-station::-webkit-scrollbar {
-    width: 5px;
+.lcd-arcade-station::-webkit-scrollbar,
+.lcd-diagnostic-station::-webkit-scrollbar {
+    width: 4px;
 }
-.lcd-arcade-station::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.3);
+.lcd-arcade-station::-webkit-scrollbar-track,
+.lcd-diagnostic-station::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.35);
 }
-.lcd-arcade-station::-webkit-scrollbar-thumb {
+.lcd-arcade-station::-webkit-scrollbar-thumb,
+.lcd-diagnostic-station::-webkit-scrollbar-thumb {
     background: rgba(62, 230, 160, 0.3);
-    border-radius: 3px;
+    border-radius: 2px;
 }
-.lcd-arcade-station::-webkit-scrollbar-thumb:hover {
+.lcd-arcade-station::-webkit-scrollbar-thumb:hover,
+.lcd-diagnostic-station::-webkit-scrollbar-thumb:hover {
     background: rgba(62, 230, 160, 0.6);
 }
 
-body.lcd-game-focus .lcd-arcade-station {
+body.lcd-game-focus .lcd-arcade-station,
+body.lcd-game-focus .lcd-diagnostic-station {
     display: flex !important;
     flex-direction: column;
     opacity: 1 !important;
     pointer-events: auto !important;
 }
 
-.arcade-cabinet-frame {
+.diag-deck-frame {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
     width: 100%;
 }
 
 /* Header */
-.arcade-header {
+.diag-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    border-bottom: 1px solid rgba(62, 230, 160, 0.2);
-    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.22);
+    padding-bottom: 8px;
+    gap: 12px;
 }
-.arcade-title-group {
+.diag-title-group {
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
-.arcade-ref {
-    font-size: 10px;
-    color: rgba(62, 230, 160, 0.6);
+.diag-ref {
+    font-size: 8.5px;
+    color: rgba(62, 230, 160, 0.65);
     letter-spacing: 0.12em;
     font-weight: 600;
 }
-.arcade-title {
-    font-size: 16px;
+.diag-title {
+    font-size: 15px;
     color: #fff;
     margin: 0;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     display: flex;
     align-items: center;
     gap: 8px;
 }
-.arcade-ver {
-    font-size: 10px;
-    background: rgba(62, 230, 160, 0.15);
+.diag-badge {
+    font-size: 9px;
+    background: rgba(62, 230, 160, 0.12);
     border: 1px solid rgba(62, 230, 160, 0.35);
     padding: 1px 6px;
     border-radius: 3px;
     color: var(--signal, #3ee6a0);
     letter-spacing: 0.08em;
 }
-.arcade-live-badge {
+.diag-sub {
+    font-size: 9.5px;
+    color: rgba(230, 237, 243, 0.62);
+    letter-spacing: 0.03em;
+    margin-top: 1px;
+}
+.diag-header-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.diag-live-status {
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: rgba(3, 24, 12, 0.7);
-    border: 1px solid rgba(62, 230, 160, 0.3);
-    padding: 3px 8px;
-    border-radius: 12px;
+    gap: 5px;
+    background: rgba(3, 20, 10, 0.7);
+    border: 1px solid rgba(62, 230, 160, 0.25);
+    padding: 2px 7px;
+    border-radius: 10px;
 }
-.arcade-live-dot {
-    width: 7px;
-    height: 7px;
+.diag-live-dot {
+    width: 6px;
+    height: 6px;
     background: #3ee6a0;
     border-radius: 50%;
-    box-shadow: 0 0 8px #3ee6a0;
+    box-shadow: 0 0 6px #3ee6a0;
     animation: livePulse 1.2s infinite ease-in-out;
 }
 @keyframes livePulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.4; transform: scale(0.85); }
 }
-.arcade-live-text {
-    font-size: 9px;
+.diag-live-text {
+    font-size: 8.5px;
     color: #3ee6a0;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     font-weight: 700;
 }
+.diag-quick-actions {
+    display: flex;
+    gap: 5px;
+}
+.diag-btn-action {
+    background: rgba(4, 25, 13, 0.85);
+    border: 1px solid rgba(62, 230, 160, 0.35);
+    border-radius: 3px;
+    padding: 3px 7px;
+    font-family: var(--font-mono, monospace);
+    font-size: 9px;
+    color: #e6edf3;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.12s ease;
+}
+.diag-btn-action:hover {
+    border-color: #3ee6a0;
+    background: rgba(62, 230, 160, 0.16);
+    color: #fff;
+    box-shadow: 0 0 8px rgba(62, 230, 160, 0.25);
+}
+.diag-btn-action.btn-danger:hover {
+    border-color: #f87171;
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+    box-shadow: 0 0 8px rgba(248, 113, 113, 0.3);
+}
+.diag-btn-key {
+    font-size: 7.5px;
+    color: rgba(62, 230, 160, 0.65);
+    border: 1px solid rgba(62, 230, 160, 0.25);
+    border-radius: 2px;
+    padding: 0 3px;
+}
+.diag-btn-txt {
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
 
-/* Mirrored CRT Screen */
-.arcade-crt-wrapper {
+/* Primary Telemetry & Signal Integrity Deck */
+.diag-telemetry-deck {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+/* Hardware Integrity Gauge */
+.diag-integrity-box {
+    background: rgba(3, 18, 9, 0.7);
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 4px;
+    padding: 6px 9px;
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
-.arcade-crt-bezel {
-    background: #010c06;
-    border: 2px solid rgba(62, 230, 160, 0.3);
-    border-radius: 8px;
-    padding: 10px;
-    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.95), 0 0 15px rgba(62, 230, 160, 0.1);
-}
-.arcade-crt-glass {
-    position: relative;
-    overflow: hidden;
-    border-radius: 5px;
-    aspect-ratio: 2 / 1;
-    width: 100%;
-    max-width: 480px;
-    margin: 0 auto;
-    background: #010804;
-    box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.98);
-}
-#arcade-crt-canvas {
-    width: 100%;
-    height: 100%;
-    display: block;
-    image-rendering: auto;
-}
-.arcade-crt-scanlines {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.45) 50%),
-                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
-    background-size: 100% 3px, 3px 100%;
-    pointer-events: none;
-}
-.arcade-crt-vignette {
-    position: absolute;
-    inset: 0;
-    box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.85);
-    pointer-events: none;
-}
-.arcade-crt-glare {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 45%);
-    pointer-events: none;
-}
-.arcade-crt-footer-labels {
+.diag-integrity-header {
     display: flex;
     justify-content: space-between;
-    font-size: 9px;
-    color: rgba(62, 230, 160, 0.5);
-    letter-spacing: 0.1em;
-    padding: 0 4px;
+    font-size: 8.5px;
 }
-
-/* Tactile Arcade Gamepad Controls */
-.arcade-controls-pad {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
-    margin: 4px 0 2px 0;
-}
-.arcade-btn {
-    background: linear-gradient(180deg, rgba(5, 30, 16, 0.9) 0%, rgba(2, 16, 8, 0.95) 100%);
-    border: 1px solid rgba(62, 230, 160, 0.35);
-    border-radius: 6px;
-    padding: 10px 4px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    cursor: pointer;
-    font-family: var(--font-mono);
-    color: #e6edf3;
-    position: relative;
-    user-select: none;
-    touch-action: manipulation;
-    transition: transform 0.08s ease, background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1);
-}
-.arcade-btn:hover {
-    background: linear-gradient(180deg, rgba(8, 42, 22, 0.95) 0%, rgba(3, 22, 11, 0.98) 100%);
-    border-color: rgba(62, 230, 160, 0.7);
-    box-shadow: 0 4px 14px rgba(62, 230, 160, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.2);
-}
-.arcade-btn:active,
-.arcade-btn.btn-pressed {
-    transform: translateY(3px);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.7), inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 0 16px rgba(62, 230, 160, 0.4);
-    border-color: #fff;
-    background: rgba(62, 230, 160, 0.25);
-}
-
-.arcade-btn-icon {
-    font-size: 13px;
-    line-height: 1;
-}
-.arcade-btn-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-}
-.arcade-btn-hint {
-    font-size: 8px;
-    color: rgba(62, 230, 160, 0.6);
+.diag-integ-label {
+    color: rgba(62, 230, 160, 0.75);
     letter-spacing: 0.08em;
+    font-weight: 600;
 }
-
-/* Individual Button Accents */
-.arcade-btn.btn-jump .arcade-btn-icon { color: #3ee6a0; text-shadow: 0 0 8px rgba(62, 230, 160, 0.6); }
-.arcade-btn.btn-slide .arcade-btn-icon { color: #ffd875; text-shadow: 0 0 8px rgba(255, 216, 117, 0.6); }
-.arcade-btn.btn-dash .arcade-btn-icon { color: #60a5fa; text-shadow: 0 0 8px rgba(96, 165, 250, 0.6); }
-.arcade-btn.btn-restart .arcade-btn-icon { color: #34d399; text-shadow: 0 0 8px rgba(52, 211, 153, 0.6); }
-.arcade-btn.btn-exit .arcade-btn-icon { color: #f87171; text-shadow: 0 0 8px rgba(248, 113, 113, 0.6); }
-
-.arcade-btn.btn-exit:hover {
-    border-color: rgba(248, 113, 113, 0.6);
-}
-.arcade-btn.btn-exit:active,
-.arcade-btn.btn-exit.btn-pressed {
-    border-color: #f87171;
-    background: rgba(248, 113, 113, 0.25);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.7), 0 0 16px rgba(248, 113, 113, 0.4);
-}
-
-@media (max-width: 640px) {
-    .arcade-controls-pad {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-/* Telemetry Deck */
-.arcade-telemetry-deck {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-.arcade-metric-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
-    gap: 8px;
-}
-.arcade-metric-card {
-    background: rgba(3, 22, 11, 0.65);
-    border: 1px solid rgba(62, 230, 160, 0.2);
-    border-radius: 5px;
-    padding: 8px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-.arcade-metric-card.highlight {
-    border-color: rgba(201, 162, 75, 0.45);
-    background: rgba(32, 26, 8, 0.55);
-}
-.arcade-metric-label {
-    font-size: 9px;
-    color: rgba(62, 230, 160, 0.65);
-    letter-spacing: 0.08em;
-}
-.arcade-metric-card.highlight .arcade-metric-label {
-    color: rgba(230, 200, 117, 0.7);
-}
-.arcade-metric-val {
-    font-size: 14px;
-    font-weight: 700;
-    color: #3ee6a0;
-    text-shadow: 0 0 8px rgba(62, 230, 160, 0.35);
-    white-space: nowrap;
-}
-.arcade-metric-card.highlight .arcade-metric-val {
-    color: #ffd875;
-    text-shadow: 0 0 8px rgba(255, 216, 117, 0.4);
-}
-
-/* Hardware Integrity Deck */
-.arcade-integrity-deck {
-    background: rgba(2, 18, 9, 0.6);
-    border: 1px solid rgba(62, 230, 160, 0.2);
-    border-radius: 5px;
-    padding: 8px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-.arcade-integrity-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 9px;
-}
-.arcade-integrity-label {
-    color: rgba(62, 230, 160, 0.7);
-    letter-spacing: 0.08em;
-}
-.arcade-integrity-val {
+.diag-integ-val {
     color: #3ee6a0;
     font-weight: 700;
+    font-feature-settings: "tnum";
 }
-.arcade-integrity-track {
-    height: 6px;
-    background: rgba(0, 0, 0, 0.6);
-    border-radius: 3px;
+.diag-integrity-track {
+    height: 5px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 2.5px;
     overflow: hidden;
     border: 1px solid rgba(62, 230, 160, 0.2);
 }
-.arcade-integrity-bar {
+.diag-integrity-bar {
     height: 100%;
     background: linear-gradient(90deg, #10794a, #3ee6a0);
-    box-shadow: 0 0 10px rgba(62, 230, 160, 0.6);
+    box-shadow: 0 0 8px rgba(62, 230, 160, 0.5);
     transition: width 0.15s ease, background 0.3s;
 }
 
-/* Power-Ups Grid */
-.arcade-powerups-grid {
+/* Engineering Metrics Grid */
+.diag-metric-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
 }
-.arcade-power-badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(1, 14, 7, 0.6);
-    border: 1px solid rgba(62, 230, 160, 0.15);
-    border-radius: 5px;
-    padding: 6px 10px;
-    transition: all 0.2s ease;
-}
-.arcade-power-icon,
-.arcade-power-tag {
-    font-family: var(--font-mono, monospace);
-    font-size: 9px;
-    font-weight: 800;
-    padding: 2px 5px;
-    border-radius: 3px;
-    background: rgba(62, 230, 160, 0.08);
-    border: 1px solid rgba(62, 230, 160, 0.25);
-    color: rgba(62, 230, 160, 0.7);
-    letter-spacing: 0.08em;
-    display: inline-block;
-    transition: all 0.2s ease;
-}
-.arcade-share-tag {
-    font-family: var(--font-mono, monospace);
-    font-size: 10px;
-    font-weight: 800;
-    color: #ffd875;
-    letter-spacing: 0.08em;
-}
-.arcade-power-info {
+.diag-metric-card {
+    background: rgba(2, 14, 8, 0.65);
+    border: 1px solid rgba(62, 230, 160, 0.18);
+    border-radius: 4px;
+    padding: 6px 8px;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
 }
-.arcade-power-name {
-    font-size: 10px;
-    color: rgba(255, 255, 255, 0.7);
-    font-weight: 600;
-    letter-spacing: 0.05em;
+.diag-metric-card.highlight {
+    border-color: rgba(255, 216, 117, 0.38);
+    background: rgba(28, 22, 6, 0.5);
 }
-.arcade-power-state {
+.diag-metric-label {
     font-size: 8px;
+    color: rgba(62, 230, 160, 0.6);
+    letter-spacing: 0.08em;
+    font-weight: 600;
+}
+.diag-metric-card.highlight .diag-metric-label {
+    color: rgba(255, 216, 117, 0.75);
+}
+.diag-metric-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: #3ee6a0;
+    letter-spacing: 0.03em;
+    font-feature-settings: "tnum";
+    white-space: nowrap;
+}
+.diag-metric-card.highlight .diag-metric-val {
+    color: #ffd875;
+    text-shadow: 0 0 6px rgba(255, 216, 117, 0.35);
+}
+.diag-metric-val.status-val {
+    font-size: 10px;
+    color: #a7f3d0;
+}
+
+/* Hardware Subsystems Array */
+.diag-subsystems-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+.diag-subsystem-badge {
+    background: rgba(2, 12, 6, 0.65);
+    border: 1px solid rgba(62, 230, 160, 0.15);
+    border-radius: 4px;
+    padding: 5px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+.diag-subsystem-pin {
+    font-size: 8px;
+    font-weight: 800;
+    color: rgba(62, 230, 160, 0.75);
+    border: 1px solid rgba(62, 230, 160, 0.25);
+    border-radius: 2px;
+    padding: 0 4px;
+    background: rgba(62, 230, 160, 0.06);
+    letter-spacing: 0.06em;
+}
+.diag-subsystem-name {
+    font-size: 8px;
+    color: rgba(230, 237, 243, 0.65);
+    letter-spacing: 0.04em;
+    font-weight: 600;
+}
+.diag-subsystem-badge .arcade-power-state {
+    font-size: 7.5px;
     color: rgba(62, 230, 160, 0.45);
     letter-spacing: 0.08em;
 }
-.arcade-power-badge.active {
+.diag-subsystem-badge.active {
     border-color: #3ee6a0;
-    background: rgba(62, 230, 160, 0.16);
-    box-shadow: 0 0 12px rgba(62, 230, 160, 0.3);
+    background: rgba(62, 230, 160, 0.14);
+    box-shadow: 0 0 10px rgba(62, 230, 160, 0.25);
 }
-.arcade-power-badge.active .arcade-power-icon {
-    filter: none;
-    opacity: 1;
-    transform: scale(1.15);
+.diag-subsystem-badge.active .diag-subsystem-pin {
+    color: #03130a;
+    background: #3ee6a0;
+    border-color: #3ee6a0;
 }
-.arcade-power-badge.active .arcade-power-name {
-    color: #fff;
-    text-shadow: 0 0 6px rgba(62, 230, 160, 0.5);
-}
-.arcade-power-badge.active .arcade-power-state {
+.diag-subsystem-badge.active .arcade-power-state {
     color: #3ee6a0;
     font-weight: 700;
 }
 
-/* Leaderboard Deck */
-.arcade-leaderboard-deck {
-    background: rgba(2, 18, 9, 0.6);
-    border: 1px solid rgba(62, 230, 160, 0.2);
-    border-radius: 5px;
-    padding: 10px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.arcade-leaderboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid rgba(62, 230, 160, 0.18);
-    padding-bottom: 6px;
-}
-.arcade-lb-title {
-    font-size: 10px;
-    color: #3ee6a0;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-}
-.arcade-lb-rank {
-    font-size: 9px;
-    color: #ffd875;
-    background: rgba(201, 162, 75, 0.2);
-    border: 1px solid rgba(201, 162, 75, 0.4);
-    padding: 1px 6px;
-    border-radius: 3px;
-    letter-spacing: 0.06em;
-}
-.arcade-lb-list {
+/* Live Firmware UART Log Stream */
+.diag-uart-container {
+    background: rgba(1, 10, 5, 0.9);
+    border: 1px solid rgba(62, 230, 160, 0.22);
+    border-radius: 4px;
+    padding: 6px 9px;
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+.diag-uart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.15);
+    padding-bottom: 3px;
+}
+.diag-uart-title {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #3ee6a0;
+    letter-spacing: 0.08em;
+}
+.diag-uart-baud {
+    font-size: 8px;
+    color: rgba(62, 230, 160, 0.55);
+    letter-spacing: 0.06em;
+}
+.diag-uart-window {
+    max-height: 80px;
+    min-height: 52px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 9px;
+    line-height: 1.35;
+    color: #a7f3d0;
+    padding-right: 4px;
+    font-family: var(--font-mono, monospace);
+}
+.diag-uart-window::-webkit-scrollbar {
+    width: 3px;
+}
+.diag-uart-window::-webkit-scrollbar-thumb {
+    background: rgba(62, 230, 160, 0.3);
+    border-radius: 2px;
+}
+.uart-line {
+    word-break: break-all;
+    white-space: pre-wrap;
+}
+.uart-line.warn { color: #ffd875; }
+.uart-line.fault { color: #f87171; }
+.uart-line.burst { color: #60a5fa; }
+.uart-line.pulse { color: #3ee6a0; font-weight: 600; }
+
+/* Local EEPROM Logbook */
+.diag-eeprom-container {
+    background: rgba(2, 14, 8, 0.65);
+    border: 1px solid rgba(62, 230, 160, 0.18);
+    border-radius: 4px;
+    padding: 6px 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.diag-eeprom-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.15);
+    padding-bottom: 3px;
+}
+.diag-eeprom-title {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #3ee6a0;
+    letter-spacing: 0.08em;
+}
+.diag-eeprom-meta {
+    font-size: 8px;
+    color: rgba(255, 216, 117, 0.7);
+    letter-spacing: 0.06em;
+}
+.diag-eeprom-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 .arcade-lb-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 11px;
+    font-size: 9.5px;
     background: rgba(0, 0, 0, 0.35);
-    padding: 4px 8px;
-    border-radius: 3px;
+    padding: 3px 6px;
+    border-radius: 2px;
     border-left: 2px solid rgba(62, 230, 160, 0.3);
 }
 .arcade-lb-row.top-1 {
     border-left-color: #ffd875;
-    background: rgba(30, 24, 6, 0.4);
+    background: rgba(28, 22, 5, 0.45);
 }
 .arcade-lb-rank-badge {
     font-weight: 700;
     color: #3ee6a0;
-    width: 22px;
+    width: 20px;
+    font-size: 8.5px;
 }
 .arcade-lb-row.top-1 .arcade-lb-rank-badge {
     color: #ffd875;
@@ -4627,55 +4598,111 @@ body.lcd-game-focus .lcd-arcade-station {
 .arcade-lb-score {
     color: #fff;
     font-weight: 600;
+    font-feature-settings: "tnum";
 }
 .arcade-lb-meta {
-    font-size: 9px;
-    color: rgba(62, 230, 160, 0.5);
+    font-size: 8px;
+    color: rgba(62, 230, 160, 0.55);
 }
-
-.arcade-share-bar {
-    margin-top: 6px;
-    border-top: 1px solid rgba(62, 230, 160, 0.18);
-    padding-top: 8px;
+.diag-export-row {
+    margin-top: 1px;
 }
-.arcade-share-btn {
+.diag-export-btn {
     width: 100%;
-    background: linear-gradient(180deg, rgba(16, 48, 28, 0.85) 0%, rgba(6, 24, 13, 0.95) 100%);
-    border: 1px solid var(--signal, #3ee6a0);
-    border-radius: 4px;
-    padding: 8px 12px;
+    background: rgba(3, 22, 11, 0.85);
+    border: 1px solid rgba(62, 230, 160, 0.3);
+    border-radius: 3px;
+    padding: 5px 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    font-family: var(--font-mono);
-    font-size: 10px;
+    gap: 6px;
+    font-family: var(--font-mono, monospace);
+    font-size: 8.5px;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--signal, #3ee6a0);
+    color: #3ee6a0;
     cursor: pointer;
     transition: all 0.15s ease;
 }
-.arcade-share-btn:hover {
-    background: rgba(62, 230, 160, 0.2);
+.diag-export-btn:hover {
     border-color: #fff;
     color: #fff;
-    box-shadow: 0 0 14px rgba(62, 230, 160, 0.35);
+    background: rgba(62, 230, 160, 0.18);
+    box-shadow: 0 0 10px rgba(62, 230, 160, 0.25);
 }
-.arcade-share-btn.copied {
+.diag-export-btn.copied {
     border-color: #ffd875;
     color: #ffd875;
     background: rgba(201, 162, 75, 0.25);
-    box-shadow: 0 0 14px rgba(255, 216, 117, 0.4);
+}
+.diag-export-icon {
+    color: #ffd875;
+    font-size: 8.5px;
+}
+
+/* Tactile Keymap Reference Bar */
+.diag-keymap-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+.diag-key-btn {
+    background: rgba(2, 15, 8, 0.7);
+    border: 1px solid rgba(62, 230, 160, 0.22);
+    border-radius: 4px;
+    padding: 6px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    font-family: var(--font-mono, monospace);
+    color: #e6edf3;
+    transition: all 0.12s ease;
+    user-select: none;
+    touch-action: manipulation;
+}
+.diag-key-btn:hover {
+    border-color: rgba(62, 230, 160, 0.6);
+    background: rgba(6, 32, 17, 0.85);
+}
+.diag-key-btn:active,
+.diag-key-btn.btn-pressed {
+    background: rgba(62, 230, 160, 0.25);
+    border-color: #fff;
+    transform: translateY(1px);
+    box-shadow: 0 0 10px rgba(62, 230, 160, 0.35);
+}
+.diag-key-tag {
+    font-size: 7.5px;
+    color: rgba(62, 230, 160, 0.65);
+    letter-spacing: 0.08em;
+    font-weight: 600;
+}
+.diag-key-name {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #3ee6a0;
+    letter-spacing: 0.05em;
 }
 
 @media (max-width: 1024px) {
-    .lcd-arcade-station {
-        left: 20px;
-        right: 20px;
+    .lcd-arcade-station,
+    .lcd-diagnostic-station {
+        left: 16px;
+        right: 16px;
         top: auto;
-        bottom: 20px;
-        max-height: calc(100vh - 120px);
+        bottom: 16px;
+        max-height: calc(100vh - 90px);
+    }
+}
+@media (max-width: 640px) {
+    .diag-metric-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .diag-subsystems-row {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 
