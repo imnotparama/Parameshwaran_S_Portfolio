@@ -565,9 +565,8 @@ function drawDebugOverlay(c) {
     drawText(c, line4, 2, 34, C_DIM);
 }
 
-/** Compose one frame: ghost underlay → scene → scanlines → flicker. The
- *  ghost (previous frame at low alpha) is the LCD's pixel persistence; the
- *  flicker is a seeded per-frame dim so it is deterministic.
+/** Compose one frame: 3D scene / 2D fallback → authentic LCD optics (phosphor persistence,
+ *  fine raster scanlines, glass specular glare, micro-bezel shadow, deterministic flicker).
  *  @param {number} delta */
 function drawFrame(delta) {
     if (!gctx || !gameCanvas) return;
@@ -604,19 +603,41 @@ function drawFrame(delta) {
         if (S.state !== 'off' && S.debug) drawDebugOverlay(c);
     }
 
-    // Authentic CRT scanlines
-    c.fillStyle = 'rgba(0, 0, 0, 0.22)';
+    // Authentic LCD Hardware Optics
+    // 1. Phosphor decay / ghost persistence blend across full screen
+    if (ghostCanvas && ghostCtx && !motionPrefs.reduced && rendered3d) {
+        c.globalAlpha = 0.06;
+        c.drawImage(ghostCanvas, 0, 0);
+        c.globalAlpha = 1.0;
+    }
+
+    // 2. Fine subpixel raster scanlines
+    c.fillStyle = 'rgba(0, 0, 0, 0.18)';
     for (let y = 1; y < h; y += 2) c.fillRect(0, y, w, 1);
 
-    // Subtle CRT flicker — deterministic from the frame counter.
+    // 3. Glass Specular Reflection Highlight (angled top-left to bottom-right glare)
+    const glareGrad = c.createLinearGradient(0, 0, w, h);
+    glareGrad.addColorStop(0, 'rgba(255, 255, 255, 0.045)');
+    glareGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.015)');
+    glareGrad.addColorStop(0.65, 'rgba(255, 255, 255, 0.0)');
+    c.fillStyle = glareGrad;
+    c.fillRect(0, 0, w, h);
+
+    // 4. Micro-bezel inner shadow / glass perimeter vignette
+    c.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    c.lineWidth = 2;
+    c.strokeRect(1, 1, w - 2, h - 2);
+
+    // 5. Warm backlight & subtle micro-flicker (deterministic from frame counter)
     if (!motionPrefs.reduced) {
         const f = (frameCount * 2654435761) >>> 0;
-        const fl = 0.008 + ((f & 7) / 7) * 0.018;
+        const fl = 0.005 + ((f & 7) / 7) * 0.012;
         c.fillStyle = `rgba(0, 0, 0, ${fl.toFixed(4)})`;
         c.fillRect(0, 0, w, h);
     }
 
-    if (ghostCtx && gameCanvas && !motionPrefs.reduced && !rendered3d) {
+    // 6. Update phosphor ghost persistence buffer for next frame
+    if (ghostCtx && gameCanvas && !motionPrefs.reduced) {
         ghostCtx.clearRect(0, 0, w, h);
         ghostCtx.drawImage(gameCanvas, 0, 0);
     }
@@ -818,7 +839,7 @@ function drawCrtOverlay(ctx, sim, w, h) {
     ctx.textBaseline = 'top';
 
     if (sim.state === 'boot') {
-        ctx.fillStyle = 'rgba(2, 10, 6, 0.72)';
+        ctx.fillStyle = 'rgba(2, 10, 6, 0.78)';
         ctx.fillRect(35, 30, w - 70, h - 60);
         ctx.strokeStyle = '#3ee6a0';
         ctx.lineWidth = 1;
@@ -826,47 +847,48 @@ function drawCrtOverlay(ctx, sim, w, h) {
 
         ctx.fillStyle = '#3ee6a0';
         ctx.font = 'bold 13px "JetBrains Mono", monospace';
-        ctx.fillText('DIAGNOSTIC BOOT // SIGNAL RUNNER 3D', 50, 48);
+        ctx.fillText('DIAGNOSTIC BOOT // LCD1 ST7789V 2.4" SPI', 50, 48);
 
         ctx.fillStyle = 'rgba(62, 230, 160, 0.8)';
         ctx.font = '11px "JetBrains Mono", monospace';
         ctx.fillText('POST 0x8840: VRAM ALLOCATED (512x256 WebGL2)', 50, 80);
         ctx.fillText('TRACE SCAN: ENIG GOLD TRANSMISSION LINE ... OK', 50, 105);
-        ctx.fillText('PULSE GENERATOR: QUANTUM CORE LOCKED ... OK', 50, 130);
-        ctx.fillText('BUS SYNCHRONIZER: CLOCK RATE 60Hz ... OK', 50, 155);
+        ctx.fillText('PULSE INJECTOR: CARRIER FREQUENCY LOCKED ... OK', 50, 130);
+        ctx.fillText('BUS SYNCHRONIZER: CLOCK RATE 16.0MHz / 60Hz ... OK', 50, 155);
 
         ctx.fillStyle = '#3ee6a0';
-        ctx.fillText('CALIBRATING INTERFACES ... READY', 50, 185);
+        ctx.fillText('CALIBRATING BUS CONTINUITY ... READY', 50, 185);
     } else if (sim.state === 'ready') {
         ctx.textAlign = 'center';
-        ctx.font = 'bold 22px "JetBrains Mono", monospace';
+        ctx.font = 'bold 19px "JetBrains Mono", monospace';
         ctx.fillStyle = '#3ee6a0';
         ctx.shadowColor = 'rgba(62, 230, 160, 0.8)';
         ctx.shadowBlur = 10;
-        ctx.fillText('SIGNAL RUNNER 3D', w / 2, 35);
+        ctx.fillText('SIGNAL RUNNER // BUS DIAGNOSTIC', w / 2, 35);
 
         ctx.font = 'bold 11px "JetBrains Mono", monospace';
         ctx.fillStyle = 'rgba(62, 230, 160, 0.85)';
         ctx.shadowBlur = 0;
-        ctx.fillText('SYSTEM READY // CIRCUIT INTEGRITY 100% NOMINAL', w / 2, 68);
+        ctx.fillText('STATUS: DIAGNOSTIC MODE · 3.30V NOMINAL', w / 2, 64);
+        ctx.fillText('MISSION: RECONNECT DAMAGED COMMUNICATION BUS', w / 2, 82);
 
         const armed = sim.idleAccum >= 15;
         const blink = !armed || (Math.floor(sim.idleAccum / 0.4) % 2 === 0);
         if (blink) {
-            ctx.font = 'bold 15px "JetBrains Mono", monospace';
+            ctx.font = 'bold 14px "JetBrains Mono", monospace';
             ctx.fillStyle = '#ffffff';
             ctx.shadowColor = '#00ffff';
-            ctx.shadowBlur = 14;
-            ctx.fillText('>> PRESS [SPACE] OR [ENTER] TO LAUNCH <<', w / 2, 130);
+            ctx.shadowBlur = 12;
+            ctx.fillText('>> PRESS [SPACE] OR [ENTER] TO INJECT PULSE <<', w / 2, 130);
         }
 
-        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.font = 'bold 10.5px "JetBrains Mono", monospace';
         ctx.fillStyle = '#3ee6a0';
         ctx.shadowBlur = 0;
-        ctx.fillText('[W / SPACE] JUMP / FLIP    [S / DOWN] DUCK / SLIDE    [D / SHIFT] HYPER DASH', w / 2, 175);
+        ctx.fillText('[W / SPACE] PULSE JUMP    [S / DOWN] BUS CLEARANCE    [D / SHIFT] BURST DASH', w / 2, 175);
         if (sim.bestScore > 0) {
             ctx.fillStyle = 'rgba(255, 220, 80, 0.9)';
-            ctx.fillText(`CURRENT ALL-TIME RECORD: ${Math.floor(sim.bestScore)}m`, w / 2, 208);
+            ctx.fillText(`BENCHMARK RECORD: ${Math.floor(sim.bestScore)}m`, w / 2, 208);
         }
     } else if (sim.state === 'count') {
         const digit = Math.max(1, Math.ceil((3.0 - sim.countAccum) / 1.0));
@@ -880,30 +902,34 @@ function drawCrtOverlay(ctx, sim, w, h) {
         ctx.font = 'bold 12px "JetBrains Mono", monospace';
         ctx.fillStyle = '#3ee6a0';
         ctx.shadowBlur = 0;
-        ctx.fillText('STANDBY // ENGAGING TACHYON DRIVE', w / 2, 160);
+        ctx.fillText('STANDBY // ENGAGING CARRIER FREQUENCY', w / 2, 160);
     } else if (sim.state === 'paused') {
-        ctx.fillStyle = 'rgba(2, 10, 6, 0.72)';
+        ctx.fillStyle = 'rgba(2, 10, 6, 0.78)';
         ctx.fillRect(0, 0, w, h);
 
         ctx.textAlign = 'center';
-        ctx.font = 'bold 22px "JetBrains Mono", monospace';
+        ctx.font = 'bold 20px "JetBrains Mono", monospace';
         ctx.fillStyle = '#3ee6a0';
         ctx.shadowColor = 'rgba(62, 230, 160, 0.9)';
         ctx.shadowBlur = 12;
-        ctx.fillText('SYSTEM PAUSED', w / 2, 90);
+        ctx.fillText('DIAGNOSTIC ROUTINE SUSPENDED', w / 2, 90);
 
-        ctx.font = '12px "JetBrains Mono", monospace';
+        ctx.font = '11.5px "JetBrains Mono", monospace';
         ctx.fillStyle = '#ffffff';
         ctx.shadowBlur = 0;
-        ctx.fillText('PRESS [P] TO RESUME  |  [ESC] TO EXIT', w / 2, 140);
+        ctx.fillText('BUS CLOCK FROZEN // [P] RESUME · [ESC] RELEASE BUS', w / 2, 140);
     } else if (sim.state === 'over') {
         ctx.textAlign = 'center';
-        // Top warning bar (kept high at y=18 so it never overlaps the center 3D shattered avatar)
-        ctx.font = 'bold 16px "JetBrains Mono", monospace';
+        ctx.font = 'bold 15px "JetBrains Mono", monospace';
         ctx.fillStyle = '#ff4d4d';
         ctx.shadowColor = 'rgba(255, 77, 77, 0.9)';
         ctx.shadowBlur = 12;
-        ctx.fillText('// CRITICAL FAULT: CIRCUIT DECOUPLING //', w / 2, 18);
+        ctx.fillText('// DIAGNOSTIC FAILED: BUS SYNCHRONIZATION LOST //', w / 2, 18);
+
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.fillStyle = 'rgba(255, 200, 200, 0.85)';
+        ctx.shadowBlur = 0;
+        ctx.fillText('ATTEMPTING AUTOMATIC BUS RECOVERY SEQUENCE...', w / 2, 38);
 
         // Record callout if record was beaten
         if (sim.newRecord) {
@@ -911,14 +937,14 @@ function drawCrtOverlay(ctx, sim, w, h) {
             ctx.font = 'bold 12px "JetBrains Mono", monospace';
             ctx.shadowColor = '#ffaa00';
             ctx.shadowBlur = 8;
-            ctx.fillText('>> NEW ALL-TIME RECORD REGISTERED <<', w / 2, 172);
+            ctx.fillText('>> NEW BENCHMARK RECORD REGISTERED <<', w / 2, 172);
         }
 
-        // Clean bottom telemetry readout bar (at y=198)
+        // Clean bottom telemetry readout bar
         ctx.shadowBlur = 0;
         ctx.font = 'bold 11px "JetBrains Mono", monospace';
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(`DIST: ${Math.floor(sim.dist)}m   SIG: ${sim.score}   COINS: ${sim.electrons}   MAX COMBO: x${sim.maxCombo}`, w / 2, 198);
+        ctx.fillText(`DIST: ${Math.floor(sim.dist)}m   INTEGRITY: ${sim.score}%   PACKETS: ${sim.electrons}   MAX CHAIN: x${sim.maxCombo}`, w / 2, 198);
 
         const blink = Math.floor(sim.overAccum / 0.4) % 2 === 0;
         if (blink) {
@@ -926,31 +952,31 @@ function drawCrtOverlay(ctx, sim, w, h) {
             ctx.font = 'bold 13px "JetBrains Mono", monospace';
             ctx.shadowColor = '#3ee6a0';
             ctx.shadowBlur = 8;
-            ctx.fillText('>> PRESS [SPACE] OR [ENTER] TO REBOOT CORE <<', w / 2, 224);
+            ctx.fillText('>> PRESS [SPACE] OR [ENTER] TO RESTART DIAGNOSTICS <<', w / 2, 224);
         }
     } else if (sim.state === 'playing') {
         ctx.font = 'bold 11px "JetBrains Mono", monospace';
-        ctx.fillStyle = 'rgba(62, 230, 160, 0.85)';
-        ctx.fillText(`SIG: ${String(sim.score).padStart(4, '0')}`, 14, 12);
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.9)';
+        ctx.fillText(`SIG: ${String(sim.score).padStart(4, '0')}%`, 14, 12);
         ctx.fillText(`DIST: ${String(Math.floor(sim.dist)).padStart(4, '0')}m`, 120, 12);
-        ctx.fillText(`COINS: ${sim.electrons}`, 220, 12);
+        ctx.fillText(`PKTS: ${sim.electrons}`, 220, 12);
 
         if (sim.combo > 1) {
             ctx.fillStyle = '#00ffff';
-            ctx.fillText(`COMBO x${sim.combo}`, 310, 12);
+            ctx.fillText(`CHAIN x${sim.combo}`, 310, 12);
         }
 
         ctx.textAlign = 'right';
-        ctx.fillStyle = 'rgba(62, 230, 160, 0.85)';
-        ctx.fillText(`SPD: ${Math.round(sim.curSpeed)} px/s`, w - 14, 12);
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.9)';
+        ctx.fillText(`CLK: ${Math.round(sim.curSpeed)} px/s`, w - 14, 12);
 
         if (sim.fxMilestone > 0 && Math.floor(sim.fxMilestone * 4) % 2 === 0) {
             ctx.textAlign = 'center';
-            ctx.font = 'bold 14px "JetBrains Mono", monospace';
+            ctx.font = 'bold 13px "JetBrains Mono", monospace';
             ctx.fillStyle = '#00ffff';
             ctx.shadowColor = '#00ffff';
             ctx.shadowBlur = 10;
-            ctx.fillText(`STAGE CHECKPOINT: CPU ${String(sim.milestonePx).padStart(4, '0')} OK`, w / 2, 45);
+            ctx.fillText(`CHECKPOINT: TRACE OFFSET ${String(sim.milestonePx).padStart(4, '0')}m CONTINUITY VERIFIED`, w / 2, 45);
         }
     }
     ctx.restore();
