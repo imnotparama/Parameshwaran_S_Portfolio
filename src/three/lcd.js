@@ -1007,6 +1007,98 @@ export function logUart(msg, type = 'info') {
     stream.scrollTop = stream.scrollHeight;
 }
 
+let scopePhase = 0;
+let lastScopeTime = 0;
+
+/**
+ * Draw real-time high-frequency logic analyzer / oscilloscope carrier waveform on `#diag-scope-canvas`.
+ * @param {ReturnType<typeof simView>} sim
+ */
+function drawScopeWaveform(sim) {
+    if (typeof document === 'undefined') return;
+    const canvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('diag-scope-canvas'));
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() * 0.001 : Date.now() * 0.001;
+    const dt = lastScopeTime > 0 ? Math.min(0.05, now - lastScopeTime) : 0.016;
+    lastScopeTime = now;
+
+    const isRunning = sim.state === 'playing';
+    const isOver = sim.state === 'over';
+    const isDash = Boolean(sim.dashing);
+    const isJump = !sim.onGround;
+
+    // Advance phase based on carrier frequency and player speed
+    const baseFreq = isRunning ? (sim.curSpeed / 22) : 1.2;
+    scopePhase = (scopePhase + dt * baseFreq) % (Math.PI * 2);
+
+    // Clear dark phosphor surface
+    ctx.fillStyle = '#020b05';
+    ctx.fillRect(0, 0, w, h);
+
+    // Faint oscilloscope graticule (centerline + horizontal thresholds)
+    ctx.strokeStyle = 'rgba(62, 230, 160, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.25);
+    ctx.lineTo(w, h * 0.25);
+    ctx.moveTo(0, h * 0.5);
+    ctx.lineTo(w, h * 0.5);
+    ctx.moveTo(0, h * 0.75);
+    ctx.lineTo(w, h * 0.75);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Signal trace
+    ctx.strokeStyle = isOver ? '#f87171' : isDash ? '#ffd875' : '#3ee6a0';
+    ctx.lineWidth = 1.5;
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = ctx.strokeStyle;
+
+    ctx.beginPath();
+    const period = 36; // pixels per clock cycle
+    const yHigh = 8;
+    const yLow = h - 8;
+    const midY = h * 0.5;
+
+    for (let x = 0; x < w; x++) {
+        let y = midY;
+        if (isOver) {
+            // Decoupled / floating bus noise floor
+            const noise = (Math.random() - 0.5) * 3 + Math.sin(x * 0.05 + now * 12) * 2;
+            y = midY + noise;
+        } else {
+            // Square wave with realistic analog overshoot & ringing
+            const cyclePos = ((x + scopePhase * period) % period) / period;
+            const isHigh = cyclePos < 0.5;
+            const edgeDist = isHigh ? cyclePos : (cyclePos - 0.5);
+
+            // Ringing transient near clock edges
+            const ringing = Math.exp(-edgeDist * 16) * Math.sin(edgeDist * 45) * 4.5;
+            const jitter = (Math.random() - 0.5) * (isDash ? 2.5 : 0.8);
+            const targetY = isHigh ? yHigh : yLow;
+            const inductiveBump = (isJump && x > w * 0.35 && x < w * 0.65) ? -Math.sin((x - w * 0.35) / (w * 0.3) * Math.PI) * 5 : 0;
+
+            y = targetY + ringing + jitter + inductiveBump;
+        }
+
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Trigger indicator marker on the left
+    ctx.fillStyle = '#ffd875';
+    ctx.font = '7px monospace';
+    ctx.fillText('T▶', 2, 8);
+}
+
 /** Synchronize the hardware diagnostic station and telemetry deck
  *  @param {ReturnType<typeof simView>} sim */
 function updateArcadeStation(sim) {
@@ -1028,7 +1120,7 @@ function updateArcadeStation(sim) {
     if (distEl) distEl.textContent = `${String(Math.floor(sim.dist)).padStart(4, '0')} m`;
 
     const sigEl = document.getElementById('arcade-sig');
-    if (sigEl) sigEl.textContent = `${String(sim.score).padStart(4, '0')} [${sim.electrons} PKTS]`;
+    if (sigEl) sigEl.textContent = `${sim.electrons} pkts`;
 
     const speedEl = document.getElementById('arcade-speed');
     if (speedEl) speedEl.textContent = `${Math.round(sim.curSpeed)} px/s`;
@@ -1039,29 +1131,57 @@ function updateArcadeStation(sim) {
     const bestEl = document.getElementById('arcade-best');
     if (bestEl) bestEl.textContent = sim.bestScore > 0 ? `${String(sim.bestScore).padStart(4, '0')} m` : '---- m';
 
-    // 3. Hardware Integrity Gauge
+    // 3. Hardware Integrity Gauge (Text & Micro Sparkline)
     const integText = document.getElementById('arcade-integrity-text');
     const integFill = /** @type {HTMLElement | null} */ (document.getElementById('arcade-integrity-fill'));
     if (integText && integFill) {
         if (sim.state === 'over') {
-            integText.textContent = '0.0% // BUS DESYNC DETECTED';
+            integText.textContent = '0.0%';
             integText.style.color = '#ff4d4d';
             integFill.style.width = '0%';
             integFill.style.background = '#ff4d4d';
         } else if (sim.shield) {
-            integText.textContent = '100.0% // ISOLATION ACTIVE';
+            integText.textContent = '100.0%';
             integText.style.color = '#3ee6a0';
             integFill.style.width = '100%';
             integFill.style.background = 'linear-gradient(90deg, #10794a, #00ffff)';
         } else {
-            integText.textContent = '100.0% NOMINAL // 3.30V RAIL';
+            integText.textContent = '100.0%';
             integText.style.color = '#3ee6a0';
             integFill.style.width = '100%';
             integFill.style.background = 'linear-gradient(90deg, #10794a, #3ee6a0)';
         }
     }
 
-    // 4. Power-up / Hardware Subsystem Badges
+    // 4. Living Analog Micro-Jitter (Voltage & Core Temperature)
+    const nowSec = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() * 0.001 : Date.now() * 0.001;
+    const vNoise = Math.sin(nowSec * 3.7) * 0.002 + Math.cos(nowSec * 8.1) * 0.001;
+    const isOverclock = sim.overclock > 0 || sim.dist >= 1000;
+    const nominalV = (isOverclock ? 3.650 : (3.300 + vNoise)).toFixed(3);
+    const railEl = document.getElementById('diag-rail-voltage');
+    if (railEl) {
+        railEl.textContent = `${nominalV} V`;
+        railEl.style.color = isOverclock ? '#ffd875' : '#3ee6a0';
+    }
+
+    const liveRailStatus = document.getElementById('diag-live-rail-status');
+    if (liveRailStatus) {
+        liveRailStatus.textContent = isOverclock ? `${nominalV}V TURBO · 120Hz` : `${nominalV}V NOMINAL · 60Hz`;
+        liveRailStatus.style.color = isOverclock ? '#ffd875' : '#3ee6a0';
+    }
+
+    const tNoise = Math.sin(nowSec * 1.5) * 0.15 + (sim.curSpeed > 180 ? 0.3 : 0);
+    const nominalT = (isOverclock ? 68.2 : (41.8 + tNoise)).toFixed(1);
+    const tempEl = document.getElementById('diag-core-temp');
+    if (tempEl) {
+        tempEl.textContent = `${nominalT} °C`;
+        tempEl.style.color = isOverclock ? '#f87171' : '#3ee6a0';
+    }
+
+    // 5. Draw live oscilloscope waveform on #diag-scope-canvas
+    drawScopeWaveform(sim);
+
+    // 6. Power-up / Hardware Subsystem Flags
     /**
      * @param {string} id
      * @param {boolean} active
@@ -1072,11 +1192,11 @@ function updateArcadeStation(sim) {
         if (active) {
             if (!badge.classList.contains('active')) badge.classList.add('active');
             const stateSpan = badge.querySelector('.arcade-power-state');
-            if (stateSpan) stateSpan.textContent = 'ENGAGED';
+            if (stateSpan) stateSpan.textContent = 'ACTV';
         } else {
             if (badge.classList.contains('active')) badge.classList.remove('active');
             const stateSpan = badge.querySelector('.arcade-power-state');
-            if (stateSpan) stateSpan.textContent = 'STANDBY';
+            if (stateSpan) stateSpan.textContent = 'STBY';
         }
     };
 
@@ -1085,7 +1205,7 @@ function updateArcadeStation(sim) {
     updateBadge('badge-shield', sim.shield);
     updateBadge('badge-turbo', sim.turbo > 0);
 
-    // 5. Leaderboard and Diagnostic Status
+    // 7. Leaderboard and Diagnostic Status
     const rankEl = document.getElementById('arcade-player-rank');
     if (rankEl) {
         const d = sim.dist;
@@ -1098,11 +1218,11 @@ function updateArcadeStation(sim) {
         if (rankEl.textContent !== status) rankEl.textContent = status;
     }
 
-    // 6. Live UART telemetry streaming on state transitions and checkpoints
+    // 8. Live UART telemetry streaming on state transitions and checkpoints
     if (sim.state !== lastUartStateLogged) {
         lastUartStateLogged = sim.state;
         if (sim.state === 'playing') {
-            logUart('[DIAG] Diagnostic routine started · Pulse stream active', 'pulse');
+            logUart('[DIAG] Diagnostic routine started · Carrier pulse stream active', 'pulse');
         } else if (sim.state === 'paused') {
             logUart('[SYS] Bus clock paused by user interrupt', 'warn');
         } else if (sim.state === 'over') {

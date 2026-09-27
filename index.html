@@ -717,24 +717,25 @@
     <a class="lcd-game-minicta" id="lcd-game-minicta" href="#" target="_blank" rel="noopener noreferrer" aria-label="Visit my LinkedIn profile">LINKEDIN →</a>
 
     <!-- LCD Hardware Diagnostic Station & Telemetry Deck -->
+    <!-- LCD Hardware Diagnostic Station & Telemetry Deck -->
     <section id="lcd-arcade-station" class="lcd-diagnostic-station" aria-label="Signal Runner Hardware Diagnostic Station">
         <div class="diag-deck-frame">
-            <!-- Header bar -->
+            <!-- Header bar: Altium / Saleae inspired clean layout -->
             <div class="diag-header">
                 <div class="diag-title-group">
-                    <span class="diag-ref">DIAGNOSTIC DISPLAY // LCD1 2.4" ST7789V</span>
-                    <h2 class="diag-title">SIGNAL RUNNER <span class="diag-badge">BUS DIAGNOSTIC</span></h2>
-                    <span class="diag-sub">MISSION: Reconnect communication bus traces across PCB substrate</span>
+                    <span class="diag-ref">INSTRUMENT // ST7789V 2.4" TFT · BUS DIAGNOSTICS</span>
+                    <h2 class="diag-title">SYSTEM TELEMETRY <span class="diag-badge">HARDWARE OS</span></h2>
+                    <span class="diag-sub">DIAGNOSTIC ROUTINE // RECONNECT IMPEDANCE-MATCHED CARRIER TRACES</span>
                 </div>
                 <div class="diag-header-actions">
                     <div class="diag-live-status">
                         <span class="diag-live-dot"></span>
-                        <span class="diag-live-text">3.30V RAIL · 60Hz NOMINAL</span>
+                        <span class="diag-live-text" id="diag-live-rail-status">3.301V NOMINAL · 60Hz</span>
                     </div>
                     <div class="diag-quick-actions">
                         <button type="button" class="diag-btn-action" id="arcade-btn-restart" aria-label="Restart diagnostics">
-                            <span class="diag-btn-key">R / ENTER</span>
-                            <span class="diag-btn-txt">RESTART</span>
+                            <span class="diag-btn-key">R</span>
+                            <span class="diag-btn-txt">RE-INIT</span>
                         </button>
                         <button type="button" class="diag-btn-action btn-danger" id="arcade-btn-exit" aria-label="Exit diagnostic mode">
                             <span class="diag-btn-key">ESC</span>
@@ -746,84 +747,101 @@
 
             <!-- Primary Telemetry & Signal Integrity Deck -->
             <div class="diag-telemetry-deck">
-                <!-- Hardware Integrity Gauge -->
-                <div class="diag-integrity-box">
-                    <div class="diag-integrity-header">
-                        <span class="diag-integ-label">SIGNAL INTEGRITY / BUS CONTINUITY</span>
-                        <span class="diag-integ-val" id="arcade-integrity-text">100.0% NOMINAL</span>
+                <!-- Live High-Frequency Bus Waveform (Oscilloscope Canvas) -->
+                <div class="diag-scope-panel">
+                    <div class="diag-scope-header">
+                        <span class="diag-scope-title">LIVE BUS WAVEFORM // HIGH-SPEED SPI DIFFERENTIAL CARRIER</span>
+                        <span class="diag-scope-rate" id="diag-scope-rate">16.000 MHz · 500 mV/div</span>
                     </div>
-                    <div class="diag-integrity-track">
-                        <div class="diag-integrity-bar" id="arcade-integrity-fill" style="width: 100%;"></div>
+                    <canvas id="diag-scope-canvas" class="diag-scope-canvas" width="480" height="38" aria-label="Live oscilloscope bus waveform"></canvas>
+                </div>
+
+                <!-- 5 Curated Hero Metrics (Grid layout with hairlines, zero cards, generous breathing room) -->
+                <div class="diag-hero-metrics-grid">
+                    <!-- Metric 1: Bus Integrity -->
+                    <div class="diag-hero-col">
+                        <span class="diag-hero-label">BUS INTEGRITY</span>
+                        <div class="diag-hero-val-wrap">
+                            <span class="diag-hero-num" id="arcade-integrity-text">100.0%</span>
+                            <span class="diag-hero-unit">CONTINUITY</span>
+                        </div>
+                        <div class="diag-spark-track">
+                            <div class="diag-spark-fill" id="arcade-integrity-fill" style="width: 100%;"></div>
+                        </div>
+                        <span class="diag-hero-sub">PHASE LOCKED // 0.0% LOSS</span>
+                    </div>
+
+                    <!-- Metric 2: Propagation Distance -->
+                    <div class="diag-hero-col">
+                        <span class="diag-hero-label">CARRIER DISTANCE</span>
+                        <div class="diag-hero-val-wrap">
+                            <span class="diag-hero-num" id="arcade-dist">0000 m</span>
+                            <span class="diag-hero-unit">PROPAGATED</span>
+                        </div>
+                        <div class="diag-spark-track subtle">
+                            <div class="diag-spark-fill pulse-spark" style="width: 78%;"></div>
+                        </div>
+                        <span class="diag-hero-sub">IMPEDANCE RUN // TRACE Z0</span>
+                    </div>
+
+                    <!-- Metric 3: Packets Routed -->
+                    <div class="diag-hero-col">
+                        <span class="diag-hero-label">PACKETS ROUTED</span>
+                        <div class="diag-hero-val-wrap">
+                            <span class="diag-hero-num" id="arcade-sig">0 pkts</span>
+                        </div>
+                        <span class="diag-hero-sub">DMA FIFO // 16B BURST</span>
+                    </div>
+
+                    <!-- Metric 4: Supply Rail (Living Analog Telemetry) -->
+                    <div class="diag-hero-col">
+                        <span class="diag-hero-label">SUPPLY RAIL VDD</span>
+                        <div class="diag-hero-val-wrap">
+                            <span class="diag-hero-num" id="diag-rail-voltage">3.301 V</span>
+                        </div>
+                        <span class="diag-hero-sub">±0.003V ANALOG NOISE</span>
+                    </div>
+
+                    <!-- Metric 5: Silicon Die Temp (Living Thermal Telemetry) -->
+                    <div class="diag-hero-col">
+                        <span class="diag-hero-label">SILICON CORE TEMP</span>
+                        <div class="diag-hero-val-wrap">
+                            <span class="diag-hero-num" id="diag-core-temp">41.9 °C</span>
+                        </div>
+                        <span class="diag-hero-sub">CONDUCTIVE DISSIPATION</span>
                     </div>
                 </div>
 
-                <!-- Engineering Metrics Grid (compact, professional KiCad-inspired readouts) -->
-                <div class="diag-metric-grid">
-                    <div class="diag-metric-card">
-                        <div class="diag-metric-label">TRACE DISTANCE</div>
-                        <div class="diag-metric-val" id="arcade-dist">0000 m</div>
-                    </div>
-                    <div class="diag-metric-card">
-                        <div class="diag-metric-label">SIGNAL / PACKETS</div>
-                        <div class="diag-metric-val" id="arcade-sig">0000 [0 PKTS]</div>
-                    </div>
-                    <div class="diag-metric-card">
-                        <div class="diag-metric-label">BUS CLOCK / VELOCITY</div>
-                        <div class="diag-metric-val" id="arcade-speed">160 px/s</div>
-                    </div>
-                    <div class="diag-metric-card">
-                        <div class="diag-metric-label">PACKET BURST CHAIN</div>
-                        <div class="diag-metric-val" id="arcade-combo">x1 [SYNC]</div>
-                    </div>
-                    <div class="diag-metric-card highlight">
-                        <div class="diag-metric-label">BENCHMARK RECORD</div>
-                        <div class="diag-metric-val" id="arcade-best">---- m</div>
-                    </div>
-                    <div class="diag-metric-card">
-                        <div class="diag-metric-label">DIAGNOSTIC STATUS</div>
-                        <div class="diag-metric-val status-val" id="arcade-player-rank">BUS SYNC OK</div>
-                    </div>
-                </div>
-
-                <!-- Hardware Subsystems Status Array (compact inline chip pin flags) -->
-                <div class="diag-subsystems-row">
-                    <div class="diag-subsystem-badge" id="badge-overclock" data-power="overclock">
-                        <span class="diag-subsystem-pin">OC·2X</span>
-                        <span class="diag-subsystem-name">CORE CLK</span>
-                        <span class="arcade-power-state">STANDBY</span>
-                    </div>
-                    <div class="diag-subsystem-badge" id="badge-magnet" data-power="magnet">
-                        <span class="diag-subsystem-pin">MAG</span>
-                        <span class="diag-subsystem-name">FLUX INDUCTOR</span>
-                        <span class="arcade-power-state">STANDBY</span>
-                    </div>
-                    <div class="diag-subsystem-badge" id="badge-shield" data-power="shield">
-                        <span class="diag-subsystem-pin">DEF</span>
-                        <span class="diag-subsystem-name">ISOLATION BUS</span>
-                        <span class="arcade-power-state">STANDBY</span>
-                    </div>
-                    <div class="diag-subsystem-badge" id="badge-turbo" data-power="turbo">
-                        <span class="diag-subsystem-pin">SPD</span>
-                        <span class="diag-subsystem-name">HIGH-CURRENT</span>
-                        <span class="arcade-power-state">STANDBY</span>
+                <!-- Hardware Status Register Line (ultra-compact technical register bar) -->
+                <div class="diag-register-strip">
+                    <div class="diag-reg-item"><span class="reg-k">CLK:</span> <span class="reg-v" id="arcade-speed">160 px/s</span></div>
+                    <div class="diag-reg-item"><span class="reg-k">BURST:</span> <span class="reg-v" id="arcade-combo">x1 [SYNC]</span></div>
+                    <div class="diag-reg-item"><span class="reg-k">RECORD:</span> <span class="reg-v gold" id="arcade-best">---- m</span></div>
+                    <div class="diag-reg-item"><span class="reg-k">STATUS:</span> <span class="reg-v" id="arcade-player-rank">BUS SYNC OK</span></div>
+                    <div class="diag-reg-divider"></div>
+                    <div class="diag-reg-flags" role="group" aria-label="Hardware subsystem flags">
+                        <span class="diag-reg-flag" id="badge-overclock" data-power="overclock">OC: <span class="arcade-power-state">STBY</span></span>
+                        <span class="diag-reg-flag" id="badge-magnet" data-power="magnet">MAG: <span class="arcade-power-state">STBY</span></span>
+                        <span class="diag-reg-flag" id="badge-shield" data-power="shield">ISO: <span class="arcade-power-state">STBY</span></span>
+                        <span class="diag-reg-flag" id="badge-turbo" data-power="turbo">PWR: <span class="arcade-power-state">STBY</span></span>
                     </div>
                 </div>
 
                 <!-- Live Firmware UART Log Stream -->
-                <div class="diag-uart-container">
+                <div class="diag-uart-stream-block">
                     <div class="diag-uart-header">
-                        <span class="diag-uart-title">LIVE UART // 115200 BAUD · SPI/I2C BUS MONITOR</span>
-                        <span class="diag-uart-baud">CLK: 16.00MHz · VCORE: 1.15V</span>
+                        <span class="diag-uart-title">LIVE FIRMWARE UART STREAM // 115200 BAUD LOGIC MONITOR</span>
+                        <span class="diag-uart-baud">SPI MASTER · CLK 16.0MHz · VCORE 1.15V</span>
                     </div>
                     <div class="diag-uart-window" id="diag-uart-stream" aria-live="polite">
                         <div class="uart-line">[SYS] Boot sequence initialized: ST7789V 2.4" LCD 60Hz</div>
                         <div class="uart-line">[BUS] SPI master mode locked at 16.0MHz</div>
-                        <div class="uart-line">[DIAG] Ready. Awaiting pulse injector trigger...</div>
+                        <div class="uart-line">[DIAG] Ready. Awaiting carrier pulse injector trigger...</div>
                     </div>
                 </div>
 
                 <!-- Local EEPROM Non-Volatile Logbook -->
-                <div class="diag-eeprom-container">
+                <div class="diag-eeprom-block">
                     <div class="diag-eeprom-header">
                         <span class="diag-eeprom-title">LOCAL EEPROM // NON-VOLATILE DIAGNOSTIC RUNS</span>
                         <span class="diag-eeprom-meta">AT24C256 · PAGE 0x00</span>
@@ -839,7 +857,7 @@
                     </div>
                 </div>
 
-                <!-- Sleek Tactile Keymap Reference Bar -->
+                <!-- Minimalist Tactile Keymap Reference Bar -->
                 <div class="diag-keymap-strip" role="group" aria-label="Diagnostic pulse injection controls">
                     <button type="button" class="diag-key-btn" id="arcade-btn-jump" aria-label="Pulse jump">
                         <span class="diag-key-tag">W / SPACE</span>
@@ -847,7 +865,7 @@
                     </button>
                     <button type="button" class="diag-key-btn" id="arcade-btn-slide" aria-label="Bus clearance slide">
                         <span class="diag-key-tag">S / DOWN</span>
-                        <span class="diag-key-name">BUS CLEARANCE</span>
+                        <span class="diag-key-name">GROUND CLEARANCE</span>
                     </button>
                     <button type="button" class="diag-key-btn" id="arcade-btn-dash" aria-label="High current burst">
                         <span class="diag-key-tag">D / SHIFT</span>

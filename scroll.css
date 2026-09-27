@@ -4341,186 +4341,216 @@ body.lcd-game-focus .lcd-diagnostic-station {
 .diag-telemetry-deck {
     display: flex;
     flex-direction: column;
-    gap: 9px;
+    gap: 8px;
 }
 
-/* Hardware Integrity Gauge */
-.diag-integrity-box {
-    background: rgba(3, 18, 9, 0.7);
-    border: 1px solid rgba(62, 230, 160, 0.2);
-    border-radius: 4px;
-    padding: 6px 9px;
+/* Live Oscilloscope Waveform Panel (Altium / Saleae Style) */
+.diag-scope-panel {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.12);
+    padding-bottom: 6px;
 }
-.diag-integrity-header {
+.diag-scope-header {
     display: flex;
     justify-content: space-between;
-    font-size: 8.5px;
+    align-items: center;
+    font-size: 8px;
+    letter-spacing: 0.12em;
+    color: rgba(62, 230, 160, 0.65);
+    text-transform: uppercase;
 }
-.diag-integ-label {
-    color: rgba(62, 230, 160, 0.75);
-    letter-spacing: 0.08em;
-    font-weight: 600;
-}
-.diag-integ-val {
-    color: #3ee6a0;
-    font-weight: 700;
+.diag-scope-rate {
+    color: #ffd875;
     font-feature-settings: "tnum";
 }
-.diag-integrity-track {
-    height: 5px;
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 2.5px;
-    overflow: hidden;
-    border: 1px solid rgba(62, 230, 160, 0.2);
-}
-.diag-integrity-bar {
-    height: 100%;
-    background: linear-gradient(90deg, #10794a, #3ee6a0);
-    box-shadow: 0 0 8px rgba(62, 230, 160, 0.5);
-    transition: width 0.15s ease, background 0.3s;
+.diag-scope-canvas {
+    width: 100%;
+    height: 38px;
+    display: block;
+    background: rgba(1, 10, 5, 0.85);
+    border: 1px solid rgba(62, 230, 160, 0.15);
+    border-radius: 2px;
 }
 
-/* Engineering Metrics Grid */
-.diag-metric-grid {
+/* 5 Curated Hero Metrics (Grid layout, zero cards, generous whitespace) */
+.diag-hero-metrics-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px 14px;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.12);
+    padding-bottom: 10px;
 }
-.diag-metric-card {
-    background: rgba(2, 14, 8, 0.65);
-    border: 1px solid rgba(62, 230, 160, 0.18);
-    border-radius: 4px;
-    padding: 6px 8px;
+.diag-hero-col {
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
-.diag-metric-card.highlight {
-    border-color: rgba(255, 216, 117, 0.38);
-    background: rgba(28, 22, 6, 0.5);
+.diag-hero-col:nth-child(1),
+.diag-hero-col:nth-child(2) {
+    grid-column: span 3;
 }
-.diag-metric-label {
+.diag-hero-col:nth-child(3),
+.diag-hero-col:nth-child(4),
+.diag-hero-col:nth-child(5) {
+    grid-column: span 2;
+}
+
+.diag-hero-label {
     font-size: 8px;
-    color: rgba(62, 230, 160, 0.6);
-    letter-spacing: 0.08em;
-    font-weight: 600;
-}
-.diag-metric-card.highlight .diag-metric-label {
-    color: rgba(255, 216, 117, 0.75);
-}
-.diag-metric-val {
-    font-size: 13px;
     font-weight: 700;
+    letter-spacing: 0.14em;
+    color: rgba(62, 230, 160, 0.65);
+    text-transform: uppercase;
+}
+.diag-hero-val-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+.diag-hero-num {
+    font-size: 24px;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    font-variant-numeric: tabular-nums;
     color: #3ee6a0;
-    letter-spacing: 0.03em;
-    font-feature-settings: "tnum";
+    text-shadow: 0 0 10px rgba(62, 230, 160, 0.35);
+    line-height: 1.1;
     white-space: nowrap;
 }
-.diag-metric-card.highlight .diag-metric-val {
-    color: #ffd875;
-    text-shadow: 0 0 6px rgba(255, 216, 117, 0.35);
+.diag-hero-unit {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: rgba(220, 240, 230, 0.55);
 }
-.diag-metric-val.status-val {
-    font-size: 10px;
-    color: #a7f3d0;
+.diag-hero-sub {
+    font-size: 7.5px;
+    letter-spacing: 0.08em;
+    color: rgba(220, 240, 230, 0.42);
+    font-family: var(--font-mono, monospace);
+    white-space: nowrap;
 }
 
-/* Hardware Subsystems Array */
-.diag-subsystems-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
+/* Analog Continuity Sparkline Track */
+.diag-spark-track {
+    height: 3px;
+    background: rgba(62, 230, 160, 0.12);
+    border-radius: 1.5px;
+    margin: 3px 0 2px 0;
+    overflow: hidden;
 }
-.diag-subsystem-badge {
-    background: rgba(2, 12, 6, 0.65);
-    border: 1px solid rgba(62, 230, 160, 0.15);
-    border-radius: 4px;
-    padding: 5px 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    align-items: center;
-    text-align: center;
-    transition: all 0.2s ease;
-}
-.diag-subsystem-pin {
-    font-size: 8px;
-    font-weight: 800;
-    color: rgba(62, 230, 160, 0.75);
-    border: 1px solid rgba(62, 230, 160, 0.25);
-    border-radius: 2px;
-    padding: 0 4px;
+.diag-spark-track.subtle {
     background: rgba(62, 230, 160, 0.06);
-    letter-spacing: 0.06em;
 }
-.diag-subsystem-name {
-    font-size: 8px;
-    color: rgba(230, 237, 243, 0.65);
-    letter-spacing: 0.04em;
+.diag-spark-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10794a, #3ee6a0);
+    box-shadow: 0 0 6px rgba(62, 230, 160, 0.6);
+    transition: width 0.15s ease;
+}
+.diag-spark-fill.pulse-spark {
+    background: linear-gradient(90deg, rgba(62, 230, 160, 0.3), #ffd875);
+}
+
+/* Compact Hardware Register Line */
+.diag-register-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    font-size: 8.5px;
+    font-family: var(--font-mono, monospace);
+    border-bottom: 1px solid rgba(62, 230, 160, 0.12);
+    padding-bottom: 6px;
+    color: rgba(220, 240, 230, 0.65);
+}
+.diag-reg-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.reg-k {
+    color: rgba(62, 230, 160, 0.55);
     font-weight: 600;
 }
-.diag-subsystem-badge .arcade-power-state {
+.reg-v {
+    color: #3ee6a0;
+    font-weight: 700;
+    font-feature-settings: "tnum";
+}
+.reg-v.gold {
+    color: #ffd875;
+}
+.diag-reg-divider {
+    width: 1px;
+    height: 10px;
+    background: rgba(62, 230, 160, 0.2);
+}
+.diag-reg-flags {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.diag-reg-flag {
     font-size: 7.5px;
-    color: rgba(62, 230, 160, 0.45);
-    letter-spacing: 0.08em;
+    padding: 1px 4px;
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 2px;
+    color: rgba(62, 230, 160, 0.6);
+    background: rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.04em;
+    transition: all 0.2s ease;
 }
-.diag-subsystem-badge.active {
-    border-color: #3ee6a0;
-    background: rgba(62, 230, 160, 0.14);
-    box-shadow: 0 0 10px rgba(62, 230, 160, 0.25);
-}
-.diag-subsystem-badge.active .diag-subsystem-pin {
+.diag-reg-flag.active {
     color: #03130a;
     background: #3ee6a0;
     border-color: #3ee6a0;
+    font-weight: 800;
+    box-shadow: 0 0 6px rgba(62, 230, 160, 0.45);
 }
-.diag-subsystem-badge.active .arcade-power-state {
-    color: #3ee6a0;
-    font-weight: 700;
+.diag-reg-flag.active .arcade-power-state {
+    color: #03130a;
+    font-weight: 800;
 }
 
-/* Live Firmware UART Log Stream */
-.diag-uart-container {
-    background: rgba(1, 10, 5, 0.9);
-    border: 1px solid rgba(62, 230, 160, 0.22);
-    border-radius: 4px;
-    padding: 6px 9px;
+/* Live Firmware UART Log Stream Block */
+.diag-uart-stream-block {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.12);
+    padding-bottom: 6px;
 }
 .diag-uart-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(62, 230, 160, 0.15);
-    padding-bottom: 3px;
+    font-size: 8px;
+    letter-spacing: 0.1em;
 }
 .diag-uart-title {
-    font-size: 8.5px;
     font-weight: 700;
     color: #3ee6a0;
-    letter-spacing: 0.08em;
 }
 .diag-uart-baud {
-    font-size: 8px;
     color: rgba(62, 230, 160, 0.55);
-    letter-spacing: 0.06em;
 }
 .diag-uart-window {
-    max-height: 80px;
-    min-height: 52px;
+    max-height: 62px;
+    min-height: 44px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 2px;
-    font-size: 9px;
+    font-size: 8.5px;
     line-height: 1.35;
     color: #a7f3d0;
-    padding-right: 4px;
+    background: rgba(0, 0, 0, 0.25);
+    border-left: 2px solid rgba(62, 230, 160, 0.28);
+    padding: 3px 6px;
     font-family: var(--font-mono, monospace);
 }
 .diag-uart-window::-webkit-scrollbar {
@@ -4539,58 +4569,50 @@ body.lcd-game-focus .lcd-diagnostic-station {
 .uart-line.burst { color: #60a5fa; }
 .uart-line.pulse { color: #3ee6a0; font-weight: 600; }
 
-/* Local EEPROM Logbook */
-.diag-eeprom-container {
-    background: rgba(2, 14, 8, 0.65);
-    border: 1px solid rgba(62, 230, 160, 0.18);
-    border-radius: 4px;
-    padding: 6px 9px;
+/* Local EEPROM Non-Volatile Logbook Block */
+.diag-eeprom-block {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.12);
+    padding-bottom: 6px;
 }
 .diag-eeprom-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(62, 230, 160, 0.15);
-    padding-bottom: 3px;
-}
-.diag-eeprom-title {
-    font-size: 8.5px;
-    font-weight: 700;
-    color: #3ee6a0;
+    font-size: 8px;
     letter-spacing: 0.08em;
 }
+.diag-eeprom-title {
+    font-weight: 700;
+    color: #3ee6a0;
+}
 .diag-eeprom-meta {
-    font-size: 8px;
     color: rgba(255, 216, 117, 0.7);
-    letter-spacing: 0.06em;
 }
 .diag-eeprom-list {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
 }
 .arcade-lb-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 9.5px;
-    background: rgba(0, 0, 0, 0.35);
-    padding: 3px 6px;
-    border-radius: 2px;
-    border-left: 2px solid rgba(62, 230, 160, 0.3);
+    font-size: 8.5px;
+    padding: 2px 4px;
+    border-bottom: 1px dotted rgba(62, 230, 160, 0.1);
 }
 .arcade-lb-row.top-1 {
-    border-left-color: #ffd875;
-    background: rgba(28, 22, 5, 0.45);
+    background: rgba(28, 22, 5, 0.35);
+    border-left: 2px solid #ffd875;
 }
 .arcade-lb-rank-badge {
     font-weight: 700;
     color: #3ee6a0;
     width: 20px;
-    font-size: 8.5px;
+    font-size: 8px;
 }
 .arcade-lb-row.top-1 .arcade-lb-rank-badge {
     color: #ffd875;
@@ -4601,7 +4623,7 @@ body.lcd-game-focus .lcd-diagnostic-station {
     font-feature-settings: "tnum";
 }
 .arcade-lb-meta {
-    font-size: 8px;
+    font-size: 7.5px;
     color: rgba(62, 230, 160, 0.55);
 }
 .diag-export-row {
@@ -4609,53 +4631,53 @@ body.lcd-game-focus .lcd-diagnostic-station {
 }
 .diag-export-btn {
     width: 100%;
-    background: rgba(3, 22, 11, 0.85);
-    border: 1px solid rgba(62, 230, 160, 0.3);
-    border-radius: 3px;
-    padding: 5px 8px;
+    background: transparent;
+    border: 1px solid rgba(62, 230, 160, 0.25);
+    border-radius: 2px;
+    padding: 4px 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
     font-family: var(--font-mono, monospace);
-    font-size: 8.5px;
+    font-size: 8px;
     font-weight: 700;
     color: #3ee6a0;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 .diag-export-btn:hover {
-    border-color: #fff;
+    border-color: #3ee6a0;
     color: #fff;
-    background: rgba(62, 230, 160, 0.18);
-    box-shadow: 0 0 10px rgba(62, 230, 160, 0.25);
+    background: rgba(62, 230, 160, 0.12);
+    box-shadow: 0 0 8px rgba(62, 230, 160, 0.2);
 }
 .diag-export-btn.copied {
     border-color: #ffd875;
     color: #ffd875;
-    background: rgba(201, 162, 75, 0.25);
+    background: rgba(201, 162, 75, 0.2);
 }
 .diag-export-icon {
     color: #ffd875;
-    font-size: 8.5px;
+    font-size: 8px;
 }
 
-/* Tactile Keymap Reference Bar */
+/* Minimalist Tactile Keymap Reference Bar */
 .diag-keymap-strip {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
+    gap: 5px;
 }
 .diag-key-btn {
-    background: rgba(2, 15, 8, 0.7);
-    border: 1px solid rgba(62, 230, 160, 0.22);
-    border-radius: 4px;
-    padding: 6px 4px;
+    background: rgba(2, 12, 6, 0.5);
+    border: 1px solid rgba(62, 230, 160, 0.18);
+    border-radius: 2px;
+    padding: 4px 3px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 1px;
     cursor: pointer;
     font-family: var(--font-mono, monospace);
     color: #e6edf3;
@@ -4664,27 +4686,27 @@ body.lcd-game-focus .lcd-diagnostic-station {
     touch-action: manipulation;
 }
 .diag-key-btn:hover {
-    border-color: rgba(62, 230, 160, 0.6);
-    background: rgba(6, 32, 17, 0.85);
+    border-color: rgba(62, 230, 160, 0.5);
+    background: rgba(6, 28, 14, 0.7);
 }
 .diag-key-btn:active,
 .diag-key-btn.btn-pressed {
-    background: rgba(62, 230, 160, 0.25);
+    background: rgba(62, 230, 160, 0.22);
     border-color: #fff;
     transform: translateY(1px);
-    box-shadow: 0 0 10px rgba(62, 230, 160, 0.35);
+    box-shadow: 0 0 8px rgba(62, 230, 160, 0.3);
 }
 .diag-key-tag {
-    font-size: 7.5px;
-    color: rgba(62, 230, 160, 0.65);
-    letter-spacing: 0.08em;
+    font-size: 7px;
+    color: rgba(62, 230, 160, 0.6);
+    letter-spacing: 0.06em;
     font-weight: 600;
 }
 .diag-key-name {
-    font-size: 9.5px;
+    font-size: 8.5px;
     font-weight: 700;
     color: #3ee6a0;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
 }
 
 @media (max-width: 1024px) {
@@ -4698,11 +4720,15 @@ body.lcd-game-focus .lcd-diagnostic-station {
     }
 }
 @media (max-width: 640px) {
-    .diag-metric-grid {
+    .diag-hero-metrics-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    .diag-subsystems-row {
-        grid-template-columns: repeat(2, 1fr);
+    .diag-hero-col:nth-child(1),
+    .diag-hero-col:nth-child(2),
+    .diag-hero-col:nth-child(3),
+    .diag-hero-col:nth-child(4),
+    .diag-hero-col:nth-child(5) {
+        grid-column: span 1;
     }
 }
 
