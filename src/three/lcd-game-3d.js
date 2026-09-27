@@ -219,6 +219,46 @@ const serverRackUnits = [];
 /** @type {Array<THREE.Mesh>} */
 const trackCurrentPulses = [];
 
+// Silicon Megafactory Atmosphere, Zones, & Machinery
+/** @type {THREE.DirectionalLight | null} */
+let mainDirLight = null;
+/** @type {THREE.PointLight | null} */
+let emergencyAlarmLight = null;
+let facilityCycleTime = 0;
+let activeZoneIndex = 0;
+
+const FOUNDRY_ZONES = [
+    { name: 'ZONE 1: WAFER FABRICATION', distMin: 0, distMax: 300, lightCol: 0xffcc33, fogCol: 0x0f0c05 },
+    { name: 'ZONE 2: EUV LITHOGRAPHY & PLASMA', distMin: 300, distMax: 700, lightCol: 0x6e5bf7, fogCol: 0x060618 },
+    { name: 'ZONE 3: ROBOTIC CPU ASSEMBLY', distMin: 700, distMax: 1200, lightCol: 0x10b981, fogCol: 0x03120a },
+    { name: 'ZONE 4: AI SUPERCOMPUTING CORE', distMin: 1200, distMax: 1800, lightCol: 0x00f0ff, fogCol: 0x021018 },
+    { name: 'ZONE 5: CRYOGENIC FUSION REACTOR', distMin: 1800, distMax: 99999, lightCol: 0x3ee6a0, fogCol: 0x011409 }
+];
+
+/** @type {THREE.Group | null} */
+let siliconWaferGroup = null;
+
+/** @type {Array<{ bladeMesh: THREE.Group }>} */
+const ventilationFans = [];
+
+/** @type {THREE.Group | null} */
+let weldingRobotArm = null;
+/** @type {THREE.Mesh | null} */
+let weldingForearm = null;
+
+/** @type {THREE.Points | null} */
+let weldingSparkParticles = null;
+const WELDING_SPARK_COUNT = 24;
+let weldingSparkPositions = new Float32Array(WELDING_SPARK_COUNT * 3);
+/** @type {Array<{ vx: number, vy: number, vz: number, life: number }>} */
+let weldingSparkVels = [];
+
+/** @type {THREE.Group | null} */
+let inspectionDrone = null;
+
+/** @type {Array<THREE.Mesh>} */
+const cryoCoolantPulses = [];
+
 /** @type {THREE.MeshStandardMaterial | null} */
 let copperRailMat = null;
 
@@ -303,13 +343,17 @@ export function init3dGame(canvas = null) {
     }
 
 
-    // 4. Lighting Rig
-    const ambientLight = new THREE.AmbientLight(0x0e3522, 1.8);
+    // 4. Lighting Rig: Silicon Megafactory High-Dynamic Range Setup
+    const ambientLight = new THREE.AmbientLight(0x0a1c12, 1.8);
     gameScene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0x3ee6a0, 2.2);
-    dirLight.position.set(2, 6, 4);
-    gameScene.add(dirLight);
+    mainDirLight = new THREE.DirectionalLight(0xffcc33, 2.2);
+    mainDirLight.position.set(2, 6, 4);
+    gameScene.add(mainDirLight);
+
+    emergencyAlarmLight = new THREE.PointLight(0xff1122, 0.0, 18.0);
+    emergencyAlarmLight.position.set(0, 7.0, -3.5);
+    gameScene.add(emergencyAlarmLight);
 
     playerLight = new THREE.PointLight(0x00ffcc, 3.5, 8.5);
     playerLight.position.set(0, 0.8, 0);
@@ -821,6 +865,332 @@ function buildHolographicCity(hGroup) {
 }
 
 /**
+ * Generates a high-resolution patterned semiconductor silicon wafer texture.
+ * @returns {THREE.CanvasTexture | null}
+ */
+function createSiliconWaferTexture() {
+    if (typeof document === 'undefined') return null;
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 512;
+    const ctx = c.getContext('2d');
+    if (!ctx) return null;
+    ctx.fillStyle = '#060f09';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Outer circular boundary with mirror chrome bevel
+    ctx.strokeStyle = '#22553b';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(256, 256, 240, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Concentric lithography step-and-repeat ring zones
+    const ringRadii = [60, 110, 160, 200, 230];
+    ringRadii.forEach((r, idx) => {
+        ctx.strokeStyle = idx % 2 === 0 ? 'rgba(62, 230, 160, 0.35)' : 'rgba(0, 255, 204, 0.2)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(256, 256, r, 0, Math.PI * 2);
+        ctx.stroke();
+    });
+
+    // Rectangular semiconductor dies matrix (silicon processors before dicing)
+    const dieW = 20;
+    const dieH = 20;
+    const gap = 4;
+    for (let x = 40; x < 470; x += dieW + gap) {
+        for (let y = 40; y < 470; y += dieH + gap) {
+            const dx = x + dieW / 2 - 256;
+            const dy = y + dieH / 2 - 256;
+            if (dx * dx + dy * dy < 225 * 225) {
+                ctx.fillStyle = ((x + y) % 3 === 0) ? 'rgba(62, 230, 160, 0.55)' : 'rgba(12, 55, 30, 0.45)';
+                ctx.fillRect(x, y, dieW, dieH);
+                ctx.strokeStyle = 'rgba(0, 255, 204, 0.4)';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(x, y, dieW, dieH);
+            }
+        }
+    }
+
+    // Lithography alignment reticle marks
+    ctx.strokeStyle = '#ffd875';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(256, 20); ctx.lineTo(256, 60);
+    ctx.moveTo(256, 452); ctx.lineTo(256, 492);
+    ctx.moveTo(20, 256); ctx.lineTo(60, 256);
+    ctx.moveTo(452, 256); ctx.lineTo(492, 256);
+    ctx.stroke();
+
+    return new THREE.CanvasTexture(c);
+}
+
+/**
+ * Builds Enormous 14-meter Spinning Silicon Wafer in cleanroom fab bay.
+ * @param {THREE.Group} hGroup
+ */
+function buildSiliconWafer(hGroup) {
+    siliconWaferGroup = new THREE.Group();
+    siliconWaferGroup.position.set(-6.5, 7.2, -13.5);
+    siliconWaferGroup.rotation.x = 0.15;
+
+    const waferTex = createSiliconWaferTexture();
+    const waferMat = new THREE.MeshStandardMaterial({
+        map: waferTex || null,
+        color: 0x224433,
+        roughness: 0.12,
+        metalness: 0.95,
+        emissive: 0x051a0e,
+        emissiveIntensity: 0.4
+    });
+
+    const waferDisc = new THREE.Mesh(new THREE.CylinderGeometry(5.8, 5.8, 0.18, 36), waferMat);
+    waferDisc.rotateX(Math.PI / 2);
+    siliconWaferGroup.add(waferDisc);
+
+    // Vacuum chuck mount spindle
+    const chuckMat = new THREE.MeshStandardMaterial({ color: 0x111c16, metalness: 0.9, roughness: 0.3 });
+    const chuck = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 1.2, 20), chuckMat);
+    chuck.position.set(0, 0, -0.6);
+    chuck.rotateX(Math.PI / 2);
+    siliconWaferGroup.add(chuck);
+
+    hGroup.add(siliconWaferGroup);
+}
+
+/**
+ * Builds Industrial Ventilation Turbines & Exhaust Cooling Fans.
+ * @param {THREE.Group} hGroup
+ */
+function buildVentilationFans(hGroup) {
+    ventilationFans.length = 0;
+    const housingMat = new THREE.MeshStandardMaterial({ color: 0x141f18, metalness: 0.85, roughness: 0.35 });
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0x25382c, metalness: 0.9, roughness: 0.2 });
+
+    const fanPositions = [-17.5, 17.5];
+    fanPositions.forEach(posX => {
+        const fanGroup = new THREE.Group();
+        fanGroup.position.set(posX, 5.5, -9.0);
+
+        // Circular Intake Duct Housing
+        const duct = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.22, 10, 28), housingMat);
+        fanGroup.add(duct);
+
+        // Center Spinner Hub & 6 Blades
+        const bladeAssembly = new THREE.Group();
+        const hub = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), bladeMat);
+        bladeAssembly.add(hub);
+
+        for (let b = 0; b < 6; b++) {
+            const angle = (b / 6) * Math.PI * 2;
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.8, 0.05), bladeMat);
+            blade.position.set(Math.cos(angle) * 1.1, Math.sin(angle) * 1.1, 0);
+            blade.rotation.z = angle;
+            blade.rotation.x = 0.35; // Pitch angle
+            bladeAssembly.add(blade);
+        }
+
+        fanGroup.add(bladeAssembly);
+        hGroup.add(fanGroup);
+        ventilationFans.push({ bladeMesh: bladeAssembly });
+    });
+}
+
+/**
+ * Builds Articulated Robotic Welding Arm with Falling Spark Showers.
+ * @param {THREE.Group} hGroup
+ */
+function buildWeldingRobot(hGroup) {
+    weldingRobotArm = new THREE.Group();
+    weldingRobotArm.position.set(4.8, 7.5, -3.8);
+
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a3d31, metalness: 0.88, roughness: 0.25 });
+    const jointMat = new THREE.MeshStandardMaterial({ color: 0x16221b, metalness: 0.92, roughness: 0.2 });
+
+    // Base Pivot Turret
+    const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.6, 14), jointMat);
+    weldingRobotArm.add(turret);
+
+    // Upper Arm Segment
+    const upperArm = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.8, 0.3), metalMat);
+    upperArm.position.set(0, -1.0, 0);
+    weldingRobotArm.add(upperArm);
+
+    // Elbow Joint
+    const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 10), jointMat);
+    elbow.position.set(0, -1.9, 0);
+    weldingRobotArm.add(elbow);
+
+    // Forearm & Welding Torch
+    weldingForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 1.5, 10), metalMat);
+    weldingForearm.position.set(0, -2.7, 0);
+    weldingRobotArm.add(weldingForearm);
+
+    // Ceramic Torch Tip
+    const torch = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.4, 12), new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.2 }));
+    torch.position.set(0, -3.5, 0);
+    weldingRobotArm.add(torch);
+
+    hGroup.add(weldingRobotArm);
+
+    // Welding Sparks Particle System
+    weldingSparkVels = [];
+    for (let i = 0; i < WELDING_SPARK_COUNT; i++) {
+        weldingSparkPositions[i * 3] = 4.8;
+        weldingSparkPositions[i * 3 + 1] = 4.0;
+        weldingSparkPositions[i * 3 + 2] = -3.8;
+        weldingSparkVels.push({
+            vx: (Math.random() - 0.5) * 3,
+            vy: -Math.random() * 3 - 1,
+            vz: (Math.random() - 0.5) * 2,
+            life: Math.random()
+        });
+    }
+
+    const sparkGeo = new THREE.BufferGeometry();
+    sparkGeo.setAttribute('position', new THREE.BufferAttribute(weldingSparkPositions, 3));
+    const sparkMat = new THREE.PointsMaterial({
+        color: 0xffd700,
+        size: 0.12,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending
+    });
+    weldingSparkParticles = new THREE.Points(sparkGeo, sparkMat);
+    hGroup.add(weldingSparkParticles);
+}
+
+/**
+ * Builds Transparent Cryogenic Coolant Conduits.
+ * @param {THREE.Group} hGroup
+ */
+function buildCryoPipes(hGroup) {
+    cryoCoolantPulses.length = 0;
+    const pipeMat = new THREE.MeshStandardMaterial({
+        color: 0x0e3522,
+        roughness: 0.1,
+        metalness: 0.1,
+        transparent: true,
+        opacity: 0.38
+    });
+
+    const pulseMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending
+    });
+
+    const pipeGeo = new THREE.CylinderGeometry(0.15, 0.15, 34, 12);
+    pipeGeo.rotateZ(Math.PI / 2);
+
+    const pipe1 = new THREE.Mesh(pipeGeo, pipeMat);
+    pipe1.position.set(0, 4.8, -4.2);
+    hGroup.add(pipe1);
+
+    const pipe2 = new THREE.Mesh(pipeGeo, pipeMat);
+    pipe2.position.set(0, 8.2, -6.5);
+    hGroup.add(pipe2);
+
+    // Glowing Coolant Flow Pulses inside pipes
+    const pulseGeo = new THREE.CylinderGeometry(0.12, 0.12, 1.8, 8);
+    pulseGeo.rotateZ(Math.PI / 2);
+
+    for (let p = 0; p < 8; p++) {
+        const pulse = new THREE.Mesh(pulseGeo, pulseMat);
+        pulse.position.set(-15 + p * 4.5, (p % 2 === 0 ? 4.8 : 8.2), (p % 2 === 0 ? -4.2 : -6.5));
+        hGroup.add(pulse);
+        cryoCoolantPulses.push(pulse);
+    }
+}
+
+/**
+ * Builds Patrolling Autonomous Inspection Drone with Spotlight Cone.
+ * @param {THREE.Group} hGroup
+ */
+function buildInspectionDrone(hGroup) {
+    inspectionDrone = new THREE.Group();
+    inspectionDrone.position.set(0, 3.2, -2.8);
+
+    const droneMat = new THREE.MeshStandardMaterial({ color: 0x1f2e24, metalness: 0.9, roughness: 0.25 });
+    const droneBody = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.25, 0.55), droneMat);
+    inspectionDrone.add(droneBody);
+
+    // Quad Sensor Pods
+    const podGeo = new THREE.SphereGeometry(0.09, 8, 8);
+    const beaconMat = new THREE.MeshBasicMaterial({ color: 0x3ee6a0 });
+    const p1 = new THREE.Mesh(podGeo, beaconMat); p1.position.set(-0.35, 0.1, 0.25); inspectionDrone.add(p1);
+    const p2 = new THREE.Mesh(podGeo, beaconMat); p2.position.set(0.35, 0.1, 0.25); inspectionDrone.add(p2);
+    const p3 = new THREE.Mesh(podGeo, beaconMat); p3.position.set(-0.35, 0.1, -0.25); inspectionDrone.add(p3);
+    const p4 = new THREE.Mesh(podGeo, beaconMat); p4.position.set(0.35, 0.1, -0.25); inspectionDrone.add(p4);
+
+    // Downward Volumetric Spotlight Cone
+    const coneGeo = new THREE.ConeGeometry(0.7, 3.0, 16, 1, true);
+    coneGeo.rotateX(Math.PI);
+    const coneMat = new THREE.MeshBasicMaterial({
+        color: 0x3ee6a0,
+        transparent: true,
+        opacity: 0.15,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+    });
+    const spotCone = new THREE.Mesh(coneGeo, coneMat);
+    spotCone.position.set(0, -1.5, 0);
+    inspectionDrone.add(spotCone);
+
+    hGroup.add(inspectionDrone);
+}
+
+/**
+ * Builds Colossal Distant Megastructure: 40-Meter Suspended AI Reactor Core.
+ * @param {THREE.Group} hGroup
+ */
+function buildDistantMegastructure(hGroup) {
+    const megastructureGroup = new THREE.Group();
+    megastructureGroup.position.set(0, 10.5, -28.0);
+
+    // Colossal suspended octahedral reactor core
+    const coreGeo = new THREE.OctahedronGeometry(9.0, 1);
+    const coreMat = new THREE.MeshStandardMaterial({
+        color: 0x031208,
+        wireframe: true,
+        roughness: 0.2,
+        metalness: 0.95,
+        emissive: 0x00ffcc,
+        emissiveIntensity: 0.6
+    });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    megastructureGroup.add(coreMesh);
+
+    // Inner Radiant Cherenkov Energy Sphere
+    const innerGeo = new THREE.SphereGeometry(5.2, 16, 16);
+    const innerMat = new THREE.MeshBasicMaterial({
+        color: 0x3ee6a0,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending
+    });
+    const innerSphere = new THREE.Mesh(innerGeo, innerMat);
+    megastructureGroup.add(innerSphere);
+
+    // 4 Massive High-Tension Anchoring Cables
+    const cableMat = new THREE.LineBasicMaterial({ color: 0x175836, transparent: true, opacity: 0.5 });
+    const cableCoords = [
+        -9, 0, 0, -28, 20, 0,
+        9, 0, 0, 28, 20, 0,
+        0, -9, 0, -18, -12, 0,
+        0, -9, 0, 18, -12, 0
+    ];
+    const cableGeo = new THREE.BufferGeometry();
+    cableGeo.setAttribute('position', new THREE.Float32BufferAttribute(cableCoords, 3));
+    const cables = new THREE.LineSegments(cableGeo, cableMat);
+    megastructureGroup.add(cables);
+
+    hGroup.add(megastructureGroup);
+}
+
+/**
  * Builds distant glowing motherboard city, IC monoliths, and cyber grid.
  */
 function buildHorizon() {
@@ -893,6 +1263,14 @@ function buildHorizon() {
 
     // 2. Parallax Layer 2: Overhead Automated Pick-and-Place & Laser Soldering Gantry
     buildRoboticGantry(hGroup);
+
+    // Silicon Megafactory Machinery & Atmospheric Structures
+    buildSiliconWafer(hGroup);
+    buildVentilationFans(hGroup);
+    buildWeldingRobot(hGroup);
+    buildCryoPipes(hGroup);
+    buildInspectionDrone(hGroup);
+    buildDistantMegastructure(hGroup);
 
     // 3. Parallax Layer 3: Giant Holographic Oscilloscope Sky Projection
     const scopeTex = createScopeGridTexture();
@@ -2195,6 +2573,100 @@ export function update3dGame(delta, sim) {
         sp.mesh.position.lerpVectors(sp.from, sp.to, sp.pulsePos);
     }
 
+    // Silicon Megafactory Dynamic Power Outage Cycle & Zone Atmospheric Evolution
+    facilityCycleTime += delta;
+    const cycleSec = facilityCycleTime % 18.0;
+    const isOutage = cycleSec > 14.2 && cycleSec < 16.4;
+    const isReboot = cycleSec >= 16.4 && cycleSec < 17.4;
+
+    if (emergencyAlarmLight) {
+        emergencyAlarmLight.intensity = isOutage ? (Math.sin(facilityCycleTime * 22.0) > 0 ? 6.5 : 0.8) : 0.0;
+    }
+    if (mainDirLight) {
+        mainDirLight.intensity = isOutage ? 0.25 : (isReboot ? 4.2 : 2.2);
+    }
+
+    // Dynamic Zone Transitions based on traveled distance
+    const curDist = sim.dist || 0;
+    let currentZone = FOUNDRY_ZONES[0];
+    for (let z = FOUNDRY_ZONES.length - 1; z >= 0; z--) {
+        if (curDist >= FOUNDRY_ZONES[z].distMin) {
+            currentZone = FOUNDRY_ZONES[z];
+            activeZoneIndex = z;
+            break;
+        }
+    }
+
+    const targetLightCol = new THREE.Color(isOutage ? 0x220505 : currentZone.lightCol);
+    const targetFogCol = new THREE.Color(isOutage ? 0x140202 : currentZone.fogCol);
+    if (mainDirLight) mainDirLight.color.lerp(targetLightCol, delta * 3.0);
+    if (gameScene.fog instanceof THREE.FogExp2) {
+        gameScene.fog.color.lerp(targetFogCol, delta * 3.0);
+    }
+
+    // Update Zone telemetry indicator in DOM if available
+    if (typeof document !== 'undefined') {
+        const zoneBadge = document.getElementById('diag-zone-badge');
+        if (zoneBadge) {
+            const text = isOutage ? 'EMERGENCY: POWER TRIP' : currentZone.name;
+            if (zoneBadge.textContent !== text) zoneBadge.textContent = text;
+            if (isOutage) zoneBadge.classList.add('badge-alarm');
+            else zoneBadge.classList.remove('badge-alarm');
+        }
+    }
+
+    // Animate Spinning Silicon Wafer
+    if (siliconWaferGroup) {
+        siliconWaferGroup.rotation.z += delta * (isOutage ? 0.05 : 0.45);
+    }
+
+    // Animate Industrial Ventilation Turbines
+    for (let f = 0; f < ventilationFans.length; f++) {
+        ventilationFans[f].bladeMesh.rotation.z += delta * (isOutage ? 2.0 : 16.0);
+    }
+
+    // Animate Articulated Robotic Welding Arm & Sparks
+    if (weldingRobotArm) {
+        weldingRobotArm.rotation.z = Math.sin((sim.dist || 0) * 0.08) * 0.16;
+        if (weldingForearm) weldingForearm.rotation.z = Math.cos((sim.dist || 0) * 0.11) * 0.20;
+    }
+    if (weldingSparkParticles) {
+        for (let i = 0; i < WELDING_SPARK_COUNT; i++) {
+            const vel = weldingSparkVels[i];
+            vel.life -= delta * 3.5;
+            if (vel.life <= 0) {
+                weldingSparkPositions[i * 3] = 4.8 + (Math.random() - 0.5) * 0.2;
+                weldingSparkPositions[i * 3 + 1] = 4.2;
+                weldingSparkPositions[i * 3 + 2] = -3.8 + (Math.random() - 0.5) * 0.2;
+                vel.vx = (Math.random() - 0.5) * 2.8;
+                vel.vy = -Math.random() * 3.5 - 1.0;
+                vel.vz = (Math.random() - 0.5) * 1.5;
+                vel.life = 1.0;
+            } else {
+                weldingSparkPositions[i * 3] += vel.vx * delta;
+                weldingSparkPositions[i * 3 + 1] += vel.vy * delta;
+                weldingSparkPositions[i * 3 + 2] += vel.vz * delta;
+                vel.vy -= 9.8 * delta * 0.4;
+            }
+        }
+        const wPosAttr = weldingSparkParticles.geometry.getAttribute('position');
+        if (wPosAttr) wPosAttr.needsUpdate = true;
+    }
+
+    // Animate Cryogenic Coolant Conduits Pulses
+    const cryoSpeed = 7.5;
+    for (let c = 0; c < cryoCoolantPulses.length; c++) {
+        const cp = cryoCoolantPulses[c];
+        cp.position.x += delta * cryoSpeed;
+        if (cp.position.x > 17.0) cp.position.x = -17.0;
+    }
+
+    // Animate Patrolling Autonomous Inspection Drone
+    if (inspectionDrone) {
+        inspectionDrone.position.x = Math.sin((sim.dist || 0) * 0.06) * 5.5;
+        inspectionDrone.position.y = 3.2 + Math.sin(facilityCycleTime * 2.5) * 0.18;
+    }
+
     // 8. Update Shatter Shards if game is over
     if (sim.state === 'over' && shatterGroup && shatterGroup.visible) {
         for (let i = 0; i < SHARD_COUNT; i++) {
@@ -2285,5 +2757,21 @@ export function get3dGameCanvas() {
  */
 export function get3dCanvas() {
     return boundCanvas;
+}
+
+/**
+ * Returns the active megafactory zone index.
+ * @returns {number}
+ */
+export function getActiveZoneIndex() {
+    return activeZoneIndex;
+}
+
+/**
+ * Returns the active megafactory zone descriptor.
+ * @returns {{ name: string, distMin: number, distMax: number, lightCol: number, fogCol: number }}
+ */
+export function getActiveZone() {
+    return FOUNDRY_ZONES[activeZoneIndex] || FOUNDRY_ZONES[0];
 }
 

@@ -4337,6 +4337,14 @@ body.lcd-game-focus .lcd-diagnostic-station {
     border-radius: 3px;
     color: var(--signal, #3ee6a0);
     letter-spacing: 0.08em;
+    transition: all 0.3s ease;
+}
+.diag-badge.badge-alarm {
+    background: rgba(248, 113, 113, 0.22) !important;
+    border-color: #f87171 !important;
+    color: #f87171 !important;
+    box-shadow: 0 0 10px rgba(248, 113, 113, 0.45);
+    animation: livePulse 0.4s infinite alternate;
 }
 .diag-sub {
     font-size: 8.5px;
@@ -4429,19 +4437,25 @@ body.lcd-game-focus .lcd-diagnostic-station {
 /* Sleek Top Telemetry Hero Ribbon (5 Curated Hero Metrics in a single horizontal strip) */
 .diag-hero-metrics-grid {
     position: absolute;
-    top: 54px;
+    top: 50px;
     left: 24px;
     right: 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-    background: rgba(1, 14, 7, 0.45);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(62, 230, 160, 0.16);
+    background: rgba(1, 14, 7, 0.28);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(62, 230, 160, 0.12);
     border-radius: 4px;
-    padding: 5px 16px;
+    padding: 4px 16px;
     z-index: 9;
+    opacity: 0.85;
+    transition: opacity 0.3s ease, background 0.3s ease;
+}
+.diag-hero-metrics-grid:hover {
+    opacity: 1.0;
+    background: rgba(1, 14, 7, 0.45);
 }
 
 .diag-hero-col {
@@ -4621,20 +4635,27 @@ body.lcd-game-focus .lcd-diagnostic-station {
 /* Live Firmware UART Log Stream Block - Docked at Bottom-Left Corner */
 .diag-uart-stream-block {
     position: absolute;
-    bottom: 32px;
+    bottom: 28px;
     left: 24px;
-    width: 320px;
+    width: 310px;
     display: flex;
     flex-direction: column;
     gap: 2px;
-    background: rgba(1, 10, 5, 0.55);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(62, 230, 160, 0.18);
-    border-left: 2px solid #3ee6a0;
+    background: rgba(1, 10, 5, 0.35);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(62, 230, 160, 0.12);
+    border-left: 2px solid rgba(62, 230, 160, 0.5);
     border-radius: 3px;
-    padding: 4px 8px;
+    padding: 3px 8px;
     z-index: 9;
     pointer-events: auto;
+    opacity: 0.28;
+    transition: opacity 0.25s ease, background 0.25s ease, border-left-color 0.25s ease;
+}
+.diag-uart-stream-block:hover {
+    opacity: 0.95;
+    background: rgba(1, 10, 5, 0.7);
+    border-left-color: #3ee6a0;
 }
 .diag-uart-header {
     display: flex;
@@ -4683,19 +4704,25 @@ body.lcd-game-focus .lcd-diagnostic-station {
 /* Local EEPROM Non-Volatile Logbook - Docked at Bottom-Right Corner */
 .diag-eeprom-block {
     position: absolute;
-    bottom: 32px;
+    bottom: 28px;
     right: 24px;
-    width: 280px;
+    width: 270px;
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    background: rgba(1, 10, 5, 0.55);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(62, 230, 160, 0.18);
+    gap: 2px;
+    background: rgba(1, 10, 5, 0.35);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(62, 230, 160, 0.12);
     border-radius: 3px;
-    padding: 5px 8px;
+    padding: 4px 8px;
     z-index: 9;
     pointer-events: auto;
+    opacity: 0.28;
+    transition: opacity 0.25s ease, background 0.25s ease;
+}
+.diag-eeprom-block:hover {
+    opacity: 0.95;
+    background: rgba(1, 10, 5, 0.7);
 }
 .diag-eeprom-header {
     display: flex;
@@ -4790,13 +4817,25 @@ body.lcd-game-focus .lcd-diagnostic-station {
     transform: translateX(-50%);
     display: flex;
     gap: 8px;
-    background: rgba(1, 10, 5, 0.45);
+    background: rgba(1, 10, 5, 0.35);
     backdrop-filter: blur(6px);
-    border: 1px solid rgba(62, 230, 160, 0.14);
+    border: 1px solid rgba(62, 230, 160, 0.12);
     border-radius: 12px;
     padding: 2px 14px;
     z-index: 9;
     pointer-events: auto;
+    opacity: 0.45;
+    transition: opacity 0.25s ease, background 0.25s ease;
+}
+.diag-keymap-strip:hover {
+    opacity: 0.95;
+    background: rgba(1, 10, 5, 0.65);
+}
+
+body.lcd-game-over .diag-uart-stream-block,
+body.lcd-game-over .diag-eeprom-block,
+body.lcd-game-over .diag-keymap-strip {
+    opacity: 0.95;
 }
 .diag-key-btn {
     background: transparent;
