@@ -42,6 +42,8 @@ const LOOK_AT_OFFSET = new THREE.Vector3(0, 0.15, 0);
 // stop sits closer than the section stops — ~2.8u back at a 28° elevation
 // frames the chip with one or two neighbors either side (0.68u spacing).
 const CHIP_FOCUS_OFFSET = new THREE.Vector3(0, 1.5, 2.8);
+// Cinematic portal fly-in for LCD Diagnostic Simulation: flies right into the glass
+const LCD_PORTAL_OFFSET = new THREE.Vector3(0, 0.25, 0.65);
 
 // Boot→hero arrival glide duration (seconds) — a short repositioning beat so
 // the boot's establishing shot reads as one continuous motion, not a cut.
@@ -967,8 +969,8 @@ export function focusLcdCamera(replayBoot = false) {
   if (focusedChip) clearFocus(false); // a chip focus yields to the LCD
   focusedChip = { ref: 'LCD1', localPos: LCD_LOCAL_POS.clone(), data: null };
   const look = LCD_LOCAL_POS.clone().add(new THREE.Vector3(0, 0.05, 0));
-  const pos = LCD_LOCAL_POS.clone().add(CHIP_FOCUS_OFFSET);
-  glideCameraTo(pos, look, 0.65);
+  const pos = LCD_LOCAL_POS.clone().add(LCD_PORTAL_OFFSET);
+  glideCameraTo(pos, look, 0.75);
   // The #/lcd deep link passes replayBoot so the display powers on with a
   // fresh POST; the plain click path (no arg) shows the ready screen.
   focusLcd(replayBoot);
