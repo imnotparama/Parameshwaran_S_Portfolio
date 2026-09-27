@@ -278,8 +278,8 @@ export function init3dGame(canvas = null) {
     // 2. Cinematic 2.5D Side-Perspective Camera
     const aspect = initW / initH;
     gameCamera = new THREE.PerspectiveCamera(54, aspect, 0.1, 100);
-    gameCamera.position.set(0.0, 1.45, 5.2);
-    gameCamera.lookAt(0.2, 0.95, 0.0);
+    gameCamera.position.set(0.0, 1.05, 4.4);
+    gameCamera.lookAt(0.2, 0.78, 0.0);
 
     // 3. WebGL Renderer
     try {
@@ -2119,8 +2119,8 @@ export function update3dGame(delta, sim) {
 
     // 4. Update Camera Position with Subtle Dynamic Reactions
     const bob = (!motionPrefs.reduced && sim.state === 'playing') ? Math.sin(sim.dist * 0.25) * 0.02 : 0;
-    gameCamera.position.set(shakeX, 1.45 + bob + shakeY, 5.2);
-    gameCamera.lookAt(0.2 + shakeX, 0.95, 0.0);
+    gameCamera.position.set(shakeX, 1.05 + bob + shakeY, 4.4);
+    gameCamera.lookAt(0.2 + shakeX, 0.78, 0.0);
 
     // 5. Update Holographic Sky Oscilloscope Waveform Line
     if (skyScopeLine && skyScopeLine.geometry) {

@@ -4270,23 +4270,20 @@ body.lcd-game-focus .lcd-diagnostic-station {
     height: 100%;
     z-index: 3;
     pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 24px 36px;
     box-sizing: border-box;
-    background: radial-gradient(circle at center, transparent 40%, rgba(1, 6, 3, 0.5) 80%, rgba(1, 4, 2, 0.9) 100%);
+    background: radial-gradient(circle at center, transparent 70%, rgba(1, 6, 3, 0.25) 90%, rgba(1, 4, 2, 0.5) 100%);
+    overflow: hidden;
 }
 
 .diag-deck-frame::before {
     content: '';
     position: absolute;
-    top: 14px; left: 14px; right: 14px; bottom: 14px;
-    border: 1px solid rgba(62, 230, 160, 0.15);
+    top: 10px; left: 10px; right: 10px; bottom: 10px;
+    border: 1px solid rgba(62, 230, 160, 0.12);
     pointer-events: none;
     clip-path: polygon(
-        0 24px, 24px 0, calc(100% - 24px) 0, 100% 24px,
-        100% calc(100% - 24px), calc(100% - 24px) 100%, 24px 100%, 0 calc(100% - 24px)
+        0 18px, 18px 0, calc(100% - 18px) 0, 100% 18px,
+        100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px)
     );
 }
 
@@ -4297,15 +4294,20 @@ body.lcd-game-focus .lcd-diagnostic-station {
     pointer-events: auto;
 }
 
-
-/* Header */
+/* Header: Thin top tactical telemetry bar */
 .diag-header {
+    position: absolute;
+    top: 12px;
+    left: 24px;
+    right: 24px;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    border-bottom: 1px solid rgba(62, 230, 160, 0.22);
-    padding-bottom: 8px;
+    align-items: center;
+    border-bottom: 1px solid rgba(62, 230, 160, 0.18);
+    padding-bottom: 6px;
     gap: 12px;
+    z-index: 10;
+    pointer-events: auto;
 }
 .diag-title-group {
     display: flex;
@@ -4313,13 +4315,13 @@ body.lcd-game-focus .lcd-diagnostic-station {
     gap: 2px;
 }
 .diag-ref {
-    font-size: 8.5px;
-    color: rgba(62, 230, 160, 0.65);
+    font-size: 8px;
+    color: rgba(62, 230, 160, 0.7);
     letter-spacing: 0.12em;
     font-weight: 600;
 }
 .diag-title {
-    font-size: 15px;
+    font-size: 14px;
     color: #fff;
     margin: 0;
     letter-spacing: 0.05em;
@@ -4328,7 +4330,7 @@ body.lcd-game-focus .lcd-diagnostic-station {
     gap: 8px;
 }
 .diag-badge {
-    font-size: 9px;
+    font-size: 8.5px;
     background: rgba(62, 230, 160, 0.12);
     border: 1px solid rgba(62, 230, 160, 0.35);
     padding: 1px 6px;
@@ -4337,16 +4339,15 @@ body.lcd-game-focus .lcd-diagnostic-station {
     letter-spacing: 0.08em;
 }
 .diag-sub {
-    font-size: 9.5px;
+    font-size: 8.5px;
     color: rgba(230, 237, 243, 0.62);
     letter-spacing: 0.03em;
     margin-top: 1px;
 }
 .diag-header-actions {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 6px;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0;
 }
 .diag-live-status {
@@ -4418,109 +4419,86 @@ body.lcd-game-focus .lcd-diagnostic-station {
     letter-spacing: 0.06em;
 }
 
-/* Primary Telemetry & Signal Integrity Deck */
+/* Primary Telemetry Deck Container - Leaves Center 100% Unobstructed */
 .diag-telemetry-deck {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
 }
 
-/* Live Oscilloscope Waveform Panel (Altium / Saleae Style) */
-.diag-scope-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    border-bottom: 1px solid rgba(62, 230, 160, 0.12);
-    padding-bottom: 6px;
-}
-.diag-scope-header {
+/* Sleek Top Telemetry Hero Ribbon (5 Curated Hero Metrics in a single horizontal strip) */
+.diag-hero-metrics-grid {
+    position: absolute;
+    top: 54px;
+    left: 24px;
+    right: 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 8px;
+    gap: 12px;
+    background: rgba(1, 14, 7, 0.45);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(62, 230, 160, 0.16);
+    border-radius: 4px;
+    padding: 5px 16px;
+    z-index: 9;
+}
+
+.diag-hero-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.diag-hero-label {
+    font-size: 7.5px;
+    font-weight: 700;
     letter-spacing: 0.12em;
     color: rgba(62, 230, 160, 0.65);
     text-transform: uppercase;
 }
-.diag-scope-rate {
-    color: #ffd875;
-    font-feature-settings: "tnum";
-}
-.diag-scope-canvas {
-    width: 100%;
-    height: 38px;
-    display: block;
-    background: rgba(1, 10, 5, 0.85);
-    border: 1px solid rgba(62, 230, 160, 0.15);
-    border-radius: 2px;
-}
 
-/* 5 Curated Hero Metrics (Grid layout, zero cards, generous whitespace) */
-.diag-hero-metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 10px 14px;
-    border-bottom: 1px solid rgba(62, 230, 160, 0.12);
-    padding-bottom: 10px;
-}
-.diag-hero-col {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.diag-hero-col:nth-child(1),
-.diag-hero-col:nth-child(2) {
-    grid-column: span 3;
-}
-.diag-hero-col:nth-child(3),
-.diag-hero-col:nth-child(4),
-.diag-hero-col:nth-child(5) {
-    grid-column: span 2;
-}
-
-.diag-hero-label {
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    color: rgba(62, 230, 160, 0.65);
-    text-transform: uppercase;
-}
 .diag-hero-val-wrap {
     display: flex;
     align-items: baseline;
-    gap: 5px;
+    gap: 4px;
 }
+
 .diag-hero-num {
-    font-size: 24px;
+    font-size: 15px;
     font-weight: 800;
     font-family: var(--font-mono, monospace);
     font-variant-numeric: tabular-nums;
     color: #3ee6a0;
-    text-shadow: 0 0 10px rgba(62, 230, 160, 0.35);
+    text-shadow: 0 0 8px rgba(62, 230, 160, 0.35);
     line-height: 1.1;
     white-space: nowrap;
 }
+
 .diag-hero-unit {
-    font-size: 8px;
+    font-size: 7.5px;
     font-weight: 600;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     color: rgba(220, 240, 230, 0.55);
 }
+
 .diag-hero-sub {
-    font-size: 7.5px;
-    letter-spacing: 0.08em;
-    color: rgba(220, 240, 230, 0.42);
+    font-size: 7px;
+    letter-spacing: 0.06em;
+    color: rgba(220, 240, 230, 0.4);
     font-family: var(--font-mono, monospace);
     white-space: nowrap;
 }
 
 /* Analog Continuity Sparkline Track */
 .diag-spark-track {
-    height: 3px;
+    height: 2px;
     background: rgba(62, 230, 160, 0.12);
-    border-radius: 1.5px;
-    margin: 3px 0 2px 0;
+    border-radius: 1px;
+    margin: 2px 0 1px 0;
     overflow: hidden;
+    width: 60px;
 }
 .diag-spark-track.subtle {
     background: rgba(62, 230, 160, 0.06);
@@ -4535,18 +4513,23 @@ body.lcd-game-focus .lcd-diagnostic-station {
     background: linear-gradient(90deg, rgba(62, 230, 160, 0.3), #ffd875);
 }
 
-/* Compact Hardware Register Line */
+/* Compact Hardware Register Line - Pinned under the metrics ribbon */
 .diag-register-strip {
+    position: absolute;
+    top: 96px;
+    left: 24px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 6px 12px;
-    font-size: 8.5px;
+    gap: 8px 12px;
+    font-size: 8px;
     font-family: var(--font-mono, monospace);
-    border-bottom: 1px solid rgba(62, 230, 160, 0.12);
-    padding-bottom: 6px;
+    background: rgba(1, 10, 5, 0.4);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(62, 230, 160, 0.12);
+    border-radius: 3px;
+    padding: 3px 10px;
     color: rgba(220, 240, 230, 0.65);
+    z-index: 9;
 }
 .diag-reg-item {
     display: flex;
@@ -4597,20 +4580,68 @@ body.lcd-game-focus .lcd-diagnostic-station {
     font-weight: 800;
 }
 
-/* Live Firmware UART Log Stream Block */
-.diag-uart-stream-block {
+/* Live Oscilloscope Mini-Monitor (Top Right below header) */
+.diag-scope-panel {
+    position: absolute;
+    top: 96px;
+    right: 24px;
+    width: 190px;
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    border-bottom: 1px solid rgba(62, 230, 160, 0.12);
-    padding-bottom: 6px;
+    gap: 2px;
+    background: rgba(1, 10, 5, 0.4);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(62, 230, 160, 0.15);
+    border-radius: 3px;
+    padding: 3px 6px;
+    z-index: 9;
+}
+.diag-scope-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 7px;
+    letter-spacing: 0.08em;
+    color: rgba(62, 230, 160, 0.65);
+    text-transform: uppercase;
+}
+.diag-scope-rate {
+    color: #ffd875;
+    font-feature-settings: "tnum";
+}
+.diag-scope-canvas {
+    width: 100%;
+    height: 22px;
+    display: block;
+    background: rgba(1, 6, 3, 0.85);
+    border: 1px solid rgba(62, 230, 160, 0.12);
+    border-radius: 2px;
+}
+
+/* Live Firmware UART Log Stream Block - Docked at Bottom-Left Corner */
+.diag-uart-stream-block {
+    position: absolute;
+    bottom: 32px;
+    left: 24px;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: rgba(1, 10, 5, 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(62, 230, 160, 0.18);
+    border-left: 2px solid #3ee6a0;
+    border-radius: 3px;
+    padding: 4px 8px;
+    z-index: 9;
+    pointer-events: auto;
 }
 .diag-uart-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 8px;
-    letter-spacing: 0.1em;
+    font-size: 7.5px;
+    letter-spacing: 0.08em;
 }
 .diag-uart-title {
     font-weight: 700;
@@ -4620,18 +4651,17 @@ body.lcd-game-focus .lcd-diagnostic-station {
     color: rgba(62, 230, 160, 0.55);
 }
 .diag-uart-window {
-    max-height: 62px;
-    min-height: 44px;
+    max-height: 44px;
+    min-height: 32px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    font-size: 8.5px;
-    line-height: 1.35;
+    gap: 1.5px;
+    font-size: 7.5px;
+    line-height: 1.3;
     color: #a7f3d0;
-    background: rgba(0, 0, 0, 0.25);
-    border-left: 2px solid rgba(62, 230, 160, 0.28);
-    padding: 3px 6px;
+    background: transparent;
+    padding: 2px 0;
     font-family: var(--font-mono, monospace);
 }
 .diag-uart-window::-webkit-scrollbar {
@@ -4650,19 +4680,28 @@ body.lcd-game-focus .lcd-diagnostic-station {
 .uart-line.burst { color: #60a5fa; }
 .uart-line.pulse { color: #3ee6a0; font-weight: 600; }
 
-/* Local EEPROM Non-Volatile Logbook Block */
+/* Local EEPROM Non-Volatile Logbook - Docked at Bottom-Right Corner */
 .diag-eeprom-block {
+    position: absolute;
+    bottom: 32px;
+    right: 24px;
+    width: 280px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    border-bottom: 1px solid rgba(62, 230, 160, 0.12);
-    padding-bottom: 6px;
+    gap: 3px;
+    background: rgba(1, 10, 5, 0.55);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(62, 230, 160, 0.18);
+    border-radius: 3px;
+    padding: 5px 8px;
+    z-index: 9;
+    pointer-events: auto;
 }
 .diag-eeprom-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 8px;
+    font-size: 7.5px;
     letter-spacing: 0.08em;
 }
 .diag-eeprom-title {
@@ -4675,14 +4714,14 @@ body.lcd-game-focus .lcd-diagnostic-station {
 .diag-eeprom-list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1.5px;
 }
 .arcade-lb-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 8.5px;
-    padding: 2px 4px;
+    font-size: 7.5px;
+    padding: 1.5px 3px;
     border-bottom: 1px dotted rgba(62, 230, 160, 0.1);
 }
 .arcade-lb-row.top-1 {
@@ -4692,8 +4731,8 @@ body.lcd-game-focus .lcd-diagnostic-station {
 .arcade-lb-rank-badge {
     font-weight: 700;
     color: #3ee6a0;
-    width: 20px;
-    font-size: 8px;
+    width: 18px;
+    font-size: 7.5px;
 }
 .arcade-lb-row.top-1 .arcade-lb-rank-badge {
     color: #ffd875;
@@ -4704,7 +4743,7 @@ body.lcd-game-focus .lcd-diagnostic-station {
     font-feature-settings: "tnum";
 }
 .arcade-lb-meta {
-    font-size: 7.5px;
+    font-size: 7px;
     color: rgba(62, 230, 160, 0.55);
 }
 .diag-export-row {
@@ -4715,13 +4754,13 @@ body.lcd-game-focus .lcd-diagnostic-station {
     background: transparent;
     border: 1px solid rgba(62, 230, 160, 0.25);
     border-radius: 2px;
-    padding: 4px 6px;
+    padding: 3px 6px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 5px;
     font-family: var(--font-mono, monospace);
-    font-size: 8px;
+    font-size: 7.5px;
     font-weight: 700;
     color: #3ee6a0;
     cursor: pointer;
@@ -4740,25 +4779,33 @@ body.lcd-game-focus .lcd-diagnostic-station {
 }
 .diag-export-icon {
     color: #ffd875;
-    font-size: 8px;
+    font-size: 7.5px;
 }
 
-/* Minimalist Tactile Keymap Reference Bar */
+/* Minimalist Tactile Keymap Reference Bar - Centered at Bottom Edge */
 .diag-keymap-strip {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    background: rgba(1, 10, 5, 0.45);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(62, 230, 160, 0.14);
+    border-radius: 12px;
+    padding: 2px 14px;
+    z-index: 9;
+    pointer-events: auto;
 }
 .diag-key-btn {
-    background: rgba(2, 12, 6, 0.5);
-    border: 1px solid rgba(62, 230, 160, 0.18);
-    border-radius: 2px;
-    padding: 4px 3px;
+    background: transparent;
+    border: none;
+    padding: 1px 4px;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    gap: 1px;
+    gap: 4px;
     cursor: pointer;
     font-family: var(--font-mono, monospace);
     color: #e6edf3;
@@ -4767,15 +4814,11 @@ body.lcd-game-focus .lcd-diagnostic-station {
     touch-action: manipulation;
 }
 .diag-key-btn:hover {
-    border-color: rgba(62, 230, 160, 0.5);
-    background: rgba(6, 28, 14, 0.7);
+    color: #3ee6a0;
 }
 .diag-key-btn:active,
 .diag-key-btn.btn-pressed {
-    background: rgba(62, 230, 160, 0.22);
-    border-color: #fff;
     transform: translateY(1px);
-    box-shadow: 0 0 8px rgba(62, 230, 160, 0.3);
 }
 .diag-key-tag {
     font-size: 7px;
@@ -4784,7 +4827,7 @@ body.lcd-game-focus .lcd-diagnostic-station {
     font-weight: 600;
 }
 .diag-key-name {
-    font-size: 8.5px;
+    font-size: 8px;
     font-weight: 700;
     color: #3ee6a0;
     letter-spacing: 0.04em;
