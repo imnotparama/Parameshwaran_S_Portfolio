@@ -527,6 +527,8 @@ export function initScene(canvasElement) {
         }
     }
 
+
+
     // 7. Start Render/Animation Tick loop
     // THREE.Timer replaces the deprecated THREE.Clock (r185+). This is a
     // real-time interactive scene, so a wall-clock-derived Timer is the
@@ -552,12 +554,47 @@ export function initScene(canvasElement) {
         // Performance check (every frame, delta is in seconds)
         checkPerformance(delta * 1000);
 
+        // Dynamic camera micro-shake (e.g. for high-voltage overclock mode)
+        let shakeX = 0;
+        let shakeY = 0;
+        if (camera && cameraShakeDuration > 0 && cameraShakeElapsed < cameraShakeDuration) {
+            cameraShakeElapsed += delta;
+            const progress = 1.0 - (cameraShakeElapsed / cameraShakeDuration);
+            const decay = progress * progress;
+            shakeX = (Math.random() - 0.5) * cameraShakeMagnitude * decay;
+            shakeY = (Math.random() - 0.5) * cameraShakeMagnitude * decay;
+            camera.position.x += shakeX;
+            camera.position.y += shakeY;
+        }
+
         // Render pass — composer (bloom) when enabled, plain render otherwise
         if (composer) composer.render();
         else renderer.render(scene, camera);
+
+        // Restore camera position immediately to prevent any coordinate drift
+        if (shakeX !== 0 || shakeY !== 0) {
+            camera.position.x -= shakeX;
+            camera.position.y -= shakeY;
+        }
 
         // The rAF timestamp feeds timer.update() (see the update call above).
         requestAnimationFrame((ts) => animate(ts));
     }
     animate();
+}
+
+let cameraShakeDuration = 0;
+let cameraShakeElapsed = 0;
+let cameraShakeMagnitude = 0;
+
+/**
+ * Trigger a decaying cinematic camera shake (e.g. for overclock mode or heavy impacts).
+ * @param {number} [magnitude]
+ * @param {number} [duration]
+ */
+export function triggerCameraShake(magnitude = 0.035, duration = 5.0) {
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    cameraShakeMagnitude = magnitude;
+    cameraShakeDuration = duration;
+    cameraShakeElapsed = 0;
 }

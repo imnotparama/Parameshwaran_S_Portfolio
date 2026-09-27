@@ -55,13 +55,14 @@
 // player runs (the machine keeps its record).
 // ============================================================
 import * as THREE from 'three';
-import { disposableResources } from './scene.js';
-import { interactiveObjects, energizeCapacitor } from './components.js';
+import { disposableResources, triggerCameraShake } from './scene.js';
+import { interactiveObjects, energizeCapacitor, triggerCapacitorOverdrive, siliconDieMesh } from './components.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
-import { clickBlip } from '../utils/sound.js';
+import { clickBlip, playOverclockTurbineSound } from '../utils/sound.js';
 import { dockDrone, undockDrone } from './drone.js';
 import { setPinsGameFocus } from './playground-props.js';
-import { energizeTraceAtPoint } from './traces.js';
+import { energizeTraceAtPoint, energizeTraceForSection } from './traces.js';
+import { setThermalLoad } from './thermal.js';
 import { init3dGame, update3dGame, is3dGameReady, get3dCanvas } from './lcd-game-3d.js';
 // The pure SIGNAL RUNNER simulation — zero THREE/DOM (lcd-sim.js). The sim
 // owns the game state, physics, persistence, and the snapshot seam; this
@@ -990,7 +991,14 @@ function drawCrtOverlay(ctx, sim, w, h) {
         ctx.fillStyle = 'rgba(62, 230, 160, 0.9)';
         ctx.fillText(`CLK: ${Math.round(sim.curSpeed)} px/s`, w - 14, 12);
 
-        if (sim.fxMilestone > 0 && Math.floor(sim.fxMilestone * 4) % 2 === 0) {
+        if (overclockEventActive) {
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 12.5px "JetBrains Mono", monospace';
+            ctx.fillStyle = '#ffd875';
+            ctx.shadowColor = '#ffaa00';
+            ctx.shadowBlur = 12;
+            ctx.fillText('>> OVERCLOCK MODE // PROTOCOL OVERDRIVE ENGAGED <<', w / 2, 45);
+        } else if (sim.fxMilestone > 0 && Math.floor(sim.fxMilestone * 4) % 2 === 0) {
             ctx.textAlign = 'center';
             ctx.font = 'bold 13px "JetBrains Mono", monospace';
             ctx.fillStyle = '#00ffff';
@@ -1050,9 +1058,17 @@ function drawScopeWaveform(sim) {
     const isOver = sim.state === 'over';
     const isDash = Boolean(sim.dashing);
     const isJump = !sim.onGround;
+    const isOverclock = Boolean(sim.overclock > 0 || overclockEventActive || sim.dist >= 1000);
+
+    // Dynamic frequency readout update
+    const rateEl = document.getElementById('diag-scope-rate');
+    if (rateEl) {
+        rateEl.textContent = isOverclock ? 'TURBO · 200.000 MHz · 1.0 V/div' : '16.000 MHz · 500 mV/div';
+        rateEl.style.color = isOverclock ? '#ffd875' : '';
+    }
 
     // Advance phase based on carrier frequency and player speed
-    const baseFreq = isRunning ? (sim.curSpeed / 22) : 1.2;
+    const baseFreq = isRunning ? (isOverclock ? sim.curSpeed / 12 : sim.curSpeed / 22) : 1.2;
     scopePhase = (scopePhase + dt * baseFreq) % (Math.PI * 2);
 
     // Clear dark phosphor surface
@@ -1060,7 +1076,7 @@ function drawScopeWaveform(sim) {
     ctx.fillRect(0, 0, w, h);
 
     // Faint oscilloscope graticule (centerline + horizontal thresholds)
-    ctx.strokeStyle = 'rgba(62, 230, 160, 0.12)';
+    ctx.strokeStyle = isOverclock ? 'rgba(255, 216, 117, 0.22)' : 'rgba(62, 230, 160, 0.12)';
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 4]);
     ctx.beginPath();
@@ -1074,15 +1090,15 @@ function drawScopeWaveform(sim) {
     ctx.setLineDash([]);
 
     // Signal trace
-    ctx.strokeStyle = isOver ? '#f87171' : isDash ? '#ffd875' : '#3ee6a0';
-    ctx.lineWidth = 1.5;
-    ctx.shadowBlur = 4;
+    ctx.strokeStyle = isOver ? '#f87171' : isOverclock ? '#ffd875' : isDash ? '#00ffff' : '#3ee6a0';
+    ctx.lineWidth = isOverclock ? 2.0 : 1.5;
+    ctx.shadowBlur = isOverclock ? 8 : 4;
     ctx.shadowColor = ctx.strokeStyle;
 
     ctx.beginPath();
-    const period = 36; // pixels per clock cycle
-    const yHigh = 8;
-    const yLow = h - 8;
+    const period = isOverclock ? 24 : 36; // pixels per clock cycle (higher frequency under overclock)
+    const yHigh = isOverclock ? 4 : 8;
+    const yLow = isOverclock ? h - 4 : h - 8;
     const midY = h * 0.5;
 
     for (let x = 0; x < w; x++) {
@@ -1098,8 +1114,8 @@ function drawScopeWaveform(sim) {
             const edgeDist = isHigh ? cyclePos : (cyclePos - 0.5);
 
             // Ringing transient near clock edges
-            const ringing = Math.exp(-edgeDist * 16) * Math.sin(edgeDist * 45) * 4.5;
-            const jitter = (Math.random() - 0.5) * (isDash ? 2.5 : 0.8);
+            const ringing = Math.exp(-edgeDist * (isOverclock ? 10 : 16)) * Math.sin(edgeDist * (isOverclock ? 65 : 45)) * (isOverclock ? 6.5 : 4.5);
+            const jitter = (Math.random() - 0.5) * (isOverclock ? 3.5 : isDash ? 2.5 : 0.8);
             const targetY = isHigh ? yHigh : yLow;
             const inductiveBump = (isJump && x > w * 0.35 && x < w * 0.65) ? -Math.sin((x - w * 0.35) / (w * 0.3) * Math.PI) * 5 : 0;
 
@@ -1113,7 +1129,7 @@ function drawScopeWaveform(sim) {
     ctx.shadowBlur = 0;
 
     // Trigger indicator marker on the left
-    ctx.fillStyle = '#ffd875';
+    ctx.fillStyle = isOverclock ? '#ff4d4d' : '#ffd875';
     ctx.font = '7px monospace';
     ctx.fillText('T▶', 2, 8);
 }
@@ -1175,11 +1191,11 @@ function updateArcadeStation(sim) {
     // 4. Living Analog Micro-Jitter (Voltage & Core Temperature)
     const nowSec = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() * 0.001 : Date.now() * 0.001;
     const vNoise = Math.sin(nowSec * 3.7) * 0.002 + Math.cos(nowSec * 8.1) * 0.001;
-    const isOverclock = sim.overclock > 0 || sim.dist >= 1000;
+    const isOverclock = sim.overclock > 0 || overclockEventActive || sim.dist >= 1000;
     const nominalV = (isOverclock ? 3.650 : (3.300 + vNoise)).toFixed(3);
     const railEl = document.getElementById('diag-rail-voltage');
     if (railEl) {
-        railEl.textContent = `${nominalV} V`;
+        railEl.textContent = isOverclock ? `${nominalV} V [SURGE]` : `${nominalV} V`;
         railEl.style.color = isOverclock ? '#ffd875' : '#3ee6a0';
     }
 
@@ -1190,10 +1206,10 @@ function updateArcadeStation(sim) {
     }
 
     const tNoise = Math.sin(nowSec * 1.5) * 0.15 + (sim.curSpeed > 180 ? 0.3 : 0);
-    const nominalT = (isOverclock ? 68.2 : (41.8 + tNoise)).toFixed(1);
+    const nominalT = (isOverclock ? 68.4 : (41.8 + tNoise)).toFixed(1);
     const tempEl = document.getElementById('diag-core-temp');
     if (tempEl) {
-        tempEl.textContent = `${nominalT} °C`;
+        tempEl.textContent = isOverclock ? `${nominalT} °C [HOT]` : `${nominalT} °C`;
         tempEl.style.color = isOverclock ? '#f87171' : '#3ee6a0';
     }
 
@@ -1291,6 +1307,51 @@ function handleDashAction() {
     logUart('[SPI] High-Current Burst // Transceiver Overclock', 'burst');
 }
 
+let overclockEventActive = false;
+let overclockEventTimer = 0;
+let hasTriggered1000m = false;
+
+/**
+ * Trigger the flagship synchronized 5-second board-wide Overclock Event!
+ * Can be triggered at 1000m benchmark or explicitly via telemetry controls.
+ */
+export function triggerBoardOverclockEvent() {
+    if (overclockEventActive) return;
+    overclockEventActive = true;
+    overclockEventTimer = 5.0;
+
+    // 1. Motherboard Copper Traces Surge with Lightning
+    energizeTraceForSection('sec-hero', true);
+    energizeTraceAtPoint(new THREE.Vector3(0, 0, 0.08), 3.5); // U1 CPU
+    energizeTraceAtPoint(LCD_LOCAL, 3.5); // LCD
+    energizeTraceAtPoint(new THREE.Vector3(2.5, 3.2, 0.08), 3.2); // C1-C4 banks
+    energizeTraceAtPoint(new THREE.Vector3(-2.2, -2.4, 0.08), 3.0); // U2 Flash
+
+    // 2. Cascade all C1-C4 capacitor banks with procedural plasma arcs
+    triggerCapacitorOverdrive();
+
+    // 3. Silicon CPU die flares through the lid with intense emissive bloom
+    if (siliconDieMesh && siliconDieMesh.material instanceof THREE.MeshBasicMaterial) {
+        siliconDieMesh.material.opacity = 1.0;
+    }
+
+    // 4. Synthesized Fan Turbine Spool Whine + Air Rush
+    playOverclockTurbineSound(5.0);
+
+    // 5. Cinematic Camera Mechanical Micro-Shake
+    triggerCameraShake(0.04, 5.0);
+
+    // 6. Thermal Dissipation Load spike
+    setThermalLoad(68.5);
+
+    // 7. Flood UART console with supersonic diagnostic logs
+    logUart('>>> [TURBO] 1000m BENCHMARK REACHED: PROTOCOL OVERDRIVE ENGAGED <<<', 'warn');
+    logUart('[PWR] RAIL VDD SURGED TO 3.650V · TVS CLAMPS NOMINAL', 'burst');
+    logUart('[PLL] CLOCK MULTIPLIER 8X LOCKED · 200.0MHz SYSCLK', 'pulse');
+    logUart('[THERM] SILICON DIE FLUX: +26.4°C CONDUCTIVE LOAD', 'fault');
+    logUart('[TRACE] COPPER IMPEDANCE MINIMIZED · SUPERCONDUCTIVE WAVEFRONT', 'info');
+}
+
 /** Per-frame tick — steps the game, redraws the screen when the frame
  *  changed, and keeps the bezel power LED lit while the game is live. Runs
  *  from main.js's tick pipeline (same registry as the LED array / ripple).
@@ -1354,6 +1415,32 @@ export function updateLcdScreen(elapsed, delta) {
     }
     // Rendering — skipped headlessly (no canvas context, no screen quad).
     if (!screenTexture || !gctx) return;
+
+    // 1000m Overclock Benchmark Event Trigger
+    if (S.state === 'playing') {
+        if (S.dist >= 1000 && !hasTriggered1000m) {
+            hasTriggered1000m = true;
+            triggerBoardOverclockEvent();
+        }
+    } else if (S.state === 'off' || S.state === 'ready') {
+        hasTriggered1000m = false;
+    }
+
+    // Advance 5-second overclock event timer
+    if (overclockEventActive) {
+        overclockEventTimer = Math.max(0, overclockEventTimer - delta);
+        if (Math.random() < 0.35) {
+            energizeTraceAtPoint(LCD_LOCAL, 2.2);
+        }
+        if (overclockEventTimer === 0) {
+            overclockEventActive = false;
+            energizeTraceForSection('sec-hero', false);
+            setThermalLoad(42.0);
+            logUart('[COOL] Thermal dissipation stabilized · 3.300V nominal restored', 'pulse');
+            logUart('>>> BENCHMARK CERTIFIED: GRADE S SILICON MASTER <<<', 'warn');
+        }
+    }
+
     // Reduced motion: draw the static frame once (no auto-play at rest).
     if (motionPrefs.reduced && !S.playerActive) {
         if (!reducedStaticDrawn) {

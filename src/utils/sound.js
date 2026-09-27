@@ -159,6 +159,86 @@ export function playRecordFanfare() {
     }
 }
 
+/**
+ * Synthesize a turbine cooling fan spool whine + forced air rush for Overclock mode.
+ * @param {number} [duration]
+ */
+export function playOverclockTurbineSound(duration = 5.0) {
+    if (!enabled) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+
+        // 1. Spooling Turbine Whine (Dual Oscillator: sawtooth + triangle)
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const oscGain = ctx.createGain();
+
+        osc1.type = 'sawtooth';
+        osc2.type = 'triangle';
+
+        // Accelerate pitch from 180Hz up to 1250Hz, hold for event, ramp down near end
+        osc1.frequency.setValueAtTime(180, t0);
+        osc1.frequency.exponentialRampToValueAtTime(1250, t0 + 2.0);
+        osc1.frequency.setValueAtTime(1250, t0 + 4.0);
+        osc1.frequency.exponentialRampToValueAtTime(260, t0 + duration);
+
+        osc2.frequency.setValueAtTime(360, t0);
+        osc2.frequency.exponentialRampToValueAtTime(2500, t0 + 2.0);
+        osc2.frequency.setValueAtTime(2500, t0 + 4.0);
+        osc2.frequency.exponentialRampToValueAtTime(520, t0 + duration);
+
+        oscGain.gain.setValueAtTime(0.0001, t0);
+        oscGain.gain.exponentialRampToValueAtTime(0.035, t0 + 0.6);
+        oscGain.gain.setValueAtTime(0.035, t0 + 4.0);
+        oscGain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
+        osc1.connect(oscGain);
+        osc2.connect(oscGain);
+        oscGain.connect(ctx.destination);
+
+        osc1.start(t0);
+        osc2.start(t0);
+        osc1.stop(t0 + duration + 0.1);
+        osc2.stop(t0 + duration + 0.1);
+
+        // 2. High-RPM Airflow Noise (BufferSource with Bandpass filter)
+        const bufferSize = ctx.sampleRate * 2;
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
+
+        const whiteNoise = ctx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        whiteNoise.loop = true;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(600, t0);
+        filter.frequency.exponentialRampToValueAtTime(2600, t0 + 2.0);
+        filter.Q.value = 1.8;
+
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.0001, t0);
+        noiseGain.gain.exponentialRampToValueAtTime(0.025, t0 + 0.5);
+        noiseGain.gain.setValueAtTime(0.025, t0 + 4.0);
+        noiseGain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
+        whiteNoise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+
+        whiteNoise.start(t0);
+        whiteNoise.stop(t0 + duration + 0.1);
+    } catch {
+        // Safe under AudioContext autoplay restrictions
+    }
+}
+
 // ─── Tactile relay + switch sounds ──────────────────────────────
 // Mechanical feedback for physical actions (night-bench relay, membrane
 // switch section jumps). Same master gate as every blip — silent unless the
