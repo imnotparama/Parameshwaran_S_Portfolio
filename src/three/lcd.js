@@ -1107,6 +1107,7 @@ function updateArcadeStation(sim) {
             logUart('[SYS] Bus clock paused by user interrupt', 'warn');
         } else if (sim.state === 'over') {
             logUart(`[FAULT] Bus desync at offset ${Math.floor(sim.dist)}m · Diagnostic failed`, 'fault');
+            logUart(`[EEPROM] Run record committed: ${Math.floor(sim.dist)}m · ${sim.score}% SIG · ${sim.electrons} PKTS`, 'warn');
         }
     }
     if (sim.state === 'playing' && Math.floor(sim.dist / 100) > Math.floor(lastUartDistLogged / 100)) {
@@ -1545,6 +1546,7 @@ export function createLcd(boardGroup) {
                         const orig = label.textContent;
                         label.textContent = 'COPIED TO CLIPBOARD! ✓';
                         shareBtn.classList.add('copied');
+                        logUart('[EEPROM] Telemetry audit report exported to clipboard', 'info');
                         setTimeout(() => {
                             if (label) label.textContent = orig;
                             shareBtn.classList.remove('copied');
