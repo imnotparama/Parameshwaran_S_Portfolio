@@ -604,40 +604,59 @@ function drawFrame(delta) {
         if (S.state !== 'off' && S.debug) drawDebugOverlay(c);
     }
 
-    // Authentic LCD Hardware Optics
+    // Authentic LCD Hardware Optics Suite
     // 1. Phosphor decay / ghost persistence blend across full screen
     if (ghostCanvas && ghostCtx && !motionPrefs.reduced && rendered3d) {
-        c.globalAlpha = 0.06;
+        c.globalAlpha = 0.08;
         c.drawImage(ghostCanvas, 0, 0);
         c.globalAlpha = 1.0;
     }
 
-    // 2. Fine subpixel raster scanlines
-    c.fillStyle = 'rgba(0, 0, 0, 0.18)';
-    for (let y = 1; y < h; y += 2) c.fillRect(0, y, w, 1);
+    // 2. Corner backlight bleed (subtle non-uniformity characteristic of edge-lit IPS panels)
+    const bleedTL = c.createRadialGradient(0, 0, 2, 0, 0, 85);
+    bleedTL.addColorStop(0, 'rgba(100, 240, 200, 0.055)');
+    bleedTL.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    c.fillStyle = bleedTL;
+    c.fillRect(0, 0, 90, 90);
 
-    // 3. Glass Specular Reflection Highlight (angled top-left to bottom-right glare)
+    const bleedBR = c.createRadialGradient(w, h, 2, w, h, 75);
+    bleedBR.addColorStop(0, 'rgba(70, 190, 255, 0.04)');
+    bleedBR.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    c.fillStyle = bleedBR;
+    c.fillRect(w - 80, h - 80, 80, 80);
+
+    // 3. Fine subpixel aperture triad raster & scanlines (TFT/IPS pixel pitch grid)
+    c.fillStyle = 'rgba(0, 0, 0, 0.16)';
+    for (let y = 1; y < h; y += 2) c.fillRect(0, y, w, 1);
+    c.fillStyle = 'rgba(0, 0, 0, 0.06)';
+    for (let x = 0; x < w; x += 3) c.fillRect(x, 0, 1, h);
+
+    // 4. Glass Specular Reflection Highlight (angled top-left to bottom-right glare)
     const glareGrad = c.createLinearGradient(0, 0, w, h);
-    glareGrad.addColorStop(0, 'rgba(255, 255, 255, 0.045)');
-    glareGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.015)');
+    glareGrad.addColorStop(0, 'rgba(255, 255, 255, 0.055)');
+    glareGrad.addColorStop(0.3, 'rgba(255, 255, 255, 0.02)');
     glareGrad.addColorStop(0.65, 'rgba(255, 255, 255, 0.0)');
     c.fillStyle = glareGrad;
     c.fillRect(0, 0, w, h);
 
-    // 4. Micro-bezel inner shadow / glass perimeter vignette
-    c.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    // 5. Authentic single hot subpixel (hardware display manufacturing characteristic)
+    c.fillStyle = '#b3fff4';
+    c.fillRect(418, 78, 1, 1);
+
+    // 6. Micro-bezel inner shadow / glass perimeter vignette
+    c.strokeStyle = 'rgba(0, 0, 0, 0.45)';
     c.lineWidth = 2;
     c.strokeRect(1, 1, w - 2, h - 2);
 
-    // 5. Warm backlight & subtle micro-flicker (deterministic from frame counter)
+    // 7. Warm backlight & subtle 60Hz micro-flicker (deterministic from frame counter)
     if (!motionPrefs.reduced) {
         const f = (frameCount * 2654435761) >>> 0;
-        const fl = 0.005 + ((f & 7) / 7) * 0.012;
+        const fl = 0.004 + ((f & 7) / 7) * 0.01;
         c.fillStyle = `rgba(0, 0, 0, ${fl.toFixed(4)})`;
         c.fillRect(0, 0, w, h);
     }
 
-    // 6. Update phosphor ghost persistence buffer for next frame
+    // 8. Update phosphor ghost persistence buffer for next frame
     if (ghostCtx && gameCanvas && !motionPrefs.reduced) {
         ghostCtx.clearRect(0, 0, w, h);
         ghostCtx.drawImage(gameCanvas, 0, 0);
