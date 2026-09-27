@@ -184,6 +184,41 @@ let electronDust = null;
 const DUST_COUNT = 90;
 let dustPositions = new Float32Array(DUST_COUNT * 3);
 
+// Dynamic Electromagnetic Movement VFX
+/** @type {THREE.Mesh | null} */
+let jumpRippleMesh = null;
+let jumpRippleLife = 0;
+
+/** @type {THREE.Mesh | null} */
+let landingVibrationMesh = null;
+let landingVibrationLife = 0;
+
+/** @type {THREE.Mesh | null} */
+let chargeFlashMesh = null;
+let chargeFlashLife = 0;
+
+// Parallax Layer 6: 3D AI Neural Network Graph
+/** @type {Array<THREE.Mesh>} */
+const neuralNodes = [];
+/** @type {THREE.LineSegments | null} */
+let neuralSynapses = null;
+/** @type {Array<{ pulsePos: number, speed: number, from: THREE.Vector3, to: THREE.Vector3, mesh: THREE.Mesh }>} */
+const synapticPulses = [];
+
+// Parallax Layer 2: Robotic Gantry Arm
+/** @type {THREE.Group | null} */
+let gantryArmGroup = null;
+/** @type {THREE.Mesh | null} */
+let armSegmentMesh = null;
+
+// Parallax Layer 5: Datacenter Server Racks
+/** @type {Array<{ mesh: THREE.Mesh, leds: Array<THREE.MeshBasicMaterial> }>} */
+const serverRackUnits = [];
+
+// Layer 1: Moving electric current pulses on copper highway
+/** @type {Array<THREE.Mesh>} */
+const trackCurrentPulses = [];
+
 /** @type {THREE.MeshStandardMaterial | null} */
 let copperRailMat = null;
 
@@ -335,6 +370,9 @@ export function init3dGame(canvas = null) {
 /**
  * Constructs modular looping horizontal track segments along X.
  */
+/**
+ * Constructs modular looping horizontal track segments along X.
+ */
 function buildTrack() {
     if (!gameScene || !copperRailMat || !neonRailMat || !trackFloorMat) return;
 
@@ -406,11 +444,53 @@ function buildTrack() {
         trace2.position.set(0, 0.165, -TRACK_DEPTH / 2 + 0.1);
         tile.add(trace2);
 
+        // High-speed 100Ω Differential Microstrip Trace Pairs
+        const diffTraceGeo = new THREE.PlaneGeometry(SEGMENT_WIDTH, 0.018);
+        diffTraceGeo.rotateX(-Math.PI / 2);
+        const diffTraceMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.7 });
+        const dt1 = new THREE.Mesh(diffTraceGeo, diffTraceMat);
+        dt1.position.set(0, 0.166, 0.38);
+        tile.add(dt1);
+        const dt2 = new THREE.Mesh(diffTraceGeo, diffTraceMat);
+        dt2.position.set(0, 0.166, 0.42);
+        tile.add(dt2);
+
+        // Solder mask gold test pads (TP1, TP2)
+        const padGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.02, 12);
+        const padMat = new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            metalness: 0.95,
+            roughness: 0.15,
+            emissive: 0xaa8800,
+            emissiveIntensity: 0.5
+        });
+        const tp1 = new THREE.Mesh(padGeo, padMat);
+        tp1.position.set(-SEGMENT_WIDTH / 4, 0.17, -0.42);
+        tile.add(tp1);
+        const tp2 = new THREE.Mesh(padGeo, padMat);
+        tp2.position.set(SEGMENT_WIDTH / 4, 0.17, -0.42);
+        tile.add(tp2);
+
         // Position tiles along X
         tile.position.set(-12 + i * SEGMENT_WIDTH, 0, 0);
 
         trackGroup.add(tile);
         trackTiles.push(tile);
+    }
+
+    // Moving electric current pulses inside copper traces (Layer 1)
+    trackCurrentPulses.length = 0;
+    const pulseGeo = new THREE.BoxGeometry(0.45, 0.022, 0.04);
+    const pulseMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.85
+    });
+    for (let p = 0; p < 10; p++) {
+        const cp = new THREE.Mesh(pulseGeo, pulseMat);
+        cp.position.set(-14 + p * 2.8, 0.18, p % 2 === 0 ? 0.40 : -0.40);
+        gameScene.add(cp);
+        trackCurrentPulses.push(cp);
     }
 }
 
@@ -467,21 +547,277 @@ function createChipSilkscreenTexture(label, sub) {
     ctx.lineWidth = 4;
     ctx.strokeRect(10, 10, 236, 236);
 
+    // Pin 1 indicator dot
     ctx.fillStyle = '#3ee6a0';
     ctx.beginPath();
     ctx.arc(28, 28, 8, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = 'rgba(230, 245, 235, 0.9)';
-    ctx.font = 'bold 20px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(label, 128, 115);
+    if (label.includes('PRM-NPU')) {
+        // Render 8x8 Tensor Processing Unit Matrix Die Grid
+        ctx.fillStyle = 'rgba(0, 255, 204, 0.15)';
+        ctx.fillRect(40, 48, 176, 110);
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(40, 48, 176, 110);
 
-    ctx.font = '13px monospace';
-    ctx.fillStyle = 'rgba(62, 230, 160, 0.85)';
-    ctx.fillText(sub, 128, 145);
+        for (let r = 0; r < 6; r++) {
+            for (let k = 0; k < 10; k++) {
+                ctx.fillStyle = ((r + k) % 3 === 0) ? '#3ee6a0' : '#114428';
+                ctx.fillRect(46 + k * 16, 54 + r * 16, 12, 12);
+            }
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 18px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, 128, 185);
+
+        ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = '#ffd875';
+        ctx.fillText(sub, 128, 205);
+
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#3ee6a0';
+        ctx.fillText('PARAMESHWARAN S // SILICON CORE', 128, 224);
+    } else {
+        ctx.fillStyle = 'rgba(230, 245, 235, 0.9)';
+        ctx.font = 'bold 20px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, 128, 115);
+
+        ctx.font = '13px monospace';
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.85)';
+        ctx.fillText(sub, 128, 145);
+
+        ctx.font = '11px monospace';
+        ctx.fillStyle = 'rgba(0, 255, 204, 0.65)';
+        ctx.fillText('DIAGNOSTIC ARCHITECTURE', 128, 175);
+    }
 
     return new THREE.CanvasTexture(c);
+}
+
+/**
+ * Builds Parallax Layer 2: Overhead Automated Pick-and-Place & Laser Soldering Gantry.
+ * @param {THREE.Group} hGroup
+ */
+function buildRoboticGantry(hGroup) {
+    gantryArmGroup = new THREE.Group();
+    gantryArmGroup.position.set(0, 6.8, -3.5);
+
+    // Overhead transverse gantry rail spanning across scene
+    const railGeo = new THREE.BoxGeometry(32.0, 0.35, 0.55);
+    const railMat = new THREE.MeshStandardMaterial({
+        color: 0x1a2620,
+        metalness: 0.9,
+        roughness: 0.25
+    });
+    const rail = new THREE.Mesh(railGeo, railMat);
+    gantryArmGroup.add(rail);
+
+    // Stepper Carriage Head
+    const carriageGeo = new THREE.BoxGeometry(1.6, 0.5, 0.8);
+    const carriageMat = new THREE.MeshStandardMaterial({
+        color: 0x273b30,
+        metalness: 0.8,
+        roughness: 0.3
+    });
+    const carriage = new THREE.Mesh(carriageGeo, carriageMat);
+    carriage.position.set(0, -0.2, 0);
+    gantryArmGroup.add(carriage);
+
+    // Articulated robotic arm segments
+    const armGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.8, 10);
+    const armMat = new THREE.MeshStandardMaterial({
+        color: 0x3d5a49,
+        metalness: 0.85,
+        roughness: 0.2
+    });
+    armSegmentMesh = new THREE.Mesh(armGeo, armMat);
+    armSegmentMesh.position.set(0, -1.0, 0);
+    gantryArmGroup.add(armSegmentMesh);
+
+    // Laser soldering diode nozzle
+    const nozzleGeo = new THREE.ConeGeometry(0.12, 0.45, 12);
+    const nozzleMat = new THREE.MeshStandardMaterial({
+        color: 0xd49b38,
+        metalness: 0.95,
+        roughness: 0.15
+    });
+    const nozzle = new THREE.Mesh(nozzleGeo, nozzleMat);
+    nozzle.position.set(0, -1.9, 0);
+    gantryArmGroup.add(nozzle);
+
+    // Laser aiming guide cone
+    const laserGeo = new THREE.ConeGeometry(0.25, 4.2, 16, 1, true);
+    laserGeo.rotateX(Math.PI);
+    const laserMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.18,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+    });
+    const laserCone = new THREE.Mesh(laserGeo, laserMat);
+    laserCone.position.set(0, -4.0, 0);
+    gantryArmGroup.add(laserCone);
+
+    hGroup.add(gantryArmGroup);
+}
+
+/**
+ * Builds Parallax Layer 5: Datacenter Server Racks (Data Science & Cloud Compute Backbone).
+ * @param {THREE.Group} hGroup
+ */
+function buildServerRacks(hGroup) {
+    serverRackUnits.length = 0;
+    const rackGeo = new THREE.BoxGeometry(2.4, 7.5, 2.2);
+    const rackMat = new THREE.MeshStandardMaterial({
+        color: 0x07110b,
+        metalness: 0.85,
+        roughness: 0.35,
+        emissive: 0x020704,
+        emissiveIntensity: 0.2
+    });
+
+    const rackPositions = [-18.5, -15.5, 15.5, 18.5];
+    const ledGeo = new THREE.BoxGeometry(0.06, 0.03, 0.02);
+
+    rackPositions.forEach((posX, rIdx) => {
+        const rack = new THREE.Mesh(rackGeo, rackMat);
+        rack.position.set(posX, 3.8, -10.5);
+        hGroup.add(rack);
+
+        // Rack front panel louvers & cascading LEDs
+        const rackLeds = [];
+        for (let u = 0; u < 14; u++) {
+            const yPos = 0.8 + u * 0.45;
+            const ledMat = new THREE.MeshBasicMaterial({
+                color: (u + rIdx) % 3 === 0 ? 0x00ffff : ((u + rIdx) % 3 === 1 ? 0x3ee6a0 : 0xffdd44),
+                transparent: true,
+                opacity: 0.8
+            });
+            const led1 = new THREE.Mesh(ledGeo, ledMat);
+            led1.position.set(posX - 0.7, yPos, -9.38);
+            hGroup.add(led1);
+
+            const led2 = new THREE.Mesh(ledGeo, ledMat);
+            led2.position.set(posX + 0.7, yPos, -9.38);
+            hGroup.add(led2);
+
+            rackLeds.push(ledMat);
+        }
+        serverRackUnits.push({ mesh: rack, leds: rackLeds });
+    });
+}
+
+/**
+ * Builds Parallax Layer 6: 3D AI Neural Network Sky Graph.
+ * @param {THREE.Group} hGroup
+ */
+function buildNeuralNetworkSkyGraph(hGroup) {
+    neuralNodes.length = 0;
+    synapticPulses.length = 0;
+
+    const layerDefs = [
+        { count: 5, x: -6.5, z: -14.0, col: 0x3ee6a0 }, // Input layer
+        { count: 8, x: -2.2, z: -14.8, col: 0x00ffff }, // Hidden Layer 1
+        { count: 8, x: 2.2, z: -14.8, col: 0x00ffff },  // Hidden Layer 2
+        { count: 4, x: 6.5, z: -14.0, col: 0xffdd44 }   // Output layer
+    ];
+
+    const nodeGeo = new THREE.SphereGeometry(0.11, 8, 8);
+    /** @type {Array<Array<THREE.Vector3>>} */
+    const layers = [];
+    /** @type {Array<number>} */
+    const synapseLineCoords = [];
+
+    layerDefs.forEach((ld, lIdx) => {
+        const layerNodes = [];
+        const ySpan = ld.count * 0.48;
+        const yStart = 6.2 - ySpan / 2;
+
+        for (let n = 0; n < ld.count; n++) {
+            const y = yStart + n * 0.52;
+            const pos = new THREE.Vector3(ld.x, y, ld.z);
+            const mat = new THREE.MeshBasicMaterial({ color: ld.col });
+            const nodeMesh = new THREE.Mesh(nodeGeo, mat);
+            nodeMesh.position.copy(pos);
+            hGroup.add(nodeMesh);
+            neuralNodes.push(nodeMesh);
+            layerNodes.push(pos);
+        }
+        layers.push(layerNodes);
+
+        // Connect layer to previous layer with synapses
+        if (lIdx > 0) {
+            const prevLayer = layers[lIdx - 1];
+            for (let i = 0; i < prevLayer.length; i++) {
+                for (let j = 0; j < layerNodes.length; j++) {
+                    if ((i + j) % 2 === 0) {
+                        const from = prevLayer[i];
+                        const to = layerNodes[j];
+                        synapseLineCoords.push(from.x, from.y, from.z, to.x, to.y, to.z);
+
+                        if (synapticPulses.length < 18 && (i + j) % 3 === 0) {
+                            const pulseGeo = new THREE.SphereGeometry(0.045, 6, 6);
+                            const pulseMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                            const pulseMesh = new THREE.Mesh(pulseGeo, pulseMat);
+                            hGroup.add(pulseMesh);
+                            synapticPulses.push({
+                                pulsePos: Math.random(),
+                                speed: 0.4 + Math.random() * 0.6,
+                                from,
+                                to,
+                                mesh: pulseMesh
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    const synGeo = new THREE.BufferGeometry();
+    synGeo.setAttribute('position', new THREE.Float32BufferAttribute(synapseLineCoords, 3));
+    const synMat = new THREE.LineBasicMaterial({
+        color: 0x175836,
+        transparent: true,
+        opacity: 0.4,
+        blending: THREE.AdditiveBlending
+    });
+    neuralSynapses = new THREE.LineSegments(synGeo, synMat);
+    hGroup.add(neuralSynapses);
+}
+
+/**
+ * Builds Far Distance: Holographic Wireframe Circuit Skyline.
+ * @param {THREE.Group} hGroup
+ */
+function buildHolographicCity(hGroup) {
+    const cityMat = new THREE.MeshBasicMaterial({
+        color: 0x0b3820,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.28
+    });
+
+    const towerDefs = [
+        { x: -22, z: -22, w: 4.5, h: 14, d: 4.5 },
+        { x: -14, z: -24, w: 5.0, h: 18, d: 5.0 },
+        { x: -6, z: -25, w: 4.0, h: 16, d: 4.0 },
+        { x: 3, z: -23, w: 5.5, h: 20, d: 5.5 },
+        { x: 11, z: -25, w: 4.2, h: 15, d: 4.2 },
+        { x: 18, z: -22, w: 5.0, h: 17, d: 5.0 }
+    ];
+
+    towerDefs.forEach(td => {
+        const towerGeo = new THREE.BoxGeometry(td.w, td.h, td.d);
+        const tower = new THREE.Mesh(towerGeo, cityMat);
+        tower.position.set(td.x, td.h / 2 - 1.0, td.z);
+        hGroup.add(tower);
+    });
 }
 
 /**
@@ -493,8 +829,7 @@ function buildHorizon() {
     const hGroup = new THREE.Group();
     gameScene.add(hGroup);
 
-
-    // 1. Monolithic 3D IC Packages in background (-Z)
+    // 1. Monolithic 3D IC Packages in background (-Z): Parameshwaran's Core Hardware Stack
     const chipMat = new THREE.MeshStandardMaterial({
         color: 0x09160f,
         roughness: 0.35,
@@ -511,12 +846,13 @@ function buildHorizon() {
     });
 
     const chipDefs = [
-        { x: -9.5, y: 2.2, z: -6.5, w: 4.2, h: 3.2, d: 3.0, label: 'STM32F405', sub: 'ARM CORTEX-M4' },
-        { x: -3.5, y: 3.8, z: -8.5, w: 4.8, h: 4.8, d: 3.5, label: 'XILINX ARTIX', sub: 'FPGA MATRIX' },
-        { x: 3.5, y: 2.6, z: -7.0, w: 3.8, h: 3.4, d: 3.0, label: 'CYPRESS FX3', sub: 'USB 3.0 PHY' },
-        { x: 10.0, y: 4.2, z: -10.0, w: 5.5, h: 5.5, d: 3.8, label: 'ALTERA CYCLONE', sub: 'LOGIC ARRAY' },
-        { x: -16.0, y: 5.0, z: -13.0, w: 6.5, h: 7.0, d: 4.5, label: 'TI TMS320', sub: 'DSP ENGINE' },
-        { x: 16.5, y: 4.5, z: -12.0, w: 6.0, h: 6.0, d: 4.0, label: 'ESP32-S3', sub: 'DUAL XTENSA' }
+        { x: 0.0, y: 3.8, z: -8.8, w: 5.6, h: 5.2, d: 3.5, label: 'PRM-NPU v2.0', sub: '32 TOPS TENSOR ACCELERATOR' },
+        { x: -8.5, y: 2.8, z: -6.8, w: 4.2, h: 3.2, d: 3.0, label: 'STM32F405', sub: 'ARM CORTEX-M4 168MHz' },
+        { x: -3.8, y: 2.4, z: -6.0, w: 3.8, h: 3.8, d: 2.8, label: 'XILINX ARTIX-7', sub: 'FPGA FABRIC MATRIX' },
+        { x: 4.8, y: 2.2, z: -5.8, w: 4.6, h: 2.4, d: 1.8, label: 'DDR4 SDRAM', sub: 'QUAD-CHANNEL 3200MT/s' },
+        { x: 9.8, y: 2.6, z: -6.6, w: 3.6, h: 3.2, d: 2.6, label: 'CYPRESS FX3', sub: 'USB 3.0 PHY 5Gbps' },
+        { x: -14.0, y: 2.0, z: -5.5, w: 3.0, h: 2.2, d: 2.2, label: 'DPAK MOSFETS', sub: 'HIGH-CURRENT DRIVER ARRAY' },
+        { x: 14.0, y: 1.8, z: -5.2, w: 2.8, h: 1.8, d: 1.8, label: '16.0MHz XTAL', sub: 'QUARTZ OSCILLATOR' }
     ];
 
     const ledGeo = new THREE.SphereGeometry(0.08, 8, 8);
@@ -555,7 +891,10 @@ function buildHorizon() {
         monolithLeds.push({ led, phase: idx * 1.3, freq: 2.2 + idx * 0.6 });
     });
 
-    // 2. Giant Holographic Oscilloscope Sky Projection
+    // 2. Parallax Layer 2: Overhead Automated Pick-and-Place & Laser Soldering Gantry
+    buildRoboticGantry(hGroup);
+
+    // 3. Parallax Layer 3: Giant Holographic Oscilloscope Sky Projection
     const scopeTex = createScopeGridTexture();
     if (scopeTex) {
         const scopeScreen = new THREE.Mesh(
@@ -593,7 +932,16 @@ function buildHorizon() {
     );
     hGroup.add(skyScopeLine);
 
-    // 3. Volumetric Floating Electron Dust Cloud
+    // 4. Parallax Layer 5: Datacenter Server Racks (Cloud & AI Backbone)
+    buildServerRacks(hGroup);
+
+    // 5. Parallax Layer 6: 3D AI Neural Network Sky Visualization
+    buildNeuralNetworkSkyGraph(hGroup);
+
+    // 6. Far Distance: Holographic Wireframe Circuit Skyline
+    buildHolographicCity(hGroup);
+
+    // 7. Volumetric Floating Electron Dust Cloud
     const dustGeo = new THREE.BufferGeometry();
     dustPositions = new Float32Array(DUST_COUNT * 3);
     for (let i = 0; i < DUST_COUNT; i++) {
@@ -612,7 +960,7 @@ function buildHorizon() {
     electronDust = new THREE.Points(dustGeo, dustMat);
     gameScene.add(electronDust);
 
-    // 4. Distant cylindrical ferrite choke coils
+    // 8. Distant cylindrical ferrite choke coils
     const chokeGeo = new THREE.CylinderGeometry(0.7, 0.7, 1.8, 16);
     const chokeMat = new THREE.MeshStandardMaterial({
         color: 0x9b6b28,
@@ -625,7 +973,7 @@ function buildHorizon() {
         hGroup.add(choke);
     }
 
-    // 5. Glowing Cyber Horizon Data Grid
+    // 9. Glowing Cyber Horizon Data Grid
     const gridHelper = new THREE.GridHelper(50, 50, 0x3ee6a0, 0x0c3820);
     gridHelper.position.set(0, -0.05, -7);
     hGroup.add(gridHelper);
@@ -787,6 +1135,51 @@ function buildPlayer() {
     slideSparks = new THREE.Points(sparkGeoPoints, sparkMatPoints);
     slideSparks.visible = false;
     gameScene.add(slideSparks);
+
+    // 10. Electromagnetic Jump Floor Ripple
+    const rippleGeo = new THREE.RingGeometry(0.08, 0.24, 24);
+    rippleGeo.rotateX(-Math.PI / 2);
+    const rippleMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+    });
+    jumpRippleMesh = new THREE.Mesh(rippleGeo, rippleMat);
+    jumpRippleMesh.position.set(0, 0.22, 0);
+    jumpRippleMesh.visible = false;
+    gameScene.add(jumpRippleMesh);
+
+    // 11. Concentric PCB Landing Vibration Shockwave
+    const landGeo = new THREE.RingGeometry(0.12, 0.36, 24);
+    landGeo.rotateX(-Math.PI / 2);
+    const landMat = new THREE.MeshBasicMaterial({
+        color: 0x3ee6a0,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+    });
+    landingVibrationMesh = new THREE.Mesh(landGeo, landMat);
+    landingVibrationMesh.position.set(0, 0.22, 0);
+    landingVibrationMesh.visible = false;
+    gameScene.add(landingVibrationMesh);
+
+    // 12. DMA Energy Packet Capacitive Charge Flash
+    const flashGeo = new THREE.RingGeometry(0.15, 0.45, 24);
+    flashGeo.rotateX(-Math.PI / 2);
+    const flashMat = new THREE.MeshBasicMaterial({
+        color: 0xffd700,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+    });
+    chargeFlashMesh = new THREE.Mesh(flashGeo, flashMat);
+    chargeFlashMesh.position.set(0, 0.22, 0);
+    chargeFlashMesh.visible = false;
+    gameScene.add(chargeFlashMesh);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -956,32 +1349,49 @@ function buildSignalLostBanner() {
 
 function createResistorMesh() {
     const grp = new THREE.Group();
-    const bodyGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.72, 12);
-    bodyGeo.rotateX(Math.PI / 2);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x383b40, roughness: 0.6, metalness: 0.3 });
+    // 1206 SMT High-Power Resistor Body (Alumina ceramic substrate)
+    const bodyGeo = new THREE.BoxGeometry(0.36, 0.16, 0.48);
+    const bodyMat = new THREE.MeshStandardMaterial({
+        color: 0x181c20,
+        roughness: 0.45,
+        metalness: 0.3
+    });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.position.set(0, 0.12, 0);
     grp.add(body);
 
-    const capGeo = new THREE.CylinderGeometry(0.135, 0.135, 0.09, 12);
-    capGeo.rotateX(Math.PI / 2);
-    const capMat = new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 0.92, roughness: 0.15 });
-    const capFront = new THREE.Mesh(capGeo, capMat);
-    capFront.position.set(0, 0.12, 0.36);
-    grp.add(capFront);
-
-    const capRear = new THREE.Mesh(capGeo, capMat);
-    capRear.position.set(0, 0.12, -0.36);
-    grp.add(capRear);
-
-    const bandGeo = new THREE.CylinderGeometry(0.125, 0.125, 0.04, 12);
-    bandGeo.rotateX(Math.PI / 2);
-    const colors = [0x111111, 0x8b4513, 0xff2200, 0xd4af37];
-    [-0.18, -0.06, 0.06, 0.18].forEach((zPos, idx) => {
-        const band = new THREE.Mesh(bandGeo, new THREE.MeshBasicMaterial({ color: colors[idx] }));
-        band.position.set(0, 0.12, zPos);
-        grp.add(band);
+    // Silver-Nickel Barrier Termination End Caps
+    const capGeo = new THREE.BoxGeometry(0.08, 0.165, 0.49);
+    const capMat = new THREE.MeshStandardMaterial({
+        color: 0xd8dde2,
+        metalness: 0.95,
+        roughness: 0.12
     });
+    const capL = new THREE.Mesh(capGeo, capMat);
+    capL.position.set(-0.16, 0.12, 0);
+    grp.add(capL);
+
+    const capR = new THREE.Mesh(capGeo, capMat);
+    capR.position.set(0.16, 0.12, 0);
+    grp.add(capR);
+
+    // Solder fillets on PCB
+    const filletGeo = new THREE.BoxGeometry(0.06, 0.04, 0.52);
+    const filletMat = new THREE.MeshStandardMaterial({ color: 0xa0a8b0, metalness: 0.9, roughness: 0.2 });
+    const fL = new THREE.Mesh(filletGeo, filletMat);
+    fL.position.set(-0.21, 0.05, 0);
+    grp.add(fL);
+    const fR = new THREE.Mesh(filletGeo, filletMat);
+    fR.position.set(0.21, 0.05, 0);
+    grp.add(fR);
+
+    // Silkscreen "R010" Power Resistor Mark on top
+    const labelGeo = new THREE.PlaneGeometry(0.22, 0.32);
+    labelGeo.rotateX(-Math.PI / 2);
+    const labelMat = new THREE.MeshBasicMaterial({ color: 0x3ee6a0, transparent: true, opacity: 0.75 });
+    const lbl = new THREE.Mesh(labelGeo, labelMat);
+    lbl.position.set(0, 0.205, 0);
+    grp.add(lbl);
 
     grp.userData = { type: 'resistor' };
     return grp;
@@ -989,32 +1399,42 @@ function createResistorMesh() {
 
 function createCapacitorMesh() {
     const grp = new THREE.Group();
-    const canGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.48, 16);
+    // Low-ESR Aluminum Electrolytic Can
+    const canGeo = new THREE.CylinderGeometry(0.20, 0.20, 0.52, 18);
     const canMat = new THREE.MeshStandardMaterial({
-        color: 0x48525e,
-        metalness: 0.88,
-        roughness: 0.2,
-        emissive: 0x112233,
-        emissiveIntensity: 0.25
+        color: 0x222d3d,
+        metalness: 0.85,
+        roughness: 0.22,
+        emissive: 0x091424,
+        emissiveIntensity: 0.3
     });
     const can = new THREE.Mesh(canGeo, canMat);
-    can.position.set(0, 0.24, 0);
+    can.position.set(0, 0.26, 0);
     grp.add(can);
 
-    const ventGeo = new THREE.BoxGeometry(0.24, 0.02, 0.04);
-    const ventMat = new THREE.MeshBasicMaterial({ color: 0x1f2429 });
+    // Brushed Aluminum Top Rim
+    const topGeo = new THREE.CylinderGeometry(0.19, 0.19, 0.04, 18);
+    const topMat = new THREE.MeshStandardMaterial({ color: 0xd4d8de, metalness: 0.95, roughness: 0.12 });
+    const topRim = new THREE.Mesh(topGeo, topMat);
+    topRim.position.set(0, 0.53, 0);
+    grp.add(topRim);
+
+    // Stamped Safety Vent Lines ("+" relief score)
+    const ventGeo = new THREE.BoxGeometry(0.26, 0.02, 0.035);
+    const ventMat = new THREE.MeshBasicMaterial({ color: 0x11161d });
     const vent1 = new THREE.Mesh(ventGeo, ventMat);
-    vent1.position.set(0, 0.485, 0);
+    vent1.position.set(0, 0.552, 0);
     grp.add(vent1);
     const vent2 = new THREE.Mesh(ventGeo, ventMat);
-    vent2.position.set(0, 0.485, 0);
+    vent2.position.set(0, 0.552, 0);
     vent2.rotation.y = Math.PI / 2;
     grp.add(vent2);
 
+    // High-Voltage Emissive Spark Node
     const sparkNodeGeo = new THREE.OctahedronGeometry(0.06, 0);
     const sparkNodeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
     const sparkNode = new THREE.Mesh(sparkNodeGeo, sparkNodeMat);
-    sparkNode.position.set(0, 0.54, 0);
+    sparkNode.position.set(0, 0.60, 0);
     grp.add(sparkNode);
 
     grp.userData = { type: 'capacitor', sparkNode };
@@ -1081,7 +1501,25 @@ function createGapMesh() {
     frayR.position.set(0.48, 0.04, 0);
     grp.add(frayR);
 
-    grp.userData = { type: 'gap' };
+    // Procedural electric plasma arc bridging across the void
+    const arcPts = [
+        new THREE.Vector3(-0.45, 0.08, -0.2),
+        new THREE.Vector3(-0.15, 0.18, 0.1),
+        new THREE.Vector3(0.15, 0.04, -0.1),
+        new THREE.Vector3(0.45, 0.08, 0.2)
+    ];
+    const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPts);
+    const arcMat = new THREE.LineBasicMaterial({
+        color: 0x00ffff,
+        linewidth: 2,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending
+    });
+    const plasmaArc = new THREE.Line(arcGeo, arcMat);
+    grp.add(plasmaArc);
+
+    grp.userData = { type: 'gap', plasmaArc };
     return grp;
 }
 
@@ -1170,44 +1608,52 @@ function getPooledObstacle(type) {
 function buildCollectiblePools() {
     if (!collectiblesGroup) return;
 
-    // High-visibility Cyber Gold Coin geometry:
-    // Chamfered coin disc with circular faces oriented toward the 2.5D camera (+Z)
-    const coinGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.05, 20);
-    coinGeo.rotateX(Math.PI / 2); // Faces toward camera
-    const coinMat = new THREE.MeshStandardMaterial({
-        color: 0xffd700,
-        emissive: 0xff9900,
-        emissiveIntensity: 2.8,
-        roughness: 0.12,
-        metalness: 0.95
+    // Quantized DMA Charge Packet Geometry:
+    // Dual intersecting octahedral flux crystals with pure white plasma core and quantum flux rings
+    const crystalGeo1 = new THREE.OctahedronGeometry(0.16, 0);
+    const crystalMat1 = new THREE.MeshStandardMaterial({
+        color: 0x00ffff,
+        emissive: 0x00c4bb,
+        emissiveIntensity: 3.5,
+        roughness: 0.1,
+        metalness: 0.9
     });
 
-    // Inner radiant energy core
-    const coreGeo = new THREE.OctahedronGeometry(0.11, 0);
-    const coreMat = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        emissive: 0xffdd44,
-        emissiveIntensity: 4.5,
-        roughness: 0.1
+    const crystalGeo2 = new THREE.OctahedronGeometry(0.12, 0);
+    crystalGeo2.rotateY(Math.PI / 4);
+    crystalGeo2.rotateZ(Math.PI / 4);
+    const crystalMat2 = new THREE.MeshStandardMaterial({
+        color: 0x3ee6a0,
+        emissive: 0x3ee6a0,
+        emissiveIntensity: 3.0,
+        roughness: 0.15,
+        metalness: 0.85
     });
 
-    // Outer luminous cyan halo ring
-    const ringGeo = new THREE.TorusGeometry(0.24, 0.016, 8, 24);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+    // Inner Radiant White Super-Energy Plasma Core
+    const sparkGeo = new THREE.SphereGeometry(0.065, 8, 8);
+    const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
-    // Orbiting quantum electron satellites
-    const satGeo = new THREE.SphereGeometry(0.032, 8, 8);
-    const satMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+    // Counter-rotating Quantum Flux Guide Ring
+    const ringGeo = new THREE.TorusGeometry(0.22, 0.014, 6, 24);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+
+    // Orbiting Data Photon Bit Satellites
+    const satGeo = new THREE.SphereGeometry(0.028, 8, 8);
+    const satMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
     for (let i = 0; i < ELECTRON_POOL_SIZE; i++) {
         const el = new THREE.Group();
 
-        // 1. Spinning Coin Body
+        // 1. Dual Octahedral Flux Packet Body (assigned to coinBody for continuous rotation)
         const coinBody = new THREE.Group();
-        const disc = new THREE.Mesh(coinGeo, coinMat);
-        coinBody.add(disc);
+        const c1 = new THREE.Mesh(crystalGeo1, crystalMat1);
+        coinBody.add(c1);
 
-        const innerCore = new THREE.Mesh(coreGeo, coreMat);
+        const c2 = new THREE.Mesh(crystalGeo2, crystalMat2);
+        coinBody.add(c2);
+
+        const innerCore = new THREE.Mesh(sparkGeo, sparkMat);
         coinBody.add(innerCore);
 
         const halo = new THREE.Mesh(ringGeo, ringMat);
@@ -1219,7 +1665,7 @@ function buildCollectiblePools() {
         const orbitPivot = new THREE.Group();
         orbitPivot.rotation.x = Math.PI / 4;
         const sat1 = new THREE.Mesh(satGeo, satMat);
-        sat1.position.set(0.32, 0, 0);
+        sat1.position.set(0.30, 0, 0);
         orbitPivot.add(sat1);
         el.add(orbitPivot);
 
@@ -1228,7 +1674,7 @@ function buildCollectiblePools() {
         orbitPivot2.rotation.y = Math.PI / 3;
         orbitPivot2.rotation.z = Math.PI / 6;
         const sat2 = new THREE.Mesh(satGeo, satMat);
-        sat2.position.set(0, 0.32, 0);
+        sat2.position.set(0, 0.30, 0);
         orbitPivot2.add(sat2);
         el.add(orbitPivot2);
 
@@ -1459,6 +1905,11 @@ function updatePlayer(delta, sim) {
             if (innerSparkMesh) innerSparkMesh.scale.set(1, 1, 1);
 
             if (!sim.onGround) {
+                if (!wasJumpingIn3d && jumpRippleMesh && playerGroup) {
+                    jumpRippleMesh.position.set(playerGroup.position.x, 0.22, 0);
+                    jumpRippleLife = 1.0;
+                    jumpRippleMesh.visible = true;
+                }
                 // Forward somersault rotation in 3D around Z axis
                 const flipSpeed = (sim.jumpsUsed >= 2 ? 22.0 : 12.0);
                 playerGroup.rotation.z -= delta * flipSpeed;
@@ -1608,14 +2059,24 @@ export function update3dGame(delta, sim) {
 
     if (wasJumpingIn3d && sim.onGround && sim.state === 'playing') {
         cameraShake = Math.max(cameraShake, 0.28);
+        if (landingVibrationMesh && playerGroup) {
+            landingVibrationMesh.position.set(playerGroup.position.x, 0.22, 0);
+            landingVibrationLife = 1.0;
+            landingVibrationMesh.visible = true;
+        }
         wasJumpingIn3d = false;
     } else if (!sim.onGround) {
         wasJumpingIn3d = true;
     }
 
-    // 3. Camera Shake Decay & Jitter
+    // 3. Camera Shake Decay & Jitter, and Charge Flash Trigger
     if (sim.electrons > lastObservedElectrons) {
         cameraShake = Math.max(cameraShake, 0.16);
+        if (chargeFlashMesh && playerGroup) {
+            chargeFlashMesh.position.set(playerGroup.position.x, playerGroup.position.y, 0);
+            chargeFlashLife = 1.0;
+            chargeFlashMesh.visible = true;
+        }
         lastObservedElectrons = sim.electrons;
     } else if (sim.electrons < lastObservedElectrons) {
         lastObservedElectrons = sim.electrons;
@@ -1625,6 +2086,29 @@ export function update3dGame(delta, sim) {
         lastObservedCombo = sim.combo;
     } else if (sim.combo < lastObservedCombo) {
         lastObservedCombo = sim.combo;
+    }
+
+    // Dynamic Movement VFX lifecycle update
+    if (jumpRippleLife > 0 && jumpRippleMesh) {
+        jumpRippleLife = Math.max(0, jumpRippleLife - delta * 3.5);
+        const s = 1.0 + (1.0 - jumpRippleLife) * 4.2;
+        jumpRippleMesh.scale.set(s, s, s);
+        /** @type {THREE.MeshBasicMaterial} */ (jumpRippleMesh.material).opacity = jumpRippleLife * 0.85;
+        jumpRippleMesh.visible = jumpRippleLife > 0.01;
+    }
+    if (landingVibrationLife > 0 && landingVibrationMesh) {
+        landingVibrationLife = Math.max(0, landingVibrationLife - delta * 3.0);
+        const s = 1.0 + (1.0 - landingVibrationLife) * 5.0;
+        landingVibrationMesh.scale.set(s, s, s);
+        /** @type {THREE.MeshBasicMaterial} */ (landingVibrationMesh.material).opacity = landingVibrationLife * 0.95;
+        landingVibrationMesh.visible = landingVibrationLife > 0.01;
+    }
+    if (chargeFlashLife > 0 && chargeFlashMesh) {
+        chargeFlashLife = Math.max(0, chargeFlashLife - delta * 4.0);
+        const s = 1.0 + (1.0 - chargeFlashLife) * 3.8;
+        chargeFlashMesh.scale.set(s, s, s);
+        /** @type {THREE.MeshBasicMaterial} */ (chargeFlashMesh.material).opacity = chargeFlashLife * 0.9;
+        chargeFlashMesh.visible = chargeFlashLife > 0.01;
     }
 
     if (cameraShake > 0) {
@@ -1674,6 +2158,41 @@ export function update3dGame(delta, sim) {
             }
         }
         dPos.needsUpdate = true;
+    }
+
+    // Animate moving current flowing along copper highway (Layer 1)
+    const curSpeed = (sim.curSpeed || 85) * 0.14 + 5.0;
+    for (let p = 0; p < trackCurrentPulses.length; p++) {
+        const cp = trackCurrentPulses[p];
+        cp.position.x -= delta * curSpeed;
+        if (cp.position.x < -14.0) {
+            cp.position.x += 28.0;
+        }
+    }
+
+    // Animate Robotic Soldering Arm Gantry (Layer 2)
+    if (gantryArmGroup && armSegmentMesh) {
+        const gantrySway = Math.sin((sim.dist || 0) * 0.08) * 1.5;
+        gantryArmGroup.position.x = gantrySway;
+        armSegmentMesh.rotation.z = Math.sin((sim.dist || 0) * 0.14) * 0.14;
+    }
+
+    // Animate Datacenter Server Racks Activity LEDs (Layer 5)
+    const simTime = (sim.dist || 0) * 0.15;
+    for (let r = 0; r < serverRackUnits.length; r++) {
+        const rUnit = serverRackUnits[r];
+        for (let l = 0; l < rUnit.leds.length; l++) {
+            const flicker = Math.sin(simTime * 9.0 + r * 3.1 + l * 1.7) > 0.1 ? 0.9 : 0.12;
+            rUnit.leds[l].opacity = flicker;
+        }
+    }
+
+    // Animate 3D AI Neural Network Synaptic Tensor Pulses (Layer 6)
+    for (let i = 0; i < synapticPulses.length; i++) {
+        const sp = synapticPulses[i];
+        sp.pulsePos += delta * sp.speed;
+        if (sp.pulsePos > 1.0) sp.pulsePos = 0;
+        sp.mesh.position.lerpVectors(sp.from, sp.to, sp.pulsePos);
     }
 
     // 8. Update Shatter Shards if game is over
