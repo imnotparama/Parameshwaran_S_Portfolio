@@ -81,9 +81,6 @@ let trackGroup = null;
 let trackTiles = [];
 
 /** @type {THREE.Group | null} */
-let horizonGroup = null;
-
-/** @type {THREE.Group | null} */
 let playerGroup = null;
 
 /** @type {THREE.Mesh | null} */
@@ -168,10 +165,24 @@ let signalLostMesh = null;
 
 // Camera dynamics
 let cameraShake = 0;
-let currentCameraFov = 62;
+let currentCameraFov = 54;
 let lastSimState = 'off';
 let lastObservedElectrons = 0;
 let lastObservedCombo = 1;
+let wasJumpingIn3d = false;
+
+// Horizon & Atmosphere features
+/** @type {THREE.Line | null} */
+let skyScopeLine = null;
+const SKY_SCOPE_PTS = 64;
+
+/** @type {Array<{ led: THREE.Mesh, phase: number, freq: number }>} */
+const monolithLeds = [];
+
+/** @type {THREE.Points | null} */
+let electronDust = null;
+const DUST_COUNT = 90;
+let dustPositions = new Float32Array(DUST_COUNT * 3);
 
 /** @type {THREE.MeshStandardMaterial | null} */
 let copperRailMat = null;
@@ -186,7 +197,8 @@ let trackFloorMat = null;
 let isInitialized = false;
 
 /**
- * Initialize the 3D game engine. If no canvas is provided, creates an offscreen canvas.
+ * Initialize the 3D game engine. If no canvas is provided, creates an offscreen canvas
+ * or binds directly to `#diag-sim-canvas` for full-screen diagnostic simulation.
  * Safe in headless environments: returns false if WebGL is unavailable.
  * @param {HTMLCanvasElement | null} [canvas]
  * @returns {boolean}
@@ -196,6 +208,9 @@ export function init3dGame(canvas = null) {
     if (typeof document === 'undefined') return false;
 
     let targetCanvas = canvas;
+    if (!targetCanvas) {
+        targetCanvas = /** @type {HTMLCanvasElement | null} */ (document.getElementById('diag-sim-canvas'));
+    }
     if (!targetCanvas) {
         targetCanvas = document.createElement('canvas');
         targetCanvas.width = CRT_W;
@@ -214,16 +229,20 @@ export function init3dGame(canvas = null) {
     }
 
     boundCanvas = targetCanvas;
-    boundCanvas.width = CRT_W;
-    boundCanvas.height = CRT_H;
+    const isFullscreen = boundCanvas.id === 'diag-sim-canvas';
+    const initW = isFullscreen && typeof window !== 'undefined' ? window.innerWidth : CRT_W;
+    const initH = isFullscreen && typeof window !== 'undefined' ? window.innerHeight : CRT_H;
+    boundCanvas.width = initW;
+    boundCanvas.height = initH;
 
     // 1. Create Game Scene
     gameScene = new THREE.Scene();
-    gameScene.background = new THREE.Color(0x020a06);
-    gameScene.fog = new THREE.FogExp2(0x020a06, 0.035);
+    gameScene.background = new THREE.Color(0x010804);
+    gameScene.fog = new THREE.FogExp2(0x010804, 0.038);
 
     // 2. Cinematic 2.5D Side-Perspective Camera
-    gameCamera = new THREE.PerspectiveCamera(56, CRT_W / CRT_H, 0.1, 100);
+    const aspect = initW / initH;
+    gameCamera = new THREE.PerspectiveCamera(54, aspect, 0.1, 100);
     gameCamera.position.set(0.0, 1.45, 5.2);
     gameCamera.lookAt(0.2, 0.95, 0.0);
 
@@ -235,14 +254,19 @@ export function init3dGame(canvas = null) {
             preserveDrawingBuffer: true, // required for CanvasTexture mirror to LCD1 quad
             powerPreference: 'high-performance'
         });
-        gameRenderer.setSize(CRT_W, CRT_H, false);
-        gameRenderer.setPixelRatio(1);
+        gameRenderer.setSize(initW, initH, false);
+        gameRenderer.setPixelRatio(Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 1.5));
         gameRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-        gameRenderer.toneMappingExposure = 1.35;
+        gameRenderer.toneMappingExposure = 1.45;
     } catch (err) {
         console.warn('Could not initialize WebGLRenderer for Signal Runner 3D:', err);
         return false;
     }
+
+    if (isFullscreen && typeof window !== 'undefined') {
+        window.addEventListener('resize', resize3dGame);
+    }
+
 
     // 4. Lighting Rig
     const ambientLight = new THREE.AmbientLight(0x0e3522, 1.8);
@@ -390,51 +414,205 @@ function buildTrack() {
     }
 }
 
+function createScopeGridTexture() {
+    if (typeof document === 'undefined') return null;
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    if (!ctx) return null;
+    ctx.fillStyle = 'rgba(1, 14, 8, 0.45)';
+    ctx.fillRect(0, 0, 512, 256);
+    ctx.strokeStyle = 'rgba(62, 230, 160, 0.22)';
+    ctx.lineWidth = 1;
+    for (let y = 16; y < 256; y += 32) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(512, y);
+        ctx.stroke();
+    }
+    for (let x = 16; x < 512; x += 32) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, 256);
+        ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(0, 255, 204, 0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(4, 4, 504, 248);
+    ctx.font = 'bold 12px monospace';
+    ctx.fillStyle = '#3ee6a0';
+    ctx.fillText('DIFFERENTIAL LOGIC BUS // CH1 16.0MHz', 14, 24);
+    ctx.fillStyle = '#ffd875';
+    ctx.fillText('TRACE IMPEDANCE: 50Ω · CLK LOCKED', 260, 24);
+
+    return new THREE.CanvasTexture(c);
+}
+
+/**
+ * @param {string} label
+ * @param {string} sub
+ * @returns {THREE.CanvasTexture | null}
+ */
+function createChipSilkscreenTexture(label, sub) {
+    if (typeof document === 'undefined') return null;
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    if (!ctx) return null;
+    ctx.fillStyle = '#08140e';
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = '#1b3b29';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(10, 10, 236, 236);
+
+    ctx.fillStyle = '#3ee6a0';
+    ctx.beginPath();
+    ctx.arc(28, 28, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(230, 245, 235, 0.9)';
+    ctx.font = 'bold 20px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, 128, 115);
+
+    ctx.font = '13px monospace';
+    ctx.fillStyle = 'rgba(62, 230, 160, 0.85)';
+    ctx.fillText(sub, 128, 145);
+
+    return new THREE.CanvasTexture(c);
+}
+
 /**
  * Builds distant glowing motherboard city, IC monoliths, and cyber grid.
  */
 function buildHorizon() {
     if (!gameScene) return;
 
-    horizonGroup = new THREE.Group();
-    gameScene.add(horizonGroup);
+    const hGroup = new THREE.Group();
+    gameScene.add(hGroup);
 
-    // 1. Monolithic 3D BGA Chips in background (-Z)
+
+    // 1. Monolithic 3D IC Packages in background (-Z)
     const chipMat = new THREE.MeshStandardMaterial({
-        color: 0x0a1c12,
-        roughness: 0.4,
-        metalness: 0.8,
-        emissive: 0x05120a,
+        color: 0x09160f,
+        roughness: 0.35,
+        metalness: 0.85,
+        emissive: 0x040e08,
         emissiveIntensity: 0.3
     });
 
     const heatsinkMat = new THREE.MeshStandardMaterial({
-        color: 0x183022,
+        color: 0x14281c,
         roughness: 0.2,
-        metalness: 0.9,
+        metalness: 0.92,
         wireframe: true
     });
 
-    const chipPositions = [
-        { x: -9, y: 1.8, z: -5.5, w: 3.5, h: 2.2, d: 2.5 },
-        { x: -4, y: 3.2, z: -8.0, w: 4.0, h: 4.5, d: 3.0 },
-        { x: 2, y: 2.2, z: -6.0, w: 3.2, h: 2.8, d: 2.5 },
-        { x: 8, y: 3.8, z: -9.5, w: 5.0, h: 5.0, d: 3.5 },
-        { x: -14, y: 4.5, z: -12.0, w: 6.0, h: 6.5, d: 4.0 },
-        { x: 14, y: 4.0, z: -11.0, w: 5.5, h: 5.5, d: 3.8 }
+    const chipDefs = [
+        { x: -9.5, y: 2.2, z: -6.5, w: 4.2, h: 3.2, d: 3.0, label: 'STM32F405', sub: 'ARM CORTEX-M4' },
+        { x: -3.5, y: 3.8, z: -8.5, w: 4.8, h: 4.8, d: 3.5, label: 'XILINX ARTIX', sub: 'FPGA MATRIX' },
+        { x: 3.5, y: 2.6, z: -7.0, w: 3.8, h: 3.4, d: 3.0, label: 'CYPRESS FX3', sub: 'USB 3.0 PHY' },
+        { x: 10.0, y: 4.2, z: -10.0, w: 5.5, h: 5.5, d: 3.8, label: 'ALTERA CYCLONE', sub: 'LOGIC ARRAY' },
+        { x: -16.0, y: 5.0, z: -13.0, w: 6.5, h: 7.0, d: 4.5, label: 'TI TMS320', sub: 'DSP ENGINE' },
+        { x: 16.5, y: 4.5, z: -12.0, w: 6.0, h: 6.0, d: 4.0, label: 'ESP32-S3', sub: 'DUAL XTENSA' }
     ];
 
-    for (const cp of chipPositions) {
+    const ledGeo = new THREE.SphereGeometry(0.08, 8, 8);
+    const ledColors = [0x3ee6a0, 0x00ffff, 0xffd875];
+
+    chipDefs.forEach((cp, idx) => {
         const chip = new THREE.Mesh(new THREE.BoxGeometry(cp.w, cp.h, cp.d), chipMat);
         chip.position.set(cp.x, cp.y, cp.z);
-        horizonGroup.add(chip);
+        hGroup.add(chip);
 
-        const fins = new THREE.Mesh(new THREE.BoxGeometry(cp.w * 0.9, 0.4, cp.d * 0.9), heatsinkMat);
-        fins.position.set(cp.x, cp.y + cp.h / 2 + 0.2, cp.z);
-        horizonGroup.add(fins);
+        // Silkscreen front label
+        const silkTex = createChipSilkscreenTexture(cp.label, cp.sub);
+        if (silkTex) {
+            const silkMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(cp.w * 0.85, cp.h * 0.75),
+                new THREE.MeshBasicMaterial({ map: silkTex, transparent: true, opacity: 0.9 })
+            );
+            silkMesh.position.set(cp.x, cp.y, cp.z + cp.d / 2 + 0.02);
+            hGroup.add(silkMesh);
+        }
+
+        // Extruded cooling fins
+        const fins = new THREE.Mesh(new THREE.BoxGeometry(cp.w * 0.92, 0.45, cp.d * 0.92), heatsinkMat);
+        fins.position.set(cp.x, cp.y + cp.h / 2 + 0.22, cp.z);
+        hGroup.add(fins);
+
+        // Status LED at top-left pin 1
+        const ledMat = new THREE.MeshBasicMaterial({
+            color: ledColors[idx % ledColors.length],
+            transparent: true,
+            opacity: 0.85
+        });
+        const led = new THREE.Mesh(ledGeo, ledMat);
+        led.position.set(cp.x - cp.w / 2 + 0.25, cp.y + cp.h / 2 + 0.1, cp.z + cp.d / 2 + 0.05);
+        hGroup.add(led);
+        monolithLeds.push({ led, phase: idx * 1.3, freq: 2.2 + idx * 0.6 });
+    });
+
+    // 2. Giant Holographic Oscilloscope Sky Projection
+    const scopeTex = createScopeGridTexture();
+    if (scopeTex) {
+        const scopeScreen = new THREE.Mesh(
+            new THREE.PlaneGeometry(16, 7.5),
+            new THREE.MeshBasicMaterial({
+                map: scopeTex,
+                transparent: true,
+                opacity: 0.42,
+                side: THREE.DoubleSide,
+                blending: THREE.AdditiveBlending
+            })
+        );
+        scopeScreen.position.set(0, 6.2, -12.0);
+        scopeScreen.rotation.x = 0.12;
+        hGroup.add(scopeScreen);
     }
 
-    // 2. Distant cylindrical ferrite choke coils
+    const scopeLinePos = new Float32Array(SKY_SCOPE_PTS * 3);
+    for (let i = 0; i < SKY_SCOPE_PTS; i++) {
+        scopeLinePos[i * 3] = -7.5 + (i / (SKY_SCOPE_PTS - 1)) * 15.0;
+        scopeLinePos[i * 3 + 1] = 6.2;
+        scopeLinePos[i * 3 + 2] = -11.9;
+    }
+    const scopeLineGeo = new THREE.BufferGeometry();
+    scopeLineGeo.setAttribute('position', new THREE.BufferAttribute(scopeLinePos, 3));
+    skyScopeLine = new THREE.Line(
+        scopeLineGeo,
+        new THREE.LineBasicMaterial({
+            color: 0x00ffff,
+            linewidth: 2,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending
+        })
+    );
+    hGroup.add(skyScopeLine);
+
+    // 3. Volumetric Floating Electron Dust Cloud
+    const dustGeo = new THREE.BufferGeometry();
+    dustPositions = new Float32Array(DUST_COUNT * 3);
+    for (let i = 0; i < DUST_COUNT; i++) {
+        dustPositions[i * 3] = (Math.random() - 0.5) * 24;
+        dustPositions[i * 3 + 1] = Math.random() * 5.0 + 0.2;
+        dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 8 - 2;
+    }
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+    const dustMat = new THREE.PointsMaterial({
+        color: 0x3ee6a0,
+        size: 0.065,
+        transparent: true,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending
+    });
+    electronDust = new THREE.Points(dustGeo, dustMat);
+    gameScene.add(electronDust);
+
+    // 4. Distant cylindrical ferrite choke coils
     const chokeGeo = new THREE.CylinderGeometry(0.7, 0.7, 1.8, 16);
     const chokeMat = new THREE.MeshStandardMaterial({
         color: 0x9b6b28,
@@ -444,13 +622,13 @@ function buildHorizon() {
     for (let c = 0; c < 5; c++) {
         const choke = new THREE.Mesh(chokeGeo, chokeMat);
         choke.position.set(-10 + c * 5.0, 1.2, -4.2);
-        horizonGroup.add(choke);
+        hGroup.add(choke);
     }
 
-    // 3. Glowing Cyber Horizon Data Grid
+    // 5. Glowing Cyber Horizon Data Grid
     const gridHelper = new THREE.GridHelper(50, 50, 0x3ee6a0, 0x0c3820);
     gridHelper.position.set(0, -0.05, -7);
-    horizonGroup.add(gridHelper);
+    hGroup.add(gridHelper);
 }
 
 /**
@@ -1415,11 +1593,25 @@ export function update3dGame(delta, sim) {
         lastSimState = sim.state;
     }
 
-    // 2. Camera FOV Speed Warp
-    const targetFov = sim.dashing ? 68.0 : (sim.turbo > 0 ? 64.0 : 56.0);
+    // 2. Camera FOV Speed Warp & Jump Tilt Kinematics
+    const targetFov = sim.dashing ? 68.0 : (sim.turbo > 0 ? 64.0 : 54.0);
     currentCameraFov = THREE.MathUtils.lerp(currentCameraFov, targetFov, delta * 6.0);
     gameCamera.fov = currentCameraFov;
     gameCamera.updateProjectionMatrix();
+
+    // Jump 2° camera tilt and landing compression shake
+    const isJumping = !sim.onGround;
+    const targetRoll = isJumping ? -0.035 : 0; // ~2 degrees
+    const targetPitch = isJumping ? 0.022 : 0;
+    gameCamera.rotation.z = THREE.MathUtils.lerp(gameCamera.rotation.z, targetRoll, delta * 9.0);
+    gameCamera.rotation.x = THREE.MathUtils.lerp(gameCamera.rotation.x, targetPitch, delta * 9.0);
+
+    if (wasJumpingIn3d && sim.onGround && sim.state === 'playing') {
+        cameraShake = Math.max(cameraShake, 0.28);
+        wasJumpingIn3d = false;
+    } else if (!sim.onGround) {
+        wasJumpingIn3d = true;
+    }
 
     // 3. Camera Shake Decay & Jitter
     if (sim.electrons > lastObservedElectrons) {
@@ -1446,7 +1638,45 @@ export function update3dGame(delta, sim) {
     gameCamera.position.set(shakeX, 1.45 + bob + shakeY, 5.2);
     gameCamera.lookAt(0.2 + shakeX, 0.95, 0.0);
 
-    // 5. Update Shatter Shards if game is over
+    // 5. Update Holographic Sky Oscilloscope Waveform Line
+    if (skyScopeLine && skyScopeLine.geometry) {
+        const posAttr = /** @type {THREE.BufferAttribute} */ (skyScopeLine.geometry.attributes.position);
+        const arr = posAttr.array;
+        const t = (sim.dist || 0) * 0.18;
+        const isOverclock = sim.overclock > 0 || sim.dist >= 1000;
+        for (let i = 0; i < SKY_SCOPE_PTS; i++) {
+            const xNorm = i / SKY_SCOPE_PTS;
+            const wave = Math.sin(xNorm * (isOverclock ? 32 : 18) + t) * Math.cos(xNorm * 8 + t * 0.4) * (isOverclock ? 1.4 : 0.95);
+            arr[i * 3 + 1] = 6.2 + wave;
+        }
+        posAttr.needsUpdate = true;
+    }
+
+    // 6. Blink IC Monolith Status LEDs
+    monolithLeds.forEach((item) => {
+        item.phase += delta * item.freq;
+        const bright = Math.sin(item.phase) > 0.15 ? 1.0 : 0.15;
+        if (item.led.material instanceof THREE.MeshBasicMaterial) {
+            item.led.material.opacity = bright;
+        }
+    });
+
+    // 7. Drift Volumetric Electron Dust Particles
+    if (electronDust && electronDust.geometry) {
+        const dPos = /** @type {THREE.BufferAttribute} */ (electronDust.geometry.attributes.position);
+        const dArr = dPos.array;
+        const driftX = (sim.curSpeed || 85) * delta * 0.035;
+        for (let i = 0; i < DUST_COUNT; i++) {
+            dArr[i * 3] -= driftX;
+            if (dArr[i * 3] < -12) {
+                dArr[i * 3] += 24;
+                dArr[i * 3 + 1] = Math.random() * 5.0 + 0.2;
+            }
+        }
+        dPos.needsUpdate = true;
+    }
+
+    // 8. Update Shatter Shards if game is over
     if (sim.state === 'over' && shatterGroup && shatterGroup.visible) {
         for (let i = 0; i < SHARD_COUNT; i++) {
             const s = shardData[i];
@@ -1468,7 +1698,7 @@ export function update3dGame(delta, sim) {
             signalLostMesh.position.y = 1.75 + Math.sin(sim.overAccum ? sim.overAccum * 3.5 : 0) * 0.04;
         }
     } else {
-        // 6. Advance Track Tiles horizontally to the left (-X) based on speed
+        // 9. Advance Track Tiles horizontally to the left (-X) based on speed
         const trackSpeed = sim.curSpeed || 85;
         const scrollX = (trackSpeed * delta * 0.045);
 
@@ -1486,18 +1716,34 @@ export function update3dGame(delta, sim) {
             }
         }
 
-        // 7. Update 3D Obstacles
+        // 10. Update 3D Obstacles
         updateObstacles(delta, sim);
 
-        // 8. Update 3D Collectibles & Power-ups
+        // 11. Update 3D Collectibles & Power-ups
         updateCollectibles(delta, sim);
 
-        // 9. Update 3D Cyber-Pulse Avatar
+        // 12. Update 3D Cyber-Pulse Avatar
         updatePlayer(delta, sim);
     }
 
-    // 10. Render 3D Sub-Scene to CRT canvas
+    // 13. Render 3D Scene
     gameRenderer.render(gameScene, gameCamera);
+}
+
+/**
+ * Dynamically resize the 3D game viewport to match full browser dimensions.
+ */
+export function resize3dGame() {
+    if (!gameRenderer || !gameCamera || !boundCanvas) return;
+    if (typeof window === 'undefined') return;
+    if (boundCanvas.id !== 'diag-sim-canvas') return;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    boundCanvas.width = w;
+    boundCanvas.height = h;
+    gameCamera.aspect = w / h;
+    gameCamera.updateProjectionMatrix();
+    gameRenderer.setSize(w, h, false);
 }
 
 /**
@@ -1521,3 +1767,4 @@ export function get3dGameCanvas() {
 export function get3dCanvas() {
     return boundCanvas;
 }
+

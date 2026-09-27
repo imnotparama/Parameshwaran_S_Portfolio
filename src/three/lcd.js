@@ -58,12 +58,12 @@ import * as THREE from 'three';
 import { disposableResources, triggerCameraShake } from './scene.js';
 import { interactiveObjects, energizeCapacitor, triggerCapacitorOverdrive, siliconDieMesh } from './components.js';
 import { motionPrefs } from '../utils/motion-prefs.js';
-import { clickBlip, playOverclockTurbineSound } from '../utils/sound.js';
+import { clickBlip, playOverclockTurbineSound, playDiagnosticEnterSound, playDiagnosticExitSound } from '../utils/sound.js';
 import { dockDrone, undockDrone } from './drone.js';
 import { setPinsGameFocus } from './playground-props.js';
 import { energizeTraceAtPoint, energizeTraceForSection } from './traces.js';
 import { setThermalLoad } from './thermal.js';
-import { init3dGame, update3dGame, is3dGameReady, get3dCanvas } from './lcd-game-3d.js';
+import { init3dGame, update3dGame, is3dGameReady, get3dCanvas, resize3dGame } from './lcd-game-3d.js';
 // The pure SIGNAL RUNNER simulation — zero THREE/DOM (lcd-sim.js). The sim
 // owns the game state, physics, persistence, and the snapshot seam; this
 // module owns the meshes, the canvas texture, and the drawing.
@@ -797,9 +797,10 @@ export function focusLcd(replayBoot = false) {
     // old SIGNAL REPAIR's; a real module boots when powered).
     if (typeof document !== 'undefined') {
         document.body.classList.add('lcd-active');
-        // Hide sidebar content during gameplay — the game IS the content.
-        // A small minimized LinkedIn CTA stays visible (css: .lcd-game-minicta).
+        // Expand simulation to full-screen and blur the background PCB
         document.body.classList.add('lcd-game-focus');
+        playDiagnosticEnterSound();
+        resize3dGame();
     }
     // Focus is an EXPLICIT user action, so the machine powers on and the run
     // auto-starts even under prefers-reduced-motion — reduced motion only
@@ -813,7 +814,8 @@ export function focusLcd(replayBoot = false) {
     setPinsGameFocus(true);
     reducedStaticDrawn = false;
     renderLeaderboard(simView());
-    logUart('[SYS] LCD1 2.4" ST7789V subsystem online', 'pulse');
+    logUart('>>> DIRECT PROBE ATTACHED: ENTERING DIAGNOSTIC SIMULATION <<<', 'pulse');
+    logUart('[SYS] Subsystem inside copper trace 0x01 locked · 60Hz WebGL stream', 'info');
 }
 
 /** Leaderboard HTML list population — called on focus and game over
@@ -1274,15 +1276,15 @@ function updateArcadeStation(sim) {
 /** Leave the game — power the display back down (a real LCD module). */
 export function exitLcd() {
     if (typeof document !== 'undefined') {
+        playDiagnosticExitSound();
         document.body.classList.remove('lcd-active');
-        // Restore the full sidebar on exit.
         document.body.classList.remove('lcd-game-focus');
         ['arcade-btn-jump', 'arcade-btn-slide', 'arcade-btn-dash', 'arcade-btn-restart', 'arcade-btn-exit'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.remove('btn-pressed');
         });
-        logUart('[SYS] Diagnostic routine completed', 'info');
-        logUart('[LCD] Display subsystem verified · Bus released', 'info');
+        logUart('>>> SIMULATION DISCONNECTED // PROBE DETACHED <<<', 'info');
+        logUart('[SYS] Camera retracted to motherboard workspace', 'info');
         logUart('[EEPROM] Diagnostic session archived to non-volatile memory', 'info');
     }
     undockDrone();

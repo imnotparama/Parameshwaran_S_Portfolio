@@ -239,6 +239,98 @@ export function playOverclockTurbineSound(duration = 5.0) {
     }
 }
 
+/**
+ * High-tech portal warp sound for entering the full-screen Diagnostic Simulation.
+ * Synthesizes an ionization static pop, upward frequency warp, sub-bass pulse, and confirm pip.
+ */
+export function playDiagnosticEnterSound() {
+    if (!enabled) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+
+        // 1. Upward warp sweep
+        const warpOsc = ctx.createOscillator();
+        const warpGain = ctx.createGain();
+        warpOsc.type = 'sine';
+        warpOsc.frequency.setValueAtTime(140, t0);
+        warpOsc.frequency.exponentialRampToValueAtTime(1180, t0 + 0.38);
+
+        warpGain.gain.setValueAtTime(0.0001, t0);
+        warpGain.gain.exponentialRampToValueAtTime(0.045, t0 + 0.08);
+        warpGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.42);
+
+        warpOsc.connect(warpGain);
+        warpGain.connect(ctx.destination);
+        warpOsc.start(t0);
+        warpOsc.stop(t0 + 0.45);
+
+        // 2. Sub-bass power thump
+        const subOsc = ctx.createOscillator();
+        const subGain = ctx.createGain();
+        subOsc.type = 'triangle';
+        subOsc.frequency.setValueAtTime(80, t0);
+        subOsc.frequency.exponentialRampToValueAtTime(36, t0 + 0.3);
+
+        subGain.gain.setValueAtTime(0.06, t0);
+        subGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35);
+
+        subOsc.connect(subGain);
+        subGain.connect(ctx.destination);
+        subOsc.start(t0);
+        subOsc.stop(t0 + 0.38);
+
+        // 3. Dual high-tech confirmation pips at t0 + 0.28 and t0 + 0.36
+        [0.28, 0.36].forEach((delay, idx) => {
+            const pip = ctx.createOscillator();
+            const pipGain = ctx.createGain();
+            pip.type = 'sine';
+            pip.frequency.value = idx === 0 ? 1560 : 2080;
+            pipGain.gain.setValueAtTime(0.0001, t0 + delay);
+            pipGain.gain.exponentialRampToValueAtTime(0.03, t0 + delay + 0.015);
+            pipGain.gain.exponentialRampToValueAtTime(0.0001, t0 + delay + 0.08);
+            pip.connect(pipGain);
+            pipGain.connect(ctx.destination);
+            pip.start(t0 + delay);
+            pip.stop(t0 + delay + 0.09);
+        });
+    } catch {
+        // Safe under AudioContext restrictions
+    }
+}
+
+/**
+ * Sci-fi diagnostic simulation exit / disconnect sound effect.
+ */
+export function playDiagnosticExitSound() {
+    if (!enabled) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, t0);
+        osc.frequency.exponentialRampToValueAtTime(140, t0 + 0.28);
+
+        gain.gain.setValueAtTime(0.04, t0);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.32);
+    } catch {
+        // Safe under AudioContext restrictions
+    }
+}
+
+
 // ─── Tactile relay + switch sounds ──────────────────────────────
 // Mechanical feedback for physical actions (night-bench relay, membrane
 // switch section jumps). Same master gate as every blip — silent unless the

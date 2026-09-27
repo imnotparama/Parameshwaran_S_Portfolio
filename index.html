@@ -719,13 +719,17 @@
     <!-- LCD Hardware Diagnostic Station & Telemetry Deck -->
     <!-- LCD Hardware Diagnostic Station & Telemetry Deck -->
     <section id="lcd-arcade-station" class="lcd-diagnostic-station" aria-label="Signal Runner Hardware Diagnostic Station">
-        <div class="diag-deck-frame">
-            <!-- Header bar: Altium / Saleae inspired clean layout -->
+        <!-- Full-Screen 3D WebGL Viewport Canvas: renders the player running inside the copper PCB traces -->
+        <canvas id="diag-sim-canvas" class="diag-sim-canvas" aria-label="3D Hardware Diagnostic Simulation Inside PCB"></canvas>
+        <div class="diag-sim-scanlines" aria-hidden="true"></div>
+
+        <div class="diag-deck-frame diag-sim-hud">
+            <!-- Header bar: Sci-fi tactical diagnostic HUD layout -->
             <div class="diag-header">
                 <div class="diag-title-group">
-                    <span class="diag-ref">INSTRUMENT // ST7789V 2.4" TFT · BUS DIAGNOSTICS</span>
-                    <h2 class="diag-title">SYSTEM TELEMETRY <span class="diag-badge">HARDWARE OS</span></h2>
-                    <span class="diag-sub">DIAGNOSTIC ROUTINE // RECONNECT IMPEDANCE-MATCHED CARRIER TRACES</span>
+                    <span class="diag-ref">PROBE ACTIVE // INSIDE COPPER BUS TRACE 0x01</span>
+                    <h2 class="diag-title">DIAGNOSTIC SIMULATION <span class="diag-badge">PHY OVERRIDE</span></h2>
+                    <span class="diag-sub">DIRECT IN-CHIP AUDIT // ROUTING DIFFERENTIAL HIGH-SPEED CARRIER</span>
                 </div>
                 <div class="diag-header-actions">
                     <div class="diag-live-status">
@@ -739,7 +743,7 @@
                         </button>
                         <button type="button" class="diag-btn-action btn-danger" id="arcade-btn-exit" aria-label="Exit diagnostic mode">
                             <span class="diag-btn-key">ESC</span>
-                            <span class="diag-btn-txt">RELEASE</span>
+                            <span class="diag-btn-txt">DISCONNECT</span>
                         </button>
                     </div>
                 </div>
