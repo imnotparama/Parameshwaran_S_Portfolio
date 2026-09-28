@@ -758,8 +758,11 @@
                 <!-- Live High-Frequency Bus Waveform (Oscilloscope Canvas) -->
                 <div class="diag-scope-panel">
                     <div class="diag-scope-header">
-                        <span class="diag-scope-title">LIVE BUS WAVEFORM // HIGH-SPEED SPI DIFFERENTIAL CARRIER</span>
-                        <span class="diag-scope-rate" id="diag-scope-rate">16.000 MHz · 500 mV/div</span>
+                        <span class="diag-scope-title" id="diag-scope-title">LIVE BUS WAVEFORM // SPI CARRIER</span>
+                        <div class="diag-scope-ctrls">
+                            <button type="button" class="diag-scope-mode-btn" id="diag-scope-mode-btn" title="Cycle Oscilloscope Display Mode (Analog / Logic / FFT)">MODE: ANALOG</button>
+                            <span class="diag-scope-rate" id="diag-scope-rate">16.000 MHz · 500 mV/div</span>
+                        </div>
                     </div>
                     <canvas id="diag-scope-canvas" class="diag-scope-canvas" width="480" height="38" aria-label="Live oscilloscope bus waveform"></canvas>
                 </div>

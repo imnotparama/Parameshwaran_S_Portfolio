@@ -1038,6 +1038,26 @@ export function logUart(msg, type = 'info') {
 
 let scopePhase = 0;
 let lastScopeTime = 0;
+let scopeDisplayMode = 0; // 0: ANALOG, 1: LOGIC, 2: FFT SPECTRUM
+const SCOPE_MODE_NAMES = ['MODE: ANALOG', 'MODE: LOGIC', 'MODE: FFT SPECTRUM'];
+const SCOPE_TITLE_NAMES = [
+    'LIVE BUS WAVEFORM // SPI CARRIER',
+    '4-CH LOGIC ANALYZER // CLK MOSI MISO CS',
+    'FFT SPECTRUM ANALYZER // HARMONICS'
+];
+
+/**
+ * Cycle oscilloscope display between ANALOG, LOGIC, and FFT SPECTRUM.
+ */
+export function cycleScopeDisplayMode() {
+    scopeDisplayMode = (scopeDisplayMode + 1) % 3;
+    if (typeof document !== 'undefined') {
+        const btn = document.getElementById('diag-scope-mode-btn');
+        if (btn) btn.textContent = SCOPE_MODE_NAMES[scopeDisplayMode];
+        const title = document.getElementById('diag-scope-title');
+        if (title) title.textContent = SCOPE_TITLE_NAMES[scopeDisplayMode];
+    }
+}
 
 /**
  * Draw real-time high-frequency logic analyzer / oscilloscope carrier waveform on `#diag-scope-canvas`.
@@ -1065,7 +1085,13 @@ function drawScopeWaveform(sim) {
     // Dynamic frequency readout update
     const rateEl = document.getElementById('diag-scope-rate');
     if (rateEl) {
-        rateEl.textContent = isOverclock ? 'TURBO · 200.000 MHz · 1.0 V/div' : '16.000 MHz · 500 mV/div';
+        if (scopeDisplayMode === 1) {
+            rateEl.textContent = isOverclock ? '4-CH · 50.0 MS/s' : '4-CH · 10.0 MS/s';
+        } else if (scopeDisplayMode === 2) {
+            rateEl.textContent = isOverclock ? 'FFT · RBW 100 kHz · 0-250 MHz' : 'FFT · RBW 50 kHz · 0-80 MHz';
+        } else {
+            rateEl.textContent = isOverclock ? 'TURBO · 200.000 MHz · 1.0 V/div' : '16.000 MHz · 500 mV/div';
+        }
         rateEl.style.color = isOverclock ? '#ffd875' : '';
     }
 
@@ -1077,6 +1103,142 @@ function drawScopeWaveform(sim) {
     ctx.fillStyle = '#020b05';
     ctx.fillRect(0, 0, w, h);
 
+    if (scopeDisplayMode === 1) {
+        // MODE 1: 4-CHANNEL DIGITAL LOGIC ANALYZER (CLK, MOSI, MISO, CS)
+        const numChannels = 4;
+        const laneH = h / numChannels;
+        const channels = [
+            { name: 'CLK', color: '#00ffff' },
+            { name: 'MOSI', color: '#3ee6a0' },
+            { name: 'MISO', color: '#ffd875' },
+            { name: 'CS', color: '#a78bfa' }
+        ];
+
+        for (let ch = 0; ch < numChannels; ch++) {
+            const laneY = ch * laneH;
+            const lowY = laneY + laneH - 2;
+            const highY = laneY + 2;
+
+            // Faint lane divider
+            ctx.strokeStyle = 'rgba(62, 230, 160, 0.08)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(0, laneY);
+            ctx.lineTo(w, laneY);
+            ctx.stroke();
+
+            // Channel Label
+            ctx.fillStyle = channels[ch].color;
+            ctx.font = 'bold 5.5px monospace';
+            ctx.fillText(channels[ch].name, 2, laneY + 6);
+
+            // Digital waveform
+            ctx.strokeStyle = isOver ? '#f87171' : channels[ch].color;
+            ctx.lineWidth = 1.0;
+            ctx.beginPath();
+
+            const clkPeriod = isOverclock ? 16 : 24;
+            let lastLevel = false;
+
+            for (let x = 20; x < w; x++) {
+                let bitVal = false;
+                if (isOver) {
+                    bitVal = Math.random() > 0.88;
+                } else if (ch === 0) {
+                    // Periodic CLK
+                    bitVal = ((x + scopePhase * clkPeriod) % clkPeriod) < (clkPeriod * 0.5);
+                } else if (ch === 1) {
+                    // MOSI data stream (pseudo-random bits modulated by distance)
+                    const bitIdx = Math.floor((x + scopePhase * clkPeriod * 0.5) / 12);
+                    bitVal = ((bitIdx * 2654435761 + Math.floor(sim.dist * 0.1)) >>> 0) % 3 !== 0;
+                } else if (ch === 2) {
+                    // MISO response (pulses active on electron collection / run)
+                    const bitIdx = Math.floor((x + scopePhase * clkPeriod * 0.25) / 16);
+                    bitVal = isRunning && (((bitIdx * 1597334677 + sim.electrons) >>> 0) % 4 === 0);
+                } else {
+                    // CS (Chip Select - active LOW during run, HIGH during pause/idle)
+                    bitVal = !isRunning;
+                }
+
+                const y = bitVal ? highY : lowY;
+                if (x === 20) {
+                    ctx.moveTo(x, y);
+                    lastLevel = bitVal;
+                } else {
+                    if (bitVal !== lastLevel) {
+                        ctx.lineTo(x, lastLevel ? highY : lowY);
+                        ctx.lineTo(x, y);
+                        lastLevel = bitVal;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+            }
+            ctx.stroke();
+        }
+        return;
+    }
+
+    if (scopeDisplayMode === 2) {
+        // MODE 2: FFT SPECTRUM ANALYZER (Harmonics & Noise Floor)
+        const numBins = 24;
+        const binW = (w - 16) / numBins;
+        const startX = 12;
+
+        // Faint dB graticule lines
+        ctx.strokeStyle = 'rgba(62, 230, 160, 0.1)';
+        ctx.lineWidth = 0.5;
+        ctx.setLineDash([2, 3]);
+        for (let g = 1; g <= 3; g++) {
+            ctx.beginPath();
+            ctx.moveTo(startX, (h / 4) * g);
+            ctx.lineTo(w, (h / 4) * g);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+
+        // Spectrum bars
+        for (let b = 0; b < numBins; b++) {
+            let magnitude = 0.05; // noise floor
+            if (isOver) {
+                magnitude = 0.05 + Math.random() * 0.12;
+            } else {
+                // Fundamental carrier at bin 2 (16MHz) or bin 6 (200MHz turbo)
+                const fBin = isOverclock ? 6 : 2;
+                if (b === fBin) {
+                    magnitude = isOverclock ? 0.92 : 0.85;
+                } else if (b % fBin === 0 && b > fBin) {
+                    // Odd harmonics of square wave decay with 1/n
+                    const harmonicOrder = b / fBin;
+                    magnitude = (0.75 / harmonicOrder) * (1.0 + Math.sin(now * 8 + b) * 0.1);
+                } else {
+                    magnitude = 0.04 + Math.sin(b * 1.5 + now * 5) * 0.03 + (Math.random() * 0.03);
+                }
+                if (isDash) magnitude *= 1.15;
+            }
+
+            const barH = Math.min(h - 4, magnitude * (h - 4));
+            const bx = startX + b * binW;
+            const by = h - 2 - barH;
+
+            // Gradient color from cyan/green to yellow at peaks
+            ctx.fillStyle = magnitude > 0.7 ? '#ffd875' : magnitude > 0.4 ? '#3ee6a0' : 'rgba(62, 230, 160, 0.55)';
+            ctx.fillRect(bx + 1, by, binW - 2, barH);
+
+            // Peak cap line
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(bx + 1, by - 1, binW - 2, 1);
+        }
+
+        // FFT axis label
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.65)';
+        ctx.font = '5.5px monospace';
+        ctx.fillText('0', startX, h - 2);
+        ctx.fillText(isOverclock ? '250M' : '80M', w - 18, h - 2);
+        return;
+    }
+
+    // MODE 0: ANALOG TIME-DOMAIN OSCILLOSCOPE (Default)
     // Faint oscilloscope graticule (centerline + horizontal thresholds)
     ctx.strokeStyle = isOverclock ? 'rgba(255, 216, 117, 0.22)' : 'rgba(62, 230, 160, 0.12)';
     ctx.lineWidth = 1;
@@ -1804,6 +1966,23 @@ export function createLcd(boardGroup) {
                 } catch (err) {
                     console.warn('Share copy error:', err);
                 }
+            });
+        }
+
+        const scopeModeBtn = document.getElementById('diag-scope-mode-btn');
+        if (scopeModeBtn) {
+            scopeModeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                cycleScopeDisplayMode();
+            });
+        }
+        const scopeCanvas = document.getElementById('diag-scope-canvas');
+        if (scopeCanvas) {
+            scopeCanvas.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                cycleScopeDisplayMode();
             });
         }
     };
