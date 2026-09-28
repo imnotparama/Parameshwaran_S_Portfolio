@@ -35,7 +35,7 @@
 // pin exact death distances, layouts, and effect bounds.
 // ============================================================
 import { motionPrefs } from '../utils/motion-prefs.js';
-import { gameBeep, loseBuzz, powerUpBeep, jumpBlip, dashBlip, slideBlip, playRecordFanfare } from '../utils/sound.js';
+import { gameBeep, loseBuzz, powerUpBeep, jumpBlip, dashBlip, slideBlip, playRecordFanfare, capacitiveSlamBlip, resonantComboChime, cleanroomSirenAlert } from '../utils/sound.js';
 
 // ─── LCD geometry — 128×64, one pixel = one screen pixel ────
 const CANVAS_W = 128;
@@ -189,6 +189,8 @@ let dashing = false;
 let dashTimer = 0;
 let dashCd = 0;
 let invuln = 0;                 // seconds of obstacle pass-through
+let slamActive = false;         // mid-air downward capacitive dive
+let slamPulseTime = 0;          // ground impact shockwave duration (seconds remaining)
 
 // Power-up effects (remaining seconds; shield is a one-shot flag).
 let shield = false;
@@ -265,6 +267,8 @@ function startRun() {
     dashTimer = 0;
     dashCd = 0;
     invuln = 0;
+    slamActive = false;
+    slamPulseTime = 0;
     shield = false;
     overclock = 0;
     turbo = 0;
@@ -480,7 +484,15 @@ function doJump() {
 }
 
 function doSlide() {
-    if (state !== 'playing' || !onGround) return;
+    if (state !== 'playing') return;
+    if (!onGround) {
+        // Aerial downward capacitive slam / dive down to copper plane
+        vy = Math.max(vy, 420);
+        slamActive = true;
+        dirty = true;
+        capacitiveSlamBlip();
+        return;
+    }
     sliding = true;
     slideTimer = SLIDE_FAST;
     slideBlip();
@@ -520,6 +532,7 @@ function stepPlay(delta) {
     turbo = Math.max(0, turbo - delta);
     stabilizer = Math.max(0, stabilizer - delta);
     magnet = Math.max(0, magnet - delta);
+    slamPulseTime = Math.max(0, slamPulseTime - delta);
     if (dashing) {
         dashTimer -= delta;
         if (dashTimer <= 0) dashing = false;
@@ -540,6 +553,7 @@ function stepPlay(delta) {
         milestonePx = milestoneNext;
         milestoneNext += MILESTONE_PX;
         fxMilestone = FX_MILESTONE_SEC;
+        cleanroomSirenAlert();
         dirty = true;
     }
     scoreAccum += speed * delta / SCORE_PX;
@@ -553,6 +567,11 @@ function stepPlay(delta) {
             vy = 0;
             onGround = true;
             jumpsUsed = 0;
+            if (slamActive) {
+                slamActive = false;
+                slamPulseTime = 0.35;
+                capacitiveSlamBlip();
+            }
         }
     }
     // Scroll actors; relays oscillate vertically (deterministic sine).
@@ -588,6 +607,7 @@ function stepPlay(delta) {
         if (box.x < e.x + 2 && box.x + box.w > e.x && box.y < e.y + 2 && box.y + box.h > e.y) {
             electrons++;
             gameBeep();
+            if (combo > 1) resonantComboChime(combo);
             return false;
         }
         return true;
@@ -750,7 +770,7 @@ export function simView() {
         maxCombo, perfects, overAccum, pauseAccum, newRecord, fxCelebrate,
         fxDip, fxMilestone, milestoneNext, milestonePx, playerActive, debug,
         px, py, vy, onGround, jumpsUsed, sliding, slideTimer, dashing,
-        dashTimer, dashCd, invuln, shield, overclock, turbo, stabilizer,
+        dashTimer, dashCd, invuln, slamActive, slamPulseTime, shield, overclock, turbo, stabilizer,
         magnet, actors, fieldEls, particles, spawnAccum, elSpawnAccum,
         lcgSeed, currentSeed, bestScore, bestSeed, leaderboard, achvUnlocked,
         achvNewThisRun, glowCurrent

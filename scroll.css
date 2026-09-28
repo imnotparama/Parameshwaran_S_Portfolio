@@ -4572,6 +4572,27 @@ body.lcd-game-focus .lcd-diagnostic-station {
     align-items: center;
     gap: 5px;
 }
+.diag-reg-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(1, 15, 8, 0.65);
+    border: 1px solid rgba(62, 230, 160, 0.2);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-family: var(--font-mono, monospace);
+    font-size: 8px;
+    letter-spacing: 0.05em;
+    user-select: none;
+}
+.diag-reg-hex {
+    font-weight: 700;
+    color: #ffd875;
+}
+.diag-reg-bits {
+    color: #3ee6a0;
+    opacity: 0.85;
+}
 .diag-reg-flag {
     font-size: 7.5px;
     padding: 1px 4px;

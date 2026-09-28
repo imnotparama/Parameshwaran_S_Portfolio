@@ -210,6 +210,8 @@ const synapticPulses = [];
 let gantryArmGroup = null;
 /** @type {THREE.Mesh | null} */
 let armSegmentMesh = null;
+/** @type {Array<THREE.Group>} */
+const foupPods = [];
 
 // Parallax Layer 5: Datacenter Server Racks
 /** @type {Array<{ mesh: THREE.Mesh, leds: Array<THREE.MeshBasicMaterial> }>} */
@@ -708,6 +710,57 @@ function buildRoboticGantry(hGroup) {
     gantryArmGroup.add(laserCone);
 
     hGroup.add(gantryArmGroup);
+}
+
+/**
+ * Builds overhead cleanroom automated wafer carrier pods (FOUPs on OHT ceiling monorail track).
+ * @param {THREE.Group} hGroup
+ */
+function buildFoupMonorail(hGroup) {
+    foupPods.length = 0;
+    // Overhead ceiling monorail guide rail
+    const monorailGeo = new THREE.BoxGeometry(40.0, 0.22, 0.35);
+    const monorailMat = new THREE.MeshStandardMaterial({
+        color: 0x16221c,
+        metalness: 0.9,
+        roughness: 0.22
+    });
+    const monorail = new THREE.Mesh(monorailGeo, monorailMat);
+    monorail.position.set(0, 7.9, -1.8);
+    hGroup.add(monorail);
+
+    // 3 FOUP pods (Front Opening Unified Pods) carrying 300mm silicon wafers
+    const podBodyGeo = new THREE.BoxGeometry(1.3, 0.75, 0.9);
+    const podBodyMat = new THREE.MeshStandardMaterial({
+        color: 0x0a1a14,
+        metalness: 0.8,
+        roughness: 0.28,
+        emissive: 0x02140e,
+        emissiveIntensity: 0.3
+    });
+    const podLedMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+
+    for (let i = 0; i < 3; i++) {
+        const podGrp = new THREE.Group();
+        const podBody = new THREE.Mesh(podBodyGeo, podBodyMat);
+        podGrp.add(podBody);
+
+        // Indicator LED on front of pod
+        const pLed = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.04), podLedMat);
+        pLed.position.set(0.55, 0, 0.46);
+        podGrp.add(pLed);
+
+        // Clear acrylic wafer inspection window
+        const winGeo = new THREE.PlaneGeometry(0.7, 0.35);
+        const winMat = new THREE.MeshBasicMaterial({ color: 0x3ee6a0, transparent: true, opacity: 0.4 });
+        const win = new THREE.Mesh(winGeo, winMat);
+        win.position.set(0, 0.05, 0.46);
+        podGrp.add(win);
+
+        podGrp.position.set(-14 + i * 14, 7.45, -1.8);
+        hGroup.add(podGrp);
+        foupPods.push(podGrp);
+    }
 }
 
 /**
@@ -1263,6 +1316,7 @@ function buildHorizon() {
 
     // 2. Parallax Layer 2: Overhead Automated Pick-and-Place & Laser Soldering Gantry
     buildRoboticGantry(hGroup);
+    buildFoupMonorail(hGroup);
 
     // Silicon Megafactory Machinery & Atmospheric Structures
     buildSiliconWafer(hGroup);
@@ -2436,10 +2490,11 @@ export function update3dGame(delta, sim) {
     gameCamera.rotation.x = THREE.MathUtils.lerp(gameCamera.rotation.x, targetPitch, delta * 9.0);
 
     if (wasJumpingIn3d && sim.onGround && sim.state === 'playing') {
-        cameraShake = Math.max(cameraShake, 0.28);
+        const isSlam = (sim.slamPulseTime && sim.slamPulseTime > 0) || sim.slamActive;
+        cameraShake = Math.max(cameraShake, isSlam ? 0.65 : 0.28);
         if (landingVibrationMesh && playerGroup) {
             landingVibrationMesh.position.set(playerGroup.position.x, 0.22, 0);
-            landingVibrationLife = 1.0;
+            landingVibrationLife = isSlam ? 1.4 : 1.0;
             landingVibrationMesh.visible = true;
         }
         wasJumpingIn3d = false;
@@ -2563,6 +2618,13 @@ export function update3dGame(delta, sim) {
             const flicker = Math.sin(simTime * 9.0 + r * 3.1 + l * 1.7) > 0.1 ? 0.9 : 0.12;
             rUnit.leds[l].opacity = flicker;
         }
+    }
+
+    // Animate FOUP automated wafer pods along ceiling track
+    for (let f = 0; f < foupPods.length; f++) {
+        const pod = foupPods[f];
+        pod.position.x += delta * 1.6;
+        if (pod.position.x > 20) pod.position.x = -20;
     }
 
     // Animate 3D AI Neural Network Synaptic Tensor Pulses (Layer 6)

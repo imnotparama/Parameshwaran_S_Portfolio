@@ -330,6 +330,80 @@ export function playDiagnosticExitSound() {
     }
 }
 
+/**
+ * Capacitive ground slam sound: low-frequency damped sub-thump + resonant discharge chirp.
+ */
+export function capacitiveSlamBlip() {
+    if (!enabled) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+
+        // Sub-harmonic impact thump
+        const sub = ctx.createOscillator();
+        const subGain = ctx.createGain();
+        sub.type = 'triangle';
+        sub.frequency.setValueAtTime(160, t0);
+        sub.frequency.exponentialRampToValueAtTime(38, t0 + 0.14);
+
+        subGain.gain.setValueAtTime(0.06, t0);
+        subGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+
+        sub.connect(subGain);
+        subGain.connect(ctx.destination);
+        sub.start(t0);
+        sub.stop(t0 + 0.18);
+
+        // Capacitive ring
+        blip(880, 0.06, 0.02, 'sine');
+    } catch {
+        // Safe under AudioContext policies
+    }
+}
+
+/**
+ * Resonant LC Tank Combo Chime: pitch scales with consecutive packet combo chains.
+ * @param {number} comboLevel
+ */
+export function resonantComboChime(comboLevel = 1) {
+    if (!enabled) return;
+    const notes = [880, 987.77, 1174.66, 1318.51, 1567.98, 1760, 2093];
+    const freq = notes[Math.min(notes.length - 1, Math.max(0, comboLevel - 1))];
+    blip(freq, 0.09, 0.035, 'triangle');
+    blip(freq * 1.5, 0.06, 0.015, 'sine');
+}
+
+/**
+ * Cleanroom emergency warning siren tone for 1000m overclock events.
+ */
+export function cleanroomSirenAlert() {
+    if (!enabled) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(640, t0);
+        osc.frequency.linearRampToValueAtTime(880, t0 + 0.15);
+        osc.frequency.linearRampToValueAtTime(640, t0 + 0.3);
+
+        gain.gain.setValueAtTime(0.02, t0);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.38);
+    } catch {
+        // Safe under AudioContext policies
+    }
+}
+
 
 // ─── Tactile relay + switch sounds ──────────────────────────────
 // Mechanical feedback for physical actions (night-bench relay, membrane

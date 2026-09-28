@@ -1215,6 +1215,27 @@ function updateArcadeStation(sim) {
         tempEl.style.color = isOverclock ? '#f87171' : '#3ee6a0';
     }
 
+    // 4b. Live 8-bit Hardware Register Bitmask [RDY|CLK|FLT|OVR|DSH|SLD|DMA|WDT]
+    let regVal = 0;
+    const regBits = [];
+    const isPlaying = sim.state === 'playing';
+    const isOver = sim.state === 'over';
+    const clkBit = (Math.floor(nowSec * 8) % 2 === 0);
+
+    if (isPlaying) { regVal |= 0x80; regBits.push('RDY'); }
+    if (clkBit) { regVal |= 0x40; regBits.push('CLK'); }
+    if (isOver) { regVal |= 0x20; regBits.push('FLT'); }
+    if (isOverclock) { regVal |= 0x10; regBits.push('OVR'); }
+    if (sim.dashing) { regVal |= 0x08; regBits.push('DSH'); }
+    if (sim.sliding) { regVal |= 0x04; regBits.push('SLD'); }
+    if (sim.electrons > 0) { regVal |= 0x02; regBits.push('DMA'); }
+    if (!isOver) { regVal |= 0x01; regBits.push('WDT'); }
+
+    const regHexEl = document.getElementById('diag-reg-hex');
+    const regBitsEl = document.getElementById('diag-reg-bits');
+    if (regHexEl) regHexEl.textContent = `0x${regVal.toString(16).toUpperCase().padStart(2, '0')}`;
+    if (regBitsEl) regBitsEl.textContent = `[${regBits.slice(0, 4).join('|') || 'STBY'}]`;
+
     // 5. Draw live oscilloscope waveform on #diag-scope-canvas
     drawScopeWaveform(sim);
 
