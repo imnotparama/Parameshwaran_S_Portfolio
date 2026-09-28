@@ -1298,11 +1298,26 @@ function drawScopeWaveform(sim) {
     ctx.fillText('T▶', 2, 8);
 }
 
+let lastObservedSimState = '';
+
 /** Synchronize the hardware diagnostic station and telemetry deck
  *  @param {ReturnType<typeof simView>} sim */
 function updateArcadeStation(sim) {
     if (typeof document === 'undefined') return;
     if (!document.body.classList.contains('lcd-game-focus')) return;
+
+    // Trigger physical CRT glitch jitter on capacitive slam impact or fatal bus fault
+    const station = document.getElementById('lcd-arcade-station');
+    if (station) {
+        const isImpact = (sim.slamPulseTime && sim.slamPulseTime > 0.28);
+        const isCrash = (sim.state === 'over' && lastObservedSimState !== 'over');
+        if (isImpact || isCrash) {
+            station.classList.remove('diag-glitch');
+            void station.offsetWidth; // trigger reflow
+            station.classList.add('diag-glitch');
+        }
+    }
+    lastObservedSimState = sim.state;
 
     // 1. Mirror directly from gameCanvas if crt element exists (optional fallback)
     const crt = /** @type {HTMLCanvasElement | null} */ (document.getElementById('arcade-crt-canvas'));
