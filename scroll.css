@@ -4880,10 +4880,12 @@ body.lcd-game-focus .lcd-diagnostic-station {
     color: rgba(62, 230, 160, 0.55);
 }
 .diag-export-row {
-    margin-top: 1px;
+    margin-top: 2px;
+    display: flex;
+    gap: 4px;
 }
 .diag-export-btn {
-    width: 100%;
+    flex: 1;
     background: transparent;
     border: 1px solid rgba(62, 230, 160, 0.25);
     border-radius: 2px;

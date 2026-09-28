@@ -785,6 +785,73 @@ export function generateAsciiBragCard(sim) {
     ].join('\n');
 }
 
+/** Compute the 8-bit hardware diagnostic register
+ *  @param {ReturnType<typeof simView>} sim
+ */
+export function getHardwareRegisterState(sim) {
+    let regVal = 0;
+    /** @type {string[]} */
+    const regBits = [];
+    const isPlaying = sim.state === 'playing';
+    const isOver = sim.state === 'over';
+    const isOverclock = sim.overclock > 0 || overclockEventActive || (sim.dist || 0) >= 1000;
+    if (isPlaying) { regVal |= 0x80; regBits.push('RDY'); }
+    regVal |= 0x40; regBits.push('CLK');
+    if (isOver) { regVal |= 0x20; regBits.push('FLT'); }
+    if (isOverclock) { regVal |= 0x10; regBits.push('OVR'); }
+    if (sim.dashing) { regVal |= 0x08; regBits.push('DSH'); }
+    if (sim.sliding) { regVal |= 0x04; regBits.push('SLD'); }
+    if (sim.electrons > 0) { regVal |= 0x02; regBits.push('DMA'); }
+    if (!isOver) { regVal |= 0x01; regBits.push('WDT'); }
+    return {
+        hex: `0x${regVal.toString(16).toUpperCase().padStart(2, '0')}`,
+        raw: regVal,
+        active_flags: regBits
+    };
+}
+
+/**
+ * Export non-volatile diagnostic telemetry run dump to JSON file.
+ * @param {ReturnType<typeof simView>} sim
+ */
+export function downloadTelemetryJson(sim) {
+    if (typeof document === 'undefined') return;
+    const dist = Math.floor(sim.dist || 0);
+    const score = sim.score || 0;
+    const electrons = sim.electrons || 0;
+    const maxCombo = sim.maxCombo || 1;
+    const telemetryObj = {
+        device: 'PARAM-DEV-BOARD-V2',
+        system_architecture: {
+            npu: 'PRM-NPU v2.0 (32 TOPS Tensor Die)',
+            mcu: 'STM32F405 ARM Cortex-M4 @ 168MHz',
+            fpga: 'Xilinx Artix-7 XC7A100T Matrix',
+            memory: 'DDR4 SDRAM 2400MT/s',
+            bus: 'ST7789V 2.4-inch SPI High-Speed Carrier'
+        },
+        session_telemetry: {
+            timestamp: new Date().toISOString(),
+            waveguide_propagation_meters: dist,
+            bus_integrity_percent: score,
+            energy_packets_collected: electrons,
+            max_burst_combo: maxCombo,
+            status_register: getHardwareRegisterState(sim)
+        },
+        audit_origin: 'https://imnotparama.github.io/Parameshwaran_S_Portfolio/#/lcd'
+    };
+
+    const blob = new Blob([JSON.stringify(telemetryObj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `param-silicon-telemetry-${dist}m-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    logUart(`[EEPROM] Telemetry JSON exported (${dist}m, ${electrons} pkts)`, 'info');
+}
+
 /** Enter the game — called by journey.js when the camera glides to the
  *  display. The machine powers ON: the boot POST + diagnostics play, then
  *  the title screen idles (Enter starts). Under reduced motion the POST
@@ -1980,6 +2047,25 @@ export function createLcd(boardGroup) {
                     }
                 } catch (err) {
                     console.warn('Share copy error:', err);
+                }
+            });
+        }
+
+        const jsonBtn = document.getElementById('arcade-btn-json');
+        if (jsonBtn) {
+            jsonBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                downloadTelemetryJson(simView());
+                const label = document.getElementById('arcade-json-text');
+                if (label) {
+                    const orig = label.textContent;
+                    label.textContent = 'DUMPED! ✓';
+                    jsonBtn.classList.add('copied');
+                    setTimeout(() => {
+                        if (label) label.textContent = orig;
+                        jsonBtn.classList.remove('copied');
+                    }, 2200);
                 }
             });
         }
