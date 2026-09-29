@@ -5003,58 +5003,104 @@ body.lcd-game-over .diag-keymap-strip {
     }
 }
 
-/* Full-Screen Diagnostic Simulation HUD Tactical Deck Layout */
+/* Full-Screen Diagnostic Simulation HUD Perimeter Docking Guard */
+/* Strictly keeps the center 100% unobstructed for 3D silicon simulation */
 body.lcd-game-focus .diag-telemetry-deck {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    flex: 1;
-    margin-top: 10px;
-    gap: 12px;
-    overflow-y: auto;
+    position: absolute !important;
+    inset: 0 !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+    background: transparent !important;
 }
 
 body.lcd-game-focus .diag-hero-metrics-grid {
-    background: rgba(1, 10, 5, 0.65);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(62, 230, 160, 0.2);
-    border-radius: 4px;
-    padding: 10px 16px;
+    position: absolute !important;
+    top: 48px !important;
+    left: 24px !important;
+    right: 24px !important;
+    margin: 0 !important;
+    max-width: none !important;
+    background: rgba(1, 14, 7, 0.35) !important;
+    backdrop-filter: blur(6px) !important;
+    border: 1px solid rgba(62, 230, 160, 0.15) !important;
+    border-radius: 4px !important;
+    padding: 4px 16px !important;
+    display: flex !important;
 }
 
 body.lcd-game-focus .diag-scope-panel {
-    background: rgba(1, 10, 5, 0.65);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(62, 230, 160, 0.2);
-    border-radius: 4px;
-    padding: 8px 14px;
-    max-width: 680px;
-    margin: 0 auto;
-    width: 100%;
+    position: absolute !important;
+    top: 96px !important;
+    right: 24px !important;
+    left: auto !important;
+    width: 210px !important;
+    max-width: 210px !important;
+    margin: 0 !important;
+    background: rgba(1, 10, 5, 0.55) !important;
+    backdrop-filter: blur(6px) !important;
+    border: 1px solid rgba(62, 230, 160, 0.18) !important;
+    border-radius: 3px !important;
+    padding: 4px 6px !important;
+}
+
+body.lcd-game-focus .diag-register-strip {
+    position: absolute !important;
+    top: 96px !important;
+    left: 24px !important;
+    right: auto !important;
+    margin: 0 !important;
 }
 
 body.lcd-game-focus .diag-uart-stream-block {
-    background: rgba(1, 10, 5, 0.65);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(62, 230, 160, 0.2);
-    border-radius: 4px;
-    padding: 8px 12px;
+    position: absolute !important;
+    bottom: 28px !important;
+    left: 24px !important;
+    right: auto !important;
+    width: 310px !important;
+    max-width: 310px !important;
+    margin: 0 !important;
+    opacity: 0.35 !important;
+    transition: opacity 0.25s ease !important;
+}
+body.lcd-game-focus .diag-uart-stream-block:hover {
+    opacity: 0.95 !important;
 }
 
 body.lcd-game-focus .diag-eeprom-block {
-    background: rgba(1, 10, 5, 0.65);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(62, 230, 160, 0.2);
-    border-radius: 4px;
-    padding: 8px 12px;
+    position: absolute !important;
+    bottom: 28px !important;
+    right: 24px !important;
+    left: auto !important;
+    width: 270px !important;
+    max-width: 270px !important;
+    margin: 0 !important;
+    opacity: 0.35 !important;
+    transition: opacity 0.25s ease !important;
+}
+body.lcd-game-focus .diag-eeprom-block:hover {
+    opacity: 0.95 !important;
+}
+
+body.lcd-game-focus.lcd-game-over .diag-uart-stream-block,
+body.lcd-game-focus.lcd-game-over .diag-eeprom-block {
+    opacity: 0.95 !important;
 }
 
 body.lcd-game-focus .diag-keymap-strip {
-    background: rgba(1, 10, 5, 0.65);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(62, 230, 160, 0.2);
-    border-radius: 4px;
-    padding: 8px 12px;
+    position: absolute !important;
+    bottom: 8px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    margin: 0 !important;
+    opacity: 0.45 !important;
+    transition: opacity 0.25s ease !important;
+}
+body.lcd-game-focus .diag-keymap-strip:hover {
+    opacity: 0.95 !important;
 }
 
 /* ─── PARAMA-DEV-BOARD Hardware OS Extensions ──────────────── */
