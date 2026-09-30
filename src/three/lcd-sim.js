@@ -773,7 +773,11 @@ export function simView() {
         dashTimer, dashCd, invuln, slamActive, slamPulseTime, shield, overclock, turbo, stabilizer,
         magnet, actors, fieldEls, particles, spawnAccum, elSpawnAccum,
         lcgSeed, currentSeed, bestScore, bestSeed, leaderboard, achvUnlocked,
-        achvNewThisRun, glowCurrent
+        achvNewThisRun, glowCurrent,
+        carrierIntegrity: state === 'over' ? Math.max(12, Math.min(98, Math.round(52 + (dist % 45)))) : (shield ? 100 : 94),
+        packetsRecovered: electrons,
+        subsystemsRestored: Math.floor(dist / 1000),
+        currentZoneIndex: Math.min(7, Math.floor(dist / 1000))
     };
 }
 

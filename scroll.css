@@ -4349,6 +4349,44 @@ body.lcd-game-focus .lcd-diagnostic-station {
     pointer-events: auto;
 }
 
+/* Reduced UI Dominance during active gameplay (Pillar 2) */
+.lcd-diagnostic-station.sim-playing .diag-telemetry-deck,
+.lcd-diagnostic-station.sim-playing .diag-side-column,
+.lcd-diagnostic-station.sim-playing .diag-footer-ribbon {
+    opacity: 0.22;
+    filter: blur(1.5px);
+    transform: scale(0.985);
+    transition: opacity 0.6s ease, filter 0.6s ease, transform 0.6s ease;
+    pointer-events: none;
+}
+
+.lcd-diagnostic-station.sim-playing .diag-telemetry-deck:hover,
+.lcd-diagnostic-station.sim-playing .diag-side-column:hover,
+.lcd-diagnostic-station.sim-playing .diag-footer-ribbon:hover {
+    opacity: 0.95;
+    filter: none;
+    transform: scale(1.0);
+    pointer-events: auto;
+}
+
+.lcd-diagnostic-station.sim-playing .diag-header {
+    opacity: 0.88;
+    transition: opacity 0.4s ease;
+}
+
+.lcd-diagnostic-station.sim-over .diag-telemetry-deck,
+.lcd-diagnostic-station.sim-over .diag-side-column,
+.lcd-diagnostic-station.sim-over .diag-footer-ribbon,
+.lcd-diagnostic-station.sim-paused .diag-telemetry-deck,
+.lcd-diagnostic-station.sim-paused .diag-side-column,
+.lcd-diagnostic-station.sim-paused .diag-footer-ribbon {
+    opacity: 1.0;
+    filter: none;
+    transform: scale(1.0);
+    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
+}
+
 /* Header: Thin top tactical telemetry bar */
 .diag-header {
     position: absolute;

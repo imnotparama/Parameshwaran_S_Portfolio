@@ -983,16 +983,23 @@ function drawCrtOverlay(ctx, sim, w, h) {
     } else if (sim.state === 'count') {
         const digit = Math.max(1, Math.ceil((3.0 - sim.countAccum) / 1.0));
         ctx.textAlign = 'center';
-        ctx.font = 'bold 58px "JetBrains Mono", monospace';
+
+        ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.75)';
+        ctx.shadowBlur = 0;
+        ctx.fillText('MISSION: RECONNECT DAMAGED PCB COMMUNICATION BUSES', w / 2, 24);
+        ctx.fillText('STATUS: SIGNAL LOST · OBJECTIVE: RESTORE CARRIER INTEGRITY', w / 2, 38);
+
+        ctx.font = 'bold 52px "JetBrains Mono", monospace';
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = '#3ee6a0';
-        ctx.shadowBlur = 20;
-        ctx.fillText(String(digit), w / 2, 75);
+        ctx.shadowBlur = 18;
+        ctx.fillText(String(digit), w / 2, 98);
 
-        ctx.font = 'bold 12px "JetBrains Mono", monospace';
+        ctx.font = 'bold 11.5px "JetBrains Mono", monospace';
         ctx.fillStyle = '#3ee6a0';
         ctx.shadowBlur = 0;
-        ctx.fillText('STANDBY // ENGAGING CARRIER FREQUENCY', w / 2, 160);
+        ctx.fillText('INITIALIZING CARRIER TRANSMISSION...', w / 2, 160);
     } else if (sim.state === 'paused') {
         ctx.fillStyle = 'rgba(2, 10, 6, 0.78)';
         ctx.fillRect(0, 0, w, h);
@@ -1011,15 +1018,21 @@ function drawCrtOverlay(ctx, sim, w, h) {
     } else if (sim.state === 'over') {
         ctx.textAlign = 'center';
         ctx.font = 'bold 15px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#ff4d4d';
-        ctx.shadowColor = 'rgba(255, 77, 77, 0.9)';
-        ctx.shadowBlur = 12;
-        ctx.fillText('// DIAGNOSTIC FAILED: BUS SYNCHRONIZATION LOST //', w / 2, 18);
+        ctx.fillStyle = '#3ee6a0';
+        ctx.shadowColor = 'rgba(62, 230, 160, 0.8)';
+        ctx.shadowBlur = 10;
+        ctx.fillText('// DIAGNOSTIC COMPLETE //', w / 2, 24);
 
-        ctx.font = 'bold 11px "JetBrains Mono", monospace';
-        ctx.fillStyle = 'rgba(255, 200, 200, 0.85)';
         ctx.shadowBlur = 0;
-        ctx.fillText('ATTEMPTING AUTOMATIC BUS RECOVERY SEQUENCE...', w / 2, 38);
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.fillStyle = 'rgba(230, 245, 235, 0.92)';
+        const integrityVal = sim.carrierIntegrity || Math.max(12, Math.min(98, Math.round(52 + (sim.dist % 45))));
+        const subsystems = sim.subsystemsRestored !== undefined ? sim.subsystemsRestored : Math.floor(sim.dist / 1000);
+        ctx.fillText(`Carrier Integrity: ${integrityVal}%   Packets Recovered: ${sim.electrons}`, w / 2, 54);
+        ctx.fillText(`Subsystems Restored: ${subsystems}   Waveguide Run: ${Math.floor(sim.dist)}m`, w / 2, 74);
+
+        ctx.fillStyle = 'rgba(62, 230, 160, 0.75)';
+        ctx.fillText('Recommendation: Continue diagnostics.', w / 2, 100);
 
         // Record callout if record was beaten
         if (sim.newRecord) {
@@ -1027,22 +1040,16 @@ function drawCrtOverlay(ctx, sim, w, h) {
             ctx.font = 'bold 12px "JetBrains Mono", monospace';
             ctx.shadowColor = '#ffaa00';
             ctx.shadowBlur = 8;
-            ctx.fillText('>> NEW BENCHMARK RECORD REGISTERED <<', w / 2, 172);
+            ctx.fillText('>> NEW CARRIER PROPAGATION RECORD REGISTERED <<', w / 2, 142);
         }
-
-        // Clean bottom telemetry readout bar
-        ctx.shadowBlur = 0;
-        ctx.font = 'bold 11px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(`DIST: ${Math.floor(sim.dist)}m   INTEGRITY: ${sim.score}%   PACKETS: ${sim.electrons}   MAX CHAIN: x${sim.maxCombo}`, w / 2, 198);
 
         const blink = Math.floor(sim.overAccum / 0.4) % 2 === 0;
         if (blink) {
-            ctx.fillStyle = '#3ee6a0';
+            ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 13px "JetBrains Mono", monospace';
             ctx.shadowColor = '#3ee6a0';
-            ctx.shadowBlur = 8;
-            ctx.fillText('>> PRESS [SPACE] OR [ENTER] TO RESTART DIAGNOSTICS <<', w / 2, 224);
+            ctx.shadowBlur = 10;
+            ctx.fillText('>> PRESS [SPACE] OR [ENTER] TO RE-ENGAGE CARRIER <<', w / 2, 192);
         }
     } else if (sim.state === 'playing') {
         ctx.font = 'bold 11px "JetBrains Mono", monospace';
@@ -1376,6 +1383,11 @@ function updateArcadeStation(sim) {
     // Trigger physical CRT glitch jitter on capacitive slam impact or fatal bus fault
     const station = document.getElementById('lcd-arcade-station');
     if (station) {
+        station.classList.toggle('sim-playing', sim.state === 'playing');
+        station.classList.toggle('sim-over', sim.state === 'over');
+        station.classList.toggle('sim-boot', sim.state === 'boot' || sim.state === 'count' || sim.state === 'ready');
+        station.classList.toggle('sim-paused', sim.state === 'paused');
+
         const isImpact = (sim.slamPulseTime && sim.slamPulseTime > 0.28);
         const isCrash = (sim.state === 'over' && lastObservedSimState !== 'over');
         if (isImpact || isCrash) {
@@ -1385,6 +1397,26 @@ function updateArcadeStation(sim) {
         }
     }
     lastObservedSimState = sim.state;
+
+    // Dynamically update the 8 Semiconductor Fab Zones on #diag-zone-badge
+    const zoneBadge = document.getElementById('diag-zone-badge');
+    if (zoneBadge) {
+        const zoneIndex = Math.min(7, Math.floor(sim.dist / 1000));
+        const zoneNames = [
+            'ZONE 1: WAFER FAB',
+            'ZONE 2: MEMORY BANK',
+            'ZONE 3: NPU CORE',
+            'ZONE 4: LOGIC LAB',
+            'ZONE 5: POWER GRID',
+            'ZONE 6: WAFER STORAGE',
+            'ZONE 7: CRYO CHAMBER',
+            'ZONE 8: OPTICAL BACKBONE'
+        ];
+        const currentZoneName = zoneNames[zoneIndex];
+        if (zoneBadge.textContent !== currentZoneName) {
+            zoneBadge.textContent = currentZoneName;
+        }
+    }
 
     // 1. Mirror directly from gameCanvas if crt element exists (optional fallback)
     const crt = /** @type {HTMLCanvasElement | null} */ (document.getElementById('arcade-crt-canvas'));
