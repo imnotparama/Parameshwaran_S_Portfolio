@@ -229,12 +229,36 @@ let emergencyAlarmLight = null;
 let facilityCycleTime = 0;
 let activeZoneIndex = 0;
 
+/** @type {THREE.Group | null} */
+let horizonGroup = null;
+let bgFocusLevel = 0; // 0 = CALM (distant, dark, muted silhouette), 1 = MINIMAL (pure void, zero background)
+
+/**
+ * Toggles background visual mode between Calm Focus (0) and Ultra-Minimal Void (1).
+ * @returns {number}
+ */
+export function toggleBgFocus() {
+    bgFocusLevel = (bgFocusLevel + 1) % 2;
+    if (horizonGroup) {
+        horizonGroup.visible = (bgFocusLevel === 0);
+    }
+    return bgFocusLevel;
+}
+
+/**
+ * Returns current background focus level.
+ * @returns {number}
+ */
+export function getBgFocusLevel() {
+    return bgFocusLevel;
+}
+
 const FOUNDRY_ZONES = [
-    { name: 'ZONE 1: WAFER FABRICATION', distMin: 0, distMax: 300, lightCol: 0xffcc33, fogCol: 0x0f0c05 },
-    { name: 'ZONE 2: EUV LITHOGRAPHY & PLASMA', distMin: 300, distMax: 700, lightCol: 0x6e5bf7, fogCol: 0x060618 },
-    { name: 'ZONE 3: ROBOTIC CPU ASSEMBLY', distMin: 700, distMax: 1200, lightCol: 0x10b981, fogCol: 0x03120a },
-    { name: 'ZONE 4: AI SUPERCOMPUTING CORE', distMin: 1200, distMax: 1800, lightCol: 0x00f0ff, fogCol: 0x021018 },
-    { name: 'ZONE 5: CRYOGENIC FUSION REACTOR', distMin: 1800, distMax: 99999, lightCol: 0x3ee6a0, fogCol: 0x011409 }
+    { name: 'ZONE 1: WAFER FABRICATION', distMin: 0, distMax: 300, lightCol: 0x3ee6a0, fogCol: 0x010804 },
+    { name: 'ZONE 2: EUV LITHOGRAPHY & PLASMA', distMin: 300, distMax: 700, lightCol: 0x22d3ee, fogCol: 0x010609 },
+    { name: 'ZONE 3: ROBOTIC CPU ASSEMBLY', distMin: 700, distMax: 1200, lightCol: 0x10b981, fogCol: 0x010805 },
+    { name: 'ZONE 4: AI SUPERCOMPUTING CORE', distMin: 1200, distMax: 1800, lightCol: 0x38bdf8, fogCol: 0x01060a },
+    { name: 'ZONE 5: CRYOGENIC FUSION REACTOR', distMin: 1800, distMax: 99999, lightCol: 0x34d399, fogCol: 0x010705 }
 ];
 
 /** @type {THREE.Group | null} */
@@ -314,12 +338,12 @@ export function init3dGame(canvas = null) {
 
     // 1. Create Game Scene
     gameScene = new THREE.Scene();
-    gameScene.background = new THREE.Color(0x010804);
-    gameScene.fog = new THREE.FogExp2(0x010804, 0.038);
+    gameScene.background = new THREE.Color(0x010503);
+    gameScene.fog = new THREE.FogExp2(0x010503, 0.045);
 
     // 2. Cinematic 2.5D Side-Perspective Camera
     const aspect = initW / initH;
-    gameCamera = new THREE.PerspectiveCamera(54, aspect, 0.1, 100);
+    gameCamera = new THREE.PerspectiveCamera(52, aspect, 0.1, 100);
     gameCamera.position.set(0.0, 1.05, 4.4);
     gameCamera.lookAt(0.2, 0.78, 0.0);
 
@@ -334,7 +358,7 @@ export function init3dGame(canvas = null) {
         gameRenderer.setSize(initW, initH, false);
         gameRenderer.setPixelRatio(Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 1.5));
         gameRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-        gameRenderer.toneMappingExposure = 1.45;
+        gameRenderer.toneMappingExposure = 1.35;
     } catch (err) {
         console.warn('Could not initialize WebGLRenderer for Signal Runner 3D:', err);
         return false;
@@ -345,11 +369,11 @@ export function init3dGame(canvas = null) {
     }
 
 
-    // 4. Lighting Rig: Silicon Megafactory High-Dynamic Range Setup
-    const ambientLight = new THREE.AmbientLight(0x0a1c12, 1.8);
+    // 4. Calibrated Lighting Rig: Soothing, Glare-Free Ambient & Soft Directional Light
+    const ambientLight = new THREE.AmbientLight(0x06140c, 1.2);
     gameScene.add(ambientLight);
 
-    mainDirLight = new THREE.DirectionalLight(0xffcc33, 2.2);
+    mainDirLight = new THREE.DirectionalLight(0x3ee6a0, 1.6);
     mainDirLight.position.set(2, 6, 4);
     gameScene.add(mainDirLight);
 
@@ -650,7 +674,7 @@ function createChipSilkscreenTexture(label, sub) {
  */
 function buildRoboticGantry(hGroup) {
     gantryArmGroup = new THREE.Group();
-    gantryArmGroup.position.set(0, 6.8, -3.5);
+    gantryArmGroup.position.set(0, 8.2, -18.0);
 
     // Overhead transverse gantry rail spanning across scene
     const railGeo = new THREE.BoxGeometry(32.0, 0.35, 0.55);
@@ -695,20 +719,6 @@ function buildRoboticGantry(hGroup) {
     nozzle.position.set(0, -1.9, 0);
     gantryArmGroup.add(nozzle);
 
-    // Laser aiming guide cone
-    const laserGeo = new THREE.ConeGeometry(0.25, 4.2, 16, 1, true);
-    laserGeo.rotateX(Math.PI);
-    const laserMat = new THREE.MeshBasicMaterial({
-        color: 0x00ffff,
-        transparent: true,
-        opacity: 0.18,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending
-    });
-    const laserCone = new THREE.Mesh(laserGeo, laserMat);
-    laserCone.position.set(0, -4.0, 0);
-    gantryArmGroup.add(laserCone);
-
     hGroup.add(gantryArmGroup);
 }
 
@@ -718,7 +728,7 @@ function buildRoboticGantry(hGroup) {
  */
 function buildFoupMonorail(hGroup) {
     foupPods.length = 0;
-    // Overhead ceiling monorail guide rail
+    // Overhead ceiling monorail guide rail in upper rafters
     const monorailGeo = new THREE.BoxGeometry(40.0, 0.22, 0.35);
     const monorailMat = new THREE.MeshStandardMaterial({
         color: 0x16221c,
@@ -726,10 +736,10 @@ function buildFoupMonorail(hGroup) {
         roughness: 0.22
     });
     const monorail = new THREE.Mesh(monorailGeo, monorailMat);
-    monorail.position.set(0, 7.9, -1.8);
+    monorail.position.set(0, 8.5, -16.0);
     hGroup.add(monorail);
 
-    // 3 FOUP pods (Front Opening Unified Pods) carrying 300mm silicon wafers
+    // 3 FOUP pods carrying 300mm silicon wafers
     const podBodyGeo = new THREE.BoxGeometry(1.3, 0.75, 0.9);
     const podBodyMat = new THREE.MeshStandardMaterial({
         color: 0x0a1a14,
@@ -757,7 +767,7 @@ function buildFoupMonorail(hGroup) {
         win.position.set(0, 0.05, 0.46);
         podGrp.add(win);
 
-        podGrp.position.set(-14 + i * 14, 7.45, -1.8);
+        podGrp.position.set(-14 + i * 14, 8.0, -16.0);
         hGroup.add(podGrp);
         foupPods.push(podGrp);
     }
@@ -783,24 +793,24 @@ function buildServerRacks(hGroup) {
 
     rackPositions.forEach((posX, rIdx) => {
         const rack = new THREE.Mesh(rackGeo, rackMat);
-        rack.position.set(posX, 3.8, -10.5);
+        rack.position.set(posX, 4.5, -20.5);
         hGroup.add(rack);
 
         // Rack front panel louvers & cascading LEDs
         const rackLeds = [];
         for (let u = 0; u < 14; u++) {
-            const yPos = 0.8 + u * 0.45;
+            const yPos = 1.5 + u * 0.45;
             const ledMat = new THREE.MeshBasicMaterial({
                 color: (u + rIdx) % 3 === 0 ? 0x00ffff : ((u + rIdx) % 3 === 1 ? 0x3ee6a0 : 0xffdd44),
                 transparent: true,
-                opacity: 0.8
+                opacity: 0.5
             });
             const led1 = new THREE.Mesh(ledGeo, ledMat);
-            led1.position.set(posX - 0.7, yPos, -9.38);
+            led1.position.set(posX - 0.7, yPos, -19.38);
             hGroup.add(led1);
 
             const led2 = new THREE.Mesh(ledGeo, ledMat);
-            led2.position.set(posX + 0.7, yPos, -9.38);
+            led2.position.set(posX + 0.7, yPos, -19.38);
             hGroup.add(led2);
 
             rackLeds.push(ledMat);
@@ -985,7 +995,7 @@ function createSiliconWaferTexture() {
  */
 function buildSiliconWafer(hGroup) {
     siliconWaferGroup = new THREE.Group();
-    siliconWaferGroup.position.set(-6.5, 7.2, -13.5);
+    siliconWaferGroup.position.set(-6.5, 7.5, -22.0);
     siliconWaferGroup.rotation.x = 0.15;
 
     const waferTex = createSiliconWaferTexture();
@@ -1024,7 +1034,7 @@ function buildVentilationFans(hGroup) {
     const fanPositions = [-17.5, 17.5];
     fanPositions.forEach(posX => {
         const fanGroup = new THREE.Group();
-        fanGroup.position.set(posX, 5.5, -9.0);
+        fanGroup.position.set(posX, 6.5, -20.0);
 
         // Circular Intake Duct Housing
         const duct = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.22, 10, 28), housingMat);
@@ -1051,12 +1061,12 @@ function buildVentilationFans(hGroup) {
 }
 
 /**
- * Builds Articulated Robotic Welding Arm with Falling Spark Showers.
+ * Builds Articulated Robotic Welding Arm in distant fabrication bay.
  * @param {THREE.Group} hGroup
  */
 function buildWeldingRobot(hGroup) {
     weldingRobotArm = new THREE.Group();
-    weldingRobotArm.position.set(4.8, 7.5, -3.8);
+    weldingRobotArm.position.set(4.8, 8.5, -18.0);
 
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a3d31, metalness: 0.88, roughness: 0.25 });
     const jointMat = new THREE.MeshStandardMaterial({ color: 0x16221b, metalness: 0.92, roughness: 0.2 });
@@ -1087,16 +1097,16 @@ function buildWeldingRobot(hGroup) {
 
     hGroup.add(weldingRobotArm);
 
-    // Welding Sparks Particle System
+    // Subtle distant welding sparks particle system
     weldingSparkVels = [];
     for (let i = 0; i < WELDING_SPARK_COUNT; i++) {
         weldingSparkPositions[i * 3] = 4.8;
-        weldingSparkPositions[i * 3 + 1] = 4.0;
-        weldingSparkPositions[i * 3 + 2] = -3.8;
+        weldingSparkPositions[i * 3 + 1] = 5.0;
+        weldingSparkPositions[i * 3 + 2] = -18.0;
         weldingSparkVels.push({
-            vx: (Math.random() - 0.5) * 3,
-            vy: -Math.random() * 3 - 1,
-            vz: (Math.random() - 0.5) * 2,
+            vx: (Math.random() - 0.5) * 1.5,
+            vy: -Math.random() * 2 - 0.5,
+            vz: (Math.random() - 0.5) * 1.0,
             life: Math.random()
         });
     }
@@ -1105,9 +1115,9 @@ function buildWeldingRobot(hGroup) {
     sparkGeo.setAttribute('position', new THREE.BufferAttribute(weldingSparkPositions, 3));
     const sparkMat = new THREE.PointsMaterial({
         color: 0xffd700,
-        size: 0.12,
+        size: 0.06,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.45,
         blending: THREE.AdditiveBlending
     });
     weldingSparkParticles = new THREE.Points(sparkGeo, sparkMat);
@@ -1115,7 +1125,7 @@ function buildWeldingRobot(hGroup) {
 }
 
 /**
- * Builds Transparent Cryogenic Coolant Conduits.
+ * Builds Transparent Cryogenic Coolant Conduits in background.
  * @param {THREE.Group} hGroup
  */
 function buildCryoPipes(hGroup) {
@@ -1125,13 +1135,13 @@ function buildCryoPipes(hGroup) {
         roughness: 0.1,
         metalness: 0.1,
         transparent: true,
-        opacity: 0.38
+        opacity: 0.28
     });
 
     const pulseMat = new THREE.MeshBasicMaterial({
         color: 0x00ffff,
         transparent: true,
-        opacity: 0.75,
+        opacity: 0.45,
         blending: THREE.AdditiveBlending
     });
 
@@ -1139,11 +1149,11 @@ function buildCryoPipes(hGroup) {
     pipeGeo.rotateZ(Math.PI / 2);
 
     const pipe1 = new THREE.Mesh(pipeGeo, pipeMat);
-    pipe1.position.set(0, 4.8, -4.2);
+    pipe1.position.set(0, 5.8, -16.0);
     hGroup.add(pipe1);
 
     const pipe2 = new THREE.Mesh(pipeGeo, pipeMat);
-    pipe2.position.set(0, 8.2, -6.5);
+    pipe2.position.set(0, 8.5, -18.0);
     hGroup.add(pipe2);
 
     // Glowing Coolant Flow Pulses inside pipes
@@ -1152,19 +1162,19 @@ function buildCryoPipes(hGroup) {
 
     for (let p = 0; p < 8; p++) {
         const pulse = new THREE.Mesh(pulseGeo, pulseMat);
-        pulse.position.set(-15 + p * 4.5, (p % 2 === 0 ? 4.8 : 8.2), (p % 2 === 0 ? -4.2 : -6.5));
+        pulse.position.set(-15 + p * 4.5, (p % 2 === 0 ? 5.8 : 8.5), (p % 2 === 0 ? -16.0 : -18.0));
         hGroup.add(pulse);
         cryoCoolantPulses.push(pulse);
     }
 }
 
 /**
- * Builds Patrolling Autonomous Inspection Drone with Spotlight Cone.
+ * Builds Distant Autonomous Cleanroom Drone in upper rafters.
  * @param {THREE.Group} hGroup
  */
 function buildInspectionDrone(hGroup) {
     inspectionDrone = new THREE.Group();
-    inspectionDrone.position.set(0, 3.2, -2.8);
+    inspectionDrone.position.set(0, 6.5, -18.0);
 
     const droneMat = new THREE.MeshStandardMaterial({ color: 0x1f2e24, metalness: 0.9, roughness: 0.25 });
     const droneBody = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.25, 0.55), droneMat);
@@ -1177,20 +1187,6 @@ function buildInspectionDrone(hGroup) {
     const p2 = new THREE.Mesh(podGeo, beaconMat); p2.position.set(0.35, 0.1, 0.25); inspectionDrone.add(p2);
     const p3 = new THREE.Mesh(podGeo, beaconMat); p3.position.set(-0.35, 0.1, -0.25); inspectionDrone.add(p3);
     const p4 = new THREE.Mesh(podGeo, beaconMat); p4.position.set(0.35, 0.1, -0.25); inspectionDrone.add(p4);
-
-    // Downward Volumetric Spotlight Cone
-    const coneGeo = new THREE.ConeGeometry(0.7, 3.0, 16, 1, true);
-    coneGeo.rotateX(Math.PI);
-    const coneMat = new THREE.MeshBasicMaterial({
-        color: 0x3ee6a0,
-        transparent: true,
-        opacity: 0.15,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending
-    });
-    const spotCone = new THREE.Mesh(coneGeo, coneMat);
-    spotCone.position.set(0, -1.5, 0);
-    inspectionDrone.add(spotCone);
 
     hGroup.add(inspectionDrone);
 }
@@ -1249,33 +1245,34 @@ function buildDistantMegastructure(hGroup) {
 function buildHorizon() {
     if (!gameScene) return;
 
-    const hGroup = new THREE.Group();
-    gameScene.add(hGroup);
+    horizonGroup = new THREE.Group();
+    gameScene.add(horizonGroup);
+    const hGroup = horizonGroup;
 
-    // 1. Monolithic 3D IC Packages in background (-Z): Parameshwaran's Core Hardware Stack
+    // 1. Monolithic 3D IC Packages in deep background (-Z): Parameshwaran's Core Hardware Stack
     const chipMat = new THREE.MeshStandardMaterial({
-        color: 0x09160f,
-        roughness: 0.35,
-        metalness: 0.85,
-        emissive: 0x040e08,
-        emissiveIntensity: 0.3
+        color: 0x050e09,
+        roughness: 0.65,
+        metalness: 0.6,
+        emissive: 0x010503,
+        emissiveIntensity: 0.12
     });
 
     const heatsinkMat = new THREE.MeshStandardMaterial({
-        color: 0x14281c,
-        roughness: 0.2,
-        metalness: 0.92,
+        color: 0x0a1610,
+        roughness: 0.4,
+        metalness: 0.8,
         wireframe: true
     });
 
     const chipDefs = [
-        { x: 0.0, y: 3.8, z: -8.8, w: 5.6, h: 5.2, d: 3.5, label: 'PRM-NPU v2.0', sub: '32 TOPS TENSOR ACCELERATOR' },
-        { x: -8.5, y: 2.8, z: -6.8, w: 4.2, h: 3.2, d: 3.0, label: 'STM32F405', sub: 'ARM CORTEX-M4 168MHz' },
-        { x: -3.8, y: 2.4, z: -6.0, w: 3.8, h: 3.8, d: 2.8, label: 'XILINX ARTIX-7', sub: 'FPGA FABRIC MATRIX' },
-        { x: 4.8, y: 2.2, z: -5.8, w: 4.6, h: 2.4, d: 1.8, label: 'DDR4 SDRAM', sub: 'QUAD-CHANNEL 3200MT/s' },
-        { x: 9.8, y: 2.6, z: -6.6, w: 3.6, h: 3.2, d: 2.6, label: 'CYPRESS FX3', sub: 'USB 3.0 PHY 5Gbps' },
-        { x: -14.0, y: 2.0, z: -5.5, w: 3.0, h: 2.2, d: 2.2, label: 'DPAK MOSFETS', sub: 'HIGH-CURRENT DRIVER ARRAY' },
-        { x: 14.0, y: 1.8, z: -5.2, w: 2.8, h: 1.8, d: 1.8, label: '16.0MHz XTAL', sub: 'QUARTZ OSCILLATOR' }
+        { x: 0.0, y: 5.5, z: -22.0, w: 8.5, h: 7.2, d: 3.5, label: 'PRM-NPU v2.0', sub: '32 TOPS TENSOR ACCELERATOR' },
+        { x: -14.0, y: 4.8, z: -20.0, w: 6.5, h: 5.0, d: 3.0, label: 'STM32F405', sub: 'ARM CORTEX-M4 168MHz' },
+        { x: -7.0, y: 4.2, z: -19.0, w: 5.8, h: 5.5, d: 2.8, label: 'XILINX ARTIX-7', sub: 'FPGA FABRIC MATRIX' },
+        { x: 7.5, y: 4.0, z: -19.0, w: 7.0, h: 4.0, d: 2.0, label: 'DDR4 SDRAM', sub: 'QUAD-CHANNEL 3200MT/s' },
+        { x: 15.0, y: 4.5, z: -20.0, w: 5.5, h: 4.8, d: 2.6, label: 'CYPRESS FX3', sub: 'USB 3.0 PHY 5Gbps' },
+        { x: -22.0, y: 3.5, z: -18.0, w: 4.8, h: 3.8, d: 2.2, label: 'DPAK MOSFETS', sub: 'HIGH-CURRENT DRIVER ARRAY' },
+        { x: 22.0, y: 3.2, z: -18.0, w: 4.5, h: 3.2, d: 2.0, label: '16.0MHz XTAL', sub: 'QUARTZ OSCILLATOR' }
     ];
 
     const ledGeo = new THREE.SphereGeometry(0.08, 8, 8);
@@ -1286,12 +1283,12 @@ function buildHorizon() {
         chip.position.set(cp.x, cp.y, cp.z);
         hGroup.add(chip);
 
-        // Silkscreen front label
+        // Silkscreen front label - subtle dark blueprint aesthetic
         const silkTex = createChipSilkscreenTexture(cp.label, cp.sub);
         if (silkTex) {
             const silkMesh = new THREE.Mesh(
                 new THREE.PlaneGeometry(cp.w * 0.85, cp.h * 0.75),
-                new THREE.MeshBasicMaterial({ map: silkTex, transparent: true, opacity: 0.9 })
+                new THREE.MeshBasicMaterial({ map: silkTex, transparent: true, opacity: 0.28 })
             );
             silkMesh.position.set(cp.x, cp.y, cp.z + cp.d / 2 + 0.02);
             hGroup.add(silkMesh);
@@ -1302,11 +1299,11 @@ function buildHorizon() {
         fins.position.set(cp.x, cp.y + cp.h / 2 + 0.22, cp.z);
         hGroup.add(fins);
 
-        // Status LED at top-left pin 1
+        // Status LED at top-left pin 1 (calm, non-distracting)
         const ledMat = new THREE.MeshBasicMaterial({
             color: ledColors[idx % ledColors.length],
             transparent: true,
-            opacity: 0.85
+            opacity: 0.35
         });
         const led = new THREE.Mesh(ledGeo, ledMat);
         led.position.set(cp.x - cp.w / 2 + 0.25, cp.y + cp.h / 2 + 0.1, cp.z + cp.d / 2 + 0.05);
@@ -1314,11 +1311,11 @@ function buildHorizon() {
         monolithLeds.push({ led, phase: idx * 1.3, freq: 2.2 + idx * 0.6 });
     });
 
-    // 2. Parallax Layer 2: Overhead Automated Pick-and-Place & Laser Soldering Gantry
+    // 2. Parallax Layer 2: Overhead Automated Pick-and-Place Gantry in Rafters
     buildRoboticGantry(hGroup);
     buildFoupMonorail(hGroup);
 
-    // Silicon Megafactory Machinery & Atmospheric Structures
+    // Silicon Megafactory Machinery in Deep Background
     buildSiliconWafer(hGroup);
     buildVentilationFans(hGroup);
     buildWeldingRobot(hGroup);
@@ -1326,7 +1323,7 @@ function buildHorizon() {
     buildInspectionDrone(hGroup);
     buildDistantMegastructure(hGroup);
 
-    // 3. Parallax Layer 3: Giant Holographic Oscilloscope Sky Projection
+    // 3. Parallax Layer 3: Subtle Holographic Oscilloscope Sky Projection
     const scopeTex = createScopeGridTexture();
     if (scopeTex) {
         const scopeScreen = new THREE.Mesh(
@@ -1334,12 +1331,12 @@ function buildHorizon() {
             new THREE.MeshBasicMaterial({
                 map: scopeTex,
                 transparent: true,
-                opacity: 0.42,
+                opacity: 0.22,
                 side: THREE.DoubleSide,
                 blending: THREE.AdditiveBlending
             })
         );
-        scopeScreen.position.set(0, 6.2, -12.0);
+        scopeScreen.position.set(0, 7.2, -18.0);
         scopeScreen.rotation.x = 0.12;
         hGroup.add(scopeScreen);
     }
@@ -1347,8 +1344,8 @@ function buildHorizon() {
     const scopeLinePos = new Float32Array(SKY_SCOPE_PTS * 3);
     for (let i = 0; i < SKY_SCOPE_PTS; i++) {
         scopeLinePos[i * 3] = -7.5 + (i / (SKY_SCOPE_PTS - 1)) * 15.0;
-        scopeLinePos[i * 3 + 1] = 6.2;
-        scopeLinePos[i * 3 + 2] = -11.9;
+        scopeLinePos[i * 3 + 1] = 7.2;
+        scopeLinePos[i * 3 + 2] = -17.9;
     }
     const scopeLineGeo = new THREE.BufferGeometry();
     scopeLineGeo.setAttribute('position', new THREE.BufferAttribute(scopeLinePos, 3));
@@ -1356,9 +1353,9 @@ function buildHorizon() {
         scopeLineGeo,
         new THREE.LineBasicMaterial({
             color: 0x00ffff,
-            linewidth: 2,
+            linewidth: 1.5,
             transparent: true,
-            opacity: 0.9,
+            opacity: 0.55,
             blending: THREE.AdditiveBlending
         })
     );
@@ -1373,41 +1370,28 @@ function buildHorizon() {
     // 6. Far Distance: Holographic Wireframe Circuit Skyline
     buildHolographicCity(hGroup);
 
-    // 7. Volumetric Floating Electron Dust Cloud
+    // 7. Volumetric Floating Electron Dust Cloud (Soft, Faint Ambiance)
     const dustGeo = new THREE.BufferGeometry();
     dustPositions = new Float32Array(DUST_COUNT * 3);
     for (let i = 0; i < DUST_COUNT; i++) {
         dustPositions[i * 3] = (Math.random() - 0.5) * 24;
         dustPositions[i * 3 + 1] = Math.random() * 5.0 + 0.2;
-        dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 8 - 2;
+        dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 8 - 4;
     }
     dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
     const dustMat = new THREE.PointsMaterial({
         color: 0x3ee6a0,
-        size: 0.065,
+        size: 0.035,
         transparent: true,
-        opacity: 0.65,
+        opacity: 0.22,
         blending: THREE.AdditiveBlending
     });
     electronDust = new THREE.Points(dustGeo, dustMat);
     gameScene.add(electronDust);
 
-    // 8. Distant cylindrical ferrite choke coils
-    const chokeGeo = new THREE.CylinderGeometry(0.7, 0.7, 1.8, 16);
-    const chokeMat = new THREE.MeshStandardMaterial({
-        color: 0x9b6b28,
-        metalness: 0.85,
-        roughness: 0.3
-    });
-    for (let c = 0; c < 5; c++) {
-        const choke = new THREE.Mesh(chokeGeo, chokeMat);
-        choke.position.set(-10 + c * 5.0, 1.2, -4.2);
-        hGroup.add(choke);
-    }
-
-    // 9. Glowing Cyber Horizon Data Grid
-    const gridHelper = new THREE.GridHelper(50, 50, 0x3ee6a0, 0x0c3820);
-    gridHelper.position.set(0, -0.05, -7);
+    // 8. Distant Glowing Cyber Horizon Data Grid (Muted Emerald Ground Guide)
+    const gridHelper = new THREE.GridHelper(80, 40, 0x0a2618, 0x03120a);
+    gridHelper.position.set(0, -0.15, -18.0);
     hGroup.add(gridHelper);
 }
 
@@ -2698,11 +2682,11 @@ export function update3dGame(delta, sim) {
             vel.life -= delta * 3.5;
             if (vel.life <= 0) {
                 weldingSparkPositions[i * 3] = 4.8 + (Math.random() - 0.5) * 0.2;
-                weldingSparkPositions[i * 3 + 1] = 4.2;
-                weldingSparkPositions[i * 3 + 2] = -3.8 + (Math.random() - 0.5) * 0.2;
-                vel.vx = (Math.random() - 0.5) * 2.8;
-                vel.vy = -Math.random() * 3.5 - 1.0;
-                vel.vz = (Math.random() - 0.5) * 1.5;
+                weldingSparkPositions[i * 3 + 1] = 5.2;
+                weldingSparkPositions[i * 3 + 2] = -18.0 + (Math.random() - 0.5) * 0.2;
+                vel.vx = (Math.random() - 0.5) * 1.5;
+                vel.vy = -Math.random() * 2.0 - 0.5;
+                vel.vz = (Math.random() - 0.5) * 1.0;
                 vel.life = 1.0;
             } else {
                 weldingSparkPositions[i * 3] += vel.vx * delta;
@@ -2723,10 +2707,15 @@ export function update3dGame(delta, sim) {
         if (cp.position.x > 17.0) cp.position.x = -17.0;
     }
 
-    // Animate Patrolling Autonomous Inspection Drone
+    // Animate Patrolling Autonomous Inspection Drone in upper rafters
     if (inspectionDrone) {
         inspectionDrone.position.x = Math.sin((sim.dist || 0) * 0.06) * 5.5;
-        inspectionDrone.position.y = 3.2 + Math.sin(facilityCycleTime * 2.5) * 0.18;
+        inspectionDrone.position.y = 6.5 + Math.sin(facilityCycleTime * 2.5) * 0.18;
+    }
+
+    // Gentle Parallax Drift for distant horizon architecture
+    if (horizonGroup) {
+        horizonGroup.position.x = -((sim.dist || 0) * 0.008) % 30.0;
     }
 
     // 8. Update Shatter Shards if game is over
