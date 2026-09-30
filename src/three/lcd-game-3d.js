@@ -1763,231 +1763,519 @@ function buildSignalLostBanner() {
 // 3D Procedural Obstacle Factories & Pooling
 // ─────────────────────────────────────────────────────────────
 
+/** @type {THREE.CanvasTexture | null} */
+let cachedHazardTexture = null;
+
+function getHazardTexture() {
+    if (cachedHazardTexture) return cachedHazardTexture;
+    if (typeof document === 'undefined') return null;
+    try {
+        const cvs = document.createElement('canvas');
+        cvs.width = 128;
+        cvs.height = 32;
+        const ctx = cvs.getContext('2d');
+        if (!ctx) return null;
+
+        ctx.fillStyle = '#0a0d10';
+        ctx.fillRect(0, 0, 128, 32);
+
+        // Fluorescent hazard amber stripes
+        ctx.fillStyle = '#ffaa00';
+        const stripeW = 12;
+        for (let x = -32; x < 160; x += stripeW * 2) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x + stripeW, 0);
+            ctx.lineTo(x + stripeW - 16, 32);
+            ctx.lineTo(x - 16, 32);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        ctx.strokeStyle = '#ffcc00';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, 126, 30);
+
+        cachedHazardTexture = new THREE.CanvasTexture(cvs);
+        cachedHazardTexture.wrapS = THREE.RepeatWrapping;
+        cachedHazardTexture.wrapT = THREE.RepeatWrapping;
+        return cachedHazardTexture;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Creates an elevated holographic warning beacon for obstacle telegraphing.
+ * @param {number} [colorHex=0xffaa00]
+ */
+function createHazardBeacon(colorHex = 0xffaa00) {
+    const grp = new THREE.Group();
+    // Glowing warning diamond / octahedron
+    const octGeo = new THREE.OctahedronGeometry(0.11, 0);
+    const octMat = new THREE.MeshStandardMaterial({
+        color: colorHex,
+        emissive: colorHex,
+        emissiveIntensity: 3.8,
+        roughness: 0.1,
+        metalness: 0.8
+    });
+    const oct = new THREE.Mesh(octGeo, octMat);
+    grp.add(oct);
+
+    // Rotating warning reticle ring
+    const ringGeo = new THREE.TorusGeometry(0.18, 0.016, 6, 20);
+    const ringMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.85 });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    grp.add(ring);
+
+    // Vertical volumetric warning light pin
+    const pinGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.55, 6);
+    const pinMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.75 });
+    const pin = new THREE.Mesh(pinGeo, pinMat);
+    pin.position.y = -0.28;
+    grp.add(pin);
+
+    grp.userData = { oct, ring };
+    return grp;
+}
+
 function createResistorMesh() {
     const grp = new THREE.Group();
-    // 1206 SMT High-Power Resistor Body (Alumina ceramic substrate)
-    const bodyGeo = new THREE.BoxGeometry(0.36, 0.16, 0.48);
+    // Substantial 1206 SMT High-Power Resistor Body
+    const bodyGeo = new THREE.BoxGeometry(0.50, 0.28, 0.62);
     const bodyMat = new THREE.MeshStandardMaterial({
-        color: 0x181c20,
-        roughness: 0.45,
-        metalness: 0.3
+        color: 0x22262c,
+        roughness: 0.35,
+        metalness: 0.5,
+        emissive: 0x11161d,
+        emissiveIntensity: 0.5
     });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.set(0, 0.12, 0);
+    body.position.set(0, 0.18, 0);
     grp.add(body);
 
-    // Silver-Nickel Barrier Termination End Caps
-    const capGeo = new THREE.BoxGeometry(0.08, 0.165, 0.49);
+    // Incandescent Searing Thermal Core Slit (Thermal dissipation overload)
+    const coreSlitGeo = new THREE.BoxGeometry(0.28, 0.06, 0.63);
+    const coreSlitMat = new THREE.MeshBasicMaterial({ color: 0xff3300 });
+    const coreSlit = new THREE.Mesh(coreSlitGeo, coreSlitMat);
+    coreSlit.position.set(0, 0.18, 0);
+    grp.add(coreSlit);
+
+    // Glowing Silver-Nickel Barrier Termination End Caps
+    const capGeo = new THREE.BoxGeometry(0.12, 0.29, 0.64);
     const capMat = new THREE.MeshStandardMaterial({
-        color: 0xd8dde2,
+        color: 0xffddaa,
+        emissive: 0xff9900,
+        emissiveIntensity: 2.8,
         metalness: 0.95,
-        roughness: 0.12
+        roughness: 0.1
     });
     const capL = new THREE.Mesh(capGeo, capMat);
-    capL.position.set(-0.16, 0.12, 0);
+    capL.position.set(-0.24, 0.18, 0);
     grp.add(capL);
 
     const capR = new THREE.Mesh(capGeo, capMat);
-    capR.position.set(0.16, 0.12, 0);
+    capR.position.set(0.24, 0.18, 0);
     grp.add(capR);
 
-    // Solder fillets on PCB
-    const filletGeo = new THREE.BoxGeometry(0.06, 0.04, 0.52);
-    const filletMat = new THREE.MeshStandardMaterial({ color: 0xa0a8b0, metalness: 0.9, roughness: 0.2 });
+    // Solder fillets on PCB (ENIG Gold & Silver)
+    const filletGeo = new THREE.BoxGeometry(0.08, 0.06, 0.66);
+    const filletMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff7700, emissiveIntensity: 1.5, metalness: 0.9, roughness: 0.2 });
     const fL = new THREE.Mesh(filletGeo, filletMat);
-    fL.position.set(-0.21, 0.05, 0);
+    fL.position.set(-0.31, 0.06, 0);
     grp.add(fL);
     const fR = new THREE.Mesh(filletGeo, filletMat);
-    fR.position.set(0.21, 0.05, 0);
+    fR.position.set(0.31, 0.06, 0);
     grp.add(fR);
 
-    // Silkscreen "R010" Power Resistor Mark on top
-    const labelGeo = new THREE.PlaneGeometry(0.22, 0.32);
+    // Silkscreen "R010 // 50A" High-Visibility Power Mark on top
+    const labelGeo = new THREE.PlaneGeometry(0.32, 0.42);
     labelGeo.rotateX(-Math.PI / 2);
-    const labelMat = new THREE.MeshBasicMaterial({ color: 0x3ee6a0, transparent: true, opacity: 0.75 });
+    const labelMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
     const lbl = new THREE.Mesh(labelGeo, labelMat);
-    lbl.position.set(0, 0.205, 0);
+    lbl.position.set(0, 0.325, 0);
     grp.add(lbl);
 
-    grp.userData = { type: 'resistor' };
+    // Projected Ground Hazard Caution Decal (Extends in front to telegraph approach)
+    const hTex = getHazardTexture();
+    const decalGeo = new THREE.PlaneGeometry(0.85, 0.68);
+    decalGeo.rotateX(-Math.PI / 2);
+    const decalMat = hTex
+        ? new THREE.MeshBasicMaterial({ map: hTex, transparent: true, opacity: 0.95 })
+        : new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.85 });
+    const decal = new THREE.Mesh(decalGeo, decalMat);
+    decal.position.set(0.60, 0.02, 0);
+    grp.add(decal);
+
+    // Overhead Holographic Danger Beacon
+    const beacon = createHazardBeacon(0xffaa00);
+    beacon.position.set(0, 0.85, 0);
+    grp.add(beacon);
+
+    grp.userData = { type: 'resistor', beacon, coreSlit };
     return grp;
 }
 
 function createCapacitorMesh() {
     const grp = new THREE.Group();
-    // Low-ESR Aluminum Electrolytic Can
-    const canGeo = new THREE.CylinderGeometry(0.20, 0.20, 0.52, 18);
+    // Substantial Low-ESR Aluminum Electrolytic Can
+    const canGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.72, 20);
     const canMat = new THREE.MeshStandardMaterial({
-        color: 0x222d3d,
-        metalness: 0.85,
-        roughness: 0.22,
-        emissive: 0x091424,
-        emissiveIntensity: 0.3
+        color: 0x1b2d42,
+        metalness: 0.88,
+        roughness: 0.18,
+        emissive: 0x0a1e36,
+        emissiveIntensity: 0.8
     });
     const can = new THREE.Mesh(canGeo, canMat);
-    can.position.set(0, 0.26, 0);
+    can.position.set(0, 0.36, 0);
     grp.add(can);
 
+    // Wide Fluorescent Neon Polarity Hazard Stripe (high contrast)
+    const stripeGeo = new THREE.BoxGeometry(0.06, 0.73, 0.29);
+    const stripeMat = new THREE.MeshStandardMaterial({
+        color: 0xffdd00,
+        emissive: 0xffaa00,
+        emissiveIntensity: 3.2,
+        roughness: 0.1
+    });
+    const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+    stripe.position.set(0.26, 0.36, 0);
+    grp.add(stripe);
+
+    // Glowing Cyan High-Voltage Base Collar on PCB
+    const collarGeo = new THREE.TorusGeometry(0.30, 0.022, 6, 24);
+    collarGeo.rotateX(Math.PI / 2);
+    const collarMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+    const collar = new THREE.Mesh(collarGeo, collarMat);
+    collar.position.set(0, 0.04, 0);
+    grp.add(collar);
+
     // Brushed Aluminum Top Rim
-    const topGeo = new THREE.CylinderGeometry(0.19, 0.19, 0.04, 18);
-    const topMat = new THREE.MeshStandardMaterial({ color: 0xd4d8de, metalness: 0.95, roughness: 0.12 });
+    const topGeo = new THREE.CylinderGeometry(0.27, 0.27, 0.04, 20);
+    const topMat = new THREE.MeshStandardMaterial({ color: 0xeef2f8, metalness: 0.95, roughness: 0.1 });
     const topRim = new THREE.Mesh(topGeo, topMat);
-    topRim.position.set(0, 0.53, 0);
+    topRim.position.set(0, 0.73, 0);
     grp.add(topRim);
 
     // Stamped Safety Vent Lines ("+" relief score)
-    const ventGeo = new THREE.BoxGeometry(0.26, 0.02, 0.035);
-    const ventMat = new THREE.MeshBasicMaterial({ color: 0x11161d });
+    const ventGeo = new THREE.BoxGeometry(0.36, 0.02, 0.04);
+    const ventMat = new THREE.MeshBasicMaterial({ color: 0x050a12 });
     const vent1 = new THREE.Mesh(ventGeo, ventMat);
-    vent1.position.set(0, 0.552, 0);
+    vent1.position.set(0, 0.752, 0);
     grp.add(vent1);
     const vent2 = new THREE.Mesh(ventGeo, ventMat);
-    vent2.position.set(0, 0.552, 0);
+    vent2.position.set(0, 0.752, 0);
     vent2.rotation.y = Math.PI / 2;
     grp.add(vent2);
 
-    // High-Voltage Emissive Spark Node
-    const sparkNodeGeo = new THREE.OctahedronGeometry(0.06, 0);
+    // High-Voltage Corona Spark Discharge Node
+    const sparkNodeGeo = new THREE.OctahedronGeometry(0.09, 0);
     const sparkNodeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
     const sparkNode = new THREE.Mesh(sparkNodeGeo, sparkNodeMat);
-    sparkNode.position.set(0, 0.60, 0);
+    sparkNode.position.set(0, 0.82, 0);
     grp.add(sparkNode);
 
-    grp.userData = { type: 'capacitor', sparkNode };
+    const innerSparkGeo = new THREE.SphereGeometry(0.04, 8, 8);
+    const innerSparkMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const innerSpark = new THREE.Mesh(innerSparkGeo, innerSparkMat);
+    innerSpark.position.set(0, 0.82, 0);
+    grp.add(innerSpark);
+
+    // Projected Ground Hazard Perimeter Ring
+    const ringDecalGeo = new THREE.RingGeometry(0.34, 0.44, 24);
+    ringDecalGeo.rotateX(-Math.PI / 2);
+    const ringDecalMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+    const ringDecal = new THREE.Mesh(ringDecalGeo, ringDecalMat);
+    ringDecal.position.set(0, 0.02, 0);
+    grp.add(ringDecal);
+
+    // Overhead Holographic Danger Beacon
+    const beacon = createHazardBeacon(0x00e5ff);
+    beacon.position.set(0, 1.15, 0);
+    grp.add(beacon);
+
+    grp.userData = { type: 'capacitor', sparkNode, beacon };
     return grp;
 }
 
 function createBeamMesh() {
     const grp = new THREE.Group();
-    const pylonGeo = new THREE.CylinderGeometry(0.05, 0.07, 1.2, 8);
+    const pylonGeo = new THREE.CylinderGeometry(0.07, 0.09, 1.25, 8);
     const pylonMat = new THREE.MeshStandardMaterial({
-        color: 0x24282c,
-        metalness: 0.7,
-        roughness: 0.3
+        color: 0x333a42,
+        metalness: 0.8,
+        roughness: 0.25
     });
 
-    // Front & Rear vertical pylons
+    // Front & Rear vertical pylons with hazard stripes
     const pylonFront = new THREE.Mesh(pylonGeo, pylonMat);
-    pylonFront.position.set(0, 0.60, 0.68);
+    pylonFront.position.set(0, 0.625, 0.72);
     grp.add(pylonFront);
 
     const pylonRear = new THREE.Mesh(pylonGeo, pylonMat);
-    pylonRear.position.set(0, 0.60, -0.68);
+    pylonRear.position.set(0, 0.625, -0.72);
     grp.add(pylonRear);
 
+    // Top Warning Emergency Strobe Beacons on Pylons
+    const strobeGeo = new THREE.SphereGeometry(0.08, 8, 8);
+    const strobeMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
+    const strobeFront = new THREE.Mesh(strobeGeo, strobeMat);
+    strobeFront.position.set(0, 1.26, 0.72);
+    grp.add(strobeFront);
+
+    const strobeRear = new THREE.Mesh(strobeGeo, strobeMat);
+    strobeRear.position.set(0, 1.26, -0.72);
+    grp.add(strobeRear);
+
     // Elevated horizontal laser beam along Z (height 0.85 — must slide under!)
-    const beamGeo = new THREE.CylinderGeometry(0.035, 0.035, 1.36, 8);
+    const beamGeo = new THREE.CylinderGeometry(0.065, 0.065, 1.48, 12);
     beamGeo.rotateX(Math.PI / 2);
     const beamMat = new THREE.MeshBasicMaterial({
-        color: 0xff3366,
+        color: 0xff0055,
         transparent: true,
-        opacity: 0.92
+        opacity: 0.95
     });
     const beamMesh = new THREE.Mesh(beamGeo, beamMat);
     beamMesh.position.set(0, 0.85, 0);
     grp.add(beamMesh);
 
-    const coreBeamGeo = new THREE.CylinderGeometry(0.015, 0.015, 1.36, 6);
+    // White-hot laser core
+    const coreBeamGeo = new THREE.CylinderGeometry(0.025, 0.025, 1.48, 8);
     coreBeamGeo.rotateX(Math.PI / 2);
     const coreBeamMesh = new THREE.Mesh(coreBeamGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
     coreBeamMesh.position.set(0, 0.85, 0);
     grp.add(coreBeamMesh);
 
-    grp.userData = { type: 'beam', beamMesh };
+    // Volumetric Radiant Laser Energy Curtain (From beam down to slide clearance height 0.35)
+    const curtainGeo = new THREE.PlaneGeometry(1.44, 0.50);
+    const curtainMat = new THREE.MeshBasicMaterial({
+        color: 0xff0044,
+        transparent: true,
+        opacity: 0.45,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending
+    });
+    const laserCurtain = new THREE.Mesh(curtainGeo, curtainMat);
+    laserCurtain.position.set(0, 0.60, 0);
+    grp.add(laserCurtain);
+
+    // Ground Laser Hazard Projection Boundary Line
+    const groundLineGeo = new THREE.PlaneGeometry(0.12, 1.48);
+    groundLineGeo.rotateX(-Math.PI / 2);
+    const groundLineMat = new THREE.MeshBasicMaterial({ color: 0xff0033, transparent: true, opacity: 0.85 });
+    const groundLine = new THREE.Mesh(groundLineGeo, groundLineMat);
+    groundLine.position.set(0, 0.02, 0);
+    grp.add(groundLine);
+
+    // Overhead Holographic Danger Beacon
+    const beacon = createHazardBeacon(0xff0044);
+    beacon.position.set(0, 1.35, 0);
+    grp.add(beacon);
+
+    grp.userData = { type: 'beam', beamMesh, laserCurtain, beacon, strobeFront, strobeRear };
     return grp;
 }
 
 function createGapMesh() {
     const grp = new THREE.Group();
     // Cutout chasm through the copper rail
-    const voidGeo = new THREE.BoxGeometry(0.95, 0.45, 1.35);
+    const voidGeo = new THREE.BoxGeometry(1.15, 0.55, 1.45);
     const voidMat = new THREE.MeshBasicMaterial({ color: 0x000201 });
     const voidBox = new THREE.Mesh(voidGeo, voidMat);
-    voidBox.position.set(0, -0.15, 0);
+    voidBox.position.set(0, -0.22, 0);
     grp.add(voidBox);
 
-    // Frayed copper sparks at left and right fracture edges
-    const frayGeo = new THREE.BoxGeometry(0.06, 0.06, 0.08);
-    const frayMat = new THREE.MeshBasicMaterial({ color: 0x3ee6a0 });
-    const frayL = new THREE.Mesh(frayGeo, frayMat);
-    frayL.position.set(-0.48, 0.04, 0);
-    grp.add(frayL);
-
-    const frayR = new THREE.Mesh(frayGeo, frayMat);
-    frayR.position.set(0.48, 0.04, 0);
-    grp.add(frayR);
-
-    // Procedural electric plasma arc bridging across the void
-    const arcPts = [
-        new THREE.Vector3(-0.45, 0.08, -0.2),
-        new THREE.Vector3(-0.15, 0.18, 0.1),
-        new THREE.Vector3(0.15, 0.04, -0.1),
-        new THREE.Vector3(0.45, 0.08, 0.2)
-    ];
-    const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPts);
-    const arcMat = new THREE.LineBasicMaterial({
-        color: 0x00ffff,
-        linewidth: 2,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending
+    // Molten Searing Fractured Copper Lips on Left & Right
+    const lipGeo = new THREE.BoxGeometry(0.14, 0.10, 1.45);
+    const lipMat = new THREE.MeshStandardMaterial({
+        color: 0xff4400,
+        emissive: 0xff6600,
+        emissiveIntensity: 3.5,
+        metalness: 0.9,
+        roughness: 0.1
     });
-    const plasmaArc = new THREE.Line(arcGeo, arcMat);
-    grp.add(plasmaArc);
+    const lipL = new THREE.Mesh(lipGeo, lipMat);
+    lipL.position.set(-0.58, 0.05, 0);
+    grp.add(lipL);
 
-    grp.userData = { type: 'gap', plasmaArc };
+    const lipR = new THREE.Mesh(lipGeo, lipMat);
+    lipR.position.set(0.58, 0.05, 0);
+    grp.add(lipR);
+
+    // Thick Procedural Electric Plasma Arcs Bridging Across Void
+    const arcGeo1 = new THREE.CylinderGeometry(0.025, 0.025, 1.15, 6);
+    arcGeo1.rotateZ(Math.PI / 2);
+    const arcMat1 = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.95 });
+    const plasmaArc1 = new THREE.Mesh(arcGeo1, arcMat1);
+    plasmaArc1.position.set(0, 0.10, -0.2);
+    grp.add(plasmaArc1);
+
+    const arcGeo2 = new THREE.CylinderGeometry(0.02, 0.02, 1.15, 6);
+    arcGeo2.rotateZ(Math.PI / 2);
+    const arcMat2 = new THREE.MeshBasicMaterial({ color: 0xff00aa, transparent: true, opacity: 0.9 });
+    const plasmaArc2 = new THREE.Mesh(arcGeo2, arcMat2);
+    plasmaArc2.position.set(0, 0.14, 0.2);
+    grp.add(plasmaArc2);
+
+    // Side Hazard Warning Pylons with Flashing Yellow Strobes
+    const pylonGeo = new THREE.CylinderGeometry(0.04, 0.05, 0.6, 6);
+    const pylonMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff7700, emissiveIntensity: 2.0 });
+    const p1 = new THREE.Mesh(pylonGeo, pylonMat);
+    p1.position.set(-0.58, 0.30, 0.72);
+    grp.add(p1);
+
+    const p2 = new THREE.Mesh(pylonGeo, pylonMat);
+    p2.position.set(0.58, 0.30, 0.72);
+    grp.add(p2);
+
+    // Pre-Chasm Ground Hazard Decal
+    const hTex = getHazardTexture();
+    const decalGeo = new THREE.PlaneGeometry(0.85, 0.68);
+    decalGeo.rotateX(-Math.PI / 2);
+    const decalMat = hTex
+        ? new THREE.MeshBasicMaterial({ map: hTex, transparent: true, opacity: 0.95 })
+        : new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.85 });
+    const decal = new THREE.Mesh(decalGeo, decalMat);
+    decal.position.set(0.85, 0.02, 0);
+    grp.add(decal);
+
+    // Overhead Holographic Danger Beacon
+    const beacon = createHazardBeacon(0xff6600);
+    beacon.position.set(0, 0.85, 0);
+    grp.add(beacon);
+
+    grp.userData = { type: 'gap', plasmaArc: plasmaArc1, plasmaArc2, beacon };
     return grp;
 }
 
 function createRelayMesh() {
     const grp = new THREE.Group();
-    const boxGeo = new THREE.BoxGeometry(0.55, 0.42, 0.65);
+    // Industrial Relay Housing
+    const boxGeo = new THREE.BoxGeometry(0.58, 0.44, 0.68);
     const boxMat = new THREE.MeshStandardMaterial({
-        color: 0x1a2e22,
-        metalness: 0.6,
-        roughness: 0.4,
-        emissive: 0x0a1e12,
-        emissiveIntensity: 0.25
+        color: 0x1f2e24,
+        metalness: 0.7,
+        roughness: 0.3,
+        emissive: 0x0f2015,
+        emissiveIntensity: 0.6
     });
     const box = new THREE.Mesh(boxGeo, boxMat);
-    box.position.set(0, 0.52, 0);
+    box.position.set(0, 0.54, 0);
     grp.add(box);
 
-    const armGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.38, 8);
-    const armMat = new THREE.MeshStandardMaterial({ color: 0xd49b38, metalness: 0.9, roughness: 0.2 });
+    // Glowing Electromagnetic Coil Window inside
+    const coilGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.32, 16);
+    const coilMat = new THREE.MeshStandardMaterial({
+        color: 0xffaa00,
+        emissive: 0xff8800,
+        emissiveIntensity: 3.5,
+        metalness: 0.9,
+        roughness: 0.1
+    });
+    const coil = new THREE.Mesh(coilGeo, coilMat);
+    coil.position.set(0, 0.54, 0);
+    grp.add(coil);
+
+    // Oscillating High-Voltage Contact Armature
+    const armGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.42, 8);
+    const armMat = new THREE.MeshStandardMaterial({
+        color: 0xffdd44,
+        emissive: 0xffaa00,
+        emissiveIntensity: 2.5,
+        metalness: 0.95,
+        roughness: 0.1
+    });
     const arm = new THREE.Mesh(armGeo, armMat);
-    arm.position.set(0, 0.24, 0);
+    arm.position.set(0, 0.26, 0);
     grp.add(arm);
 
-    grp.userData = { type: 'relay', arm };
+    // Contact Arc Spark Node
+    const sparkGeo = new THREE.SphereGeometry(0.04, 8, 8);
+    const sparkMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+    const spark = new THREE.Mesh(sparkGeo, sparkMat);
+    spark.position.set(0, 0.06, 0);
+    arm.add(spark);
+
+    // Projected Ground Hazard Decal
+    const hTex = getHazardTexture();
+    const decalGeo = new THREE.PlaneGeometry(0.85, 0.68);
+    decalGeo.rotateX(-Math.PI / 2);
+    const decalMat = hTex
+        ? new THREE.MeshBasicMaterial({ map: hTex, transparent: true, opacity: 0.95 })
+        : new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.85 });
+    const decal = new THREE.Mesh(decalGeo, decalMat);
+    decal.position.set(0.60, 0.02, 0);
+    grp.add(decal);
+
+    // Overhead Warning Beacon
+    const beacon = createHazardBeacon(0xffaa00);
+    beacon.position.set(0, 1.05, 0);
+    grp.add(beacon);
+
+    grp.userData = { type: 'relay', arm, beacon };
     return grp;
 }
 
 function createSpikeMesh() {
     const grp = new THREE.Group();
-    const spikeGeo = new THREE.ConeGeometry(0.12, 0.38, 4);
+    // Incandescent Magma Thermal Spikes with Searing Tips
+    const spikeGeo = new THREE.ConeGeometry(0.14, 0.45, 6);
     const spikeMat = new THREE.MeshStandardMaterial({
-        color: 0xffaa00,
-        emissive: 0xff7700,
-        emissiveIntensity: 2.4,
-        roughness: 0.15,
+        color: 0xff5500,
+        emissive: 0xff3300,
+        emissiveIntensity: 3.8,
+        roughness: 0.1,
         metalness: 0.8
     });
 
     const s1 = new THREE.Mesh(spikeGeo, spikeMat);
-    s1.position.set(-0.14, 0.19, 0);
+    s1.position.set(-0.16, 0.225, 0);
     grp.add(s1);
 
     const s2 = new THREE.Mesh(spikeGeo, spikeMat);
-    s2.position.set(0.14, 0.19, 0);
+    s2.position.set(0.16, 0.225, 0);
     grp.add(s2);
 
     const s3 = new THREE.Mesh(spikeGeo, spikeMat);
-    s3.scale.set(1.2, 1.2, 1.2);
-    s3.position.set(0, 0.23, 0);
+    s3.scale.set(1.25, 1.25, 1.25);
+    s3.position.set(0, 0.28, 0);
     grp.add(s3);
 
-    grp.userData = { type: 'spike' };
+    // White-Hot Incandescent Tips
+    const tipGeo = new THREE.SphereGeometry(0.03, 6, 6);
+    const tipMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const tip1 = new THREE.Mesh(tipGeo, tipMat);
+    tip1.position.set(-0.16, 0.45, 0);
+    grp.add(tip1);
+    const tip2 = new THREE.Mesh(tipGeo, tipMat);
+    tip2.position.set(0.16, 0.45, 0);
+    grp.add(tip2);
+    const tip3 = new THREE.Mesh(tipGeo, tipMat);
+    tip3.position.set(0, 0.56, 0);
+    grp.add(tip3);
+
+    // Heavy Industrial Hazard Baseplate
+    const baseGeo = new THREE.BoxGeometry(0.65, 0.05, 0.55);
+    const baseMat = new THREE.MeshStandardMaterial({
+        color: 0xffaa00,
+        emissive: 0xff7700,
+        emissiveIntensity: 2.0,
+        metalness: 0.9,
+        roughness: 0.2
+    });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    base.position.set(0, 0.025, 0);
+    grp.add(base);
+
+    // Overhead Danger Beacon
+    const beacon = createHazardBeacon(0xff3300);
+    beacon.position.set(0, 0.95, 0);
+    grp.add(beacon);
+
+    grp.userData = { type: 'spike', beacon };
     return grp;
 }
 
@@ -2183,7 +2471,8 @@ function updateCollectibles(delta, sim) {
             elMesh.visible = true;
 
             const baseTargetY = toWorldY(e.y);
-            const bob = Math.sin(sim.dist * 0.35 + worldX * 2.2) * 0.05;
+            // Synchronous formation wave: all packets in an ordered cluster bob in harmonious alignment
+            const bob = Math.sin(sim.dist * 0.35) * 0.04;
             const targetY = baseTargetY + bob;
             const playerX = playerGroup ? playerGroup.position.x : -2.5;
             const playerY = playerGroup ? playerGroup.position.y : 0.35;
@@ -2221,7 +2510,7 @@ function updateCollectibles(delta, sim) {
 }
 
 /**
- * Synchronize 3D obstacles with simulation actors.
+ * Synchronize 3D obstacles with simulation actors and animate telegraphing beacons & effects.
  * @param {number} delta
  * @param {any} sim
  */
@@ -2244,17 +2533,42 @@ function updateObstacles(delta, sim) {
         const mesh = getPooledObstacle(a.type);
         mesh.position.set(worldX, 0.20, 0.0);
 
+        // Animate overhead telegraphing warning beacon
+        if (mesh.userData.beacon) {
+            const b = mesh.userData.beacon;
+            if (b.userData.oct) b.userData.oct.rotation.y += delta * 4.5;
+            if (b.userData.ring) b.userData.ring.rotation.z += delta * 3.0;
+            const strobe = 0.8 + 0.2 * Math.sin(sim.dist * 0.7 + worldX * 3.0);
+            b.scale.setScalar(0.92 + 0.14 * strobe);
+        }
+
         if (a.type === 'beam') {
             if (mesh.userData.beamMesh) {
-                mesh.userData.beamMesh.material.opacity = 0.75 + 0.25 * Math.sin(sim.dist * 0.4);
+                mesh.userData.beamMesh.material.opacity = 0.82 + 0.18 * Math.sin(sim.dist * 0.6);
+            }
+            if (mesh.userData.laserCurtain) {
+                mesh.userData.laserCurtain.material.opacity = 0.38 + 0.22 * Math.sin(sim.dist * 0.9 + worldX);
+            }
+            if (mesh.userData.strobeFront && mesh.userData.strobeRear) {
+                const strobeFlash = Math.sin(sim.dist * 1.5) > 0;
+                mesh.userData.strobeFront.visible = strobeFlash;
+                mesh.userData.strobeRear.visible = !strobeFlash;
             }
         } else if (a.type === 'relay') {
             if (mesh.userData.arm) {
-                mesh.userData.arm.position.y = 0.24 + Math.sin(a.phase) * 0.12;
+                mesh.userData.arm.position.y = 0.26 + Math.sin(a.phase) * 0.14;
             }
         } else if (a.type === 'capacitor') {
             if (mesh.userData.sparkNode) {
                 mesh.userData.sparkNode.rotation.y += delta * 6.0;
+                mesh.userData.sparkNode.rotation.z += delta * 4.0;
+            }
+        } else if (a.type === 'gap') {
+            if (mesh.userData.plasmaArc) {
+                mesh.userData.plasmaArc.rotation.z = Math.PI / 2 + Math.sin(sim.dist * 2.0) * 0.1;
+            }
+            if (mesh.userData.plasmaArc2) {
+                mesh.userData.plasmaArc2.rotation.z = Math.PI / 2 - Math.sin(sim.dist * 2.4) * 0.12;
             }
         }
     }

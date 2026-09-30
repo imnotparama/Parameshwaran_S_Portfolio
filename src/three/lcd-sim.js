@@ -370,11 +370,29 @@ function spawnActor() {
     actors.push({ kind: 'obstacle', type, x: CANVAS_W + 8, y: baseY, w, h, baseY, phase: lcgNext() * Math.PI * 2, passed: false });
 }
 
-/** A small arc of electrons drifting toward the player. */
+/** Orderly formations of quantum energy packets (ground stream, jump arc, aerial rail). */
 function spawnElectrons() {
     const x0 = CANVAS_W + 8;
-    for (let i = 0; i < 3; i++) {
-        fieldEls.push({ x: x0 + i * 6, y: GROUND_Y - 3 - Math.floor(lcgNext() * 10) });
+    const rPattern = lcgNext();
+    lcgNext(); // preserve deterministic LCG step count
+    lcgNext(); // preserve deterministic LCG step count
+
+    if (rPattern < 0.40) {
+        // Ground Stream: 3 packets aligned in sequence at runner level
+        for (let i = 0; i < 3; i++) {
+            fieldEls.push({ x: x0 + i * 8, y: GROUND_Y - 4 });
+        }
+    } else if (rPattern < 0.75) {
+        // Parabolic Jump Arc: smooth arc following jump physics
+        const arcY = [GROUND_Y - 4, GROUND_Y - 14, GROUND_Y - 4];
+        for (let i = 0; i < 3; i++) {
+            fieldEls.push({ x: x0 + i * 8, y: arcY[i] });
+        }
+    } else {
+        // Aerial Rail: 3 packets aligned at jump apex height
+        for (let i = 0; i < 3; i++) {
+            fieldEls.push({ x: x0 + i * 8, y: GROUND_Y - 14 });
+        }
     }
 }
 
