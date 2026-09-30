@@ -39,6 +39,7 @@ import { initMobileSheet, getMobileSheetState, setMobileSheetState } from './src
 import { SECTION_HASHES, hashToSectionId } from './src/utils/hash-nav.js';
 import { initContactTerminal } from './src/ui/contact-terminal.js';
 import { initContactBoardRotation, resetContactBoardRotation } from './src/three/contact-board-rotation.js';
+import { initNativeIdentity } from './src/ui/native-identity.js';
 
 // ─── Hash-based deep links ─────────────────────────────────
 // Each section gets a shareable URL (#/about, #/projects, ...). Nav clicks
@@ -668,6 +669,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize dynamic 3-state mobile bottom sheet & dock
         initMobileSheet();
         updateMobileDockIndicator();
+
+        // Native script identity reveal (subtle hardware localized metadata)
+        initNativeIdentity();
     });
 
     // 13. Register memory cleanup on page unload

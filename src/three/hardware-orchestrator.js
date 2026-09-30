@@ -16,6 +16,7 @@ import { initInspectionDrone, setDroneTarget, updateInspectionDrone } from './dr
 import { initPaperAirplane, launchPaperAirplane } from './paper-airplane.js';
 import { initCornerSparks, triggerCornerSparks, updateCornerSparks } from './corner-sparks.js';
 import { projectChips } from './project-chips.js';
+import { initNativeIdentity } from '../ui/native-identity.js';
 
 export { disturbDroplets, setDroneTarget, launchPaperAirplane, triggerCornerSparks };
 
@@ -73,6 +74,9 @@ export function onSectionChanged(sectionId) {
         // Hero / Experience: quiet steady state
         setThermalLoad(40);
         hideProjectVisuals();
+        if (sectionId === 'sec-hero') {
+            initNativeIdentity();
+        }
     }
 }
 

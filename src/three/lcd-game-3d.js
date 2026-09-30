@@ -1763,6 +1763,78 @@ function buildSignalLostBanner() {
 // 3D Procedural Obstacle Factories & Pooling
 // ─────────────────────────────────────────────────────────────
 
+/** @type {Record<string, THREE.CanvasTexture>} */
+const cachedHoloTextures = {};
+
+/**
+ * Creates a glowing tactical holographic warning HUD tag above obstacles.
+ * @param {string} actionText
+ * @param {string} descText
+ * @param {string} strokeColor
+ * @param {string} [bgColor='rgba(12, 4, 2, 0.88)']
+ * @returns {THREE.Mesh}
+ */
+export function createHoloWarningTag(actionText, descText, strokeColor, bgColor = 'rgba(12, 4, 2, 0.88)') {
+    const key = `${actionText}_${descText}_${strokeColor}`;
+    let tex = cachedHoloTextures[key];
+    if (!tex && typeof document !== 'undefined') {
+        const cvs = document.createElement('canvas');
+        cvs.width = 256;
+        cvs.height = 96;
+        const ctx = cvs.getContext('2d');
+        if (ctx) {
+            // Dark cybernetic semi-transparent container
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(4, 4, 248, 88);
+
+            // Bold luminous hazard border
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(4, 4, 248, 88);
+
+            // Corner tactical bracket ticks
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(4, 20); ctx.lineTo(4, 4); ctx.lineTo(24, 4);
+            ctx.moveTo(232, 4); ctx.lineTo(252, 4); ctx.lineTo(252, 20);
+            ctx.moveTo(4, 76); ctx.lineTo(4, 92); ctx.lineTo(24, 92);
+            ctx.moveTo(232, 92); ctx.lineTo(252, 92); ctx.lineTo(252, 76);
+            ctx.stroke();
+
+            // Background subtle scanlines
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+            for (let y = 8; y < 88; y += 4) {
+                ctx.fillRect(8, y, 240, 1);
+            }
+
+            // Action Instruction (e.g. "⬆ JUMP" or "⬇ SLIDE")
+            ctx.font = '900 32px "Courier New", monospace';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = strokeColor;
+            ctx.shadowBlur = 12;
+            ctx.fillText(actionText, 128, 42);
+            ctx.shadowBlur = 0;
+
+            // Description / Specs (e.g. "RELAY 400V // DANGER")
+            ctx.font = 'bold 16px "Courier New", monospace';
+            ctx.fillStyle = strokeColor;
+            ctx.fillText(descText, 128, 72);
+        }
+        tex = new THREE.CanvasTexture(cvs);
+        cachedHoloTextures[key] = tex;
+    }
+
+    const geo = new THREE.PlaneGeometry(1.2, 0.45);
+    const mat = new THREE.MeshBasicMaterial({
+        map: tex,
+        transparent: true,
+        opacity: 0.95,
+        side: THREE.DoubleSide
+    });
+    return new THREE.Mesh(geo, mat);
+}
+
 /** @type {THREE.CanvasTexture | null} */
 let cachedHazardTexture = null;
 
@@ -1771,30 +1843,40 @@ function getHazardTexture() {
     if (typeof document === 'undefined') return null;
     try {
         const cvs = document.createElement('canvas');
-        cvs.width = 128;
-        cvs.height = 32;
+        cvs.width = 256;
+        cvs.height = 64;
         const ctx = cvs.getContext('2d');
         if (!ctx) return null;
 
-        ctx.fillStyle = '#0a0d10';
-        ctx.fillRect(0, 0, 128, 32);
+        // Dark background with high-contrast safety stripes
+        ctx.fillStyle = '#0f0500';
+        ctx.fillRect(0, 0, 256, 64);
 
-        // Fluorescent hazard amber stripes
-        ctx.fillStyle = '#ffaa00';
-        const stripeW = 12;
-        for (let x = -32; x < 160; x += stripeW * 2) {
+        // Blazing bright safety amber/orange stripes
+        ctx.fillStyle = '#ff8800';
+        const stripeW = 16;
+        for (let x = -64; x < 320; x += stripeW * 2) {
             ctx.beginPath();
             ctx.moveTo(x, 0);
             ctx.lineTo(x + stripeW, 0);
-            ctx.lineTo(x + stripeW - 16, 32);
-            ctx.lineTo(x - 16, 32);
+            ctx.lineTo(x + stripeW - 24, 64);
+            ctx.lineTo(x - 24, 64);
             ctx.closePath();
             ctx.fill();
         }
 
-        ctx.strokeStyle = '#ffcc00';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(1, 1, 126, 30);
+        // High-contrast glowing caution borders
+        ctx.strokeStyle = '#ffee00';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(2, 2, 252, 60);
+
+        // Glowing center warning chevron track
+        ctx.font = '900 24px monospace';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#ff2200';
+        ctx.shadowBlur = 8;
+        ctx.fillText('>>> HAZARD ZONE >>>', 128, 40);
 
         cachedHazardTexture = new THREE.CanvasTexture(cvs);
         cachedHazardTexture.wrapS = THREE.RepeatWrapping;
@@ -1812,11 +1894,11 @@ function getHazardTexture() {
 function createHazardBeacon(colorHex = 0xffaa00) {
     const grp = new THREE.Group();
     // Glowing warning diamond / octahedron
-    const octGeo = new THREE.OctahedronGeometry(0.11, 0);
+    const octGeo = new THREE.OctahedronGeometry(0.15, 0);
     const octMat = new THREE.MeshStandardMaterial({
         color: colorHex,
         emissive: colorHex,
-        emissiveIntensity: 3.8,
+        emissiveIntensity: 4.5,
         roughness: 0.1,
         metalness: 0.8
     });
@@ -1824,17 +1906,17 @@ function createHazardBeacon(colorHex = 0xffaa00) {
     grp.add(oct);
 
     // Rotating warning reticle ring
-    const ringGeo = new THREE.TorusGeometry(0.18, 0.016, 6, 20);
-    const ringMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.85 });
+    const ringGeo = new THREE.TorusGeometry(0.24, 0.022, 6, 24);
+    const ringMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 });
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = Math.PI / 2;
     grp.add(ring);
 
     // Vertical volumetric warning light pin
-    const pinGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.55, 6);
-    const pinMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.75 });
+    const pinGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.75, 6);
+    const pinMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.85 });
     const pin = new THREE.Mesh(pinGeo, pinMat);
-    pin.position.y = -0.28;
+    pin.position.y = -0.38;
     grp.add(pin);
 
     grp.userData = { oct, ring };

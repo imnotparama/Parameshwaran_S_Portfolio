@@ -382,7 +382,7 @@ body.cursor-link #cursor-probe .probe-readout {
     /* grid stacks h1 + the gradient twin in ONE cell — pixel-identical
        glyphs, so the sweep masks into the exact same letterforms. */
     display: grid;
-    margin-bottom: 12px; /* was h1#user-name's margin — moved to the wrapper */
+    margin-bottom: 2px;
 }
 
 h1#user-name,
@@ -414,6 +414,54 @@ h1#user-name {
     opacity: 0;
     pointer-events: none;
     user-select: none;
+}
+
+/* ─── Native Script Identity Reveal (Engineering Polish) ─── */
+.native-id-wrap {
+    min-height: calc(clamp(24px, 2.7vw, 42px) * 0.70 * 1.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 2px auto 10px;
+    font-family: 'Noto Sans Tamil', 'Nirmala UI', system-ui, -apple-system, sans-serif;
+    font-size: calc(clamp(24px, 2.7vw, 42px) * 0.70);
+    font-weight: 500;
+    color: var(--signal-green, #3ee6a0);
+    opacity: 0.88;
+    letter-spacing: normal;
+    line-height: 1.35;
+    pointer-events: none;
+    user-select: text;
+}
+
+.native-id-text {
+    display: inline-block;
+    text-shadow: 0 0 12px rgba(62, 230, 160, 0.28);
+}
+
+.native-id-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.15em;
+    vertical-align: -0.15em;
+    background-color: var(--signal-green, #3ee6a0);
+    margin-left: 4px;
+    opacity: 0;
+    box-shadow: 0 0 8px rgba(62, 230, 160, 0.6);
+    transition: opacity 0.35s ease;
+}
+
+.native-id-cursor.typing {
+    opacity: 1;
+}
+
+.native-id-cursor.blinking {
+    animation: blink 0.5s ease-in-out 2;
+}
+
+.native-id-cursor.fade-out {
+    opacity: 0;
+    visibility: hidden;
 }
 
 .header-underline {
@@ -549,6 +597,12 @@ h1#user-name {
         font-size: clamp(18px, 5vw, 28px);
         letter-spacing: 0.06em;
         white-space: nowrap;
+    }
+
+    .native-id-wrap {
+        font-size: calc(clamp(18px, 5vw, 28px) * 0.70);
+        min-height: calc(clamp(18px, 5vw, 28px) * 0.70 * 1.35);
+        margin: 2px auto 8px;
     }
 
     .subtitle-wrap {
