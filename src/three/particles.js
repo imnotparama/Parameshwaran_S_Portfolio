@@ -229,17 +229,18 @@ export function updateParticles(delta) {
         }
 
         // Interpolate along multi-segment coordinate vectors
+        if (!p.points || p.points.length < 2) return;
         const numSegments = p.points.length - 1;
-        if (numSegments < 1) return;
 
-        const segmentProgress = p.progress * numSegments;
-        const currentSegmentIndex = Math.floor(segmentProgress);
+        const clampedProgress = Math.max(0, Math.min(0.999999, p.progress));
+        const segmentProgress = clampedProgress * numSegments;
+        const currentSegmentIndex = Math.min(numSegments - 1, Math.max(0, Math.floor(segmentProgress)));
         const subProgress = segmentProgress - currentSegmentIndex;
 
-        if (currentSegmentIndex < numSegments) {
-            const startNode = p.points[currentSegmentIndex];
-            const endNode = p.points[currentSegmentIndex + 1];
+        const startNode = p.points[currentSegmentIndex];
+        const endNode = p.points[currentSegmentIndex + 1];
 
+        if (startNode && endNode) {
             // Linear interpolate position
             p.mesh.position.lerpVectors(startNode, endNode, subProgress);
         }
